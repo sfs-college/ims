@@ -351,7 +351,7 @@ class Archive(models.Model):
 
 class Receipt(models.Model):
     org = models.ForeignKey(Organisation, on_delete=models.CASCADE)
-    purchase = models.ForeignKey(Purchase, on_delete=models.CASCADE, related_name='receipt')
+    purchase = models.OneToOneField(Purchase, on_delete=models.CASCADE, related_name='receipt')
     receipt = models.FileField(upload_to='receipts/')
     remarks = models.TextField()
     completed_on = models.DateTimeField(auto_now_add=True)

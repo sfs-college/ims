@@ -54,13 +54,13 @@
       -ms-overflow-style: auto; /* Internet Explorer 10+ */
 
       &::-webkit-scrollbar {
-      display: block; /* Safari and Chrome */
-      width: 8px;
+        display: block; /* Safari and Chrome */
+        width: 8px;
       }
 
       &::-webkit-scrollbar-thumb {
-      background-color: #c1c1c1;
-      border-radius: 10px;
+        background-color: #c1c1c1;
+        border-radius: 10px;
       }
     }
 
@@ -149,4 +149,7 @@ tr {
   border-style: solid;
   border-width: 0;
   padding: 1rem !important;
+  white-space: nowrap;
+  overflow-wrap: break-word;
+  word-wrap: break-word;
 }
