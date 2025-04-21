@@ -21,7 +21,6 @@
         <h4>Purchases</h4>
     </div>
     <div class="table-responsive">
-
         <table class="table">
             <thead>
                 <tr>
@@ -30,6 +29,7 @@
                     <th>Quantity</th>
                     <th>Vendor</th>
                     <th>Room</th>
+                    <th>Status</th>
                     <th>Action</th>
                 </tr>
             </thead>
@@ -43,10 +43,7 @@
                     <td>{{purchase.room.room_name}}</td>
                     <td>
                         {% if purchase.status == 'requested' %}
-                        <a class="btn btn-sm btn-success fw-semibold"
-                            href="{% url 'central_admin:purchase_approve' purchase_slug=purchase.slug %}">Approve</a>
-                        <a class="btn btn-sm btn-danger fw-semibold"
-                            href="{% url 'central_admin:purchase_decline' purchase_slug=purchase.slug %}">Reject</a>
+                        <span class="fw-semibold text-dark">Requested</span>
                         {% endif %}
                         {% if purchase.status == 'approved' %}
                         <span class="fw-semibold text-success">Approved</span>
@@ -61,6 +58,60 @@
                         <span class="fw-semibold text-danger">Rejected</span>
                         {% endif %}
                     </td>
+                    <td>
+                        <button type="button" class="btn btn-outline-dark btn-sm" data-bs-toggle="modal"
+                            data-bs-target="#purchaseModal{{ purchase.id }}">
+                            View Details
+                        </button>
+                    </td>
+
+                    <!-- Modal -->
+                    <div class="modal fade" id="purchaseModal{{ purchase.id }}" tabindex="-1"
+                        aria-labelledby="purchaseModalLabel{{ purchase.id }}" aria-hidden="true">
+                        <div class="modal-dialog">
+                            <div class="modal-content">
+                                <div class="modal-header">
+                                    <h5 class="modal-title" id="purchaseModalLabel{{ purchase.id }}">Purchase Details
+                                    </h5>
+                                    <button type="button" class="btn-close" data-bs-dismiss="modal"
+                                        aria-label="Close"></button>
+                                </div>
+                                <div class="modal-body">
+                                    <p><strong>Purchase ID:</strong> {{ purchase.purchase_id }}</p>
+                                    <p><strong>Item:</strong> {{ purchase.item.item_name }}</p>
+                                    <p><strong>Quantity:</strong> {{ purchase.quantity }}</p>
+                                    <p><strong>Unit of Measure:</strong> {{ purchase.unit_of_measure }}</p>
+                                    <p><strong>Vendor:</strong> {{ purchase.vendor.vendor_name }}</p>
+                                    <p><strong>Created On:</strong> {{ purchase.created_on }}</p>
+                                    <p><strong>Updated On:</strong> {{ purchase.updated_on }}</p>
+                                    {% if purchase.receipt %}
+                                    <p><strong>Receipt:</strong> <a href="{{ purchase.receipt.receipt.url }}"
+                                            target="_blank">View</a></p>
+                                    {% endif %}
+                                </div>
+                                <div class="modal-footer">
+                                    {% if purchase.status == 'requested' %}
+                                    <a class="btn btn-sm btn-success fw-semibold"
+                                        href="{% url 'central_admin:purchase_approve' purchase_slug=purchase.slug %}">Approve</a>
+                                    <a class="btn btn-sm btn-danger fw-semibold"
+                                        href="{% url 'central_admin:purchase_decline' purchase_slug=purchase.slug %}">Reject</a>
+                                    {% endif %}
+                                    {% if purchase.status == 'approved' %}
+                                    <span class="fw-semibold text-success">Approved</span>
+                                    {% elif purchase.status == 'completed' %}
+                                    {% if not purchase.added_to_stock %}
+                                    <span class="fw-semibold text-primary">Purchase completed</span>
+                                    {% else %}
+                                    <span class="fw-semibold text-success">Added to Stock</span>
+                                    {% endif %}
+                                    {% endif %}
+                                    {% if purchase.status == 'rejected' %}
+                                    <span class="fw-semibold text-danger">Rejected</span>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
 
                 </tr>
                 {% endfor %}

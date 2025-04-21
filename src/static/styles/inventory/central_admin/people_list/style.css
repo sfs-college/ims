@@ -130,6 +130,9 @@ tr {
   border-style: solid;
   border-width: 0;
   padding: 1rem !important;
+  white-space: nowrap;
+  overflow-wrap: break-word;
+  word-wrap: break-word;
 }
 
 #people .table tr {

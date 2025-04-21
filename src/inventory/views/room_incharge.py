@@ -233,7 +233,7 @@ class ItemListView(LoginRequiredMixin, ListView):
 
     def get_queryset(self):
         room_slug = self.kwargs['room_slug']
-        return super().get_queryset().filter(room__slug=room_slug, organisation=self.request.user.profile.org)
+        return super().get_queryset().filter(room__slug=room_slug, organisation=self.request.user.profile.org, is_listed=True)
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -250,6 +250,13 @@ class ItemCreateView(LoginRequiredMixin, CreateView):
 
     def get_success_url(self):
         return reverse_lazy('room_incharge:item_list', kwargs={'room_slug': self.kwargs['room_slug']})
+    
+    def get_form(self, form_class=None):
+        form = super().get_form(form_class)
+        room = Room.objects.get(slug=self.kwargs['room_slug'])
+        form.fields['category'].queryset = Category.objects.filter(room=room)
+        form.fields['brand'].queryset = Brand.objects.filter(room=room)
+        return form
 
     def form_valid(self, form):
         item = form.save(commit=False)
@@ -480,6 +487,12 @@ class SystemComponentCreateView(LoginRequiredMixin, CreateView):
 
     def get_success_url(self):
         return reverse_lazy('room_incharge:system_component_list', kwargs={'room_slug': self.kwargs['room_slug'], 'system_slug': self.kwargs['system_slug']})
+    
+    def get_form(self, form_class=None):
+        form = super().get_form(form_class)
+        room = Room.objects.get(slug=self.kwargs['room_slug'])
+        form.fields['component_item'].queryset = Item.objects.filter(room=room)
+        return form
 
     def form_valid(self, form):
         component = form.save(commit=False)
@@ -864,6 +877,12 @@ class ItemGroupItemCreateView(LoginRequiredMixin, CreateView):
 
     def get_success_url(self):
         return reverse_lazy('room_incharge:item_group_item_list', kwargs={'room_slug': self.kwargs['room_slug'], 'item_group_slug': self.kwargs['item_group_slug']})
+    
+    def get_form(self, form_class=None):
+        form = super().get_form(form_class)
+        room = Room.objects.get(slug=self.kwargs['room_slug'])
+        form.fields['item'].queryset = Item.objects.filter(room=room)
+        return form
 
     def form_valid(self, form):
         item_group_item = form.save(commit=False)
