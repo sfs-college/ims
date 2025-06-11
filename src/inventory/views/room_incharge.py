@@ -20,11 +20,13 @@ class CategoryListView(LoginRequiredMixin, ListView):
 
     def get_queryset(self):
         room_slug = self.kwargs['room_slug']
-        return super().get_queryset().filter(room__slug=room_slug, organisation=self.request.user.profile.org)
+        # Only allow access to rooms where the user is incharge
+        room = get_object_or_404(Room, slug=room_slug, incharge=self.request.user.profile)
+        return super().get_queryset().filter(room=room, organisation=self.request.user.profile.org)
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        room = Room.objects.get(slug=self.kwargs['room_slug'])
+        room = get_object_or_404(Room, slug=self.kwargs['room_slug'], incharge=self.request.user.profile)
         context['room_slug'] = self.kwargs['room_slug']
         context['room_settings'] = RoomSettings.objects.get_or_create(room=room)[0]
         return context
@@ -108,7 +110,7 @@ class RoomDashboardView(LoginRequiredMixin, TemplateView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         room_slug = self.kwargs['room_slug']
-        room = Room.objects.get(slug=room_slug)
+        room = get_object_or_404(Room, slug=room_slug, incharge=self.request.user.profile)
         context['room'] = room
         context['room_slug'] = room_slug
         context['room_settings'] = RoomSettings.objects.get_or_create(room=room)[0]
@@ -121,6 +123,9 @@ class RoomUpdateView(LoginRequiredMixin, UpdateView):
     slug_field = 'slug'
     slug_url_kwarg = 'room_slug'
 
+    def get_object(self, queryset=None):
+        return get_object_or_404(Room, slug=self.kwargs['room_slug'], incharge=self.request.user.profile)
+
     def get_success_url(self):
         return reverse_lazy('room_incharge:room_dashboard', kwargs={'room_slug': self.kwargs['room_slug']})
 
@@ -132,7 +137,7 @@ class RoomUpdateView(LoginRequiredMixin, UpdateView):
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        room = Room.objects.get(slug=self.kwargs['room_slug'])
+        room = self.get_object()
         context['room_slug'] = self.kwargs['room_slug']
         context['room_settings'] = RoomSettings.objects.get_or_create(room=room)[0]
         return context

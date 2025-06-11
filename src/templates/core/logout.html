@@ -2,9 +2,13 @@
 {% load static %}
 {% block title %}| LoggedOut{% endblock title %}
 {% block content %}
-<h3>You are logged out</h3>
-<p>Thank you for using Blixtro</p>
-<a class="btn btn-secondary" href="{% url 'core:login' %}">Login</a>
-<a class="btn btn-primary" href="{% url 'core:register' %}">Register</a>
-<a class="btn btn-secondary" href="{% url 'landing_page' %}">home page</a>
+<div class="container d-flex flex-column justify-content-center align-items-center" style="min-height: 60vh;">
+    <div class="card shadow-sm p-4" style="max-width: 400px; width: 100%;">
+        <h3 class="text-center mb-3">You are logged out</h3>
+        <p class="text-center text-muted mb-4">Thank you for using <span class="fw-bold">Blixtro</span></p>
+        <div class="d-grid gap-2">
+            <a class="btn btn-outline-secondary" href="{% url 'landing_page' %}">Home Page</a>
+        </div>
+    </div>
+</div>
 {% endblock content %}

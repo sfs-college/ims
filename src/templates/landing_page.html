@@ -9,13 +9,82 @@
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet"
     integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
   <style>
+    body {
+      background: #f8fafc;
+      font-family: 'Segoe UI', Arial, sans-serif;
+    }
+
+    header {
+      background: linear-gradient(90deg, #fafdff 60%, #e9f2fb 100%);
+      border-radius: 10px;
+      padding: 14px 0 14px 0;
+      margin-top: 32px;
+      margin-bottom: 24px;
+      border: 1.5px solid #e3e8ee;
+      transition: box-shadow 0.2s;
+      border: none;
+    }
+
+    header .navbar {
+      background: transparent !important;
+      box-shadow: none;
+      border-radius: 0;
+      padding-top: 0;
+      padding-bottom: 0;
+      min-height: 60px;
+    }
+
+    .navbar-brand img {
+      vertical-align: middle;
+      margin-right: 10px;
+      filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.08));
+      transition: filter 0.2s;
+    }
+
+    .navbar-brand {
+      font-size: 1.35rem;
+      font-weight: 700;
+      color: #1a237e !important;
+      letter-spacing: 1px;
+      display: flex;
+      align-items: center;
+    }
+
+    .navbar-nav .nav-link {
+      font-weight: 500;
+      color: #1a237e !important;
+      margin-left: 14px;
+      margin-right: 4px;
+      border-radius: 22px;
+      padding: 8px 22px;
+      font-size: 1.05rem;
+      letter-spacing: 0.2px;
+      box-shadow: none;
+    }
+
+    .navbar-toggler {
+      border: none;
+      outline: none;
+      box-shadow: none;
+      background: #f1f5fb;
+      border-radius: 8px;
+      padding: 6px 10px;
+      transition: background 0.18s;
+    }
+
+    .navbar-toggler:focus {
+      background: #e3e8ee;
+    }
+
     .hero {
       position: relative;
       background: url('https://images.unsplash.com/photo-1721937718756-3bfec49f42a2?q=80&w=3137&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D') no-repeat center center;
       background-size: cover;
-      border-radius: 10px;
+      border-radius: 8px;
       color: white;
-      padding: 100px 0;
+      padding: 100px 0 80px 0;
+      margin-bottom: 40px;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
     }
 
     .hero::before {
@@ -25,28 +94,36 @@
       left: 0;
       width: 100%;
       height: 100%;
-      background: rgba(0, 0, 0, 0.801);
-      border-radius: 10px;
+      background: rgba(0, 0, 0, 0.75);
+      border-radius: 8px;
+      z-index: 0;
+    }
+
+    .hero .content {
+      position: relative;
+      z-index: 1;
     }
 
     .hero h1 {
-      font-size: 2rem;
+      font-size: 2.5rem;
       font-weight: bold;
+      margin-bottom: 18px;
+      letter-spacing: 1px;
     }
 
     .hero p {
-      font-size: 1rem;
-    }
-    
-    .content{
-      position: relative;
-      z-index: 1;
+      font-size: 1.15rem;
+      margin-bottom: 32px;
     }
 
     .btn-custom {
       background-color: #007bff;
       border-color: #007bff;
       color: white;
+      font-weight: 500;
+      padding: 12px 32px;
+      border-radius: 30px;
+      transition: background 0.2s, border 0.2s;
     }
 
     .btn-custom:hover {
@@ -54,8 +131,65 @@
       border-color: #0056b3;
     }
 
-    .navbar{
-      border-radius: 10px;
+    .features-section {
+      margin: 60px 0 40px 0;
+    }
+
+    .feature-card {
+      background: white;
+      border-radius: 6px;
+      padding: 32px 20px;
+      text-align: center;
+      transition: transform 0.2s;
+      height: 100%;
+    }
+
+    .feature-card:hover {
+      transform: translateY(-6px) scale(1.03);
+      box-shadow: 0 6px 24px rgba(0, 0, 0, 0.13);
+    }
+
+    .feature-icon {
+      font-size: 2.5rem;
+      color: #007bff;
+      margin-bottom: 18px;
+    }
+
+    .how-section {
+      background: #e9f2fb;
+      border-radius: 6px;
+      padding: 48px 0;
+      margin-bottom: 48px;
+    }
+
+    .how-step {
+      text-align: center;
+      padding: 18px 12px;
+    }
+
+    .how-step .step-number {
+      background: #007bff;
+      color: white;
+      border-radius: 50%;
+      width: 44px;
+      height: 44px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.3rem;
+      font-weight: bold;
+      margin-bottom: 10px;
+    }
+
+    @media (max-width: 768px) {
+      .hero {
+        padding: 60px 0 40px 0;
+      }
+
+      .features-section,
+      .testimonials-section {
+        margin: 32px 0 24px 0;
+      }
     }
   </style>
 </head>
@@ -63,7 +197,7 @@
 <body>
   <div class="container">
     <header>
-      <nav class="navbar navbar-expand-lg navbar-light bg-light mt-4">
+      <nav class="navbar navbar-expand-lg navbar-light bg-light">
         <div class="container-fluid">
           <a class="navbar-brand" href="#"><img src="{% static 'images/logo.svg' %}" width="130px" alt="Blixtro Logo"></a>
           <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav"
@@ -91,16 +225,73 @@
       <div class="col info">
         <div class="content">
           <h1>Blixtro Inventory Management System</h1>
-          <p>Detailed item cards, batch tracking, quick stock reports, and accurate inventory cost calculations |
-            Blixtro Online Inventory Management System</p>
+          <p>Detailed item cards, batch tracking, quick stock reports, and accurate inventory cost calculations | Blixtro Online Inventory Management System</p>
+          <a href="{% url 'core:register' %}" class="btn btn-custom mt-3">Get Started Free</a>
         </div>
       </div>
     </div>
 
+    <!-- Features Section -->
+    <section class="features-section">
+      <h2 class="text-center mb-5 fw-bold" style="color:#007bff;">Features</h2>
+      <div class="row g-4">
+        <div class="col-md-4">
+          <div class="feature-card h-100">
+            <div class="feature-icon">
+              <i class="bi bi-box-seam"></i>
+            </div>
+            <h5>Detailed Item Cards</h5>
+            <p>Store and manage all item details, including images, categories, and custom fields for complete traceability.</p>
+          </div>
+        </div>
+        <div class="col-md-4">
+          <div class="feature-card h-100">
+            <div class="feature-icon">
+              <i class="bi bi-layers"></i>
+            </div>
+            <h5>Batch & Stock Tracking</h5>
+            <p>Track inventory by batch, expiry, and location. Instantly view stock levels and movement history.</p>
+          </div>
+        </div>
+        <div class="col-md-4">
+          <div class="feature-card h-100">
+            <div class="feature-icon">
+              <i class="bi bi-graph-up-arrow"></i>
+            </div>
+            <h5>Instant Reports</h5>
+            <p>Generate real-time stock, valuation, and movement reports for smarter business decisions.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- How It Works Section -->
+    <section class="how-section my-5">
+      <h2 class="text-center mb-4 fw-bold" style="color:#007bff;">How It Works</h2>
+      <div class="row justify-content-center">
+        <div class="col-md-3 how-step">
+          <div class="step-number">1</div>
+          <h6 class="fw-bold mt-2">Sign Up</h6>
+          <p>Create your free account in seconds.</p>
+        </div>
+        <div class="col-md-3 how-step">
+          <div class="step-number">2</div>
+          <h6 class="fw-bold mt-2">Add Inventory</h6>
+          <p>Import or manually add your products and batches.</p>
+        </div>
+        <div class="col-md-3 how-step">
+          <div class="step-number">3</div>
+          <h6 class="fw-bold mt-2">Track & Report</h6>
+          <p>Monitor stock, generate reports, and manage your business with ease.</p>
+        </div>
+      </div>
+    </section>
   </div>
+  <!-- Bootstrap JS and Bootstrap Icons -->
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"
     integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz"
     crossorigin="anonymous"></script>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
 </body>
 
 </html>

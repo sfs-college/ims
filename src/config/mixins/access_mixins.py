@@ -14,7 +14,12 @@ class RedirectLoggedInUsersMixin(AccessMixin):
             if request.user.profile.is_central_admin:
                 return HttpResponsePermanentRedirect(reverse('central_admin:dashboard'))
             if request.user.profile.is_incharge:
-                room = Room.objects.get(incharge=request.user.profile)
-                return HttpResponsePermanentRedirect(reverse('room_incharge:room_dashboard', kwargs={'room_slug': room.slug}))
+                rooms = Room.objects.filter(incharge=request.user.profile)
+                if not rooms.exists():
+                    raise Http404("No rooms assigned to this incharge.")
+                # Redirect to the first room's dashboard
+                return HttpResponsePermanentRedirect(
+                    reverse('room_incharge:room_dashboard', kwargs={'room_slug': rooms.first().slug})
+                )
 
         return super().dispatch(request, *args, **kwargs)

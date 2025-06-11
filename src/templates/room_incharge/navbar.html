@@ -10,16 +10,41 @@
             </button>
             <img src="{% static 'images/logo.svg' %}" alt="">
         </div>
-        <div class="profile">
-            <div class="dropdown">
-                <div class="dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
-                    <img src="https://images.unsplash.com/photo-1605106702734-205df224ecce?q=80&w=3000&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D"
-                        height="40px" width="40px"
-                        style="border-radius: 50%; object-fit: cover; border: 3px solid #013198;" alt="">
-                </div>
+        <div class="d-flex align-items-center">
+            {% if request.user.is_authenticated and request.user.profile.rooms_incharge.count > 1 %}
+            <div class="dropdown me-3">
+                <button class="btn btn-dark btn-sm dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                    {% with current_room=request.resolver_match.kwargs.room_slug %}
+                        {% for room in request.user.profile.rooms_incharge.all %}
+                            {% if room.slug == current_room %}
+                                {{ room.room_name }}
+                            {% endif %}
+                        {% endfor %}
+                    {% endwith %}
+                </button>
                 <ul class="dropdown-menu">
-                    <li><a class="dropdown-item text-danger" href="{% url 'core:logout' %}">Logout</a></li>
+                    {% for room in request.user.profile.rooms_incharge.all %}
+                        <li>
+                            <a class="dropdown-item {% if room.slug == request.resolver_match.kwargs.room_slug %}active{% endif %}"
+                               href="{% url 'room_incharge:room_dashboard' room_slug=room.slug %}">
+                                {{ room.room_name }}
+                            </a>
+                        </li>
+                    {% endfor %}
                 </ul>
+            </div>
+            {% endif %}
+            <div class="profile">
+                <div class="dropdown">
+                    <div class="dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                        <img src="https://images.unsplash.com/photo-1605106702734-205df224ecce?q=80&w=3000&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D"
+                            height="40px" width="40px"
+                            style="border-radius: 50%; object-fit: cover; border: 3px solid #013198;" alt="">
+                    </div>
+                    <ul class="dropdown-menu">
+                        <li><a class="dropdown-item text-danger" href="{% url 'core:logout' %}">Logout</a></li>
+                    </ul>
+                </div>
             </div>
         </div>
     </div>

@@ -1,23 +1,54 @@
 {% extends "base.html" %}
 {% load static %}
 
-{% block title %} | Issuses{% endblock title %}
+{% block title %} | Issues{% endblock title %}
 
 {% block style %}
-<link rel="stylesheet" href="{% static 'styles/inventory/room_incharge/forms_style/style.css' %}">
+
+<style>
+
+    .issue-success-icon {
+        font-size: 4rem;
+        color: #198754;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        margin-bottom: 1.5rem;
+    }
+    .issue-success-card {
+        border: none;
+        border-radius: 1rem;
+        /* Remove shadow */
+        box-shadow: none;
+        background: #fff;
+    }
+    .issue-success-title {
+        font-size: 1.6rem;
+        font-weight: 600;
+        color: #198754;
+        letter-spacing: 0.5px;
+    }
+    .issue-success-message {
+        color: #495057;
+        font-size: 1.05rem;
+        text-align: center;
+        margin-bottom: 0;
+    }
+</style>
 {% endblock style %}
 
-{% block navbar %}
-{% include "room_incharge/navbar.html" %}
-{% endblock navbar %}
 
-{% block sidebar %}
-{% include "room_incharge/sidebar.html" %}
-{% endblock sidebar %}
 {% block content %}
-
-<body>
-    <h1>Issue Reported Successfully</h1>
-    <p>Your issue has been reported successfully. Thank you!</p>
-</body>
+<div class="container d-flex flex-column justify-content-center align-items-center" style="min-height: 60vh;">
+    <div class="card issue-success-card p-4" style="max-width: 420px; width: 100%;">
+        <div class="issue-success-icon">
+            <span class="material-symbols-outlined" style="font-size: 4rem;">check_circle</span>
+        </div>
+        <h1 class="issue-success-title text-center mb-3">Issue Reported</h1>
+        <p class="issue-success-message">Your issue has been reported successfully.<br>Thank you for helping us improve!</p>
+        <div class="text-center mt-4">
+            <a href="{% url 'landing_page' %}" class="btn btn-success btn-sm">Go to Home</a>
+        </div>
+    </div>
+</div>
 {% endblock content %}

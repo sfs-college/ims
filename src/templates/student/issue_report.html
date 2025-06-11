@@ -3,31 +3,23 @@
 
 {% block title %} | Issuses{% endblock title %}
 
-{% block style %}
-<link rel="stylesheet" href="{% static 'styles/landing_page/style.css' %}">
-{% endblock style %}
-
-{% block sidebar %}
-{% include "room_incharge/sidebar.html" %}
-{% endblock sidebar %}
-
-{% block navbar %}
-{% include "room_incharge/navbar.html" %}
-{% endblock navbar %}
 
 {% block content %}
-
-<body>
-    <section class="my-5 pt-3">
-        <button class="btn btn-sm btn-dark mb-3">Go back</button>
-        <h3>Report an Issue</h3>
-        <hr class="mb-4">
-        <form method="post">
-            {% csrf_token %}
-            {{ form.as_p | safe }}
-            <button type="submit" class="btn btn-primary">Submit</button>
-        </form>
-    </section>
-</body>
-
+<div class="container my-5 pt-3">
+    <div class="row justify-content-center">
+        <div class="col-md-8 col-lg-6">
+            <a href="javascript:history.back()" class="btn btn-sm btn-dark mb-3">Go back</a>
+            <div class="card">
+                <div class="card-body">
+                    <h3 class="card-title mb-4">Report an Issue</h3>
+                    <form method="post">
+                        {% csrf_token %}
+                        {{ form.as_p | safe }}
+                        <button type="submit" class="btn btn-primary mt-3">Submit</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
 {% endblock content %}

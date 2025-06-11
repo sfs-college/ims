@@ -2,14 +2,21 @@
 {% load static %}
 {% block title %} | Register{% endblock title %}
 {% block content %}
-<div class="card p-3 my-5">
-<img class="mb-3" src="{% static 'images/logo-icon.svg' %}" width="40px" alt="logo">
-<h3>Register</h3>
-
-<form method="post">
-    {% csrf_token %}
-    {{ form.as_p | safe}}
-    <input type="submit" value="Register" class='btn btn-primary'/>
-</form>
+<div class="container d-flex flex-column justify-content-center align-items-center my-3" style="min-height: 70vh;">
+    <div class="card shadow-sm p-4" style="max-width: 400px; width: 100%;">
+        <div class="text-center">
+            <img class="mb-3" src="{% static 'images/logo-icon.svg' %}" width="48" alt="logo">
+            <h3 class="mb-3">Register</h3>
+        </div>
+        <form method="post">
+            {% csrf_token %}
+            <div class="mb-3">
+                {{ form.as_p|safe }}
+            </div>
+            <div class="d-grid">
+                <input type="submit" value="Register" class="btn btn-primary"/>
+            </div>
+        </form>
+    </div>
 </div>
 {% endblock content %}
