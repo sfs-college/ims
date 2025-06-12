@@ -1,7 +1,7 @@
 {% extends "sidebar_base.html" %}
 {% load static %}
 
-{% block title %} | Create Room{% endblock title %}
+{% block title %} | Purchase List{% endblock title %}
 
 {% block style %}
 <link rel="stylesheet" href="{% static 'styles/inventory/room_incharge/purchase_list/style.css' %}">
@@ -16,91 +16,139 @@
 {% endblock sidebar %}
 
 {% block content %}
-<div class="d-flex justify-content-between align-items-center my-3">
-    <h3>Purchases</h3>
-    <div>
-        <div class="dropdown">
-            <button class="btn btn-primary dropdown-toggle" type="button" data-bs-toggle="dropdown"
-                aria-expanded="false">
-                Create purchase
-            </button>
-            <ul class="dropdown-menu">
-                <li><a class="dropdown-item"
-                        href="{% url 'room_incharge:purchase_create' room_slug=room_slug %}">Existing Item</a></li>
-                <li><a class="dropdown-item"
-                        href="{% url 'room_incharge:purchase_new_item_create' room_slug=room_slug %}">New item</a></li>
-            </ul>
+<section>
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h3 class="fw-bold">Purchase List</h3>
+        <div>
+            <div class="dropdown">
+                <button class="btn btn-primary dropdown-toggle" type="button" data-bs-toggle="dropdown"
+                    aria-expanded="false">
+                    Create purchase
+                </button>
+                <ul class="dropdown-menu">
+                    <li><a class="dropdown-item"
+                            href="{% url 'room_incharge:purchase_create' room_slug=room_slug %}">Existing Item</a></li>
+                    <li><a class="dropdown-item"
+                            href="{% url 'room_incharge:purchase_new_item_create' room_slug=room_slug %}">New item</a>
+                    </li>
+                </ul>
+            </div>
         </div>
     </div>
-</div>
-<div class="table-responsive">
-    <table class="table">
-        <thead>
-            <tr>
-                <th>Purchase Id</th>
-                <th>Item Name</th>
-                <th>Qunatity</th>
-                <th>Vendor Name</th>
-                <th>Action</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for purchase in purchases %}
-            <tr>
-                <td>{{purchase.purchase_id}}</td>
-                <td>{{purchase.item.item_name}}</td>
-                <td>{{ purchase.quantity }}</td>
-                <td>{{ purchase.vendor }}</td>
-                <td>
-                    {% if purchase.status == 'requested' %}
-                    <a
-                        href="{% url 'room_incharge:purchase_update' room_slug=room_slug purchase_slug=purchase.slug %}" class="btn btn-sm btn-outline-dark">Edit</a>
-                    <a
-                        href="{% url 'room_incharge:purchase_delete' room_slug=room_slug purchase_slug=purchase.slug %}" class="btn btn-sm btn-danger">Delete</a>
-                    {% endif %}
-                    {% if purchase.status == 'approved' %}
-                    <a
-                        href="{% url 'room_incharge:purchase_complete' room_slug=room_slug purchase_slug=purchase.slug %}" class="fw-semibold btn btn-sm btn-primary">Complete
-                        Purchase</a>
-                    {% elif purchase.status == 'completed' %}
-                        {% if not purchase.added_to_stock %}
-                            <a
-                                href="{% url 'room_incharge:purchase_add_to_stock' room_slug=room_slug purchase_slug=purchase.slug %}" class="fw-semibold btn btn-sm btn-dark">Add
-                                to
-                                Stock</a>
-                        {% else %}
-                            <span class="fw-semibold text-success">Added to Stock</span>
-                        {% endif %}
-                    {% endif %}
-                    {% if purchase.status == 'rejected' %}
-                    <span class="fw-semibold text-danger">Rejected</span>
-                    {% endif %}
-                </td>
-            </tr>
-            {% endfor %}
-        </tbody>
-    </table>
-</div>
+    <div class="row">
+        <div class="col-md-12">
+            <div class="table-responsive">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Purchase ID</th>
+                            <th>Item</th>
+                            <th>Quantity</th>
+                            <th>Unit of Measure</th>
+                            <th>Vendor</th>
+                            <th>Status</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for purchase in purchases %}
+                        <tr>
+                            <td>{{ purchase.purchase_id }}</td>
+                            <td>{{ purchase.item.item_name }}</td>
+                            <td>{{ purchase.quantity }}</td>
+                            <td>{{ purchase.unit_of_measure }}</td>
+                            <td>{{ purchase.vendor.vendor_name }}</td>
+                            <td>
+
+                                {% if purchase.status == 'requested' %}
+                                <span class="fw-semibold text-dark">Requested</span>
+                                {% endif %}
+                                {% if purchase.status == 'approved' %}
+                                <span class="fw-semibold text-success">Approved</span>
+                                {% elif purchase.status == 'completed' %}
+                                {% if not purchase.added_to_stock %}
+                                <span class="fw-semibold text-primary">Purchase completed</span>
+                                {% else %}
+                                <span class="fw-semibold text-success">Added to Stock</span>
+                                {% endif %}
+                                {% endif %}
+                                {% if purchase.status == 'rejected' %}
+                                <span class="fw-semibold text-danger">Rejected</span>
+                                {% endif %}
+
+                            </td>
+                            <td>
+                                <button type="button" class="btn btn-outline-dark btn-sm" data-bs-toggle="modal"
+                                    data-bs-target="#purchaseModal{{ purchase.id }}">
+                                    View Details
+                                </button>
+                            </td>
+                        </tr>
+
+                        <!-- Modal -->
+                        <div class="modal fade" id="purchaseModal{{ purchase.id }}" tabindex="-1"
+                            aria-labelledby="purchaseModalLabel{{ purchase.id }}" aria-hidden="true">
+                            <div class="modal-dialog">
+                                <div class="modal-content">
+                                    <div class="modal-header">
+                                        <h5 class="modal-title" id="purchaseModalLabel{{ purchase.id }}">Purchase
+                                            Details
+                                        </h5>
+                                        <button type="button" class="btn-close" data-bs-dismiss="modal"
+                                            aria-label="Close"></button>
+                                    </div>
+                                    <div class="modal-body">
+                                        <p><strong>Purchase ID:</strong> {{ purchase.purchase_id }}</p>
+                                        <p><strong>Item:</strong> {{ purchase.item.item_name }}</p>
+                                        <p><strong>Quantity:</strong> {{ purchase.quantity }}</p>
+                                        <p><strong>Unit of Measure:</strong> {{ purchase.unit_of_measure }}</p>
+                                        <p><strong>Vendor:</strong> {{ purchase.vendor.vendor_name }}</p>
+                                        <p><strong>Created On:</strong> {{ purchase.created_on }}</p>
+                                        <p><strong>Updated On:</strong> {{ purchase.updated_on }}</p>
+                                        {% if purchase.receipt %}
+                                        <p><strong>Receipt:</strong> <a href="{{ purchase.receipt.receipt.url }}"
+                                                target="_blank">View</a></p>
+                                        {% endif %}
+                                    </div>
+                                    <div class="modal-footer">
+                                        {% if purchase.status == 'requested' %}
+                                        <a href="{% url 'room_incharge:purchase_update' room_slug=room_slug purchase_slug=purchase.slug %}"
+                                            class="btn btn-sm btn-outline-dark">Edit</a>
+                                        <a href="{% url 'room_incharge:purchase_delete' room_slug=room_slug purchase_slug=purchase.slug %}"
+                                            class="btn btn-danger">Delete</a>
+                                        {% endif %}
+                                        {% if purchase.status == 'approved' %}
+                                        <a href="{% url 'room_incharge:purchase_complete' room_slug=room_slug purchase_slug=purchase.slug %}"
+                                            class="fw-semibold btn btn-primary">Complete
+                                            Purchase</a>
+                                        {% elif purchase.status == 'completed' %}
+                                        {% if not purchase.added_to_stock %}
+                                        <a href="{% url 'room_incharge:purchase_add_to_stock' room_slug=room_slug purchase_slug=purchase.slug %}"
+                                            class="fw-semibold btn btn-dark">Add
+                                            to
+                                            Stock</a>
+                                        {% else %}
+                                        <span class="fw-semibold text-success">Added to Stock</span>
+                                        {% endif %}
+                                        {% endif %}
+                                        {% if purchase.status == 'rejected' %}
+                                        <span class="fw-semibold text-danger">Rejected</span>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</section>
 {% endblock content %}
-<ul>
-    {% for purchase in purchases %}
-    <li>
-        {{ purchase.item.item_name }} - {{ purchase.quantity }} {{ purchase.unit_of_measure }} - {{ purchase.status }}
-        {% if purchase.status == 'requested' %}
-        <a href="{% url 'room_incharge:purchase_update' room_slug=room_slug purchase_slug=purchase.slug %}">Edit</a>
-        <a href="{% url 'room_incharge:purchase_delete' room_slug=room_slug purchase_slug=purchase.slug %}">Delete</a>
-        {% endif %}
-        {% if purchase.status == 'approved' %}
-        <a href="{% url 'room_incharge:purchase_complete' room_slug=room_slug purchase_slug=purchase.slug %}">Complete
-            Purchase</a>
-        {% elif purchase.status == 'completed' %}
-        {% if not purchase.added_to_stock %}
-        <a href="{% url 'room_incharge:purchase_add_to_stock' room_slug=room_slug purchase_slug=purchase.slug %}">Add to
-            Stock</a>
-        {% else %}
-        <span>Added to Stock</span>
-        {% endif %}
-        {% endif %}
-    </li>
-    {% endfor %}
-</ul>
+
+{% block script %}
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"
+    integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz"
+    crossorigin="anonymous"></script>
+{% endblock script %}

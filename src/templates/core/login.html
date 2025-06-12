@@ -1,14 +1,25 @@
-{% extends "base.html" %} {% load static %} 
-{% block title %} | Login{% endblock title %} {% block content %}
-<div class="card p-3 my-4">
-  <img class="mb-3" src="{% static 'images/logo-icon.svg' %}" width="40px" alt="" />
-  <h3 class="mb-3">Login</h3>
-  <form method="post">
-    {% csrf_token %} {{ form.as_p | safe}}
-    <input type="submit" class="btn btn-primary" value="Login" />
-  </form>
+{% extends "base.html" %} 
+{% load static %} 
+{% block title %} | Login{% endblock title %} 
+{% block content %}
+<div class="container d-flex flex-column justify-content-center align-items-center" style="min-height: 70vh;">
+  <div class="card shadow-sm p-4" style="max-width: 400px; width: 100%;">
+    <div class="text-center">
+      <img class="mb-3" src="{% static 'images/logo-icon.svg' %}" width="48" alt="logo" />
+      <h3 class="mb-3">Login</h3>
+    </div>
+    <form method="post">
+      {% csrf_token %}
+      <div class="mb-3">
+        {{ form.as_p | safe}}
+      </div>
+      <div class="d-grid">
+        <input type="submit" class="btn btn-primary" value="Login" />
+      </div>
+    </form>
+    <div class="text-center mt-3">
+      <p class="mb-0">Forgot password? <a class="text-primary fw-semibold" href="{% url 'core:reset_password' %}">Reset password</a></p>
+    </div>
+  </div>
 </div>
-
-<p>Forgot password? <a class="text-primary fw-semibold text-center" href="{% url 'core:reset_password' %}">reset password</a></p>
-
 {% endblock content %}

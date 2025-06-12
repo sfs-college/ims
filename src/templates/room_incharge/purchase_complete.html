@@ -16,12 +16,11 @@
 {% endblock sidebar %}
 
 {% block content %}
-    <h1>Complete Purchase</h1>
+<p><a class="btn btn-sm btn-dark" href="{% url 'room_incharge:purchase_list' room_slug=room_slug %}">Go back</a></p>
+    <h3>Complete Purchase</h3>
     <form method="post" enctype="multipart/form-data">
         {% csrf_token %}
         {{ form.as_p | safe}}
-        <button type="submit">Submit</button>
+        <button class="btn btn-primary" type="submit">Submit</button>
     </form>
-    <p><a href="{% url 'room_incharge:purchase_list' room_slug=room_slug %}">Cancel</a></p>
-
 {% endblock content %}

@@ -9,10 +9,10 @@ from django.dispatch import receiver
 
 class Room(models.Model):
     organisation = models.ForeignKey(Organisation, on_delete=models.CASCADE)
-    department = models.ForeignKey(Department, on_delete=models.CASCADE, null=True, blank=True)
+    department = models.ForeignKey(Department, on_delete=models.SET_NULL, null=True, blank=True)
     label = models.CharField(max_length=20)
     room_name = models.CharField(max_length=255)
-    incharge = models.OneToOneField(UserProfile, on_delete=models.CASCADE)
+    incharge = models.ForeignKey(UserProfile, on_delete=models.CASCADE, related_name='rooms_incharge')
     created_on = models.DateTimeField(auto_now_add=True)
     updated_on = models.DateTimeField(auto_now=True)
     slug = models.SlugField(unique=True, max_length=255)
@@ -351,7 +351,7 @@ class Archive(models.Model):
 
 class Receipt(models.Model):
     org = models.ForeignKey(Organisation, on_delete=models.CASCADE)
-    purchase = models.ForeignKey(Purchase, on_delete=models.CASCADE, related_name='receipt')
+    purchase = models.OneToOneField(Purchase, on_delete=models.CASCADE, related_name='receipt')
     receipt = models.FileField(upload_to='receipts/')
     remarks = models.TextField()
     completed_on = models.DateTimeField(auto_now_add=True)

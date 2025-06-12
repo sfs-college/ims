@@ -20,11 +20,13 @@ class CategoryListView(LoginRequiredMixin, ListView):
 
     def get_queryset(self):
         room_slug = self.kwargs['room_slug']
-        return super().get_queryset().filter(room__slug=room_slug, organisation=self.request.user.profile.org)
+        # Only allow access to rooms where the user is incharge
+        room = get_object_or_404(Room, slug=room_slug, incharge=self.request.user.profile)
+        return super().get_queryset().filter(room=room, organisation=self.request.user.profile.org)
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        room = Room.objects.get(slug=self.kwargs['room_slug'])
+        room = get_object_or_404(Room, slug=self.kwargs['room_slug'], incharge=self.request.user.profile)
         context['room_slug'] = self.kwargs['room_slug']
         context['room_settings'] = RoomSettings.objects.get_or_create(room=room)[0]
         return context
@@ -108,7 +110,7 @@ class RoomDashboardView(LoginRequiredMixin, TemplateView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         room_slug = self.kwargs['room_slug']
-        room = Room.objects.get(slug=room_slug)
+        room = get_object_or_404(Room, slug=room_slug, incharge=self.request.user.profile)
         context['room'] = room
         context['room_slug'] = room_slug
         context['room_settings'] = RoomSettings.objects.get_or_create(room=room)[0]
@@ -121,6 +123,9 @@ class RoomUpdateView(LoginRequiredMixin, UpdateView):
     slug_field = 'slug'
     slug_url_kwarg = 'room_slug'
 
+    def get_object(self, queryset=None):
+        return get_object_or_404(Room, slug=self.kwargs['room_slug'], incharge=self.request.user.profile)
+
     def get_success_url(self):
         return reverse_lazy('room_incharge:room_dashboard', kwargs={'room_slug': self.kwargs['room_slug']})
 
@@ -132,7 +137,7 @@ class RoomUpdateView(LoginRequiredMixin, UpdateView):
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        room = Room.objects.get(slug=self.kwargs['room_slug'])
+        room = self.get_object()
         context['room_slug'] = self.kwargs['room_slug']
         context['room_settings'] = RoomSettings.objects.get_or_create(room=room)[0]
         return context
@@ -233,7 +238,7 @@ class ItemListView(LoginRequiredMixin, ListView):
 
     def get_queryset(self):
         room_slug = self.kwargs['room_slug']
-        return super().get_queryset().filter(room__slug=room_slug, organisation=self.request.user.profile.org)
+        return super().get_queryset().filter(room__slug=room_slug, organisation=self.request.user.profile.org, is_listed=True)
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -250,6 +255,13 @@ class ItemCreateView(LoginRequiredMixin, CreateView):
 
     def get_success_url(self):
         return reverse_lazy('room_incharge:item_list', kwargs={'room_slug': self.kwargs['room_slug']})
+    
+    def get_form(self, form_class=None):
+        form = super().get_form(form_class)
+        room = Room.objects.get(slug=self.kwargs['room_slug'])
+        form.fields['category'].queryset = Category.objects.filter(room=room)
+        form.fields['brand'].queryset = Brand.objects.filter(room=room)
+        return form
 
     def form_valid(self, form):
         item = form.save(commit=False)
@@ -480,6 +492,12 @@ class SystemComponentCreateView(LoginRequiredMixin, CreateView):
 
     def get_success_url(self):
         return reverse_lazy('room_incharge:system_component_list', kwargs={'room_slug': self.kwargs['room_slug'], 'system_slug': self.kwargs['system_slug']})
+    
+    def get_form(self, form_class=None):
+        form = super().get_form(form_class)
+        room = Room.objects.get(slug=self.kwargs['room_slug'])
+        form.fields['component_item'].queryset = Item.objects.filter(room=room)
+        return form
 
     def form_valid(self, form):
         component = form.save(commit=False)
@@ -864,6 +882,12 @@ class ItemGroupItemCreateView(LoginRequiredMixin, CreateView):
 
     def get_success_url(self):
         return reverse_lazy('room_incharge:item_group_item_list', kwargs={'room_slug': self.kwargs['room_slug'], 'item_group_slug': self.kwargs['item_group_slug']})
+    
+    def get_form(self, form_class=None):
+        form = super().get_form(form_class)
+        room = Room.objects.get(slug=self.kwargs['room_slug'])
+        form.fields['item'].queryset = Item.objects.filter(room=room)
+        return form
 
     def form_valid(self, form):
         item_group_item = form.save(commit=False)
