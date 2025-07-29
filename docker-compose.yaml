@@ -13,23 +13,23 @@ services:
     env_file:
       - ./src/.env
     depends_on:
-      - postgres
+      - blixtro_postgres
 
 
-  postgres:
-    image: postgres
+  blixtro_postgres:
+    image: postgres:latest
     container_name: blixtro-postgres-container
     ports:
       - "5432:5432"
     environment:
-      POSTGRES_DB: postgres
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: blixtro_db
+      POSTGRES_USER: blixtro_user
+      POSTGRES_PASSWORD: blixtro_pass
     restart: unless-stopped
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - blixtro_postgres_data:/var/lib/postgresql/data
 
 
 volumes:
-  postgres_data:
+  blixtro_postgres_data:
 

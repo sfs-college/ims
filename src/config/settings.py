@@ -94,10 +94,10 @@ if ENVIRONMENT == 'development':
     DATABASES = {
         'default': {
             'ENGINE': 'django.db.backends.postgresql',
-            'NAME': 'postgres',
-            'USER': 'postgres',
-            'PASSWORD': 'postgres',
-            'HOST': 'postgres',
+            'NAME': 'blixtro_db',
+            'USER': 'blixtro_user',
+            'PASSWORD': 'blixtro_pass',
+            'HOST': 'blixtro_postgres',
             'PORT': 5432,
         }
     }
