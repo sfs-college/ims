@@ -10,6 +10,7 @@ from django.contrib.auth.base_user import BaseUserManager
 from django.db import transaction
 from inventory.forms.central_admin import PeopleCreateForm, RoomCreateForm, DepartmentForm, VendorForm  # Import the form
 from django.contrib.auth.mixins import LoginRequiredMixin
+from django.core.mail import send_mail
 
 class DashboardView(LoginRequiredMixin, TemplateView):
     template_name = 'central_admin/dashboard.html'
@@ -61,16 +62,24 @@ class PeopleCreateView(LoginRequiredMixin, CreateView):
                 reverse('core:confirm_password_reset', kwargs={'uidb64': uid, 'token': token})
             )
             
-            subject = "Welcome to SFS Busnest"
+            subject = "Welcome to SFS IMS"
             message = (
-            f"Hello,\n\n"
-            f"Welcome to our BusNest! You have been added to the system by "
-            f"{self.request.user.profile.first_name} {self.request.user.profile.last_name}. "
-            f"Please set your password using the link below.\n\n"
-            f"{reset_link}\n\n"
-            f"Best regards,\nSFSBusNest Team"
+                f"Hello,\n\n"
+                f"Welcome to our BusNest! You have been added to the system by "
+                f"{self.request.user.profile.first_name} {self.request.user.profile.last_name}. "
+                f"Please set your password using the link below.\n\n"
+                f"{reset_link}\n\n"
+                f"Best regards,\nSFS IMS Team"
             )
-            recipient_list = [f"{user.email}"]
+            recipient_list = [user.email]
+
+            send_mail(
+                subject,
+                message,
+                None,  # Use default from_email in settings
+                recipient_list,
+                fail_silently=False,
+            )
             
             
             return redirect(self.success_url)
