@@ -324,6 +324,25 @@ class SystemComponent(models.Model):
         return self.component_item.item_name  # Updated field
 
 
+@receiver(post_delete, sender=SystemComponent)
+def restore_item_count_on_component_delete(sender, instance, **kwargs):
+    """Restore item counts when a system component is deleted."""
+    item = instance.component_item
+    item.available_count += 1
+    item.in_use -= 1
+    item.save()
+
+
+@receiver(post_delete, sender=System)
+def restore_item_counts_on_system_delete(sender, instance, **kwargs):
+    """Restore item counts when a system is deleted (cascades to components)."""
+    # Note: This signal fires after SystemComponents are already deleted
+    # due to CASCADE, so we need to handle this differently
+    # This signal is mainly for cleanup, the SystemComponent signal above
+    # handles the individual component count restoration
+    pass
+
+
 class Archive(models.Model):
     ARCHIVE_TYPES = [
         ('consumption', 'Consumption'),
