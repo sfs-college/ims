@@ -11,7 +11,7 @@ class DepartmentForm(form_mixin.BootstrapFormMixin, forms.ModelForm):
 
 
 class RoomForm(forms.ModelForm):
-    class Meata:
+    class Meta:
         model = Room
         fields = ['label','room_name','incharge']
 
