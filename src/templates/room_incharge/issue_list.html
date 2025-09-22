@@ -23,7 +23,8 @@
             <tr>
                 <th scope="col" class="text-muted">Sno.</th>
                 <th scope="col" class="text-muted">Subject</th>
-                <th scope="col" class="text-muted">Resolved</th>
+                <th scope="col" class="text-muted">Status</th>
+                <th scope="col" class="text-muted">Action</th>
             </tr>
         </thead>
         <tbody>
@@ -37,12 +38,25 @@
                 </td>
                 <td>
                     {% if issue.resolved %}
-                    <span class="badge bg-success rounded-pill">Resolved</span>
+                        <span class="badge bg-success rounded-pill">Resolved</span>
                     {% else %}
-                    <span class="badge bg-danger rounded-pill">Unresolved</span>
+                        <span class="badge bg-danger rounded-pill">Unresolved</span>
                     {% endif %}
                 </td>
+
+                <!-- Action button (posts to toggle view). Uses namespaced URL and room.slug -->
+                <td>
+                    <form method="post" action="{% url 'room_incharge:toggle_issue' room.slug issue.pk %}" class="d-inline">
+                        {% csrf_token %}
+                        {% if issue.resolved %}
+                            <button type="submit" class="btn btn-sm btn-warning">Mark Unresolved</button>
+                        {% else %}
+                            <button type="submit" class="btn btn-sm btn-success">Mark Resolved</button>
+                        {% endif %}
+                    </form>
+                </td>
             </tr>
+
             <!-- Modal -->
             <div class="modal fade" id="issueModal{{ forloop.counter }}" tabindex="-1" aria-labelledby="issueModalLabel{{ forloop.counter }}" aria-hidden="true">
                 <div class="modal-dialog">
@@ -55,6 +69,16 @@
                             {{ issue.description }}
                         </div>
                         <div class="modal-footer">
+                            <!-- Toggle inside modal as well -->
+                            <form method="post" action="{% url 'room_incharge:toggle_issue' room.slug issue.pk %}" class="me-auto">
+                                {% csrf_token %}
+                                {% if issue.resolved %}
+                                    <button type="submit" class="btn btn-warning">Mark Unresolved</button>
+                                {% else %}
+                                    <button type="submit" class="btn btn-success">Mark Resolved</button>
+                                {% endif %}
+                            </form>
+
                             <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
                         </div>
                     </div>

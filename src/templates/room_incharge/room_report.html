@@ -221,6 +221,7 @@
                     <th>Quantity</th>
                     <th>Unit of Measure</th>
                     <th>Vendor</th>
+                    <th>Cost</th> <!-- ✅ NEW -->
                     <th>Status</th>
                 </tr>
             </thead>
@@ -232,6 +233,13 @@
                     <td>{{ purchase.quantity }}</td>
                     <td>{{ purchase.unit_of_measure }}</td>
                     <td>{{ purchase.vendor.vendor_name }}</td>
+                    <td>
+                        {% if purchase.cost %}
+                            ₹{{ purchase.cost }}
+                        {% else %}
+                            -
+                        {% endif %}
+                    </td> <!-- ✅ NEW -->
                     <td>{{ purchase.status }}</td>
             </tr>
             {% endfor %}
@@ -254,7 +262,13 @@
             <tr>
                 <td>{{ issue.subject }}</td>
                 <td>{{ issue.description }}</td>
-                <td>{{ issue.resolved }}</td>
+                <td>
+                        {% if issue.resolved %}
+                            Resolved
+                        {% else %}
+                            Unresolved
+                        {% endif %}
+                    </td> <!-- ✅ UPDATED RESOLVED PART IN THE REPORT GENERATION -->
                 <td>{{ issue.created_on }}</td>
                 <td>{{ issue.updated_on }}</td>
             </tr>

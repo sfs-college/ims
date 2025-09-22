@@ -12,6 +12,7 @@ from django.contrib.auth.mixins import LoginRequiredMixin
 from django.http import HttpResponse
 from django.template.loader import render_to_string
 from weasyprint import HTML
+# from ..models import Issue
 
 class CategoryListView(LoginRequiredMixin, ListView):
     template_name = 'room_incharge/category_list.html'
@@ -831,10 +832,28 @@ class IssueListView(LoginRequiredMixin, ListView):
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        room = Room.objects.get(slug=self.kwargs['room_slug'])
+        room = get_object_or_404(Room, slug=self.kwargs['room_slug'], organisation=self.request.user.profile.org)
+        # ensure the template has access to the room object and slug
+        context['room'] = room
         context['room_slug'] = self.kwargs['room_slug']
         context['room_settings'] = RoomSettings.objects.get_or_create(room=room)[0]
         return context
+
+# POST-only toggle view
+# @require_POST
+def toggle_issue(request, room_slug, pk):
+    """
+    Toggle the resolved flag for an Issue that belongs to the given room.
+    """
+    # make sure the room belongs to the user's organisation (same safety as list)
+    room = get_object_or_404(Room, slug=room_slug, organisation=request.user.profile.org)
+    issue = get_object_or_404(Issue, pk=pk, room=room)
+
+    issue.resolved = not issue.resolved
+    issue.save()
+
+    # redirect back to the issue list for the same room
+    return redirect('room_incharge:issue_list', room_slug=room.slug)
 
 class ItemGroupListView(LoginRequiredMixin, ListView):
     template_name = 'room_incharge/item_group_list.html'

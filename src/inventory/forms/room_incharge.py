@@ -47,13 +47,13 @@ class RoomUpdateForm(form_mixin.BootstrapFormMixin, forms.ModelForm):
 class PurchaseForm(form_mixin.BootstrapFormMixin, forms.ModelForm):
     class Meta:
         model = Purchase
-        fields = ['item', 'quantity', 'unit_of_measure', 'vendor']  # Include necessary fields
+        fields = ['item', 'quantity', 'unit_of_measure', 'vendor', 'cost']  # Include necessary fields #added cost
         
         
 class PurchaseUpdateForm(form_mixin.BootstrapFormMixin, forms.ModelForm):
     class Meta:
         model = Purchase
-        fields = ['quantity', 'unit_of_measure', 'vendor']  # Include necessary fields
+        fields = ['quantity', 'unit_of_measure', 'vendor', 'cost']  # Include necessary fields #added cost
 
 class ItemPurchaseForm(form_mixin.BootstrapFormMixin, forms.ModelForm):
     item_name = forms.CharField(max_length=255)
@@ -62,10 +62,11 @@ class ItemPurchaseForm(form_mixin.BootstrapFormMixin, forms.ModelForm):
     quantity = forms.FloatField(min_value=1)
     unit_of_measure = forms.ChoiceField(choices=Purchase.UNIT_CHOICES)
     vendor = forms.ModelChoiceField(queryset=Vendor.objects.all())
+    cost = forms.DecimalField(max_digits=10, decimal_places=2, required=False)  # ✅ NEW
 
     class Meta:
         model = Purchase
-        fields = ['item_name', 'category', 'brand', 'quantity', 'unit_of_measure', 'vendor']
+        fields = ['item_name', 'category', 'brand', 'quantity', 'unit_of_measure', 'vendor', 'cost'] #added cost
 
 class PurchaseCompleteForm(form_mixin.BootstrapFormMixin, forms.ModelForm):
     class Meta:
