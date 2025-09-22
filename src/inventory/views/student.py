@@ -1,7 +1,7 @@
 from django.shortcuts import render, redirect
 from django.views import View
 from inventory.forms.student import IssueReportForm
-from inventory.models import Organisation, Issue
+from inventory.models import Organisation, Issue, Room
 from config.api.student_data import fetch_student_data
 from django.conf import settings
 

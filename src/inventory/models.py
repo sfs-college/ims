@@ -100,6 +100,7 @@ class Purchase(models.Model):
     quantity = models.FloatField()
     unit_of_measure = models.CharField(max_length=10, choices=UNIT_CHOICES)
     vendor = models.ForeignKey(Vendor, on_delete=models.CASCADE)
+    cost = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)  # ✅ NEW field
     created_on = models.DateTimeField(auto_now_add=True)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES)
     added_to_stock = models.BooleanField(default=False)

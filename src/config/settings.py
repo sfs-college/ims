@@ -30,6 +30,9 @@ else:
 # SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = env('SECRET_KEY', default="secret_key")
 
+# settings.py
+ALLOWED_EMAIL_DOMAIN = "sfscollege.in"
+
 
 ALLOWED_HOSTS = env('ALLOWED_HOSTS', default='example.com').split(',')
 
