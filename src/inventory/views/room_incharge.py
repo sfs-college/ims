@@ -12,6 +12,10 @@ from django.contrib.auth.mixins import LoginRequiredMixin
 from django.http import HttpResponse
 from django.template.loader import render_to_string
 from weasyprint import HTML
+import pandas as pd
+import io
+from django.utils import timezone
+import datetime
 # from ..models import Issue
 
 class CategoryListView(LoginRequiredMixin, ListView):
@@ -268,7 +272,7 @@ class ItemCreateView(LoginRequiredMixin, CreateView):
         item = form.save(commit=False)
         item.organisation = self.request.user.profile.org
         item.room = Room.objects.get(slug=self.kwargs['room_slug'])
-        item.achived_count = 0  # Set default value
+        item.archived_count = 0  # Set default value
         item.available_count = item.total_count  # Set available_count to total_count
         item.save()
         return redirect(self.get_success_url())
@@ -359,7 +363,7 @@ class ItemArchiveView(LoginRequiredMixin, FormView):
 
         # Update item counts
         item.available_count -= count
-        item.achived_count += count
+        item.archived_count += count
         item.save()
 
         return redirect(self.get_success_url())
@@ -624,7 +628,7 @@ class SystemComponentArchiveView(LoginRequiredMixin, FormView):
 
         # Update item counts
         item.in_use -= 1
-        item.achived_count += 1
+        item.archived_count += 1
         item.save()
 
         # Delete the system component
@@ -681,22 +685,36 @@ class PurchaseCreateView(LoginRequiredMixin, CreateView):
     model = Purchase
     template_name = 'room_incharge/purchase_create.html'
     form_class = PurchaseForm
-    success_url = reverse_lazy('room_incharge:purchase_list')
 
     def get_success_url(self):
         return reverse_lazy('room_incharge:purchase_list', kwargs={'room_slug': self.kwargs['room_slug']})
 
     def form_valid(self, form):
+        room = get_object_or_404(Room, slug=self.kwargs['room_slug'])
+        org = self.request.user.profile.org
+
         purchase = form.save(commit=False)
-        purchase.organisation = self.request.user.profile.org
-        purchase.room = Room.objects.get(slug=self.kwargs['room_slug'])
-        purchase.status = 'requested'  # Set default status to requested
+        purchase.organisation = org
+        purchase.room = room
+        purchase.status = 'requested'
+
+        # ✅ Auto-fill item_description if not given
+        if purchase.item and not purchase.item_description:
+            purchase.item_description = purchase.item.item_name
+
+        # ✅ Update stock counts automatically
+        if purchase.item:
+            item = purchase.item
+            item.total_count += purchase.quantity
+            item.available_count += purchase.quantity
+            item.save()
+
         purchase.save()
         return redirect(self.get_success_url())
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        room = Room.objects.get(slug=self.kwargs['room_slug'])
+        room = get_object_or_404(Room, slug=self.kwargs['room_slug'])
         context['room_slug'] = self.kwargs['room_slug']
         context['room_settings'] = RoomSettings.objects.get_or_create(room=room)[0]
         return context
@@ -730,38 +748,68 @@ class PurchaseNewItemCreateView(LoginRequiredMixin, CreateView):
     model = Purchase
     template_name = 'room_incharge/purchase_new_item_create.html'
     form_class = ItemPurchaseForm
-    success_url = reverse_lazy('room_incharge:purchase_list')
 
     def get_success_url(self):
         return reverse_lazy('room_incharge:purchase_list', kwargs={'room_slug': self.kwargs['room_slug']})
 
     def form_valid(self, form):
-        room = Room.objects.get(slug=self.kwargs['room_slug'])
+        room = get_object_or_404(Room, slug=self.kwargs['room_slug'])
+        org = self.request.user.profile.org
+
+        category = form.cleaned_data['category']
+        brand = form.cleaned_data['brand']
+        vendor = form.cleaned_data['vendor']
+        qty = form.cleaned_data['quantity']
+        unit = form.cleaned_data['unit_of_measure']
+
+        # ✅ Create new Item entry
         item = Item.objects.create(
-            organisation=self.request.user.profile.org,
-            department=room.department,  # Set department from the associated room
+            organisation=org,
+            department=room.department,
             room=room,
-            category=form.cleaned_data['category'],
-            brand=form.cleaned_data['brand'],
+            category=category,
+            brand=brand,
             item_name=form.cleaned_data['item_name'],
-            total_count=0,  # Set initial total_count to 0
-            available_count=0,  # Set initial available_count to 0
-            is_listed=False
+            item_description=form.cleaned_data.get('item_description', ''),
+            serial_number=form.cleaned_data.get('serial_number', ''),
+            purchase_model_code=form.cleaned_data.get('purchase_model_code', ''),
+            vendor=vendor,
+            total_count=qty,
+            available_count=qty,
+            is_listed=True
         )
-        purchase = form.save(commit=False)
-        purchase.organisation = self.request.user.profile.org
-        purchase.room = room
-        purchase.item = item
-        purchase.status = 'requested'  # Set default status to requested
-        purchase.save()
+
+        # ✅ Create corresponding Purchase entry
+        purchase = Purchase.objects.create(
+            organisation=org,
+            room=room,
+            item=item,
+            quantity=qty,
+            unit_of_measure=unit,
+            vendor=vendor,
+            cost=form.cleaned_data.get('cost'),
+            cost_per_unit=form.cleaned_data.get('cost_per_unit'),
+            invoice_number=form.cleaned_data.get('invoice_number'),
+            purchase_date=form.cleaned_data.get('purchase_date'),
+            item_description=form.cleaned_data.get('item_description', item.item_name),
+            remarks=form.cleaned_data.get('remarks', ''),
+            status='requested'  # Default for all new purchases
+        )
+
+        # ✅ Update purchase total cost (if applicable)
+        if purchase.cost_per_unit and purchase.quantity:
+            purchase.total_cost = purchase.cost_per_unit * purchase.quantity
+            purchase.save()
+
         return redirect(self.get_success_url())
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        room = Room.objects.get(slug=self.kwargs['room_slug'])
+        room = get_object_or_404(Room, slug=self.kwargs['room_slug'])
         context['room_slug'] = self.kwargs['room_slug']
         context['room_settings'] = RoomSettings.objects.get_or_create(room=room)[0]
         return context
+
 
 class PurchaseDeleteView(LoginRequiredMixin, DeleteView):
     model = Purchase
@@ -1050,23 +1098,23 @@ class ItemGroupItemDeleteView(LoginRequiredMixin, DeleteView):
         return context
 
 class RoomSettingsView(LoginRequiredMixin, UpdateView):
-    model = RoomSettings
-    template_name = 'room_incharge/room_settings.html'
-    form_class = RoomSettingsForm
-    success_url = reverse_lazy('room_incharge:room_dashboard')
-
-    def get_object(self):
-        room = get_object_or_404(Room, slug=self.kwargs['room_slug'])
-        return RoomSettings.objects.get_or_create(room=room)[0]
-
-    def get_success_url(self):
-        return reverse_lazy('room_incharge:room_settings', kwargs={'room_slug': self.kwargs['room_slug']})
-
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        context['room_slug'] = self.kwargs['room_slug']
-        room = Room.objects.get(slug=self.kwargs['room_slug'])
-        context['room_settings'] = RoomSettings.objects.get_or_create(room=room)[0]
+    model = RoomSettings 
+    template_name = 'room_incharge/room_settings.html' 
+    form_class = RoomSettingsForm 
+    success_url = reverse_lazy('room_incharge:room_dashboard') 
+    
+    def get_object(self): 
+        room = get_object_or_404(Room, slug=self.kwargs['room_slug']) 
+        return RoomSettings.objects.get_or_create(room=room)[0] 
+    
+    def get_success_url(self): 
+        return reverse_lazy('room_incharge:room_settings', kwargs={'room_slug': self.kwargs['room_slug']}) 
+    
+    def get_context_data(self, **kwargs): 
+        context = super().get_context_data(**kwargs) 
+        context['room_slug'] = self.kwargs['room_slug'] 
+        room = Room.objects.get(slug=self.kwargs['room_slug']) 
+        context['room_settings'] = RoomSettings.objects.get_or_create(room=room)[0] 
         return context
 
 class RoomReportView(LoginRequiredMixin, View):
@@ -1074,7 +1122,38 @@ class RoomReportView(LoginRequiredMixin, View):
         room_slug = self.kwargs['room_slug']
         room = get_object_or_404(Room, slug=room_slug)
         room_settings = RoomSettings.objects.get_or_create(room=room)[0]
+        format_type = request.GET.get('format', 'pdf')  # dropdown choice
 
+        # ---------------------------
+        # Helper functions
+        # ---------------------------
+        def fmt_datetime(dt):
+            """Format datetime similar to PDF's visual style."""
+            if not dt:
+                return ''
+            if isinstance(dt, datetime.date) and not isinstance(dt, datetime.datetime):
+                return dt.strftime('%b. %d, %Y')
+            try:
+                dt_local = timezone.localtime(dt) if timezone.is_aware(dt) else dt
+            except Exception:
+                dt_local = dt
+            hour = dt_local.strftime('%I').lstrip('0') or '0'
+            minute = dt_local.strftime('%M')
+            ampm = dt_local.strftime('%p')
+            ampm = 'a.m.' if ampm == 'AM' else 'p.m.'
+            return f"{dt_local.strftime('%b. %d, %Y')}, {hour}:{minute} {ampm}"
+
+        def safe_str(value):
+            if value is None:
+                return ''
+            try:
+                return str(value)
+            except Exception:
+                return ''
+
+        # ---------------------------
+        # Build context
+        # ---------------------------
         context = {
             'room': room,
             'room_settings': room_settings,
@@ -1085,10 +1164,144 @@ class RoomReportView(LoginRequiredMixin, View):
             'item_groups': ItemGroup.objects.filter(room=room) if room_settings.item_groups_tab else None,
             'system_components': SystemComponent.objects.filter(system__room=room) if room_settings.systems_tab else None,
             'purchases': Purchase.objects.filter(room=room),
-            'archives': Archive.objects.filter(room=room),
             'issues': Issue.objects.filter(room=room),
         }
 
+        # ---------------------------
+        # Excel Generation
+        # ---------------------------
+        if format_type == 'excel':
+            excel_buffer = io.BytesIO()
+
+            with pd.ExcelWriter(excel_buffer, engine='openpyxl') as writer:
+                #  1) Summary Sheet
+                summary_rows = [{
+                    'Room Name': room.room_name,
+                    'Incharge': f"{room.incharge.first_name} {room.incharge.last_name}" if getattr(room, 'incharge', None) else '',
+                    'Department': getattr(room.department, 'department_name', '') if getattr(room, 'department', None) else '',
+                    'Created On': fmt_datetime(getattr(room, 'created_on', None)),
+                    'Updated On': fmt_datetime(getattr(room, 'updated_on', None)),
+                }]
+                pd.DataFrame(summary_rows).to_excel(writer, sheet_name='Summary', index=False)
+
+                #  2) Categories
+                if context['categories'] is not None and context['categories'].exists():
+                    rows = [{
+                        'Category Name': c.category_name,
+                        'Created On': fmt_datetime(c.created_on),
+                        'Updated On': fmt_datetime(c.updated_on)
+                    } for c in context['categories']]
+                    pd.DataFrame(rows).to_excel(writer, sheet_name='Categories', index=False)
+
+                #  3) Brands
+                if context['brands'] is not None and context['brands'].exists():
+                    rows = [{
+                        'Brand Name': b.brand_name,
+                        'Created On': fmt_datetime(b.created_on),
+                        'Updated On': fmt_datetime(b.updated_on)
+                    } for b in context['brands']]
+                    pd.DataFrame(rows).to_excel(writer, sheet_name='Brands', index=False)
+
+                # --------------------------------------------------------------
+                # 🧾 4) ITEMS SHEET  — matches stock register format exactly
+                # --------------------------------------------------------------
+                if context['items'] is not None and context['items'].exists():
+                    item_rows = []
+                    for i, item in enumerate(context['items'], start=1):
+                        opening_stock = max(item.total_count - item.available_count, 0)
+                        arrival = getattr(item, 'arrival_receipts', 0)
+                        consumed = getattr(item, 'consumed_stock_qty', 0)
+                        closing = item.available_count
+                        total = opening_stock + arrival
+                        item_rows.append({
+                            'Sl No': i,
+                            'Date of Entry': fmt_datetime(item.created_on),
+                            'Item Description': item.item_description or item.item_name,
+                            'Category': safe_str(getattr(item.category, 'category_name', '')),
+                            'Opening Stock Qty': opening_stock,
+                            'Arrival / Receipts': arrival,
+                            'Total': total,
+                            'Consumed Stock/Issues Qty': consumed,
+                            'Closing / Balance Qty': closing,
+                            'Unit of Measure': getattr(item, 'unit_of_measure', 'Units'),
+                            'Remarks': getattr(item, 'remarks', ''),
+                        })
+                    pd.DataFrame(item_rows).to_excel(writer, sheet_name='Items', index=False)
+
+                #  5) Systems
+                if context['systems'] is not None and context['systems'].exists():
+                    rows = [{
+                        'System Name': s.system_name,
+                        'Status': s.status,
+                        'Created On': fmt_datetime(s.created_on),
+                        'Updated On': fmt_datetime(s.updated_on)
+                    } for s in context['systems']]
+                    pd.DataFrame(rows).to_excel(writer, sheet_name='Systems', index=False)
+
+                #  6) System Components
+                if context['system_components'] is not None and context['system_components'].exists():
+                    rows = [{
+                        'System': safe_str(c.system),
+                        'Component Type': c.component_type,
+                        'Component Item': safe_str(c.component_item),
+                        'Serial Number': getattr(c, 'serial_number', ''),
+                        'Created On': fmt_datetime(c.created_on),
+                        'Updated On': fmt_datetime(c.updated_on),
+                    } for c in context['system_components']]
+                    pd.DataFrame(rows).to_excel(writer, sheet_name='System Components', index=False)
+
+                # 7) Item Groups
+                if context['item_groups'] is not None and context['item_groups'].exists():
+                    rows = [{
+                        'Item Group Name': g.item_group_name,
+                        'Created On': fmt_datetime(g.created_on),
+                        'Updated On': fmt_datetime(g.updated_on)
+                    } for g in context['item_groups']]
+                    pd.DataFrame(rows).to_excel(writer, sheet_name='Item Groups', index=False)
+
+                # --------------------------------------------------------------
+                # 💰 8) PURCHASES SHEET — matches purchase register format exactly
+                # --------------------------------------------------------------
+                if context['purchases'] is not None and context['purchases'].exists():
+                    purchase_rows = []
+                    for i, p in enumerate(context['purchases'], start=1):
+                        purchase_rows.append({
+                            'Sl No': i,
+                            'Date of Purchase/Entry': fmt_datetime(p.purchase_date) or fmt_datetime(p.date_of_entry),
+                            'Item Description': safe_str(getattr(p.item, 'item_description', p.item_description)),
+                            'Category': safe_str(getattr(p.item.category, 'category_name', '')) if getattr(p, 'item', None) else '',
+                            'Purchase ID/Model Code': p.purchase_id or safe_str(getattr(p.item, 'purchase_model_code', '')),
+                            'Serial No': safe_str(getattr(p.item, 'serial_number', '')),
+                            'Quantity': p.quantity,
+                            'Unit of Measure': p.unit_of_measure,
+                            'Status': p.status,
+                            'Vendor': safe_str(getattr(p.vendor, 'vendor_name', '')) if p.vendor else '',
+                            'Remarks': safe_str(p.remarks),
+                        })
+                    pd.DataFrame(purchase_rows).to_excel(writer, sheet_name='Purchases', index=False)
+
+                # 9) Issues
+                if context['issues'] is not None and context['issues'].exists():
+                    rows = [{
+                        'Subject': iss.subject,
+                        'Description': iss.description,
+                        'Resolved': 'Resolved' if iss.resolved else 'Unresolved',
+                        'Created On': fmt_datetime(iss.created_on),
+                        'Updated On': fmt_datetime(iss.updated_on)
+                    } for iss in context['issues']]
+                    pd.DataFrame(rows).to_excel(writer, sheet_name='Issues', index=False)
+
+            excel_buffer.seek(0)
+            response = HttpResponse(
+                excel_buffer,
+                content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+            )
+            response['Content-Disposition'] = f'attachment; filename="{room.room_name}_report.xlsx"'
+            return response
+
+        # ---------------------------
+        # Default PDF generation
+        # ---------------------------
         html_string = render_to_string('room_incharge/room_report.html', context)
         html = HTML(string=html_string)
         pdf = html.write_pdf()

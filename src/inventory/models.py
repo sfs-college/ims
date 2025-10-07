@@ -2,6 +2,7 @@ from django.db import models
 from django.forms import ValidationError
 from core.models import Organisation, UserProfile, Department
 from django.utils.text import slugify
+from django.utils import timezone
 from config.utils import generate_unique_slug, generate_unique_code
 from django.db.models.signals import post_delete
 from django.dispatch import receiver
@@ -93,6 +94,7 @@ class Purchase(models.Model):
         ('rejected', 'Rejected'),
         ('completed', 'Completed'),
     ]
+
     organisation = models.ForeignKey(Organisation, on_delete=models.CASCADE)
     room = models.ForeignKey(Room, on_delete=models.CASCADE)
     purchase_id = models.CharField(max_length=8, unique=True)
@@ -100,21 +102,53 @@ class Purchase(models.Model):
     quantity = models.FloatField()
     unit_of_measure = models.CharField(max_length=10, choices=UNIT_CHOICES)
     vendor = models.ForeignKey(Vendor, on_delete=models.CASCADE)
-    cost = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)  # ✅ NEW field
+
+    # ✅ Excel fields
+    cost = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    cost_per_unit = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
+    total_cost = models.DecimalField(max_digits=14, decimal_places=2, null=True, blank=True)
+    purchase_date = models.DateField(default=timezone.now)
+    invoice_number = models.CharField(max_length=100, blank=True)
+
+    # Stock management
+    date_of_entry = models.DateField(default=timezone.now)
+    item_description = models.TextField(blank=True)
+    opening_stock_qty = models.IntegerField(default=0)
+    arrival_receipts = models.FloatField(default=0)
+    total_stock = models.FloatField(default=0)
+    consumed_stock_qty = models.FloatField(default=0)
+    closing_balance_qty = models.FloatField(default=0)
+    remarks = models.TextField(blank=True)
+
     created_on = models.DateTimeField(auto_now_add=True)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES)
     added_to_stock = models.BooleanField(default=False)
     updated_on = models.DateTimeField(auto_now=True)
     slug = models.SlugField(unique=True, max_length=255)
-    
+
     def save(self, *args, **kwargs):
         if not self.purchase_id:
             self.purchase_id = generate_unique_code(self, 8, 'purchase_id')
         if not self.slug:
             base_slug = slugify(self.purchase_id)
             self.slug = generate_unique_slug(self, base_slug)
+
+        # Auto calculations
+        if self.item:
+            self.item_description = self.item.item_name
+            self.opening_stock_qty = self.item.total_count - self.quantity
+            self.arrival_receipts = self.quantity
+            self.total_stock = self.item.total_count + self.quantity
+            self.closing_balance_qty = self.item.available_count + self.quantity
+
+        # Excel-style totals
+        if self.cost_per_unit:
+            self.total_cost = self.cost_per_unit * self.quantity
+        elif self.cost:
+            self.total_cost = self.cost * self.quantity
+
         super().save(*args, **kwargs)
-    
+
     def __str__(self):
         return f"{self.purchase_id} {self.room}"
 
@@ -123,8 +157,7 @@ def delete_related_item(sender, instance, **kwargs):
     item = instance.item
     if not item.is_listed:
         item.delete()
-
-
+        
 class Issue(models.Model):
     organisation = models.ForeignKey(Organisation, on_delete=models.CASCADE)
     room = models.ForeignKey(Room, on_delete=models.CASCADE)
@@ -188,25 +221,36 @@ class Item(models.Model):
     category = models.ForeignKey(Category, on_delete=models.CASCADE)
     brand = models.ForeignKey(Brand, on_delete=models.CASCADE)
     item_name = models.CharField(max_length=255)
+
+    # ✅ Excel format fields
+    item_description = models.TextField(blank=True, default='')
+    serial_number = models.CharField(max_length=100, blank=True, default='')
+    purchase_model_code = models.CharField(max_length=100, blank=True, default='')  # Item Code
+    vendor = models.ForeignKey(Vendor, on_delete=models.SET_NULL, null=True, blank=True)
+    cost = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
+    warranty_expiry = models.DateField(null=True, blank=True)
+
     total_count = models.IntegerField()
     available_count = models.IntegerField()
     in_use = models.IntegerField(default=0)
-    achived_count = models.IntegerField(default=0)  # Set default value
-    is_listed = models.BooleanField(default=True)  # New field
+    achived_count = models.IntegerField(default=0)
+    is_listed = models.BooleanField(default=True)
+
     created_on = models.DateTimeField(auto_now_add=True)
     updated_on = models.DateTimeField(auto_now=True)
     slug = models.SlugField(unique=True, max_length=255)
-    
+
     def save(self, *args, **kwargs):
         if not self.slug:
             base_slug = slugify(self.item_name)
             self.slug = generate_unique_slug(self, base_slug)
+        if not self.item_description:
+            self.item_description = f"{self.brand.brand_name} {self.item_name} - {self.category.category_name}"
         super().save(*args, **kwargs)
-    
+
     def __str__(self):
         return self.item_name
     
-
 class ItemGroup(models.Model):
     organisation = models.ForeignKey(Organisation, on_delete=models.CASCADE)
     department = models.ForeignKey(Department, null=True, blank=True, on_delete=models.CASCADE)
