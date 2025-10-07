@@ -4,6 +4,7 @@
 {% block title %} | Room Dashboard{% endblock title %}
 
 {% block style %}
+
 <link rel="stylesheet" href="{% static 'styles/inventory/room_incharge/room_dashboard/style.css' %}">
 {% endblock style %}
 
@@ -16,87 +17,103 @@
 {% endblock sidebar %}
 
 {% block content %}
+
 <section>
     <div class="d-flex justify-content-between align-items-center mb-4">
         <h3 class="fw-bold">{{ room.room_name }} Dashboard</h3>
-        <div>
-            <a href="{% url 'room_incharge:room_update' room_slug=room_slug %}" class="btn btn-primary">Edit Room</a>
-            <a href="{% url 'room_incharge:room_report' room_slug=room_slug %}" class="btn btn-secondary">Generate Report</a>
-        </div>
+        <div class="d-flex align-items-center">
+
+        <!-- Existing Edit Button -->
+        <a href="{% url 'room_incharge:room_update' room_slug=room_slug %}" class="btn btn-primary me-2">Edit Room</a>
+
+        <!-- NEW: Dropdown and Form for Report Generation -->
+        <form action="{% url 'room_incharge:room_report' room_slug=room_slug %}" method="get" class="d-flex align-items-center">
+            <select name="format" class="form-select me-2" style="width:auto;">
+                <option value="pdf" selected>PDF Report</option>
+                <option value="excel">Excel Report</option>
+            </select>
+            <button type="submit" class="btn btn-secondary">Generate Report</button>
+        </form>
+        <!-- COMMENT: This replaces the old 'Generate Report' link.
+             It lets the incharge choose report type (PDF/Excel) dynamically. -->
     </div>
-    <div class="row">
-        <div class="col-md-6 mb-4">
-            <div class="card">
-                <div class="card-body">
-                    <h5 class="card-title">Categories</h5>
-                    <p class="card-text">Manage categories of items in this room.</p>
-                    <a href="{% url 'room_incharge:category_list' room_slug=room_slug %}" class="btn btn-outline-primary">View Categories</a>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-6 mb-4">
-            <div class="card">
-                <div class="card-body">
-                    <h5 class="card-title">Brands</h5>
-                    <p class="card-text">Manage brands of items in this room.</p>
-                    <a href="{% url 'room_incharge:brand_list' room_slug=room_slug %}" class="btn btn-outline-primary">View Brands</a>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-6 mb-4">
-            <div class="card">
-                <div class="card-body">
-                    <h5 class="card-title">Items</h5>
-                    <p class="card-text">Manage items in this room.</p>
-                    <a href="{% url 'room_incharge:item_list' room_slug=room_slug %}" class="btn btn-outline-primary">View Items</a>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-6 mb-4">
-            <div class="card">
-                <div class="card-body">
-                    <h5 class="card-title">Systems</h5>
-                    <p class="card-text">Manage systems in this room.</p>
-                    <a href="{% url 'room_incharge:system_list' room_slug=room_slug %}" class="btn btn-outline-primary">View Systems</a>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-6 mb-4">
-            <div class="card">
-                <div class="card-body">
-                    <h5 class="card-title">Item Groups</h5>
-                    <p class="card-text">Manage item groups in this room.</p>
-                    <a href="{% url 'room_incharge:item_group_list' room_slug=room_slug %}" class="btn btn-outline-primary">View Item Groups</a>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-6 mb-4">
-            <div class="card">
-                <div class="card-body">
-                    <h5 class="card-title">Purchases</h5>
-                    <p class="card-text">Manage purchases for this room.</p>
-                    <a href="{% url 'room_incharge:purchase_list' room_slug=room_slug %}" class="btn btn-outline-primary">View Purchases</a>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-6 mb-4">
-            <div class="card">
-                <div class="card-body">
-                    <h5 class="card-title">Archives</h5>
-                    <p class="card-text">View archived items in this room.</p>
-                    <a href="{% url 'room_incharge:archive_list' room_slug=room_slug %}" class="btn btn-outline-primary">View Archives</a>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-6 mb-4">
-            <div class="card">
-                <div class="card-body">
-                    <h5 class="card-title">Issues</h5>
-                    <p class="card-text">Manage issues reported in this room.</p>
-                    <a href="{% url 'room_incharge:issue_list' room_slug=room_slug %}" class="btn btn-outline-primary">View Issues</a>
-                </div>
+</div>
+
+<!-- Rest of your dashboard cards remain unchanged -->
+<div class="row">
+    <div class="col-md-6 mb-4">
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title">Categories</h5>
+                <p class="card-text">Manage categories of items in this room.</p>
+                <a href="{% url 'room_incharge:category_list' room_slug=room_slug %}" class="btn btn-outline-primary">View Categories</a>
             </div>
         </div>
     </div>
+    <div class="col-md-6 mb-4">
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title">Brands</h5>
+                <p class="card-text">Manage brands of items in this room.</p>
+                <a href="{% url 'room_incharge:brand_list' room_slug=room_slug %}" class="btn btn-outline-primary">View Brands</a>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6 mb-4">
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title">Items</h5>
+                <p class="card-text">Manage items in this room.</p>
+                <a href="{% url 'room_incharge:item_list' room_slug=room_slug %}" class="btn btn-outline-primary">View Items</a>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6 mb-4">
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title">Systems</h5>
+                <p class="card-text">Manage systems in this room.</p>
+                <a href="{% url 'room_incharge:system_list' room_slug=room_slug %}" class="btn btn-outline-primary">View Systems</a>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6 mb-4">
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title">Item Groups</h5>
+                <p class="card-text">Manage item groups in this room.</p>
+                <a href="{% url 'room_incharge:item_group_list' room_slug=room_slug %}" class="btn btn-outline-primary">View Item Groups</a>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6 mb-4">
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title">Purchases</h5>
+                <p class="card-text">Manage purchases for this room.</p>
+                <a href="{% url 'room_incharge:purchase_list' room_slug=room_slug %}" class="btn btn-outline-primary">View Purchases</a>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6 mb-4">
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title">Archives</h5>
+                <p class="card-text">View archived items in this room.</p>
+                <a href="{% url 'room_incharge:archive_list' room_slug=room_slug %}" class="btn btn-outline-primary">View Archives</a>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6 mb-4">
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title">Issues</h5>
+                <p class="card-text">Manage issues reported in this room.</p>
+                <a href="{% url 'room_incharge:issue_list' room_slug=room_slug %}" class="btn btn-outline-primary">View Issues</a>
+            </div>
+        </div>
+    </div>
+</div>
+
 </section>
 {% endblock content %}
