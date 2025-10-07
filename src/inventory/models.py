@@ -152,6 +152,12 @@ class Purchase(models.Model):
     def __str__(self):
         return f"{self.purchase_id} {self.room}"
 
+@receiver(post_delete, sender=Purchase)
+def delete_related_item(sender, instance, **kwargs):
+    item = instance.item
+    if not item.is_listed:
+        item.delete()
+        
 class Issue(models.Model):
     organisation = models.ForeignKey(Organisation, on_delete=models.CASCADE)
     room = models.ForeignKey(Room, on_delete=models.CASCADE)
