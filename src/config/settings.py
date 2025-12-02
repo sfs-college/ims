@@ -1,6 +1,7 @@
 import os
 from pathlib import Path
 from environ import Env
+from celery.schedules import crontab
 
 env = Env()
 Env.read_env()
@@ -205,12 +206,13 @@ STUDENT_API_SECRET_KEY = env("STUDENT_API_SECRET_KEY")
 
 
 if not DEBUG:
+    # Logging (Docker-safe: stdout only)
     LOGGING = {
         'version': 1,
         'disable_existing_loggers': False,
         'formatters': {
             'verbose': {
-                'format': '{levelname} {asctime} {name} {funcName} {lineno} {message}',
+                'format': '{levelname} {asctime} {name} {message}',
                 'style': '{',
             },
             'simple': {
@@ -220,32 +222,47 @@ if not DEBUG:
         },
         'handlers': {
             'console': {
-                'level': 'DEBUG',
                 'class': 'logging.StreamHandler',
-                'formatter': 'simple',
-            },
-            'file': {
-                'level': 'DEBUG',
-                'class': 'logging.FileHandler',
-                'filename': 'debug.log',
                 'formatter': 'verbose',
             },
         },
         'loggers': {
             'django': {
-                'handlers': ['console', 'file'],
-                'level': 'DEBUG',
+                'handlers': ['console'],
+                'level': 'INFO',
                 'propagate': True,
             },
             'core': {
-                'handlers': ['console', 'file'],
+                'handlers': ['console'],
                 'level': 'DEBUG',
                 'propagate': False,
             },
             'services': {
-                'handlers': ['console', 'file'],
+                'handlers': ['console'],
                 'level': 'DEBUG',
                 'propagate': False,
             },
         },
     }
+
+    
+# Celery settings
+CELERY_BROKER_URL = 'redis://redis:6379/0'
+CELERY_RESULT_BACKEND = 'redis://redis:6379/1'
+
+# Retry broker connection during startup
+CELERY_BROKER_CONNECTION_RETRY_ON_STARTUP = True
+
+# Celery Beat: Put schedule file in a writable directory
+CELERY_BEAT_SCHEDULE_FILENAME = '/tmp/celerybeat-schedule'
+
+# Default TAT hours used by views and model escalation
+DEFAULT_TAT_HOURS = 48
+
+# Celery Beat Schedule
+CELERY_BEAT_SCHEDULE = {
+    'run-escalation-every-minute': {
+        'task': 'inventory.tasks.escalate_expired_issues',
+        'schedule': 60.0,  # every 1 minute
+    },
+}

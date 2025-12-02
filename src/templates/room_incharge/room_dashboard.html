@@ -36,6 +36,9 @@
         </form>
         <!-- COMMENT: This replaces the old 'Generate Report' link.
              It lets the incharge choose report type (PDF/Excel) dynamically. -->
+             <!-- Add next to Generate Report form -->
+        <a href="{% url 'room_incharge:purchase_import' room_slug=room_slug %}" class="btn btn-outline-secondary ms-2">Import Excel</a>
+
     </div>
 </div>
 

@@ -1,0 +1,42 @@
+{% extends 'sidebar_base.html' %}
+{% block content %}
+
+<h2>Edit Requests Pending Approval</h2>
+
+<table class="table table-bordered">
+    <thead>
+        <tr>
+            <th>Item</th>
+            <th>Room</th>
+            <th>Requested By</th>
+            <th>Reason</th>
+            <th>Proposed Changes</th>
+            <th>Actions</th>
+        </tr>
+    </thead>
+    <tbody>
+    {% for r in edit_requests %}
+        <tr>
+            <td>{{ r.item.item_name }}</td>
+            <td>{{ r.room.room_name }}</td>
+            <td>{{ r.requested_by }}</td>
+            <td>{{ r.reason }}</td>
+            <td><pre>{{ r.proposed_data|safe }}</pre></td>
+            <td>
+                <form method="post" action="{% url 'central_admin:approve_edit_request' r.pk %}" style="display:inline-block;">
+                    {% csrf_token %}
+                    <button class="btn btn-success btn-sm">Approve</button>
+                </form>
+                <form method="post" action="{% url 'central_admin:reject_edit_request' r.pk %}" style="display:inline-block;">
+                    {% csrf_token %}
+                    <button class="btn btn-danger btn-sm">Reject</button>
+                </form>
+            </td>
+        </tr>
+    {% empty %}
+        <tr><td colspan="6">No pending edit requests.</td></tr>
+    {% endfor %}
+    </tbody>
+</table>
+
+{% endblock %}

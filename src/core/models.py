@@ -6,7 +6,8 @@ from django.utils.text import slugify
 from config.utils import generate_unique_slug
 from django.db.models.signals import post_delete
 from django.dispatch import receiver
-    
+# from django.utils import generate_unique_slug  # keep whatever you already had
+# from inventory.models import Organisation  # or your actual Organisation import
     
 class User(AbstractUser):
     username = None
@@ -70,6 +71,7 @@ class UserProfile(models.Model):
     first_name = models.CharField(max_length=255)
     last_name = models.CharField(max_length=255)
     is_central_admin = models.BooleanField(_('is central admin'), default=False)
+    is_sub_admin = models.BooleanField(_('is sub admin'), default=False)
     is_incharge = models.BooleanField(_('is room incharge'), default=False)
     is_student = models.BooleanField(_('is student'), default=False)
     slug = models.SlugField(unique=True, db_index=True)

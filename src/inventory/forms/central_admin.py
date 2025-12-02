@@ -1,5 +1,5 @@
 from django import forms
-from core.models import User, UserProfile
+from core.models import User, UserProfile, Organisation
 from inventory.models import Department, Room, Vendor, Purchase, Issue, Category, Brand
 from config.mixins import form_mixin
 from django.forms import RadioSelect
@@ -41,17 +41,34 @@ class Brand(forms.ModelForm):
         
         
 class PeopleCreateForm(form_mixin.BootstrapFormMixin, forms.ModelForm):
-    email = forms.EmailField(required=True)
+    """
+    Clean form: NO organisation field (org is auto-assigned in the view).
+    """
+    email = forms.EmailField(label="Official Email")
+
+    ROLE_CHOICES = (
+        ('central_admin', 'Central Admin'),
+        ('sub_admin', 'Sub Admin'),
+        ('room_incharge', 'Room Incharge'),
+    )
+
+    role = forms.ChoiceField(choices=ROLE_CHOICES, widget=RadioSelect, label="Select Role", initial='room_incharge')
 
     class Meta:
         model = UserProfile
-        fields = ['email', 'first_name', 'last_name', 'is_central_admin', 'is_incharge']   
-    
+        fields = ['first_name', 'last_name']  # org removed entirely
+
     def clean_email(self):
         email = self.cleaned_data.get('email')
         if User.objects.filter(email=email).exists():
             raise forms.ValidationError("A user with this email already exists.")
         return email
+
+    def save(self, commit=True):
+        profile = super().save(commit=False)
+        if commit:
+            profile.save()
+        return profile
 
 
 class RoomCreateForm(form_mixin.BootstrapFormMixin, forms.ModelForm):

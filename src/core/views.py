@@ -13,6 +13,7 @@ from django.views.generic import CreateView
 from core.models import UserProfile, Organisation
 from django.contrib.auth import get_user_model
 from config.mixins.access_mixins import RedirectLoggedInUsersMixin
+from django.contrib import messages
 
 User = get_user_model()
 
@@ -26,8 +27,31 @@ class LoginView(LoginView):
     template_name = 'core/login.html'
 
     def form_valid(self, form):
-        login(self.request, form.get_user())
-        return redirect('landing_page')
+        user = form.get_user()
+        login(self.request, user)
+
+        profile = getattr(user, "profile", None)
+
+        # CENTRAL ADMIN
+        if profile and profile.is_central_admin:
+            return redirect("central_admin:dashboard")
+
+        # SUB ADMIN
+        if profile and profile.is_sub_admin:
+            return redirect("central_admin:dashboard")
+
+        # ROOM INCHARGE
+        if profile and profile.is_incharge:
+            assigned_room = profile.rooms_incharge.first()
+            if assigned_room:
+                return redirect("room_incharge:room_dashboard", room_slug=assigned_room.slug)
+            else:
+                messages.error(self.request, "No room is assigned to your account.")
+                return redirect("core:login")
+
+        # DEFAULT
+        return redirect("landing_page")
+
     
 
 class UserRegisterView(CreateView):

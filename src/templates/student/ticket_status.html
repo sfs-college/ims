@@ -1,0 +1,25 @@
+<!-- templates/student/ticket_status.html -->
+{% extends "base.html" %}
+{% block content %}
+  <h2>Ticket Status</h2>
+
+  {% if ticket %}
+    <div>
+      <h3>{{ ticket.ticket_id }} — {{ ticket.subject }}</h3>
+      <p><strong>Status:</strong> {{ ticket.get_status_display }}</p>
+      <p><strong>Reporter:</strong> {{ ticket.reporter_email }}</p>
+      <p><strong>Assigned to:</strong> {{ ticket.assigned_to.get_full_name if ticket.assigned_to }}</p>
+      <p><strong>TAT deadline:</strong> {{ ticket.tat_deadline }}</p>
+      <p><strong>Description:</strong><br>{{ ticket.description|linebreaks }}</p>
+    </div>
+  {% elif tickets %}
+    <h3>Tickets for {{ request.GET.email }}</h3>
+    <ul>
+      {% for t in tickets %}
+        <li><a href="?ticket_id={{ t.ticket_id }}">{{ t.ticket_id }}</a> — {{ t.subject }} — {{ t.get_status_display }}</li>
+      {% endfor %}
+    </ul>
+  {% else %}
+    <p>No ticket found. Use the form or provide a ticket_id/email in the query.</p>
+  {% endif %}
+{% endblock %}

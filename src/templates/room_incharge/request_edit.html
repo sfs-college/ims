@@ -1,0 +1,42 @@
+{% extends "sidebar_base.html" %}
+
+{% block content %}
+<h3>Request Edit – {{ item.item_name }}</h3>
+
+<form method="post">
+    {% csrf_token %}
+
+    <div class="mb-3">
+        <label>Item Name</label>
+        <input type="text" name="item_name" class="form-control" placeholder="{{ item.item_name }}">
+    </div>
+
+    <div class="mb-3">
+        <label>Quantity</label>
+        <input type="number" name="quantity" class="form-control" placeholder="{{ item.quantity }}">
+    </div>
+
+    <div class="mb-3">
+        <label>Category</label>
+        <input type="text" name="category" class="form-control" placeholder="{{ item.category }}">
+    </div>
+
+    <div class="mb-3">
+        <label>Brand</label>
+        <input type="text" name="brand" class="form-control" placeholder="{{ item.brand }}">
+    </div>
+
+    <div class="mb-3">
+        <label>Warranty Expiry</label>
+        <input type="date" name="warranty_expiry" class="form-control">
+    </div>
+
+    <div class="mb-3">
+        <label>Remarks</label>
+        <textarea name="remarks" class="form-control">{{ item.remarks }}</textarea>
+    </div>
+
+    <button class="btn btn-primary w-100 mt-2">Submit Edit Request</button>
+</form>
+
+{% endblock %}

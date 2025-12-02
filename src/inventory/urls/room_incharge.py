@@ -22,6 +22,8 @@ urlpatterns = [
     path('rooms/<slug:room_slug>/items/<slug:item_slug>/update/', room_incharge.ItemUpdateView.as_view(), name='item_update'),
     path('rooms/<slug:room_slug>/items/<slug:item_slug>/delete/', room_incharge.ItemDeleteView.as_view(), name='item_delete'),
     path('rooms/<slug:room_slug>/items/<slug:item_slug>/archive/', room_incharge.ItemArchiveView.as_view(), name='item_archive'),
+    #Item Edit request URL
+    path("rooms/<slug:room_slug>/items/<slug:item_slug>/request-edit/", room_incharge.RequestEditView.as_view(), name="request_edit"),
     
     # Item Groups URLs
     path('rooms/<slug:room_slug>/item-groups/', room_incharge.ItemGroupListView.as_view(), name='item_group_list'),
@@ -52,6 +54,8 @@ urlpatterns = [
     path('rooms/<slug:room_slug>/purchases/<slug:purchase_slug>/complete/', room_incharge.PurchaseCompleteView.as_view(), name='purchase_complete'),
     path('rooms/<slug:room_slug>/purchases/<slug:purchase_slug>/add_to_stock/', room_incharge.PurchaseAddToStockView.as_view(), name='purchase_add_to_stock'),
     path('rooms/<slug:room_slug>/purchases/new_item/create/', room_incharge.PurchaseNewItemCreateView.as_view(), name='purchase_new_item_create'),
+    path('rooms/<slug:room_slug>/purchases/import/', room_incharge.PurchaseImportView.as_view(), name='purchase_import'),
+    path('rooms/<slug:room_slug>/purchases/import/confirm/', room_incharge.PurchaseImportConfirmView.as_view(), name='purchase_import_confirm'),
     
 #     # NEW URLS FOR EXCEL REPORT GENERATION
 #     path('rooms/<slug:room_slug>/purchases/export-inventory-register/', 
@@ -71,6 +75,31 @@ urlpatterns = [
     path('rooms/<slug:room_slug>/report/', room_incharge.RoomReportView.as_view(), name='room_report'),
     
     # Issues URLs
-    path('rooms/<slug:room_slug>/issues/', room_incharge.IssueListView.as_view(), name='issue_list'),
-    path('rooms/<slug:room_slug>/issues/<int:pk>/toggle/', room_incharge.toggle_issue, name='toggle_issue'),
+    # ROOM INCHARGE ISSUE LIST
+    path('rooms/<slug:room_slug>/issues/', 
+     room_incharge.IssueListView.as_view(), 
+     name='issue_list'),
+
+    # ISSUE ACTION CONTROLS
+    path('rooms/<slug:room_slug>/issue/<int:pk>/in-progress/', 
+     room_incharge.MarkInProgressView.as_view(), 
+     name='in_progress'),
+
+    path('rooms/<slug:room_slug>/issue/<int:pk>/resolve/', 
+     room_incharge.MarkResolvedView.as_view(), 
+     name='resolve'),
+
+    path('rooms/<slug:room_slug>/issue/<int:pk>/unresolve/', 
+     room_incharge.MarkUnresolvedView.as_view(), 
+     name='unresolve'),
+    # -----------------------------------------------------------
+    # BULK DELETE ISSUES (ADDED)
+    # -----------------------------------------------------------
+    path(
+        'rooms/<slug:room_slug>/issues/bulk-delete/',
+        room_incharge.IssueBulkDeleteView.as_view(),
+        name='issues_bulk_delete'
+    ),
+
+
 ]

@@ -5,17 +5,18 @@ services:
     build: ./src
     image: blixtro
     container_name: blixtro-container
-    command: sh -c "python manage.py makemigrations && python manage.py migrate && python manage.py runserver 0.0.0.0:8000"
+    command: sh -c "python manage.py migrate && python manage.py runserver 0.0.0.0:8000"
     ports:
       - "8000:8000"
     volumes:
-      - ./src:/app
+      - ./src:/app        # <-- LIVE CODE
     env_file:
       - ./src/.env
     depends_on:
       - blixtro_postgres
+      - redis
 
-
+  # POSTGRES
   blixtro_postgres:
     image: postgres:latest
     container_name: blixtro-postgres-container
@@ -29,7 +30,43 @@ services:
     volumes:
       - blixtro_postgres_data:/var/lib/postgresql/data
 
+  # REDIS
+  redis:
+    image: redis:7
+    container_name: blixtro-redis
+    ports:
+      - "6379:6379"
+    restart: unless-stopped
+
+  # CELERY WORKER
+  celery:
+    build: ./src
+    container_name: blixtro-celery
+    command: celery -A config worker --loglevel=info
+    volumes:
+      - ./src:/app             # <-- LIVE CODE
+    depends_on:
+      - app
+      - redis
+      - blixtro_postgres
+    env_file:
+      - ./src/.env
+
+  # CELERY BEAT
+  celery-beat:
+    build: ./src
+    container_name: blixtro-celery-beat
+    command: celery -A config beat --loglevel=info
+    environment:
+      - CELERY_BEAT_SCHEDULE_FILENAME=/tmp/celerybeat-schedule
+    volumes:
+      - ./src:/app             # <-- LIVE CODE
+    depends_on:
+      - app
+      - redis
+      - blixtro_postgres
+    env_file:
+      - ./src/.env
 
 volumes:
   blixtro_postgres_data:
-

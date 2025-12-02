@@ -1,8 +1,8 @@
-from django.shortcuts import redirect, get_object_or_404
+from django.shortcuts import redirect, get_object_or_404, render, reverse
 from django.urls import reverse_lazy
 from django.views.generic import ListView, UpdateView, DeleteView, TemplateView, CreateView, View
-from inventory.models import Category, Purchase, Room, Brand, Item, System, SystemComponent, Issue, ItemGroup, ItemGroupItem, RoomSettings  # Import RoomSettings
-from inventory.forms.room_incharge import CategoryForm, BrandForm, ItemForm, ItemPurchaseForm, PurchaseForm, PurchaseUpdateForm, SystemForm, SystemComponentForm, ItemGroupForm, ItemGroupItemForm, RoomSettingsForm  # Import RoomSettingsForm
+from inventory.models import Category, Vendor, Purchase, Room, Brand, Item, System, SystemComponent, Issue, ItemGroup, ItemGroupItem, RoomSettings, EditRequest # Import RoomSettings
+from inventory.forms.room_incharge import CategoryForm, BrandForm, ItemForm, ItemPurchaseForm, PurchaseForm, PurchaseUpdateForm, SystemForm, SystemComponentForm, ItemGroupForm, ItemGroupItemForm, RoomSettingsForm, ExcelUploadForm, ItemEditRequestForm  # Import RoomSettingsForm
 from django.contrib import messages
 from django.views.generic.edit import FormView
 from inventory.forms.room_incharge import SystemComponentArchiveForm, ItemArchiveForm, RoomUpdateForm
@@ -15,7 +15,11 @@ from weasyprint import HTML
 import pandas as pd
 import io
 from django.utils import timezone
-import datetime
+from datetime import datetime, date
+from openpyxl.utils import datetime as xl_datetime
+from decimal import Decimal, InvalidOperation
+from django.forms.models import model_to_dict
+from django.http import HttpResponseForbidden
 # from ..models import Issue
 
 class CategoryListView(LoginRequiredMixin, ListView):
@@ -237,18 +241,21 @@ class BrandDeleteView(LoginRequiredMixin, DeleteView):
         return context
 
 class ItemListView(LoginRequiredMixin, ListView):
-    template_name = 'room_incharge/item_list.html'
     model = Item
+    template_name = 'room_incharge/item_list.html'
     context_object_name = 'items'
+    # probably have paginate_by, etc.
 
     def get_queryset(self):
-        room_slug = self.kwargs['room_slug']
-        return super().get_queryset().filter(room__slug=room_slug, organisation=self.request.user.profile.org, is_listed=True)
+        room = get_object_or_404(Room, slug=self.kwargs['room_slug'])
+        return Item.objects.filter(room=room).order_by('item_name')
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        room = Room.objects.get(slug=self.kwargs['room_slug'])
+        room = get_object_or_404(Room, slug=self.kwargs['room_slug'])
+        context['room'] = room
         context['room_slug'] = self.kwargs['room_slug']
+        # ensure RoomSettings exists and is available to the template
         context['room_settings'] = RoomSettings.objects.get_or_create(room=room)[0]
         return context
 
@@ -269,12 +276,18 @@ class ItemCreateView(LoginRequiredMixin, CreateView):
         return form
 
     def form_valid(self, form):
-        item = form.save(commit=False)
-        item.organisation = self.request.user.profile.org
-        item.room = Room.objects.get(slug=self.kwargs['room_slug'])
-        item.archived_count = 0  # Set default value
-        item.available_count = item.total_count  # Set available_count to total_count
-        item.save()
+        obj = form.save(commit=False)
+        profile = getattr(self.request.user, "profile", None)
+
+        if profile:
+            obj.organisation = profile.org
+            obj.created_by = profile
+
+        # 🔒 Lock the item immediately after creation
+        obj.is_edit_lock = True  
+        obj.room = Room.objects.get(slug=self.kwargs['room_slug'])
+        obj.save()
+
         return redirect(self.get_success_url())
 
     def get_form_kwargs(self):
@@ -289,11 +302,32 @@ class ItemCreateView(LoginRequiredMixin, CreateView):
         context['room_settings'] = RoomSettings.objects.get_or_create(room=room)[0]
         return context
 
+class RequestEditView(LoginRequiredMixin, View):
+    def post(self, request, *args, **kwargs):
+        room = get_object_or_404(Room, slug=kwargs['room_slug'])
+        item = get_object_or_404(Item, slug=kwargs['item_slug'], room=room)
+
+        if EditRequest.objects.filter(item=item, status="pending").exists():
+            messages.info(request, "An edit request is already pending for this item.")
+            return redirect('room_incharge:item_list', room_slug=room.slug)
+
+        EditRequest.objects.create(
+            item=item,
+            room=room,
+            requested_by=request.user.profile,
+            status="pending",
+        )
+        item.is_edit_lock = True
+        item.save()  # FIXED
+
+        messages.success(request, "Edit request submitted successfully.")
+        return redirect('room_incharge:item_list', room_slug=room.slug)
+
+
 class ItemUpdateView(LoginRequiredMixin, UpdateView):
     model = Item
-    template_name = 'room_incharge/item_update.html'
     form_class = ItemForm
-    success_url = reverse_lazy('room_incharge:item_list')
+    template_name = 'room_incharge/item_update.html'
     slug_field = 'slug'
     slug_url_kwarg = 'item_slug'
 
@@ -302,17 +336,82 @@ class ItemUpdateView(LoginRequiredMixin, UpdateView):
 
     def form_valid(self, form):
         item = form.save(commit=False)
-        item.organisation = self.request.user.profile.org
-        item.room = Room.objects.get(slug=self.kwargs['room_slug'])
-        item.save()
-        return redirect(self.get_success_url())
+        user_profile = self.request.user.profile
 
+        # Only room incharge can edit
+        if user_profile.is_sub_admin or user_profile.is_central_admin:
+            messages.error(self.request, "Admins cannot edit items. They only approve requests.")
+            return redirect(self.get_success_url())
+
+        # Only unlocked items can be edited
+        if item.is_edit_lock:
+            messages.error(self.request, "Item is locked. Request edit first.")
+            return redirect(self.get_success_url())
+
+        # Save changes
+        item.save()
+
+        # Immediately relock after edit
+        item.is_edit_lock = True
+        item.save()
+
+        messages.success(self.request, "Item updated and locked again.")
+        return redirect(self.get_success_url())
+    
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        room = Room.objects.get(slug=self.kwargs['room_slug'])
-        context['room_slug'] = self.kwargs['room_slug']
-        context['room_settings'] = RoomSettings.objects.get_or_create(room=room)[0]
+
+        room_slug = self.kwargs.get("room_slug")
+        room = get_object_or_404(Room, slug=room_slug)
+
+        # FIX: Ensure both navbar and sidebar get room info
+        context["room_slug"] = room_slug
+        context["room"] = room
+        context["room_name"] = room.room_name
+
+        # If navbar/sidebar uses this:
+        context["current_room"] = room
+
+        context["room_settings"] = RoomSettings.objects.get_or_create(room=room)[0]
+
         return context
+
+
+
+class IssueBulkDeleteView(LoginRequiredMixin, View):
+    """
+    Allows Room Incharge to bulk-delete selected issues.
+    Only deletes issues:
+      - belonging to the user's organisation
+      - escalation_level == 0   (not escalated)
+    """
+
+    def post(self, request, *args, **kwargs):
+        ids = request.POST.getlist('selected_issues')
+
+        if not ids:
+            messages.error(request, "No issues selected.")
+            return redirect(request.META.get('HTTP_REFERER', '/'))
+
+        issues = Issue.objects.filter(id__in=ids)
+        profile = getattr(request.user, 'profile', None)
+
+        allowed = []
+        for issue in issues:
+            if (
+                profile and profile.org and 
+                issue.organisation == profile.org and 
+                issue.escalation_level == 0
+            ):
+                allowed.append(issue.pk)
+
+        if allowed:
+            Issue.objects.filter(pk__in=allowed).delete()
+            messages.success(request, f"Deleted {len(allowed)} issue(s).")
+        else:
+            messages.error(request, "No permitted issues to delete.")
+
+        return redirect(request.META.get('HTTP_REFERER', '/'))
 
 class ItemDeleteView(LoginRequiredMixin, DeleteView):
     model = Item
@@ -828,6 +927,587 @@ class PurchaseDeleteView(LoginRequiredMixin, DeleteView):
         context['room_settings'] = RoomSettings.objects.get_or_create(room=room)[0]
         return context
 
+# ============================
+# Excel Expected Column Formats
+# ============================
+
+ITEMS_EXPECTED_COLS = [
+    "Sl No",
+    "Date of Entry",
+    "Item Description",
+    "Category",
+    "Opening Stock Qty",
+    "Arrival / Receipts",
+    "Total",
+    "Consumed Stock/Issues Qty",
+    "Closing / Balance Qty",
+    "Unit of Measure",
+    "Remarks"
+]
+
+PURCHASES_EXPECTED_COLS = [
+    "Sl No",
+    "Date of Purchase/Entry",
+    "Item Description",
+    "Category",
+    "Purchase ID/Model Code",
+    "Serial No",
+    "Quantity",
+    "Unit of Measure",
+    "Status",
+    "Vendor",
+    "Remarks"
+]
+
+# ----------------------------------------
+# ---------- Import view: upload + preview ----------
+class PurchaseImportView(LoginRequiredMixin, FormView):
+    """
+    Upload an Excel file and preview the parsed Items and Purchases.
+    Validates headers and rows, then renders a preview page where the
+    user can re-upload the same file to confirm and commit the import.
+    """
+    template_name = 'room_incharge/purchase_import_upload.html'
+    form_class = ExcelUploadForm
+
+    def get_success_url(self):
+        # After upload/preview we route back to the same upload page
+        return reverse('room_incharge:purchase_import', kwargs={'room_slug': self.kwargs['room_slug']})
+
+    def form_valid(self, form):
+        upload_file = form.cleaned_data['file']
+        # try to parse the uploaded Excel file
+        try:
+            excel = pd.ExcelFile(upload_file)
+        except Exception as e:
+            form.add_error('file', f'Invalid Excel file: {e}')
+            return self.form_invalid(form)
+
+        room = get_object_or_404(Room, slug=self.kwargs['room_slug'])
+        org = self.request.user.profile.org
+
+        preview = {'items': [], 'purchases': [], 'errors': []}
+
+        # ---------- Items sheet ----------
+        if 'Items' in excel.sheet_names:
+            try:
+                df_items = excel.parse('Items')
+            except Exception as e:
+                preview['errors'].append(f"Could not read 'Items' sheet: {e}")
+                df_items = None
+
+            if df_items is not None:
+                # Normalize columns (strip whitespace)
+                df_items.columns = [str(c).strip() for c in df_items.columns]
+                missing = [c for c in ITEMS_EXPECTED_COLS if c not in df_items.columns]
+                if missing:
+                    preview['errors'].append(f"'Items' sheet missing columns: {missing}")
+                else:
+                    # Validate rows and prepare sanitized preview row dicts
+                    for idx, row in df_items.iterrows():
+                        rownum = idx + 2  # Excel-like numbering
+                        row_errors = []
+
+                        # required minimal mapping
+                        item_desc = str(row.get('Item Description', '')).strip()
+                        category_name = str(row.get('Category', '')).strip()
+
+                        if not item_desc:
+                            row_errors.append('Item Description is empty.')
+                        if not category_name:
+                            row_errors.append('Category is empty.')
+
+                        # numeric checks (gracefully collect errors)
+                        try:
+                            opening = float(row.get('Opening Stock Qty', 0) or 0)
+                        except Exception:
+                            opening = None
+                            row_errors.append('Opening Stock Qty not a number.')
+                        try:
+                            arrival = float(row.get('Arrival / Receipts', 0) or 0)
+                        except Exception:
+                            arrival = None
+                            row_errors.append('Arrival / Receipts not a number.')
+                        try:
+                            closing = float(row.get('Closing / Balance Qty', 0) or 0)
+                        except Exception:
+                            closing = None
+                            row_errors.append('Closing / Balance Qty not a number.')
+
+                        # sanitized mapping (keys without spaces for templates)
+                        sanitized = {
+                            'item_description': item_desc,
+                            'category': category_name,
+                            'opening': opening,
+                            'arrival': arrival,
+                            'total': row.get('Total', ''),
+                            'closing': closing,
+                            'uom': row.get('Unit of Measure', ''),
+                            'remarks': row.get('Remarks', ''),
+                        }
+
+                        preview['items'].append({
+                            'rownum': rownum,
+                            'raw': row.to_dict(),
+                            'sanitized': sanitized,
+                            'errors': row_errors
+                        })
+
+        # ---------- Purchases sheet ----------
+        if 'Purchases' in excel.sheet_names:
+            try:
+                df_pur = excel.parse('Purchases')
+            except Exception as e:
+                preview['errors'].append(f"Could not read 'Purchases' sheet: {e}")
+                df_pur = None
+
+            if df_pur is not None:
+                df_pur.columns = [str(c).strip() for c in df_pur.columns]
+                missing = [c for c in PURCHASES_EXPECTED_COLS if c not in df_pur.columns]
+                if missing:
+                    preview['errors'].append(f"'Purchases' sheet missing columns: {missing}")
+                else:
+                    for idx, row in df_pur.iterrows():
+                        rownum = idx + 2
+                        row_errors = []
+                        item_desc = str(row.get('Item Description', '')).strip()
+                        qty_val = row.get('Quantity', None)
+                        if not item_desc:
+                            row_errors.append('Item Description is empty.')
+                        # numeric check for quantity
+                        try:
+                            qty = float(qty_val)
+                        except Exception:
+                            qty = None
+                            row_errors.append('Quantity not a number.')
+
+                        # Vendor (optional) - just pass through
+                        vendor_name = str(row.get('Vendor', '')).strip()
+
+                        sanitized = {
+                            'date': row.get('Date of Purchase/Entry', ''),
+                            'item_description': item_desc,
+                            'category': row.get('Category', ''),
+                            'model_code': row.get('Purchase ID/Model Code', ''),
+                            'serial_no': row.get('Serial No', ''),
+                            'quantity': qty,
+                            'uom': row.get('Unit of Measure', ''),
+                            'vendor': vendor_name,
+                            'remarks': row.get('Remarks', ''),
+                        }
+
+                        preview['purchases'].append({
+                            'rownum': rownum,
+                            'raw': row.to_dict(),
+                            'sanitized': sanitized,
+                            'errors': row_errors
+                        })
+
+        # Save preview meta in session for reference (not raw file bytes)
+        self.request.session['import_preview_meta'] = {
+            'room_slug': self.kwargs['room_slug'],
+            'has_errors': bool(preview['errors'] or any(r['errors'] for r in preview['items']) or any(r['errors'] for r in preview['purchases']))
+        }
+
+        # Render preview template
+        room = get_object_or_404(Room, slug=self.kwargs['room_slug'])
+        room_settings = RoomSettings.objects.get_or_create(room=room)[0]
+
+        # Final return for preview page
+        return render(
+            self.request,
+            "room_incharge/purchase_import_preview.html",
+            {
+                "room_slug": self.kwargs['room_slug'],
+                "preview": preview,
+                "has_errors": self.request.session['import_preview_meta']['has_errors'],
+
+                # 👇 REQUIRED for sidebar (prevents the room_settings error)
+                "room_settings": room_settings,
+            }
+        )
+
+    def get_context_data(self, **kwargs):
+        # Add room-related context (this avoids KeyError in templates)
+        context = super().get_context_data(**kwargs)
+        room_slug = self.kwargs['room_slug']
+        
+        room = get_object_or_404(Room, slug=room_slug)
+        room_settings, _ = RoomSettings.objects.get_or_create(room=room)
+        
+        context['room_slug'] = room_slug
+        context["room_settings"] = room_settings
+        return context
+
+# ---------- Confirm import view: commit to DB ----------
+class PurchaseImportConfirmView(LoginRequiredMixin, FormView):
+    """
+    CONFIRM IMPORT VIEW
+    -------------------
+    User re-uploads the same Excel file.
+    We re-parse + validate + commit into ALL sheets:
+        Summary (optional)
+        Categories
+        Brands
+        Items
+        Systems
+        Item Groups
+        Purchases
+        Issues
+
+    Only necessary fixes have been applied:
+      ✔ robust date parsing
+      ✔ all sheet support
+      ✔ room_settings always passed
+      ✔ clean comments
+      ✔ no layout break
+    """
+
+    template_name = "room_incharge/purchase_import_preview.html"
+    form_class = ExcelUploadForm
+
+    # ---------------------------------------------------------------------
+    # UNIVERSAL DATE PARSER  (fixes “Oct. 06, 2025” issue)
+    # ---------------------------------------------------------------------
+    def parse_excel_date(self, val):
+        """
+        Converts ANY Excel date format (string or Excel timestamp) into python.date.
+        Returns None if empty.
+        Raises ValueError if format unknown.
+        """
+        if val in (None, "", float("nan")):
+            return None
+
+        # Excel datetime
+        if isinstance(val, (datetime, date)):
+            return val.date() if isinstance(val, datetime) else val
+
+        # Convert using pandas (handles 99% of human formats)
+        parsed = pd.to_datetime(str(val), errors="coerce")
+        if pd.isna(parsed):
+            raise ValueError(f"Invalid date format: {val}")
+
+        return parsed.date()
+
+    # ---------------------------------------------------------------------
+    #                          MAIN CONFIRM LOGIC
+    # ---------------------------------------------------------------------
+    def form_valid(self, form):
+        upload_file = form.cleaned_data["file"]
+
+        try:
+            excel = pd.ExcelFile(upload_file)
+        except Exception as e:
+            form.add_error("file", f"Invalid Excel file: {e}")
+            return self.form_invalid(form)
+
+        room = get_object_or_404(Room, slug=self.kwargs["room_slug"])
+        org = self.request.user.profile.org
+
+        # Always available for commit summary
+        room_settings = RoomSettings.objects.get_or_create(room=room)[0]
+
+        commit_errors = []
+
+        # Generic brand fallback
+        generic_brand, _ = Brand.objects.get_or_create(
+            organisation=org, room=room, brand_name="Generic"
+        )
+
+        # Helper: get or create category -----------------------------------
+        def get_or_create_category(name):
+            name = str(name).strip()
+            if not name:
+                return None
+            cat, _ = Category.objects.get_or_create(
+                organisation=org,
+                room=room,
+                category_name=name
+            )
+            return cat
+
+        # ---------------------------------------------------------------------
+        # 1️⃣ SUMMARY SHEET (optional — no DB write required)
+        # ---------------------------------------------------------------------
+        if "Summary" in excel.sheet_names:
+            try:
+                df_summary = excel.parse("Summary")
+            except Exception as e:
+                commit_errors.append(f"Could not read 'Summary' sheet: {e}")
+
+        # ---------------------------------------------------------------------
+        # 2️⃣ CATEGORIES SHEET
+        # ---------------------------------------------------------------------
+        if "Categories" in excel.sheet_names:
+            try:
+                df_cat = excel.parse("Categories")
+                df_cat.columns = [c.strip() for c in df_cat.columns]
+            except Exception as e:
+                commit_errors.append(f"Could not read 'Categories' sheet: {e}")
+                df_cat = None
+
+            if df_cat is not None:
+                for idx, row in df_cat.iterrows():
+                    name = str(row.get("Category Name", "")).strip()
+                    if not name:
+                        commit_errors.append(
+                            f"Categories row {idx+2}: Category Name missing."
+                        )
+                        continue
+                    Category.objects.get_or_create(
+                        organisation=org, room=room, category_name=name
+                    )
+
+        # ---------------------------------------------------------------------
+        # 3️⃣ BRANDS SHEET
+        # ---------------------------------------------------------------------
+        if "Brands" in excel.sheet_names:
+            try:
+                df_brand = excel.parse("Brands")
+                df_brand.columns = [c.strip() for c in df_brand.columns]
+            except Exception as e:
+                commit_errors.append(f"Could not read 'Brands' sheet: {e}")
+                df_brand = None
+
+            if df_brand is not None:
+                for idx, row in df_brand.iterrows():
+                    name = str(row.get("Brand Name", "")).strip()
+                    if not name:
+                        commit_errors.append(f"Brands row {idx+2}: Brand Name missing.")
+                        continue
+
+                    Brand.objects.get_or_create(
+                        organisation=org, room=room, brand_name=name
+                    )
+
+        # ---------------------------------------------------------------------
+        # 4️⃣ ITEMS SHEET
+        # ---------------------------------------------------------------------
+        if "Items" in excel.sheet_names:
+            try:
+                df_items = excel.parse("Items")
+                df_items.columns = [c.strip() for c in df_items.columns]
+            except Exception as e:
+                commit_errors.append(f"Could not read 'Items' sheet: {e}")
+                df_items = None
+
+            if df_items is not None:
+                for idx, row in df_items.iterrows():
+
+                    item_desc = str(row.get("Item Description", "")).strip()
+                    category_name = str(row.get("Category", "")).strip()
+
+                    if not item_desc:
+                        commit_errors.append(f"Items row {idx+2}: Missing Item Description.")
+                        continue
+
+                    arrival = int(row.get("Arrival / Receipts", 0) or 0)
+                    closing = int(row.get("Closing / Balance Qty", arrival))
+
+                    # Check if exists
+                    item_qs = Item.objects.filter(
+                        organisation=org, room=room,
+                        item_name__iexact=item_desc
+                    )
+
+                    if item_qs.exists():
+                        item = item_qs.first()
+                    else:
+                        cat = get_or_create_category(category_name)
+                        if not cat:
+                            commit_errors.append(f"Items row {idx+2}: Missing category.")
+                            continue
+
+                        Item.objects.create(
+                            organisation=org,
+                            department=room.department,
+                            room=room,
+                            category=cat,
+                            brand=generic_brand,
+                            item_name=item_desc[:255],
+                            item_description=item_desc,
+                            serial_number=str(row.get("Serial Number", ""))[:100],
+                            purchase_model_code=str(row.get("Purchase Model Code", ""))[:100],
+                            total_count=arrival,
+                            available_count=closing,
+                            is_listed=True
+                        )
+
+        # ---------------------------------------------------------------------
+        # 5️⃣ SYSTEMS SHEET
+        # ---------------------------------------------------------------------
+        if "Systems" in excel.sheet_names:
+            try:
+                df_sys = excel.parse("Systems")
+                df_sys.columns = [c.strip() for c in df_sys.columns]
+            except Exception as e:
+                commit_errors.append(f"Could not read 'Systems' sheet: {e}")
+                df_sys = None
+
+            if df_sys is not None:
+                for idx, row in df_sys.iterrows():
+                    name = str(row.get("System Name", "")).strip()
+                    status = str(row.get("Status", "")).strip()
+
+                    if not name:
+                        commit_errors.append(f"Systems row {idx+2}: Missing System Name.")
+                        continue
+
+                    System.objects.get_or_create(
+                        organisation=org,
+                        room=room,
+                        system_name=name,
+                        defaults={"status": status}
+                    )
+
+        # ---------------------------------------------------------------------
+        # 6️⃣ ITEM GROUPS SHEET
+        # ---------------------------------------------------------------------
+        if "Item Groups" in excel.sheet_names:
+            try:
+                df_ig = excel.parse("Item Groups")
+                df_ig.columns = [c.strip() for c in df_ig.columns]
+            except Exception as e:
+                commit_errors.append(f"Could not read 'Item Groups' sheet: {e}")
+                df_ig = None
+
+            if df_ig is not None:
+                for idx, row in df_ig.iterrows():
+                    name = str(row.get("Item Group Name", "")).strip()
+                    if not name:
+                        commit_errors.append(f"Item Groups row {idx+2}: Missing name.")
+                        continue
+
+                    ItemGroup.objects.get_or_create(
+                        organisation=org, room=room, item_group_name=name
+                    )
+
+        # ---------------------------------------------------------------------
+        # 7️⃣ PURCHASES SHEET (with **robust date parser**)
+        # ---------------------------------------------------------------------
+        if "Purchases" in excel.sheet_names:
+            try:
+                df_pur = excel.parse("Purchases")
+                df_pur.columns = [c.strip() for c in df_pur.columns]
+            except Exception as e:
+                commit_errors.append(f"Could not read 'Purchases' sheet: {e}")
+                df_pur = None
+
+            if df_pur is not None:
+                for idx, row in df_pur.iterrows():
+
+                    item_desc = str(row.get("Item Description", "")).strip()
+                    if not item_desc:
+                        commit_errors.append(f"Purchases row {idx+2}: Missing item.")
+                        continue
+
+                    qty = float(row.get("Quantity", 0) or 0)
+                    vendor_name = str(row.get("Vendor", "")).strip()
+
+                    try:
+                        purchase_date = self.parse_excel_date(row.get("Date of Purchase/Entry"))
+                    except Exception as e:
+                        commit_errors.append(f"Purchases row {idx+2}: Invalid date ({e}).")
+                        continue
+
+                    # Get item
+                    item = Item.objects.filter(
+                        organisation=org, room=room,
+                        item_name__iexact=item_desc
+                    ).first()
+
+                    if not item:
+                        cat = get_or_create_category(row.get("Category", "Uncategorized"))
+                        item = Item.objects.create(
+                            organisation=org,
+                            department=room.department,
+                            room=room,
+                            category=cat,
+                            brand=generic_brand,
+                            item_name=item_desc[:255],
+                            item_description=item_desc,
+                            total_count=qty,
+                            available_count=qty,
+                            is_listed=True
+                        )
+
+                    # Vendor
+                    vendor_obj = Vendor.objects.filter(
+                        organisation=org,
+                        vendor_name__iexact=vendor_name
+                    ).first()
+
+                    Purchase.objects.create(
+                        organisation=org,
+                        room=room,
+                        item=item,
+                        quantity=qty,
+                        unit_of_measure=row.get("Unit of Measure", "units"),
+                        vendor=vendor_obj,
+                        purchase_date=purchase_date,
+                        remarks=str(row.get("Remarks", "")),
+                        status="requested"
+                    )
+
+        # ---------------------------------------------------------------------
+        # 8️⃣ ISSUES SHEET
+        # ---------------------------------------------------------------------
+        if "Issues" in excel.sheet_names:
+            try:
+                df_iss = excel.parse("Issues")
+                df_iss.columns = [c.strip() for c in df_iss.columns]
+            except Exception as e:
+                commit_errors.append(f"Could not read 'Issues' sheet: {e}")
+                df_iss = None
+
+            if df_iss is not None:
+                for idx, row in df_iss.iterrows():
+                    subject = str(row.get("Subject", "")).strip()
+                    description = str(row.get("Description", "")).strip()
+
+                    if not subject:
+                        commit_errors.append(f"Issues row {idx+2}: Missing Subject.")
+                        continue
+
+                    Issue.objects.create(
+                        organisation=org,
+                        room=room,
+                        subject=subject,
+                        description=description,
+                        resolved=bool(row.get("Resolved", False))
+                    )
+
+        # ---------------------------------------------------------------------
+        # FINAL: SHOW ERRORS OR SUCCESS
+        # ---------------------------------------------------------------------
+        if commit_errors:
+            messages.error(self.request, "Some rows failed to import.")
+            return render(
+                self.request,
+                "room_incharge/purchase_import_preview.html",
+                {
+                    "room_slug": room.slug,
+                    "preview": {"items": [], "purchases": [], "errors": commit_errors},
+                    "has_errors": True,
+                    "room_settings": room_settings,   # FIX: always passed
+                },
+            )
+
+        messages.success(self.request, "Import completed successfully.")
+        return redirect("room_incharge:purchase_list", room_slug=room.slug)
+
+    # -------------------------------------------------------------------------
+    # REQUIRED: room_settings in get_context_data to avoid sidebar crash
+    # -------------------------------------------------------------------------
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        room = get_object_or_404(Room, slug=self.kwargs["room_slug"])
+        context["room_slug"] = room.slug
+        context["room_settings"] = RoomSettings.objects.get_or_create(room=room)[0]
+        return context
+
+
+
 class PurchaseCompleteView(LoginRequiredMixin, FormView):
     template_name = 'room_incharge/purchase_complete.html'
     form_class = PurchaseCompleteForm
@@ -870,38 +1550,75 @@ class PurchaseAddToStockView(LoginRequiredMixin, View):
         return redirect('room_incharge:purchase_list', room_slug=self.kwargs['room_slug'])
 
 class IssueListView(LoginRequiredMixin, ListView):
+    """
+    List issues for a room (room incharge view).
+    Shows columns: Sno | Subject | Raised By | Room | Status | TAT Deadline | Assigned To | Actions
+    """
     template_name = 'room_incharge/issue_list.html'
     model = Issue
     context_object_name = 'issues'
+    paginate_by = 50
 
     def get_queryset(self):
         room_slug = self.kwargs['room_slug']
-        return super().get_queryset().filter(room__slug=room_slug, organisation=self.request.user.profile.org)
+        # Ensure we only return issues for the room & organisation of the logged in user
+        return Issue.objects.filter(
+            room__slug=room_slug,
+            organisation=self.request.user.profile.org
+        ).order_by('-created_on')
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         room = get_object_or_404(Room, slug=self.kwargs['room_slug'], organisation=self.request.user.profile.org)
-        # ensure the template has access to the room object and slug
         context['room'] = room
-        context['room_slug'] = self.kwargs['room_slug']
+        context['room_slug'] = room.slug
         context['room_settings'] = RoomSettings.objects.get_or_create(room=room)[0]
         return context
 
-# POST-only toggle view
-# @require_POST
-def toggle_issue(request, room_slug, pk):
-    """
-    Toggle the resolved flag for an Issue that belongs to the given room.
-    """
-    # make sure the room belongs to the user's organisation (same safety as list)
-    room = get_object_or_404(Room, slug=room_slug, organisation=request.user.profile.org)
-    issue = get_object_or_404(Issue, pk=pk, room=room)
 
-    issue.resolved = not issue.resolved
-    issue.save()
+# ---- action views (POST-only) ----
+class MarkInProgressView(LoginRequiredMixin, View):
+    """
+    POST: change status to in_progress for an issue belonging to given room.
+    """
+    def post(self, request, room_slug, pk):
+        # Validate room and organisation ownership
+        room = get_object_or_404(Room, slug=room_slug, organisation=request.user.profile.org)
+        issue = get_object_or_404(Issue, pk=pk, room=room)
 
-    # redirect back to the issue list for the same room
-    return redirect('room_incharge:issue_list', room_slug=room.slug)
+        issue.status = "in_progress"
+        # Optionally reset resolved flag
+        issue.resolved = False
+        issue.save()
+        return redirect('room_incharge:issue_list', room_slug=room.slug)
+
+
+class MarkResolvedView(LoginRequiredMixin, View):
+    """
+    POST: mark issue as resolved/closed.
+    """
+    def post(self, request, room_slug, pk):
+        room = get_object_or_404(Room, slug=room_slug, organisation=request.user.profile.org)
+        issue = get_object_or_404(Issue, pk=pk, room=room)
+
+        issue.status = "closed"
+        issue.resolved = True
+        issue.save()
+        return redirect('room_incharge:issue_list', room_slug=room.slug)
+
+
+class MarkUnresolvedView(LoginRequiredMixin, View):
+    """
+    POST: reopen the issue (set to open and unresolved).
+    """
+    def post(self, request, room_slug, pk):
+        room = get_object_or_404(Room, slug=room_slug, organisation=request.user.profile.org)
+        issue = get_object_or_404(Issue, pk=pk, room=room)
+
+        issue.status = "open"
+        issue.resolved = False
+        issue.save()
+        return redirect('room_incharge:issue_list', room_slug=room.slug)
 
 class ItemGroupListView(LoginRequiredMixin, ListView):
     template_name = 'room_incharge/item_group_list.html'
@@ -1131,7 +1848,7 @@ class RoomReportView(LoginRequiredMixin, View):
             """Format datetime similar to PDF's visual style."""
             if not dt:
                 return ''
-            if isinstance(dt, datetime.date) and not isinstance(dt, datetime.datetime):
+            if isinstance(dt, date) and not isinstance(dt, datetime):
                 return dt.strftime('%b. %d, %Y')
             try:
                 dt_local = timezone.localtime(dt) if timezone.is_aware(dt) else dt

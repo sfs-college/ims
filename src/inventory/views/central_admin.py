@@ -2,7 +2,7 @@ from django.shortcuts import redirect, get_object_or_404
 from django.urls import reverse, reverse_lazy
 from django.views.generic import TemplateView, ListView, CreateView, UpdateView, DeleteView, View
 from core.models import User, UserProfile
-from inventory.models import Room, Vendor, Purchase, Issue, Department  # Import the Department model
+from inventory.models import Room, Vendor, Purchase, Issue, Department, Item, EditRequest  # Import the Department model
 from django.contrib.auth.tokens import PasswordResetTokenGenerator
 from django.utils.http import urlsafe_base64_encode
 from django.utils.encoding import force_bytes
@@ -11,6 +11,9 @@ from django.db import transaction
 from inventory.forms.central_admin import PeopleCreateForm, RoomCreateForm, DepartmentForm, VendorForm  # Import the form
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.core.mail import send_mail
+from django.contrib import messages
+from django.utils import timezone
+from django.views.decorators.http import require_POST
 
 class DashboardView(LoginRequiredMixin, TemplateView):
     template_name = 'central_admin/dashboard.html'
@@ -37,57 +40,80 @@ class PeopleCreateView(LoginRequiredMixin, CreateView):
 
     @transaction.atomic
     def form_valid(self, form):
-        try:
-            userprofile = form.save(commit=False)
+        current_profile = getattr(self.request.user, "profile", None)
+        role = form.cleaned_data.get('role')
+        email = form.cleaned_data.get('email')
 
-            random_password = BaseUserManager().make_random_password()
-
-            user = User.objects.create_user(
-                email=form.cleaned_data.get('email'),
-                first_name=userprofile.first_name,
-                last_name=userprofile.last_name,
-                password=random_password,
-            )
-            
-            userprofile.user = user
-            userprofile.org = self.request.user.profile.org
-            userprofile.save()
-            
-            # Generate password reset link
-            token_generator = PasswordResetTokenGenerator()
-            uid = urlsafe_base64_encode(force_bytes(user.pk))
-            token = token_generator.make_token(user)
-
-            reset_link = self.request.build_absolute_uri(
-                reverse('core:confirm_password_reset', kwargs={'uidb64': uid, 'token': token})
-            )
-            
-            subject = "Welcome to SFS IMS"
-            message = (
-                f"Hello,\n\n"
-                f"Welcome to our BusNest! You have been added to the system by "
-                f"{self.request.user.profile.first_name} {self.request.user.profile.last_name}. "
-                f"Please set your password using the link below.\n\n"
-                f"{reset_link}\n\n"
-                f"Best regards,\nSFS IMS Team"
-            )
-            recipient_list = [user.email]
-
-            send_mail(
-                subject,
-                message,
-                None,  # Use default from_email in settings
-                recipient_list,
-                fail_silently=False,
-            )
-            
-            
-            return redirect(self.success_url)
-        except Exception as e:
-            print(self.request, f"An error occurred: {str(e)}")
+        # Prevent Sub Admin from creating Central Admin
+        if current_profile and current_profile.is_sub_admin and role == 'central_admin':
+            form.add_error('role', "Sub Admin cannot create a Central Admin account.")
             return self.form_invalid(form)
-        
-        
+
+        # Create Django User
+        random_password = BaseUserManager().make_random_password()
+
+        user = User.objects.create_user(
+            email=email,
+            first_name=form.cleaned_data.get('first_name'),
+            last_name=form.cleaned_data.get('last_name'),
+            password=random_password,
+        )
+        user.is_active = True
+        user.is_staff = True
+        user.save()
+
+        # Create UserProfile
+        userprofile = form.save(commit=False)
+        userprofile.user = user
+
+        if current_profile:
+            userprofile.org = current_profile.org
+
+        # Reset role flags
+        userprofile.is_central_admin = False
+        userprofile.is_sub_admin = False
+        userprofile.is_incharge = False
+
+        if role == 'central_admin':
+            userprofile.is_central_admin = True
+        elif role == 'sub_admin':
+            userprofile.is_sub_admin = True
+        elif role == 'room_incharge':
+            userprofile.is_incharge = True
+
+        userprofile.save()
+
+        # Create password reset link
+        token_generator = PasswordResetTokenGenerator()
+        uid = urlsafe_base64_encode(force_bytes(user.pk))
+        token = token_generator.make_token(user)
+
+        reset_link = self.request.build_absolute_uri(
+            reverse('core:confirm_password_reset', kwargs={'uidb64': uid, 'token': token})
+        )
+
+        subject = "Your Blixtro account has been created"
+        message = (
+            "Hi,\n\n"
+            "An account has been created for you on the SFS IMS system.\n\n"
+            "Please click the link below to set your password:\n"
+            f"{reset_link}\n\n"
+            "Best regards,\nSFS IMS Team"
+        )
+
+        send_mail(
+            subject,
+            message,
+            None,
+            [user.email],
+            fail_silently=False,
+        )
+
+        return redirect(self.success_url)
+
+
+
+
 class PeopleDeleteView(LoginRequiredMixin, DeleteView):
     model = UserProfile
     template_name = 'central_admin/people_delete_confirm.html'
@@ -196,12 +222,54 @@ class PurchaseListView(LoginRequiredMixin, ListView):
 
 
 class IssueListView(LoginRequiredMixin, ListView):
+    """
+    [IssueTab] Show all issues for the current organisation to Central Admin / Sub Admin.
+    """
     template_name = 'central_admin/issue_list.html'
     model = Issue
     context_object_name = 'issues'
-    
-    def get_queryset(self):
-        return super().get_queryset().filter(organisation=self.request.user.profile.org)
+
+    # --- Replace the get_queryset method inside IssueListView with this full method ---
+def get_queryset(self):
+    """
+    Return issues visible to the central/sub admin view.
+
+    Rules:
+      - Show issues belonging to the admin's organisation (profile.org)
+      - OR issues specifically assigned to the current user's profile (assigned_to)
+      - Superuser sees everything
+      - If the user has no org and not superuser, and there's only one org in DB, show issues for that org
+      - Otherwise fallback to qs.none() to avoid cross-org leaks
+    """
+    qs = super().get_queryset()
+    profile = getattr(self.request.user, "profile", None)
+
+    # If the user has a profile and an organisation, show issues either belonging to that organisation
+    # OR those assigned directly to the user (this ensures escalated issues assigned to a user are visible).
+    if profile and getattr(profile, "org", None):
+        from django.db.models import Q
+        qs = qs.filter(Q(organisation=profile.org) | Q(assigned_to=profile))
+
+    elif self.request.user.is_superuser:
+        # Superusers see everything
+        qs = qs
+
+    else:
+        # If only one organisation exists, show that org's issues
+        from inventory.models import Organisation
+        org_count = Organisation.objects.count()
+        if org_count == 1:
+            org = Organisation.objects.first()
+            qs = qs.filter(organisation=org)
+        else:
+            # Fallback: avoid cross-organisation leakage
+            qs = qs.none()
+
+    # Use select_related for efficiency and order newest first
+    return qs.select_related('room', 'assigned_to').order_by('-created_on')
+
+
+
 
 
 class DepartmentListView(LoginRequiredMixin, ListView):
@@ -249,4 +317,106 @@ class PurchaseDeclineView(LoginRequiredMixin, View):
             purchase.status = 'rejected'
             purchase.save()
         return redirect('central_admin:purchase_list')
+    
+class ItemListView(LoginRequiredMixin, ListView):
+    model = Item
+    template_name = 'central_admin/item_list.html'
+    context_object_name = 'items'
 
+    def get_queryset(self):
+        profile = self.request.user.profile
+
+        if profile.is_sub_admin:
+            # SubAdmin sees EVERYTHING from room-incharges
+            return Item.objects.filter(
+                organisation=profile.org
+            ).select_related('room', 'category', 'brand')
+
+        if profile.is_central_admin:
+            # CentralAdmin sees only items NOT created by incharge
+            return Item.objects.filter(
+                organisation=profile.org,
+                created_by__is_incharge=False
+            ).select_related('room', 'category', 'brand')
+
+        return Item.objects.none()
+
+class EditRequestListView(ListView):
+    model = EditRequest
+    template_name = "central_admin/edit_request_list.html"
+    context_object_name = "edit_requests"
+
+    def get_queryset(self):
+        return EditRequest.objects.filter(status="pending").order_by("-created_on")
+
+class ApproveEditRequestView(LoginRequiredMixin, View):
+    def post(self, request, pk, *args, **kwargs):
+        er = get_object_or_404(EditRequest, pk=pk)
+        item = er.item
+
+        # STEP 1 — Mark request as approved
+        er.status = "approved"
+        er.reviewed_by = request.user.profile
+        er.save()
+
+        # STEP 2 — Unlock item so room incharge can edit it
+        item.is_edit_lock = False
+        item.save()
+
+        messages.success(request, "Edit request approved. Item is now unlocked for editing.")
+        return redirect('central_admin:edit_request_list')
+
+
+class RejectEditRequestView(LoginRequiredMixin, View):
+    def post(self, request, pk, *args, **kwargs):
+        er = get_object_or_404(EditRequest, pk=pk)
+        er.status = 'rejected'
+        er.save()
+        messages.info(request, "Edit request rejected.")
+        return redirect('central_admin:edit_request_list')
+
+# added this for admin issue actions
+
+@require_POST
+def admin_resolve_issue(request, pk):
+    issue = get_object_or_404(Issue, pk=pk)
+    issue.resolved = True
+    issue.status = "closed"
+    issue.save(update_fields=["resolved", "status", "updated_on"])
+    messages.success(request, f"Issue {issue.ticket_id} marked as resolved.")
+    return redirect("central_admin:issue_list")
+
+
+@require_POST
+def admin_unresolve_issue(request, pk):
+    issue = get_object_or_404(Issue, pk=pk)
+    issue.resolved = False
+    issue.status = "open"   # keep simple — not touching workflow
+    issue.save(update_fields=["resolved", "status", "updated_on"])
+    messages.info(request, f"Issue {issue.ticket_id} marked as unresolved.")
+    return redirect("central_admin:issue_list")
+
+
+@require_POST
+def admin_deescalate_issue(request, pk):
+    issue = get_object_or_404(Issue, pk=pk)
+
+    # Only de-escalate if above room incharge
+    if issue.escalation_level > 0:
+        issue.escalation_level = 0
+        issue.status = "open"
+        issue.resolved = False
+
+        # send back to room incharge
+        issue.assigned_to = issue.room.incharge
+
+        issue.save(update_fields=[
+            "escalation_level", "assigned_to", "status",
+            "resolved", "updated_on"
+        ])
+
+        messages.warning(request, f"Issue {issue.ticket_id} de-escalated to room incharge.")
+    else:
+        messages.error(request, "Issue is already at the lowest escalation level.")
+
+    return redirect("central_admin:issue_list")

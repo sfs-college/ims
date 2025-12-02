@@ -82,8 +82,31 @@
                 </div>
               </div>
               <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+
+                  <!-- RESOLVE / UNRESOLVE -->
+                  {% if issue.resolved %}
+                      <form method="post" action="{% url 'central_admin:unresolve_issue' issue.id %}" style="display:inline;">
+                          {% csrf_token %}
+                          <button class="btn btn-warning">Unresolve</button>
+                      </form>
+                  {% else %}
+                      <form method="post" action="{% url 'central_admin:resolve_issue' issue.id %}" style="display:inline;">
+                          {% csrf_token %}
+                          <button class="btn btn-success">Resolve</button>
+                      </form>
+                  {% endif %}
+
+                  <!-- DE-ESCALATE -->
+                  {% if issue.escalation_level > 0 %}
+                      <form method="post" action="{% url 'central_admin:deescalate_issue' issue.id %}" style="display:inline;">
+                          {% csrf_token %}
+                          <button class="btn btn-outline-danger">De-escalate</button>
+                      </form>
+                  {% endif %}
+
+                  <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
               </div>
+
             </div>
           </div>
         </div>

@@ -40,12 +40,17 @@
           <td>{{ person.user.get_full_name }}</td>
           <td>{{ person.user.email }}</td>
           <td>
-            {% if person.is_incharge %}
-            Room Incharge
-            {% elif person.is_central_admin %}
-            Central Admin
-            {% endif %}
+              {% if person.is_central_admin %}
+                  Central Admin
+              {% elif person.is_sub_admin %}
+                  Sub Admin
+              {% elif person.is_incharge %}
+                  Room Incharge
+              {% else %}
+                  Unknown
+              {% endif %}
           </td>
+
           <td>
             <a href="{% url 'central_admin:people_delete' people_slug=person.slug %}" class="btn btn-danger btn-sm">Delete</a>
           </td>
