@@ -1,0 +1,77 @@
+{% extends "sidebar_base.html" %}
+{% load static %}
+
+{% block title %} | Import Excel{% endblock title %}
+
+{% block style %}
+<link rel="stylesheet" href="{% static 'styles/inventory/room_incharge/purchase_list/style.css' %}">
+<style>
+    .import-wrapper {
+        padding: 20px 28px;
+    }
+    .import-box {
+        background: #fff;
+        padding: 30px;
+        border-radius: 12px;
+        border: 1px solid #e5e5e5;
+        box-shadow: 0 1px 4px rgba(0,0,0,0.05);
+    }
+    .import-box h3 {
+        font-weight: 700;
+        margin-bottom: 12px;
+    }
+    .desc-text {
+        color: #555;
+        font-size: 15px;
+        line-height: 1.5;
+    }
+    input[type="file"] {
+        padding: 8px !important;
+        border-radius: 6px;
+    }
+</style>
+{% endblock style %}
+
+{% block navbar %}
+    {% include "room_incharge/navbar.html" %}
+{% endblock navbar %}
+
+{% block sidebar %}
+    {% include "room_incharge/sidebar.html" %}
+{% endblock sidebar %}
+
+{% block content %}
+<div class="import-wrapper">
+
+    <div class="import-box">
+
+        <h3>Import Items & Purchases (Excel)</h3>
+        <p class="desc-text mb-4">
+            Upload the <strong>.xlsx</strong> file exported from the system.<br>
+            The import requires sheets named 
+            <span class="fw-bold text-primary">Items</span> and/or 
+            <span class="fw-bold text-danger">Purchases</span> 
+            with the exact column format of the exported file.
+        </p>
+
+        <form method="POST" enctype="multipart/form-data">
+            {% csrf_token %}
+
+            <div class="mb-3">
+                <label class="form-label fw-semibold">Select Excel File</label>
+                {{ form.file }}
+                <div class="text-muted mt-2">
+                    Only <b>.xlsx</b> supported.  
+                    You will see a preview before import.
+                </div>
+            </div>
+
+            <button type="submit" class="btn btn-primary px-4 py-2 mt-2">
+                Upload & Preview
+            </button>
+        </form>
+
+    </div>
+
+</div>
+{% endblock content %}

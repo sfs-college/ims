@@ -1,0 +1,6 @@
+{# ITEM DETAIL PAGE — Everyone uses Request Edit. No direct Edit button. #}
+
+<a href="{% url 'room_incharge:item_edit_request' room_slug=item.room.slug item_slug=item.slug %}"
+   class="btn btn-warning">
+   Request Edit
+</a>

@@ -1,52 +1,74 @@
 <section class="sidebar">
     <div class="nav">
-        <a class="navlink {% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}" href="{% url 'central_admin:dashboard' %}">
-            <span class="material-symbols-outlined me-2">
-                dashboard
-            </span>
+
+        <!-- Dashboard (visible to all logged-in admin roles) -->
+        <a class="navlink {% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}"
+           href="{% url 'central_admin:dashboard' %}">
+            <span class="material-symbols-outlined me-2">dashboard</span>
             <span class="menu-text">Dashboard</span>
         </a>
-        <a class="navlink {% if request.resolver_match.url_name == 'people_list' %}active{% endif %}" href="{% url 'central_admin:people_list' %}">
-            <span class="material-symbols-outlined me-2">
-                groups
-            </span>
+
+        <!-- PEOPLE: visible to Central Admin + Sub Admin -->
+        {% if request.user.profile.is_central_admin or request.user.profile.is_sub_admin %}
+        <a class="navlink {% if request.resolver_match.url_name == 'people_list' %}active{% endif %}"
+           href="{% url 'central_admin:people_list' %}">
+            <span class="material-symbols-outlined me-2">groups</span>
             <span class="menu-text">People</span>
         </a>
+        {% endif %}
 
-        <a class="navlink {% if request.resolver_match.url_name == 'department_list' %}active{% endif %}" href="{% url 'central_admin:department_list' %}">
-            <span class="material-symbols-outlined me-2">
-                tile_medium
-            </span>
+        <!-- DEPARTMENTS: ONLY Central Admin -->
+        {% if request.user.profile.is_central_admin %}
+        <a class="navlink {% if request.resolver_match.url_name == 'department_list' %}active{% endif %}"
+           href="{% url 'central_admin:department_list' %}">
+            <span class="material-symbols-outlined me-2">tile_medium</span>
             <span class="menu-text">Departments</span>
         </a>
+        {% endif %}
 
-        <a class="navlink {% if request.resolver_match.url_name == 'room_list' %}active{% endif %}" href="{% url 'central_admin:room_list' %}">
-            <span class="material-symbols-outlined me-2">
-                door_open
-            </span>
+        <!-- ROOMS: visible to Central + Sub admin -->
+        {% if request.user.profile.is_central_admin or request.user.profile.is_sub_admin %}
+        <a class="navlink {% if request.resolver_match.url_name == 'room_list' %}active{% endif %}"
+           href="{% url 'central_admin:room_list' %}">
+            <span class="material-symbols-outlined me-2">door_open</span>
             <span class="menu-text">Rooms</span>
         </a>
+        {% endif %}
 
-        <a class="navlink {% if request.resolver_match.url_name == 'vendor_list' %}active{% endif %}" href="{% url 'central_admin:vendor_list' %}">
-            <span class="material-symbols-outlined me-2">
-                storefront
-            </span>
+        <!-- VENDORS: ONLY Central Admin -->
+        {% if request.user.profile.is_central_admin %}
+        <a class="navlink {% if request.resolver_match.url_name == 'vendor_list' %}active{% endif %}"
+           href="{% url 'central_admin:vendor_list' %}">
+            <span class="material-symbols-outlined me-2">storefront</span>
             <span class="menu-text">Vendors</span>
         </a>
+        {% endif %}
 
-        <a class="navlink {% if request.resolver_match.url_name == 'purchase_list' %}active{% endif %}" href="{% url 'central_admin:purchase_list' %}">
-            <span class="material-symbols-outlined me-2">
-                shopping_cart
-            </span>
+        <!-- PURCHASES: visible to Central + Sub Admin -->
+        {% if request.user.profile.is_central_admin or request.user.profile.is_sub_admin %}
+        <a class="navlink {% if request.resolver_match.url_name == 'purchase_list' %}active{% endif %}"
+           href="{% url 'central_admin:purchase_list' %}">
+            <span class="material-symbols-outlined me-2">shopping_cart</span>
             <span class="menu-text">Purchases</span>
         </a>
+        {% endif %}
 
-        <a class="navlink {% if request.resolver_match.url_name == 'issue_list' %}active{% endif %}" href="{% url 'central_admin:issue_list' %}">
-            <span class="material-symbols-outlined me-2">
-                report
-            </span>
+        <!-- ISSUES: visible to both -->
+        <a class="navlink {% if request.resolver_match.url_name == 'issue_list' %}active{% endif %}"
+           href="{% url 'central_admin:issue_list' %}">
+            <span class="material-symbols-outlined me-2">report</span>
             <span class="menu-text">Issues</span>
         </a>
 
+        <!-- EDIT REQUESTS: visible to Central + Sub Admin -->
+        {% if request.user.profile.is_central_admin or request.user.profile.is_sub_admin %}
+        <a class="navlink {% if request.resolver_match.url_name == 'edit_request_list' %}active{% endif %}"
+           href="{% url 'central_admin:edit_request_list' %}">
+            <span class="material-symbols-outlined me-2">edit</span>
+            <span class="menu-text">Edit Requests</span>
+        </a>
+        {% endif %}
+
     </div>
 </section>
+    

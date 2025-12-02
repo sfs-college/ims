@@ -1,25 +1,129 @@
 {% extends "base.html" %}
 {% load static %}
 
-{% block title %} | Issuses{% endblock title %}
-
+{% block title %} | Issues{% endblock title %}
 
 {% block content %}
+
 <div class="container my-5 pt-3">
     <div class="row justify-content-center">
-        <div class="col-md-8 col-lg-6">
-            <a href="javascript:history.back()" class="btn btn-sm btn-dark mb-3">Go back</a>
-            <div class="card">
+
+        <div class="col-md-10">
+
+            <!-- Back Button -->
+            <a href="javascript:history.back()" class="btn btn-dark btn-sm mb-3">Go Back</a>
+
+            <div class="card shadow-lg mb-4">
                 <div class="card-body">
-                    <h3 class="card-title mb-4">Report an Issue</h3>
+
+                    <h3 class="mb-4">Report an Issue</h3>
+
                     <form method="post">
                         {% csrf_token %}
-                        {{ form.as_p | safe }}
-                        <button type="submit" class="btn btn-primary mt-3">Submit</button>
+
+                        <!-- Email -->
+                        <div class="mb-3">
+                            <label class="form-label">College Email (must end with @sfscollege.in)</label>
+                            {{ form.email }}
+                            {% for error in form.email.errors %}
+                                <div class="text-danger small">{{ error }}</div>
+                            {% endfor %}
+                        </div>
+
+                        <!-- Subject -->
+                        <div class="mb-3">
+                            <label class="form-label">Subject</label>
+                            {{ form.subject }}
+                        </div>
+
+                        <!-- Description -->
+                        <div class="mb-3">
+                            <label class="form-label">Description</label>
+                            {{ form.description }}
+                        </div>
+
+                        <!-- Room -->
+                        <div class="mb-3">
+                            <label class="form-label">Room / Lab</label>
+                            {{ form.room }}
+                        </div>
+
+                        <button class="btn btn-primary w-100 mt-3">Submit Issue</button>
                     </form>
+
                 </div>
             </div>
+
+
+            <!-- TICKET TRACKING SECTION -->
+            <div class="card shadow">
+                <div class="card-body">
+
+                    <h3 class="mb-4">Track Your Ticket</h3>
+
+                    <form method="get" class="row g-3">
+                        <div class="col-md-5">
+                            <input type="text" name="ticket_id" class="form-control" placeholder="Enter Ticket ID">
+                        </div>
+                        <div class="col-md-5">
+                            <input type="email" name="email" class="form-control" placeholder="Enter Your College Email">
+                        </div>
+                        <div class="col-md-2">
+                            <button class="btn btn-dark w-100">Search</button>
+                        </div>
+                    </form>
+
+                    <hr>
+
+                    <!-- Single Ticket Result -->
+                    {% if ticket %}
+                    <h5>Ticket Details</h5>
+
+                    <div class="border p-3 rounded mb-3">
+                        <p><strong>Ticket ID:</strong> {{ ticket.ticket_id }}</p>
+                        <p><strong>Subject:</strong> {{ ticket.subject }}</p>
+                        <p><strong>Description:</strong> {{ ticket.description }}</p>
+                        <p><strong>Status:</strong> {{ ticket.get_status_display }}</p>
+                        <p><strong>Room:</strong> {{ ticket.room.room_name }}</p>
+                        <p><strong>Assigned To:</strong> {{ ticket.assigned_to.user.get_full_name }}</p>
+                        <p><strong>TAT Deadline:</strong> {{ ticket.tat_deadline }}</p>
+                        <p><strong>Created On:</strong> {{ ticket.created_on }}</p>
+                    </div>
+                    {% endif %}
+
+                    <!-- Multiple Tickets By Email -->
+                    {% if tickets %}
+                    <h5>All Tickets Raised Using {{ request.GET.email }}</h5>
+
+                    <table class="table table-bordered mt-3">
+                        <thead>
+                            <tr>
+                                <th>Ticket ID</th>
+                                <th>Subject</th>
+                                <th>Status</th>
+                                <th>Room</th>
+                                <th>TAT</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for t in tickets %}
+                            <tr>
+                                <td>{{ t.ticket_id }}</td>
+                                <td>{{ t.subject }}</td>
+                                <td>{{ t.get_status_display }}</td>
+                                <td>{{ t.room.room_name }}</td>
+                                <td>{{ t.tat_deadline }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                    {% endif %}
+
+                </div>
+            </div>
+
         </div>
     </div>
 </div>
-{% endblock content %}
+
+{% endblock %}

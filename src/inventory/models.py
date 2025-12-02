@@ -1,12 +1,17 @@
 from django.db import models
 from django.forms import ValidationError
-from core.models import Organisation, UserProfile, Department
+from core.models import Organisation, UserProfile, Department, User
 from django.utils.text import slugify
 from django.utils import timezone
 from config.utils import generate_unique_slug, generate_unique_code
 from django.db.models.signals import post_delete
 from django.dispatch import receiver
-
+import json
+from django.db.models import JSONField
+import random, string
+from django.conf import settings
+from inventory.models import UserProfile
+from django.core.mail import send_mail
 
 class Room(models.Model):
     organisation = models.ForeignKey(Organisation, on_delete=models.CASCADE)
@@ -158,25 +163,191 @@ def delete_related_item(sender, instance, **kwargs):
     if not item.is_listed:
         item.delete()
         
+# Issue model added with ticketing workflow 
+
 class Issue(models.Model):
+    """
+    Issue/Ticket model with workflow & escalation support.
+    Escalation levels:
+        0 = room_incharge
+        1 = sub_admin
+        2 = central_admin
+    """
+
     organisation = models.ForeignKey(Organisation, on_delete=models.CASCADE)
     room = models.ForeignKey(Room, on_delete=models.CASCADE)
-    created_by = models.CharField(max_length=255)
+
+    created_by = models.CharField(max_length=255, blank=True)
+    reporter_email = models.EmailField(
+        max_length=255,
+        null=True,
+        blank=True,
+        help_text="Reporter college email (@sfscollege.in)"
+    )
+
+    ticket_id = models.CharField(max_length=30, unique=True, blank=True, null=True)
+
     subject = models.CharField(max_length=255)
     description = models.TextField()
+
     resolved = models.BooleanField(default=False)
+
+    STATUS_CHOICES = [
+        ('open', 'Open'),
+        ('in_progress', 'In Progress'),
+        ('escalated', 'Escalated'),
+        ('closed', 'Closed'),
+    ]
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='open')
+
+    assigned_to = models.ForeignKey(
+        'core.UserProfile',
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name='assigned_issues'
+    )
+
+    tat_deadline = models.DateTimeField(null=True, blank=True)
+
+    # escalation levels:
+    # 0 = room_incharge
+    # 1 = sub_admin
+    # 2 = central_admin
+    escalation_level = models.IntegerField(default=0)
+
     created_on = models.DateTimeField(auto_now_add=True)
     updated_on = models.DateTimeField(auto_now=True)
-    slug = models.SlugField(unique=True, max_length=255)
-    
+
+    slug = models.SlugField(unique=True, max_length=255, blank=True)
+
+    # ----------------------------------------------------------------------
+    # Utility: Ticket ID generator
+    # ----------------------------------------------------------------------
+    def generate_ticket_id(self):
+        import random, string
+        ts = timezone.now().strftime("%y%m%d%H%M%S")
+        suffix = ''.join(random.choices(string.ascii_uppercase + string.digits, k=4))
+
+        return f"T{self.organisation_id or 0}{ts}{suffix}"
+
+    # ----------------------------------------------------------------------
+    # Save override
+    # ----------------------------------------------------------------------
     def save(self, *args, **kwargs):
+        # slug
         if not self.slug:
-            base_slug = slugify(self.subject)
+            base_slug = slugify(self.subject or "issue")
             self.slug = generate_unique_slug(self, base_slug)
+
+        # ticket id
+        if not self.ticket_id:
+            self.ticket_id = self.generate_ticket_id()
+
         super().save(*args, **kwargs)
-    
+
+    # ----------------------------------------------------------------------
+    # Escalation Workflow
+    # ----------------------------------------------------------------------
+    def escalate(self, notify=True):
+        """
+        Escalation workflow:
+            Level 0 → Room Incharge → Sub Admin
+            Level 1 → Sub Admin → Central Admin
+            Level 2 → Fully Escalated (highest)
+        """
+
+        # Do not escalate resolved or closed issues
+        if self.resolved or self.status == "closed":
+            return {
+                "ticket_id": self.ticket_id,
+                "escalated": False,
+                "from": self.escalation_level,
+                "to": self.escalation_level,
+                "reason": "Issue is resolved/closed"
+            }
+
+        # Already at highest escalation level
+        if self.escalation_level >= 2:
+            return {
+                "ticket_id": self.ticket_id,
+                "escalated": False,
+                "from": self.escalation_level,
+                "to": self.escalation_level,
+                "reason": "Already escalated to central admin"
+            }
+
+        old_level = self.escalation_level
+        next_level = old_level + 1
+        candidate = None
+
+        # ----------------------------------------------------
+        # VALIDATED FIX: Use actual fields in your UserProfile
+        # ----------------------------------------------------
+        if next_level == 1:
+            # Escalate to Sub Admin
+            candidate = UserProfile.objects.filter(
+                # org=self.organisation,
+                is_sub_admin=True
+            ).first()
+
+        elif next_level == 2:
+            # Escalate to Central Admin
+            candidate = UserProfile.objects.filter(
+                # org=self.organisation,
+                is_central_admin=True
+            ).first()
+
+        # If no user exists at next level → do not escalate
+        if not candidate:
+            return {
+                "ticket_id": self.ticket_id,
+                "escalated": False,
+                "from": old_level,
+                "to": old_level,
+                "reason": "No admin available at next escalation level"
+            }
+
+        # ----------------------------------------------------
+        # APPLY ESCALATION
+        # ----------------------------------------------------
+        self.escalation_level = next_level
+        self.assigned_to = candidate
+        self.status = "escalated"
+
+        # Reset TAT deadline for new responsible user
+        hours = getattr(settings, "DEFAULT_TAT_HOURS", 48)
+        self.tat_deadline = timezone.now() + timezone.timedelta(hours=hours)
+
+        self.save()
+
+        # ----------------------------------------------------
+        # OPTIONAL EMAIL (never stops escalation)
+        # ----------------------------------------------------
+        if notify:
+            try:
+                user_email = getattr(candidate.user, "email", None)
+                if user_email:
+                    send_mail(
+                        subject=f"Issue Escalated: {self.ticket_id}",
+                        message=f"The ticket {self.ticket_id} has been escalated to you.",
+                        from_email=None,
+                        recipient_list=[user_email],
+                        fail_silently=True
+                    )
+            except Exception:
+                pass
+
+        return {
+            "ticket_id": self.ticket_id,
+            "escalated": True,
+            "from": old_level,
+            "to": next_level
+        }
+
+    # ----------------------------------------------------------------------
     def __str__(self):
-        return self.subject
+        return f"{self.ticket_id or 'TICKET'} - {self.subject}"
 
 
 class Category(models.Model):
@@ -221,7 +392,8 @@ class Item(models.Model):
     category = models.ForeignKey(Category, on_delete=models.CASCADE)
     brand = models.ForeignKey(Brand, on_delete=models.CASCADE)
     item_name = models.CharField(max_length=255)
-
+    # [SubAdmin] Track who created this item (room incharge / others)
+    created_by = models.ForeignKey(UserProfile, null=True, blank=True, on_delete=models.SET_NULL, related_name='items_created')
     # ✅ Excel format fields
     item_description = models.TextField(blank=True, default='')
     serial_number = models.CharField(max_length=100, blank=True, default='')
@@ -239,6 +411,9 @@ class Item(models.Model):
     created_on = models.DateTimeField(auto_now_add=True)
     updated_on = models.DateTimeField(auto_now=True)
     slug = models.SlugField(unique=True, max_length=255)
+    
+    is_edit_lock = models.BooleanField(default=False)
+
 
     def save(self, *args, **kwargs):
         if not self.slug:
@@ -423,3 +598,30 @@ class Receipt(models.Model):
     def __str__(self):
         return f"Receipt for {self.purchase.purchase_id}"
 
+class EditRequest(models.Model):
+    item = models.ForeignKey(Item, on_delete=models.CASCADE)
+    room = models.ForeignKey(Room, on_delete=models.CASCADE)
+
+    # FIXED: requested_by must be UserProfile, NOT User
+    requested_by = models.ForeignKey(
+        UserProfile, on_delete=models.CASCADE, related_name="requested_edit_requests"
+    )
+
+    reason = models.TextField(blank=True, null=True)
+    proposed_data = models.JSONField(blank=True, null=True)
+
+    status = models.CharField(
+        max_length=20,
+        choices=[("pending", "Pending"), ("approved", "Approved"), ("rejected", "Rejected")],
+        default="pending"
+    )
+
+    # reviewed_by = models.ForeignKey(
+    #     UserProfile, null=True, blank=True, on_delete=models.SET_NULL,
+    #     related_name="reviewed_edit_requests"
+    # )
+
+    created_on = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"Edit Request for {self.item.item_name}"

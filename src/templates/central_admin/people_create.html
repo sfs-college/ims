@@ -1,7 +1,7 @@
 {% extends "sidebar_base.html" %}
 {% load static %}
 
-{% block title %} | People Add {% endblock title %}
+{% block title %} | Add Person {% endblock title %}
 
 {% block style %}
 <link rel="stylesheet" href="{% static 'styles/inventory/central_admin/people_create/style.css' %}">
@@ -16,16 +16,47 @@
 {% endblock sidebar %}
 
 {% block content %}
+
+<h3 class="mb-4">Add New User</h3>
+
 <form method="post">
     {% csrf_token %}
-    {{ form.as_p | safe}}
-    <button type="submit" class="btn btn-primary">Create</button>
+
+    <!-- First Name -->
+    <div class="mb-3">
+        <label class="form-label">First Name</label>
+        {{ form.first_name }}
+        {{ form.first_name.errors }}
+    </div>
+
+    <!-- Last Name -->
+    <div class="mb-3">
+        <label class="form-label">Last Name</label>
+        {{ form.last_name }}
+        {{ form.last_name.errors }}
+    </div>
+
+    <!-- Email -->
+    <div class="mb-3">
+        <label class="form-label">Email (must be @sfscollege.in)</label>
+        {{ form.email }}
+        {{ form.email.errors }}
+    </div>
+
+
+    <!-- Role Selection -->
+    <div class="mb-3">
+        <label class="form-label">Select Role</label>
+            {{ form.role }}
+
+        <div class="form-text">
+            Choose whether this user is a Central Admin, Sub Admin, or Room Incharge.
+        </div>
+
+        {{ form.role.errors }}
+    </div>
+
+    <button type="submit" class="btn btn-primary w-100 mt-2">Create User</button>
 </form>
+
 {% endblock content %}
-
-
-<form method="post">
-    {% csrf_token %}
-    {{ form.as_p | safe}}
-    <button type="submit" class="btn btn-primary">Create</button>
-</form>

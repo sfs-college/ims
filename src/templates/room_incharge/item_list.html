@@ -21,7 +21,8 @@
     <div class="d-flex justify-content-between align-items-center my-3">
         <h3>Items</h3>
         <div>
-            <a href="{% url 'room_incharge:item_create' room_slug=room_slug %}" class="btn btn-primary">Add item</a>
+            <a href="{% url 'room_incharge:item_create' room_slug=room_slug %}" 
+               class="btn btn-primary">Add item</a>
         </div>
     </div>
 
@@ -37,6 +38,7 @@
                     <th>Actions</th>
                 </tr>
             </thead>
+
             <tbody>
                 {% for item in items %}
                 <tr>
@@ -45,13 +47,34 @@
                     <td>{{ item.available_count }}</td>
                     <td>{{ item.in_use }}</td>
                     <td>{{ item.achived_count }}</td>
-                    <td>
-                        <a class="btn btn-sm btn-dark"
-                            href="{% url 'room_incharge:item_update' room_slug=room_slug item_slug=item.slug %}">Edit</a>
+
+                    <td class="d-flex gap-1">
+
                         <a class="btn btn-sm btn-danger"
-                            href="{% url 'room_incharge:item_delete' room_slug=room_slug item_slug=item.slug %}">Delete</a>
+                           href="{% url 'room_incharge:item_delete' room_slug=room_slug item_slug=item.slug %}">
+                            Delete
+                        </a>
+
                         <a class="btn btn-sm btn-outline-dark"
-                            href="{% url 'room_incharge:item_archive' room_slug=room_slug item_slug=item.slug %}">Archive</a>
+                           href="{% url 'room_incharge:item_archive' room_slug=room_slug item_slug=item.slug %}">
+                            Archive
+                        </a>
+
+                        <form method="POST"
+                              action="{% url 'room_incharge:request_edit' room_slug=room_slug item_slug=item.slug %}">
+                            {% csrf_token %}
+                            <button type="submit" class="btn btn-warning btn-sm">
+                                Request Edit
+                            </button>
+                        </form>
+
+                        {% if not item.is_edit_lock %}
+                        <a href="{% url 'room_incharge:item_update' room_slug=room_slug item_slug=item.slug %}"
+                           class="btn btn-primary btn-sm">
+                           Edit
+                        </a>
+                        {% endif %}
+
                     </td>
                 </tr>
                 {% endfor %}
