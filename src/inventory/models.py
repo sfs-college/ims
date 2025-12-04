@@ -403,7 +403,7 @@ class Item(models.Model):
     warranty_expiry = models.DateField(null=True, blank=True)
 
     total_count = models.IntegerField()
-    available_count = models.IntegerField()
+    available_count = models.IntegerField(default=0)
     in_use = models.IntegerField(default=0)
     achived_count = models.IntegerField(default=0)
     is_listed = models.BooleanField(default=True)
@@ -421,6 +421,8 @@ class Item(models.Model):
             self.slug = generate_unique_slug(self, base_slug)
         if not self.item_description:
             self.item_description = f"{self.brand.brand_name} {self.item_name} - {self.category.category_name}"
+        if self.available_count > self.total_count:
+            self.available_count = self.total_count
         super().save(*args, **kwargs)
 
     def __str__(self):
