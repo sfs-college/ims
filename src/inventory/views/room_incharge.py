@@ -1588,37 +1588,27 @@ class IssueListView(LoginRequiredMixin, ListView):
 
 # ---- action views (POST-only) ----
 class MarkInProgressView(LoginRequiredMixin, View):
-    """
-    POST: change status to in_progress for an issue belonging to given room.
-    Hardened to avoid worker crash and to surface messages in UI.
-    """
     def post(self, request, room_slug, pk):
-        # Validate room and organisation ownership
-        room = get_object_or_404(Room, slug=room_slug, organisation=request.user.profile.org)
+        profile = request.user.profile
+
+        # Ensure room exists & user is incharge
+        room = get_object_or_404(Room, slug=room_slug, organisation=profile.org)
+        if room.incharge != profile:
+            return HttpResponseForbidden("You are not allowed to update this issue.")
+
+        # Get issue belonging to this room
         issue = get_object_or_404(Issue, pk=pk, room=room)
 
-        try:
-            issue.status = "in_progress"
-            # Optionally reset resolved flag
-            issue.resolved = False
-            issue.save(update_fields=["status", "resolved", "updated_on"])
-            try:
-                messages.success(request, f"Issue {issue.ticket_id} marked In Progress.")
-            except Exception:
-                # messages may not be configured in some contexts; ignore
-                pass
-        except Exception as e:
-            # Log the error instead of letting it crash the worker
-            try:
-                print(f"[MarkInProgressView] Error updating issue {pk}: {e}", flush=True)
-            except Exception:
-                pass
-            try:
-                messages.error(request, "Could not update issue status. Please check logs.")
-            except Exception:
-                pass
+        # Update status
+        issue.status = "in_progress"
+        issue.resolved = False
+        issue.escalation_level = 0
+        issue.updated_on = timezone.now()
 
-        return redirect('room_incharge:issue_list', room_slug=room.slug)
+        issue.save(update_fields=["status", "resolved", "escalation_level", "updated_on"])
+
+        messages.success(request, f"Issue {issue.ticket_id} marked as IN PROGRESS.")
+        return redirect("room_incharge:issue_list", room_slug=room.slug)
 
 
 class MarkResolvedView(LoginRequiredMixin, View):

@@ -18,153 +18,187 @@
 {% block content %}
 <h3 class="my-3">Issues for {{ room.room_name }}</h3>
 
-<!-- BULK DELETE FORM (ONLY CHECKBOXES + BUTTON) -->
+<!-- BULK DELETE FORM (ONLY checkboxes + delete button) -->
 <form method="post" action="{% url 'room_incharge:issues_bulk_delete' room.slug %}">
     {% csrf_token %}
 
     <div class="d-flex justify-content-end mb-2">
-        <button type="submit" class="btn btn-danger btn-sm">
-            Delete Selected
-        </button>
+        <button type="submit" class="btn btn-danger btn-sm">Delete Selected</button>
     </div>
 
-    <div class="table-responsive">
-        <table class="table align-middle">
-            <thead>
-                <tr>
-                    <th><input type="checkbox" id="select_all" onclick="toggleAll(this)"></th>
-                    <th class="text-muted">Sno.</th>
-                    <th class="text-muted">Subject</th>
-                    <th class="text-muted">Raised By</th>
-                    <th class="text-muted">Room</th>
-                    <th class="text-muted">Status</th>
-                    <th class="text-muted">TAT Deadline</th>
-                    <th class="text-muted">Assigned To</th>
-                    <th class="text-muted">Actions</th>
-                </tr>
-            </thead>
+</form>  <!-- IMPORTANT: Bulk delete form ends HERE -->
 
-            <tbody>
-                {% for issue in issues %}
-                <tr>
+<!-- TABLE STARTS OUTSIDE THE FORM -->
+<div class="table-responsive">
+    <table class="table align-middle">
 
-                    <!-- Checkbox (belongs to bulk delete form) -->
-                    <td><input type="checkbox" name="selected_issues" value="{{ issue.pk }}"></td>
+        <thead>
+            <tr>
+                <th><input type="checkbox" id="select_all" onclick="toggleAll(this)"></th>
+                <th class="text-muted">Sno.</th>
+                <th class="text-muted">Subject</th>
+                <th class="text-muted">Raised By</th>
+                <th class="text-muted">Room</th>
+                <th class="text-muted">Status</th>
+                <th class="text-muted">TAT Deadline</th>
+                <th class="text-muted">Assigned To</th>
+                <th class="text-muted">Actions</th>
+            </tr>
+        </thead>
 
-                    <td>{{ forloop.counter }}</td>
+        <tbody>
+            {% for issue in issues %}
+            <tr>
 
-                    <td>
-                        <a href="#" data-bs-toggle="modal" data-bs-target="#issueModal{{ forloop.counter }}" class="fw-semibold">
-                            {{ issue.subject }}
-                        </a>
-                    </td>
+                <!-- Checkbox belongs to Bulk Delete form using form attribute -->
+                <td>
+                    <input type="checkbox"
+                           name="selected_issues"
+                           value="{{ issue.pk }}"
+                           form="bulk-delete-form">
+                </td>
 
-                    <td>{{ issue.created_by|default:"-" }}</td>
-                    <td>{{ issue.room.room_name }}</td>
+                <td>{{ forloop.counter }}</td>
 
-                    <td>
-                        {% if issue.status == "open" %}
-                            <span class="badge bg-secondary rounded-pill">Open</span>
-                        {% elif issue.status == "in_progress" %}
-                            <span class="badge bg-warning text-dark rounded-pill">In Progress</span>
-                        {% elif issue.status == "escalated" %}
-                            <span class="badge bg-info text-dark rounded-pill">Escalated</span>
-                        {% elif issue.status == "closed" %}
-                            <span class="badge bg-success rounded-pill">Resolved</span>
-                        {% else %}
-                            <span class="badge bg-light text-dark rounded-pill">{{ issue.status }}</span>
-                        {% endif %}
-                    </td>
+                <td>
+                    <a href="#"
+                       data-bs-toggle="modal"
+                       data-bs-target="#issueModal{{ forloop.counter }}"
+                       class="fw-semibold">
+                        {{ issue.subject }}
+                    </a>
+                </td>
 
-                    <td>
-                        {% if issue.tat_deadline %}
-                            {{ issue.tat_deadline|date:"M d, Y H:i" }}
-                        {% else %} - {% endif %}
-                    </td>
+                <td>{{ issue.created_by|default:"-" }}</td>
+                <td>{{ issue.room.room_name }}</td>
 
-                    <td>
-                        {% if issue.assigned_to and issue.assigned_to.user %}
-                            {{ issue.assigned_to.user.get_full_name }}
-                        {% else %}
-                            Not assigned
-                        {% endif %}
-                    </td>
+                <td>
+                    {% if issue.status == "open" %}
+                        <span class="badge bg-secondary rounded-pill">Open</span>
+                    {% elif issue.status == "in_progress" %}
+                        <span class="badge bg-warning text-dark rounded-pill">In Progress</span>
+                    {% elif issue.status == "escalated" %}
+                        <span class="badge bg-info text-dark rounded-pill">Escalated</span>
+                    {% elif issue.status == "closed" %}
+                        <span class="badge bg-success rounded-pill">Resolved</span>
+                    {% else %}
+                        <span class="badge bg-light text-dark rounded-pill">{{ issue.status }}</span>
+                    {% endif %}
+                </td>
 
-                    <!-- ACTION BUTTONS - NOT INSIDE BULK DELETE FORM -->
-                    <td>
-                        <form method="post" action="{% url 'room_incharge:in_progress' room.slug issue.pk %}" class="d-inline">
-                            {% csrf_token %}
-                            <button type="submit" class="btn btn-sm btn-warning me-1">In Progress</button>
-                        </form>
+                <td>
+                    {% if issue.tat_deadline %}
+                        {{ issue.tat_deadline|date:"M d, Y H:i" }}
+                    {% else %} - {% endif %}
+                </td>
 
-                        <form method="post" action="{% url 'room_incharge:resolve' room.slug issue.pk %}" class="d-inline">
-                            {% csrf_token %}
-                            <button type="submit" class="btn btn-sm btn-success me-1">Resolve</button>
-                        </form>
+                <td>
+                    {% if issue.assigned_to and issue.assigned_to.user %}
+                        {{ issue.assigned_to.user.get_full_name }}
+                    {% else %}
+                        Not assigned
+                    {% endif %}
+                </td>
 
-                        <form method="post" action="{% url 'room_incharge:unresolve' room.slug issue.pk %}" class="d-inline">
-                            {% csrf_token %}
-                            <button type="submit" class="btn btn-sm btn-danger">Unresolve</button>
-                        </form>
-                    </td>
-                </tr>
+                <!-- ACTION BUTTONS – separate forms -->
+                <td>
+                    <form method="post"
+                          action="{% url 'room_incharge:in_progress' room.slug issue.pk %}"
+                          class="d-inline">
+                        {% csrf_token %}
+                        <button type="submit" class="btn btn-sm btn-warning me-1">
+                            In Progress
+                        </button>
+                    </form>
 
-                <!-- Modal stays unchanged -->
-                <div class="modal fade" id="issueModal{{ forloop.counter }}" tabindex="-1" aria-hidden="true">
-                    <div class="modal-dialog modal-dialog-scrollable">
-                        <div class="modal-content">
-                            <div class="modal-header">
-                                <h5 class="modal-title">Description for {{ issue.subject }}</h5>
-                                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                            </div>
+                    <form method="post"
+                          action="{% url 'room_incharge:resolve' room.slug issue.pk %}"
+                          class="d-inline">
+                        {% csrf_token %}
+                        <button type="submit" class="btn btn-sm btn-success me-1">
+                            Resolve
+                        </button>
+                    </form>
 
-                            <div class="modal-body">
-                                <p>{{ issue.description }}</p>
-                                <hr>
-                                <p><strong>Ticket ID:</strong> {{ issue.ticket_id }}</p>
-                                <p><strong>Raised By:</strong> {{ issue.created_by|default:"-" }}</p>
-                                <p><strong>Room:</strong> {{ issue.room.room_name }}</p>
+                    <form method="post"
+                          action="{% url 'room_incharge:unresolve' room.slug issue.pk %}"
+                          class="d-inline">
+                        {% csrf_token %}
+                        <button type="submit" class="btn btn-sm btn-danger">
+                            Unresolve
+                        </button>
+                    </form>
+                </td>
+            </tr>
 
-                                <p><strong>Assigned To:</strong>
-                                    {% if issue.assigned_to and issue.assigned_to.user %}
-                                        {{ issue.assigned_to.user.get_full_name }}
-                                    {% else %}
-                                        Not assigned
-                                    {% endif %}
-                                </p>
+            <!-- MODAL -->
+            <div class="modal fade"
+                 id="issueModal{{ forloop.counter }}"
+                 tabindex="-1"
+                 aria-hidden="true">
 
-                                <p><strong>TAT Deadline:</strong> {{ issue.tat_deadline|default:"-" }}</p>
-                                <p><strong>Status:</strong> {{ issue.get_status_display }}</p>
-                            </div>
+                <div class="modal-dialog modal-dialog-scrollable">
+                    <div class="modal-content">
 
-                            <div class="modal-footer">
-                                <form method="post" action="{% url 'room_incharge:in_progress' room.slug issue.pk %}" class="d-inline me-1">
-                                    {% csrf_token %}
-                                    <button type="submit" class="btn btn-warning">In Progress</button>
-                                </form>
-
-                                <form method="post" action="{% url 'room_incharge:resolve' room.slug issue.pk %}" class="d-inline me-1">
-                                    {% csrf_token %}
-                                    <button type="submit" class="btn btn-success">Resolve</button>
-                                </form>
-
-                                <form method="post" action="{% url 'room_incharge:unresolve' room.slug issue.pk %}" class="d-inline">
-                                    {% csrf_token %}
-                                    <button type="submit" class="btn btn-danger">Unresolve</button>
-                                </form>
-
-                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-                            </div>
-
+                        <div class="modal-header">
+                            <h5 class="modal-title">Description for {{ issue.subject }}</h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                         </div>
+
+                        <div class="modal-body">
+                            <p>{{ issue.description }}</p>
+                            <hr>
+                            <p><strong>Ticket ID:</strong> {{ issue.ticket_id }}</p>
+                            <p><strong>Raised By:</strong> {{ issue.created_by|default:"-" }}</p>
+                            <p><strong>Room:</strong> {{ issue.room.room_name }}</p>
+
+                            <p><strong>Assigned To:</strong>
+                                {% if issue.assigned_to and issue.assigned_to.user %}
+                                    {{ issue.assigned_to.user.get_full_name }}
+                                {% else %}
+                                    Not assigned
+                                {% endif %}
+                            </p>
+
+                            <p><strong>TAT Deadline:</strong> {{ issue.tat_deadline|default:"-" }}</p>
+                            <p><strong>Status:</strong> {{ issue.get_status_display }}</p>
+                        </div>
+
+                        <div class="modal-footer">
+                            <form method="post"
+                                  action="{% url 'room_incharge:in_progress' room.slug issue.pk %}"
+                                  class="d-inline me-1">
+                                {% csrf_token %}
+                                <button type="submit" class="btn btn-warning">In Progress</button>
+                            </form>
+
+                            <form method="post"
+                                  action="{% url 'room_incharge:resolve' room.slug issue.pk %}"
+                                  class="d-inline me-1">
+                                {% csrf_token %}
+                                <button type="submit" class="btn btn-success">Resolve</button>
+                            </form>
+
+                            <form method="post"
+                                  action="{% url 'room_incharge:unresolve' room.slug issue.pk %}"
+                                  class="d-inline">
+                                {% csrf_token %}
+                                <button type="submit" class="btn btn-danger">Unresolve</button>
+                            </form>
+
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                                Close
+                            </button>
+                        </div>
+
                     </div>
                 </div>
+            </div>
 
-                {% endfor %}
-            </tbody>
-        </table>
-    </div>
-</form>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
 {% endblock content %}
 
 {% block script %}

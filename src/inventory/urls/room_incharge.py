@@ -81,9 +81,11 @@ urlpatterns = [
      name='issue_list'),
 
     # ISSUE ACTION CONTROLS
-    path('rooms/<slug:room_slug>/issue/<int:pk>/in-progress/', 
-     room_incharge.MarkInProgressView.as_view(), 
-     name='in_progress'),
+    path(
+    "rooms/<slug:room_slug>/issue/<int:pk>/in-progress/",
+    room_incharge.MarkInProgressView.as_view(),
+    name='in_progress'
+    ),
 
     path('rooms/<slug:room_slug>/issue/<int:pk>/resolve/', 
      room_incharge.MarkResolvedView.as_view(), 
