@@ -15,50 +15,39 @@ logger = logging.getLogger(__name__)
 @shared_task(
     bind=True,
     autoretry_for=(Exception,),
-    retry_kwargs={"max_retries": 5, "countdown": 30},
-    retry_backoff=True
+    retry_backoff=5,
+    retry_kwargs={"max_retries": 3},
 )
-def send_email_task(self, subject, message, from_email, recipient_list):
-    """
-    Sends email asynchronously via Celery.
-
-    - NEVER runs inside HTTP request
-    - Retries automatically
-    - Safe for production
-    """
+def send_email_task(self, subject, message, recipient_list, from_email=None):
     send_mail(
         subject=subject,
         message=message,
-        from_email=from_email,
+        from_email=from_email or settings.DEFAULT_FROM_EMAIL,
         recipient_list=recipient_list,
         fail_silently=False,
     )
 
 
 # ============================================================
-# ISSUE ESCALATION TASK (YOUR EXISTING LOGIC, CLEANED)
+# ISSUE ESCALATION TASK (UNCHANGED)
 # ============================================================
 @shared_task
 def escalate_expired_issues():
-    """
-    Escalates issues whose TAT has expired.
-    Runs safely in background.
-    """
     now = timezone.now()
 
     expired_issues = Issue.objects.filter(
         tat_deadline__lt=now,
-        escalation_level__lt=2  # 0 = room incharge, 1 = sub admin, 2 = central admin
+        escalation_level__lt=2,
     )
 
     count = expired_issues.count()
 
     for issue in expired_issues:
         try:
-            result = issue.escalate()
+            issue.escalate()
             issue.save(update_fields=["escalation_level", "status", "updated_on"])
-            logger.info("Escalated %s → %s", issue.ticket_id, result)
-        except Exception as e:
-            logger.exception("Escalation failed for %s: %s", issue.ticket_id, e)
+            logger.info("Escalated %s", issue.ticket_id)
+        except Exception:
+            logger.exception("Escalation failed for %s", issue.ticket_id)
 
     return f"Escalated {count} issues"
