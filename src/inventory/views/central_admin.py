@@ -108,9 +108,7 @@ class PeopleCreateView(LoginRequiredMixin, CreateView):
             safe_send_mail(
                 subject,
                 message,
-                from_email=getattr(settings, "DEFAULT_FROM_EMAIL", None),
                 recipient_list=[user.email],
-                fail_silently=True
             )
         except Exception as e:
             # defensive: safe_send_mail should not raise, but log unexpected errors
