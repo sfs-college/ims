@@ -436,35 +436,41 @@ class ItemDeleteView(LoginRequiredMixin, DeleteView):
 class ItemArchiveView(LoginRequiredMixin, FormView):
     template_name = 'room_incharge/item_archive.html'
     form_class = ItemArchiveForm
-    success_url = reverse_lazy('room_incharge:item_list')
 
     def get_success_url(self):
-        return reverse_lazy('room_incharge:item_list', kwargs={'room_slug': self.kwargs['room_slug']})
+        return reverse_lazy(
+            'room_incharge:item_list',
+            kwargs={'room_slug': self.kwargs['room_slug']}
+        )
 
     def form_valid(self, form):
-        item = Item.objects.get(slug=self.kwargs['item_slug'])
+        item = get_object_or_404(Item, slug=self.kwargs['item_slug'])
         count = form.cleaned_data['count']
 
-        if item.available_count < count:
-            form.add_error('count', 'The count provided exceeds the available count.')
+        if count <= 0:
+            form.add_error("count", "Count must be positive.")
             return self.form_invalid(form)
 
-        # Create an archive entry
+        if item.available_count < count:
+            form.add_error("count", "Available count is lower than the number to archive.")
+            return self.form_invalid(form)
+
         Archive.objects.create(
             organisation=item.organisation,
             department=item.department,
             room=item.room,
             item=item,
             count=count,
-            archive_type=form.cleaned_data['archive_type'],
-            remark=form.cleaned_data['remark']
+            archive_type=form.cleaned_data["archive_type"],
+            remark=form.cleaned_data["remark"]
         )
 
-        # Update item counts
+        # FIXED — USE CORRECT FIELD
         item.available_count -= count
         item.archived_count += count
-        item.save()
+        item.save(update_fields=["available_count", "archived_count", "updated_on"])
 
+        messages.success(self.request, "Item archived successfully.")
         return redirect(self.get_success_url())
 
     def get_form_kwargs(self):
@@ -705,34 +711,38 @@ class SystemComponentDeleteView(LoginRequiredMixin, DeleteView):
 class SystemComponentArchiveView(LoginRequiredMixin, FormView):
     template_name = 'room_incharge/system_component_archive.html'
     form_class = SystemComponentArchiveForm
-    success_url = reverse_lazy('room_incharge:system_component_list')
 
     def get_success_url(self):
-        return reverse_lazy('room_incharge:system_component_list', kwargs={'room_slug': self.kwargs['room_slug'], 'system_slug': self.kwargs['system_slug']})
+        return reverse_lazy(
+            'room_incharge:system_component_list',
+            kwargs={'room_slug': self.kwargs['room_slug'], 'system_slug': self.kwargs['system_slug']}
+        )
 
     def form_valid(self, form):
-        component = SystemComponent.objects.get(slug=self.kwargs['component_slug'])
+        component = get_object_or_404(SystemComponent, slug=self.kwargs["component_slug"])
         item = component.component_item
 
-        # Create an archive entry
         Archive.objects.create(
             organisation=item.organisation,
             department=item.department,
             room=item.room,
             item=item,
             count=1,
-            archive_type=form.cleaned_data['archive_type'],
-            remark=form.cleaned_data['remark']
+            archive_type=form.cleaned_data["archive_type"],
+            remark=form.cleaned_data["remark"]
         )
 
-        # Update item counts
+        # FIXED
         item.in_use -= 1
-        item.archived_count += 1
-        item.save()
+        if item.in_use < 0:
+            item.in_use = 0
 
-        # Delete the system component
+        item.archived_count += 1
+        item.save(update_fields=["in_use", "archived_count", "updated_on"])
+
         component.delete()
 
+        messages.success(self.request, "Component archived successfully.")
         return redirect(self.get_success_url())
 
     def get_form_kwargs(self):
@@ -1578,19 +1588,27 @@ class IssueListView(LoginRequiredMixin, ListView):
 
 # ---- action views (POST-only) ----
 class MarkInProgressView(LoginRequiredMixin, View):
-    """
-    POST: change status to in_progress for an issue belonging to given room.
-    """
     def post(self, request, room_slug, pk):
-        # Validate room and organisation ownership
-        room = get_object_or_404(Room, slug=room_slug, organisation=request.user.profile.org)
+        profile = request.user.profile
+
+        # Ensure room exists & user is incharge
+        room = get_object_or_404(Room, slug=room_slug, organisation=profile.org)
+        if room.incharge != profile:
+            return HttpResponseForbidden("You are not allowed to update this issue.")
+
+        # Get issue belonging to this room
         issue = get_object_or_404(Issue, pk=pk, room=room)
 
+        # Update status
         issue.status = "in_progress"
-        # Optionally reset resolved flag
         issue.resolved = False
-        issue.save()
-        return redirect('room_incharge:issue_list', room_slug=room.slug)
+        issue.escalation_level = 0
+        issue.updated_on = timezone.now()
+
+        issue.save(update_fields=["status", "resolved", "escalation_level", "updated_on"])
+
+        messages.success(request, f"Issue {issue.ticket_id} marked as IN PROGRESS.")
+        return redirect("room_incharge:issue_list", room_slug=room.slug)
 
 
 class MarkResolvedView(LoginRequiredMixin, View):
@@ -1603,7 +1621,7 @@ class MarkResolvedView(LoginRequiredMixin, View):
 
         issue.status = "closed"
         issue.resolved = True
-        issue.save()
+        issue.save(update_fields=["status", "resolved", "updated_on"])
         return redirect('room_incharge:issue_list', room_slug=room.slug)
 
 
@@ -1617,7 +1635,7 @@ class MarkUnresolvedView(LoginRequiredMixin, View):
 
         issue.status = "open"
         issue.resolved = False
-        issue.save()
+        issue.save(update_fields=["status", "resolved", "updated_on"])
         return redirect('room_incharge:issue_list', room_slug=room.slug)
 
 class ItemGroupListView(LoginRequiredMixin, ListView):
