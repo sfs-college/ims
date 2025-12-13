@@ -126,10 +126,9 @@ class IssueReportView(View):
                             f"Description: {issue.description}\n"
                             f"TAT: {issue.tat_deadline}\n"
                         ),
-                        from_email=None,
                         recipient_list=[issue.assigned_to.user.email],
-                        fail_silently=True
                     )
+
                 except Exception as e:
                     # defensive logging only
                     print(f"[student_view] safe_send_mail unexpected error: {e}", flush=True)

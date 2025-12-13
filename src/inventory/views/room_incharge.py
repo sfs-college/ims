@@ -383,24 +383,27 @@ class IssueBulkDeleteView(LoginRequiredMixin, View):
     Allows Room Incharge to bulk-delete selected issues.
     Only deletes issues:
       - belonging to the user's organisation
+      - belonging to the same room
       - escalation_level == 0   (not escalated)
     """
 
-    def post(self, request, *args, **kwargs):
+    def post(self, request, room_slug, *args, **kwargs):
         ids = request.POST.getlist('selected_issues')
 
         if not ids:
             messages.error(request, "No issues selected.")
             return redirect(request.META.get('HTTP_REFERER', '/'))
 
-        issues = Issue.objects.filter(id__in=ids)
         profile = getattr(request.user, 'profile', None)
+        room = get_object_or_404(Room, slug=room_slug)
+
+        issues = Issue.objects.filter(id__in=ids, room=room)
 
         allowed = []
         for issue in issues:
             if (
-                profile and profile.org and 
-                issue.organisation == profile.org and 
+                profile and profile.org and
+                issue.organisation == profile.org and
                 issue.escalation_level == 0
             ):
                 allowed.append(issue.pk)
@@ -412,6 +415,7 @@ class IssueBulkDeleteView(LoginRequiredMixin, View):
             messages.error(request, "No permitted issues to delete.")
 
         return redirect(request.META.get('HTTP_REFERER', '/'))
+
 
 class ItemDeleteView(LoginRequiredMixin, DeleteView):
     model = Item

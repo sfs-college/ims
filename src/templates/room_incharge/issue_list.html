@@ -19,7 +19,7 @@
 <h3 class="my-3">Issues for {{ room.room_name }}</h3>
 
 <!-- BULK DELETE FORM (ONLY checkboxes + delete button) -->
-<form method="post" action="{% url 'room_incharge:issues_bulk_delete' room.slug %}">
+<form id="bulk-delete-form" method="post" action="{% url 'room_incharge:issues_bulk_delete' room.slug %}">
     {% csrf_token %}
 
     <div class="d-flex justify-content-end mb-2">
