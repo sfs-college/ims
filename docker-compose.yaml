@@ -1,22 +1,36 @@
 name: blixtro-project
 
 services:
+  # =========================
+  # DJANGO APP (GUNICORN)
+  # =========================
   app:
     build: ./src
     image: blixtro
     container_name: blixtro-container
-    command: sh -c "python manage.py makemigrations && python manage.py migrate && python manage.py runserver 0.0.0.0:8000"
+    command: >
+      sh -c "
+      python manage.py makemigrations &&
+      python manage.py migrate &&
+      gunicorn config.wsgi:application
+      --bind 0.0.0.0:8000
+      --workers 3
+      --timeout 120
+      "
     ports:
       - "8000:8000"
     volumes:
-      - ./src:/app        # <-- LIVE CODE
+      - ./src:/app
     env_file:
       - ./src/.env
     depends_on:
       - blixtro_postgres
       - redis
+    restart: unless-stopped
 
+  # =========================
   # POSTGRES
+  # =========================
   blixtro_postgres:
     image: postgres:latest
     container_name: blixtro-postgres-container
@@ -30,7 +44,9 @@ services:
     volumes:
       - blixtro_postgres_data:/var/lib/postgresql/data
 
+  # =========================
   # REDIS
+  # =========================
   redis:
     image: redis:7
     container_name: blixtro-redis
@@ -38,21 +54,25 @@ services:
       - "6379:6379"
     restart: unless-stopped
 
+  # =========================
   # CELERY WORKER
+  # =========================
   celery:
     build: ./src
     container_name: blixtro-celery
     command: celery -A config worker --loglevel=info
     volumes:
-      - ./src:/app             # <-- LIVE CODE
-    depends_on:
-      - app
-      - redis
-      - blixtro_postgres
+      - ./src:/app
     env_file:
       - ./src/.env
+    depends_on:
+      - redis
+      - blixtro_postgres
+    restart: unless-stopped
 
+  # =========================
   # CELERY BEAT
+  # =========================
   celery-beat:
     build: ./src
     container_name: blixtro-celery-beat
@@ -60,13 +80,13 @@ services:
     environment:
       - CELERY_BEAT_SCHEDULE_FILENAME=/tmp/celerybeat-schedule
     volumes:
-      - ./src:/app             # <-- LIVE CODE
-    depends_on:
-      - app
-      - redis
-      - blixtro_postgres
+      - ./src:/app
     env_file:
       - ./src/.env
+    depends_on:
+      - redis
+      - blixtro_postgres
+    restart: unless-stopped
 
 volumes:
   blixtro_postgres_data:
