@@ -5,9 +5,10 @@ from inventory.forms.student import IssueReportForm
 from inventory.models import Organisation, Issue, Room, UserProfile
 from config.api.student_data import fetch_student_data
 from django.conf import settings
+from inventory.email import safe_send_mail
 from django.utils import timezone
 from datetime import timedelta
-from django.core.mail import send_mail
+from django.core.mail import send_mail  # keep import if other non-critical code uses it
 from django.urls import reverse
 from django.contrib import messages
 
@@ -24,7 +25,6 @@ class IssueReportView(View):
         Returns:
             dict { "success": bool, "data": [...] } or None
         """
-
         email = self.request.POST.get("email")
         if not email:
             return None
@@ -33,24 +33,18 @@ class IssueReportView(View):
         API_KEY = getattr(settings, "STUDENT_API_KEY", None)
         API_SECRET_KEY = getattr(settings, "STUDENT_API_SECRET", None)
 
-        # If no API keys → silently disable API, do not print anything
+        # If no API keys → silently disable API
         if not API_KEY or not API_SECRET_KEY:
             return None
 
         try:
-            # Call external API correctly
             response = fetch_student_data(email, API_KEY, API_SECRET_KEY)
-
             if isinstance(response, dict):
                 return response
-
             return None
-
-        except:
-            # Do NOT print — silent fail
+        except Exception:
+            # silent fail on external API
             return None
-
-
 
     def get(self, request, *args, **kwargs):
         form = self.form_class()
@@ -115,44 +109,51 @@ class IssueReportView(View):
                 issue.status = "open"
                 issue.escalation_level = 0
 
-            # TAT assignment (TEST MODE set to 1 minute)
+            # TAT assignment
             hours = int(getattr(settings, "DEFAULT_TAT_HOURS", 48))
             issue.tat_deadline = timezone.now() + timedelta(hours=hours)
 
             issue.save()
 
-            # SEND EMAILS (unchanged)
-            if issue.assigned_to and issue.assigned_to.user.email:
+            # ---- emails: use safe_send_mail to prevent worker crash ----
+            if issue.assigned_to and getattr(issue.assigned_to, "user", None) and issue.assigned_to.user.email:
                 try:
-                    send_mail(
-                        f"[Blixtro] New Ticket {issue.ticket_id}: {issue.subject}",
-                        f"You have been assigned a new ticket.\n\n"
-                        f"Ticket ID: {issue.ticket_id}\n"
-                        f"Description: {issue.description}\n"
-                        f"TAT: {issue.tat_deadline}\n",
-                        settings.DEFAULT_FROM_EMAIL,
-                        [issue.assigned_to.user.email]
+                    safe_send_mail(
+                        subject=f"[Blixtro] New Ticket {issue.ticket_id}: {issue.subject}",
+                        message=(
+                            f"You have been assigned a new ticket.\n\n"
+                            f"Ticket ID: {issue.ticket_id}\n"
+                            f"Description: {issue.description}\n"
+                            f"TAT: {issue.tat_deadline}\n"
+                        ),
+                        from_email=None,
+                        recipient_list=[issue.assigned_to.user.email],
+                        fail_silently=True
                     )
                 except Exception as e:
-                    print("Mail error:", e)
+                    # defensive logging only
+                    print(f"[student_view] safe_send_mail unexpected error: {e}", flush=True)
 
             try:
-                send_mail(
-                    f"[Blixtro] Ticket Received: {issue.ticket_id}",
-                    f"Your ticket has been created.\n\n"
-                    f"Ticket ID: {issue.ticket_id}\n"
-                    f"Status: {issue.status}\n"
-                    f"TAT: {issue.tat_deadline}\n",
-                    settings.DEFAULT_FROM_EMAIL,
-                    [email]
+                safe_send_mail(
+                    subject=f"[Blixtro] Ticket Received: {issue.ticket_id}",
+                    message=(
+                        f"Your ticket has been created.\n\n"
+                        f"Ticket ID: {issue.ticket_id}\n"
+                        f"Status: {issue.status}\n"
+                        f"TAT: {issue.tat_deadline}\n"
+                    ),
+                    from_email=None,
+                    recipient_list=[email],
+                    fail_silently=True
                 )
-            except:
+            except Exception:
+                # swallow — do not crash on email failure
                 pass
 
             return redirect("student:issue_report_success")
 
         return render(request, self.template_name, {"form": form})
-
 
 
 class TicketStatusView(View):

@@ -392,12 +392,17 @@ class Item(models.Model):
     category = models.ForeignKey(Category, on_delete=models.CASCADE)
     brand = models.ForeignKey(Brand, on_delete=models.CASCADE)
     item_name = models.CharField(max_length=255)
-    # [SubAdmin] Track who created this item (room incharge / others)
-    created_by = models.ForeignKey(UserProfile, null=True, blank=True, on_delete=models.SET_NULL, related_name='items_created')
-    # ✅ Excel format fields
+    created_by = models.ForeignKey(
+        UserProfile,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name='items_created'
+    )
+
     item_description = models.TextField(blank=True, default='')
     serial_number = models.CharField(max_length=100, blank=True, default='')
-    purchase_model_code = models.CharField(max_length=100, blank=True, default='')  # Item Code
+    purchase_model_code = models.CharField(max_length=100, blank=True, default='')
     vendor = models.ForeignKey(Vendor, on_delete=models.SET_NULL, null=True, blank=True)
     cost = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
     warranty_expiry = models.DateField(null=True, blank=True)
@@ -405,28 +410,39 @@ class Item(models.Model):
     total_count = models.IntegerField()
     available_count = models.IntegerField(default=0)
     in_use = models.IntegerField(default=0)
-    achived_count = models.IntegerField(default=0)
+
+    # ✔ FIXED SPELLING
+    archived_count = models.IntegerField(default=0)
+
     is_listed = models.BooleanField(default=True)
 
     created_on = models.DateTimeField(auto_now_add=True)
     updated_on = models.DateTimeField(auto_now=True)
     slug = models.SlugField(unique=True, max_length=255)
-    
-    is_edit_lock = models.BooleanField(default=False)
 
+    is_edit_lock = models.BooleanField(default=False)
 
     def save(self, *args, **kwargs):
         if not self.slug:
             base_slug = slugify(self.item_name)
             self.slug = generate_unique_slug(self, base_slug)
+
         if not self.item_description:
             self.item_description = f"{self.brand.brand_name} {self.item_name} - {self.category.category_name}"
+
         if self.available_count > self.total_count:
             self.available_count = self.total_count
+
         super().save(*args, **kwargs)
 
     def __str__(self):
         return self.item_name
+
+    # Helpful safe increment
+    def increment_archived(self, delta=1):
+        new_val = max(0, self.archived_count + int(delta))
+        self.archived_count = new_val
+        self.save(update_fields=["archived_count", "updated_on"])
     
 class ItemGroup(models.Model):
     organisation = models.ForeignKey(Organisation, on_delete=models.CASCADE)

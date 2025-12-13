@@ -12,6 +12,8 @@ from inventory.forms.central_admin import PeopleCreateForm, RoomCreateForm, Depa
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.core.mail import send_mail
 from django.contrib import messages
+from django.conf import settings
+from inventory.email import safe_send_mail
 from django.utils import timezone
 from django.views.decorators.http import require_POST
 
@@ -101,17 +103,20 @@ class PeopleCreateView(LoginRequiredMixin, CreateView):
             "Best regards,\nSFS IMS Team"
         )
 
-        send_mail(
-            subject,
-            message,
-            None,
-            [user.email],
-            fail_silently=False,
-        )
+        # Use safe_send_mail to avoid worker crash if SMTP fails
+        try:
+            safe_send_mail(
+                subject,
+                message,
+                from_email=getattr(settings, "DEFAULT_FROM_EMAIL", None),
+                recipient_list=[user.email],
+                fail_silently=True
+            )
+        except Exception as e:
+            # defensive: safe_send_mail should not raise, but log unexpected errors
+            print(f"[central_admin] safe_send_mail unexpected error: {e}", flush=True)
 
         return redirect(self.success_url)
-
-
 
 
 class PeopleDeleteView(LoginRequiredMixin, DeleteView):
