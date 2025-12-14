@@ -12,12 +12,7 @@ logger = logging.getLogger(__name__)
 # ============================================================
 # EMAIL TASK (PRODUCTION SAFE)
 # ============================================================
-@shared_task(
-    bind=True,
-    autoretry_for=(Exception,),
-    retry_backoff=5,
-    retry_kwargs={"max_retries": 3},
-)
+@shared_task(bind=True, max_retries=3, autoretry_for=(Exception,))
 def send_email_task(self, subject, message, recipient_list, from_email=None):
     send_mail(
         subject=subject,
