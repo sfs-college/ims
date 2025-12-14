@@ -1,6 +1,6 @@
 from celery import shared_task
 from django.utils import timezone
-from django.core.mail import send_mail
+from django.core.mail import send_mail, EmailMessage
 from django.conf import settings
 import logging
 
@@ -12,15 +12,15 @@ logger = logging.getLogger(__name__)
 # ============================================================
 # EMAIL TASK (PRODUCTION SAFE)
 # ============================================================
-@shared_task(bind=True, max_retries=3, autoretry_for=(Exception,))
-def send_email_task(self, subject, message, recipient_list, from_email=None):
-    send_mail(
+@shared_task(bind=True, autoretry_for=(Exception,), retry_backoff=10, retry_kwargs={"max_retries": 3})
+def send_email_task(self, subject, message, from_email, recipient_list):
+    email = EmailMessage(
         subject=subject,
-        message=message,
-        from_email=from_email or settings.DEFAULT_FROM_EMAIL,
-        recipient_list=recipient_list,
-        fail_silently=False,
+        body=message,
+        from_email=from_email,
+        to=recipient_list,
     )
+    email.send(fail_silently=True)
 
 
 # ============================================================

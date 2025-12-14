@@ -1,51 +1,46 @@
-# inventory/email.py
-
 import logging
-import threading
-
 from django.conf import settings
-from django.core.mail import send_mail
+from django.core.mail import EmailMessage
 
 logger = logging.getLogger(__name__)
 
 
-def _send_mail_smtp(subject, message, recipient_list, **kwargs):
-    """
-    Low-level SMTP sender.
-    Runs ONLY in background thread.
-    """
-    try:
-        send_mail(
-            subject=subject,
-            message=message,
-            from_email=settings.DEFAULT_FROM_EMAIL,
-            recipient_list=recipient_list,
-            fail_silently=True,
-        )
-    except Exception as e:
-        logger.error(f"[safe_send_mail] SMTP failed: {e}")
-
-
-def safe_send_mail(subject, message, recipient_list, **kwargs):
+def safe_send_mail(*, subject, message, recipient_list, from_email=None):
     """
     Production-safe email sender.
-    - NEVER blocks request
-    - NEVER crashes worker
-    - Works even if Redis/Celery/SMTP is flaky
+    - Never crashes request
+    - Never blocks response
+    - Tries Celery first
+    - Falls back to direct SMTP
     """
 
-    try:
-        # Run SMTP in background thread
-        thread = threading.Thread(
-            target=_send_mail_smtp,
-            kwargs={
-                "subject": subject,
-                "message": message,
-                "recipient_list": recipient_list,
-            },
-            daemon=True,
-        )
-        thread.start()
+    from_email = from_email or settings.DEFAULT_FROM_EMAIL
 
-    except Exception as e:
-        logger.error(f"[safe_send_mail] Unexpected error: {e}")
+    # 1️⃣ Try Celery (NON-BLOCKING)
+    try:
+        from inventory.tasks import send_email_task
+        send_email_task.delay(
+            subject=subject,
+            message=message,
+            from_email=from_email,
+            recipient_list=recipient_list,
+        )
+        return True
+    except Exception as celery_err:
+        logger.warning(
+            f"[safe_send_mail] Celery unavailable, falling back to SMTP: {celery_err}"
+        )
+
+    # 2️⃣ Fallback to direct SMTP (still safe)
+    try:
+        email = EmailMessage(
+            subject=subject,
+            body=message,
+            from_email=from_email,
+            to=recipient_list,
+        )
+        email.send(fail_silently=True)
+        return True
+    except Exception as smtp_err:
+        logger.error(f"[safe_send_mail] SMTP failed: {smtp_err}")
+        return False
