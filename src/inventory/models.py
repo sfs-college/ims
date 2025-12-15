@@ -147,10 +147,18 @@ class Purchase(models.Model):
             self.closing_balance_qty = self.item.available_count + self.quantity
 
         # Excel-style totals
-        if self.cost_per_unit:
-            self.total_cost = self.cost_per_unit * self.quantity
-        elif self.cost:
-            self.total_cost = self.cost * self.quantity
+        from decimal import Decimal, ROUND_HALF_UP
+
+        qty = Decimal(str(self.quantity)).quantize(Decimal("0.01"))
+
+        if self.cost_per_unit is not None:
+            self.total_cost = (self.cost_per_unit * qty).quantize(
+                Decimal("0.01"), rounding=ROUND_HALF_UP
+            )
+        elif self.cost is not None:
+            self.total_cost = (self.cost * qty).quantize(
+                Decimal("0.01"), rounding=ROUND_HALF_UP
+            )
 
         super().save(*args, **kwargs)
 
@@ -430,8 +438,9 @@ class Item(models.Model):
         if not self.item_description:
             self.item_description = f"{self.brand.brand_name} {self.item_name} - {self.category.category_name}"
 
-        if self.available_count > self.total_count:
-            self.available_count = self.total_count
+        # AVAILABLE COUNT CALCULATION
+        calculated_available = self.total_count - self.in_use - self.archived_count
+        self.available_count = max(calculated_available, 0)
 
         super().save(*args, **kwargs)
 

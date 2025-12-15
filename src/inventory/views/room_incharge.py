@@ -818,9 +818,13 @@ class PurchaseCreateView(LoginRequiredMixin, CreateView):
         # ✅ Update stock counts automatically
         if purchase.item:
             item = purchase.item
-            item.total_count += purchase.quantity
-            item.available_count += purchase.quantity
-            item.save()
+            from decimal import Decimal
+
+            qty = Decimal(str(purchase.quantity))
+
+            item.total_count += int(qty)
+            item.save(update_fields=["total_count", "updated_on"])
+
 
         purchase.save()
         return redirect(self.get_success_url())
@@ -875,7 +879,7 @@ class PurchaseNewItemCreateView(LoginRequiredMixin, CreateView):
         qty = form.cleaned_data['quantity']
         unit = form.cleaned_data['unit_of_measure']
 
-        # ✅ Create new Item entry
+        # 1️⃣ CREATE ITEM
         item = Item.objects.create(
             organisation=org,
             department=room.department,
@@ -887,12 +891,16 @@ class PurchaseNewItemCreateView(LoginRequiredMixin, CreateView):
             serial_number=form.cleaned_data.get('serial_number', ''),
             purchase_model_code=form.cleaned_data.get('purchase_model_code', ''),
             vendor=vendor,
-            total_count=qty,
-            available_count=qty,
+            total_count=int(qty),
+            in_use=0,
+            archived_count=0,
             is_listed=True
         )
 
-        # ✅ Create corresponding Purchase entry
+        # 2️⃣ SAFE PURCHASE DATE (🔥 FIX)
+        purchase_date = form.cleaned_data.get('purchase_date') or timezone.now().date()
+
+        # 3️⃣ CREATE PURCHASE
         purchase = Purchase.objects.create(
             organisation=org,
             room=room,
@@ -903,16 +911,16 @@ class PurchaseNewItemCreateView(LoginRequiredMixin, CreateView):
             cost=form.cleaned_data.get('cost'),
             cost_per_unit=form.cleaned_data.get('cost_per_unit'),
             invoice_number=form.cleaned_data.get('invoice_number'),
-            purchase_date=form.cleaned_data.get('purchase_date'),
+            purchase_date=purchase_date,  # ✅ NEVER NULL
             item_description=form.cleaned_data.get('item_description', item.item_name),
             remarks=form.cleaned_data.get('remarks', ''),
-            status='requested'  # Default for all new purchases
+            status='requested'
         )
 
-        # ✅ Update purchase total cost (if applicable)
+        # 4️⃣ TOTAL COST CALC (SAFE DECIMAL)
         if purchase.cost_per_unit and purchase.quantity:
-            purchase.total_cost = purchase.cost_per_unit * purchase.quantity
-            purchase.save()
+            purchase.total_cost = purchase.cost_per_unit * Decimal(str(purchase.quantity))
+            purchase.save(update_fields=['total_cost'])
 
         return redirect(self.get_success_url())
 
@@ -1563,30 +1571,46 @@ class PurchaseAddToStockView(LoginRequiredMixin, View):
             messages.success(request, f"Added {purchase.quantity} {purchase.unit_of_measure} to {item.item_name} stock.")
         return redirect('room_incharge:purchase_list', room_slug=self.kwargs['room_slug'])
 
+
+from django.core.exceptions import PermissionDenied
+
 class IssueListView(LoginRequiredMixin, ListView):
-    """
-    List issues for a room (room incharge view).
-    Shows columns: Sno | Subject | Raised By | Room | Status | TAT Deadline | Assigned To | Actions
-    """
     template_name = 'room_incharge/issue_list.html'
     model = Issue
     context_object_name = 'issues'
     paginate_by = 50
 
+    def get_room(self):
+        # 1️⃣ Fetch room WITHOUT org filter (important)
+        room = get_object_or_404(Room, slug=self.kwargs['room_slug'])
+
+        # 2️⃣ Organisation safety
+        if room.organisation != self.request.user.profile.org:
+            raise PermissionDenied("Room does not belong to your organisation")
+
+        # 3️⃣ Incharge safety (MULTI-ROOM FIX)
+        if room.incharge != self.request.user.profile:
+            raise PermissionDenied("You are not assigned to this room")
+
+        return room
+
     def get_queryset(self):
-        room_slug = self.kwargs['room_slug']
-        # Ensure we only return issues for the room & organisation of the logged in user
+        room = self.get_room()
         return Issue.objects.filter(
-            room__slug=room_slug,
-            organisation=self.request.user.profile.org
+            room=room
         ).order_by('-created_on')
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        room = get_object_or_404(Room, slug=self.kwargs['room_slug'], organisation=self.request.user.profile.org)
-        context['room'] = room
-        context['room_slug'] = room.slug
-        context['room_settings'] = RoomSettings.objects.get_or_create(room=room)[0]
+        room = self.get_room()
+
+        room_settings, _ = RoomSettings.objects.get_or_create(room=room)
+
+        context.update({
+            'room': room,
+            'room_slug': room.slug,
+            'room_settings': room_settings,
+        })
         return context
 
 

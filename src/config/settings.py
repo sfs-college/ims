@@ -1,7 +1,6 @@
 import os
 from pathlib import Path
 from environ import Env
-from celery.schedules import crontab
 
 env = Env()
 Env.read_env()
@@ -246,32 +245,13 @@ if not DEBUG:
         },
     }
 
-    
-# Celery settings
-REDIS_HOST = os.getenv("REDIS_HOST", "redis")
-REDIS_PORT = int(os.getenv("REDIS_PORT", "6379"))
+# =========================
+# ISSUE ESCALATION SETTINGS
+# =========================
 
-CELERY_BROKER_URL = f"redis://{REDIS_HOST}:{REDIS_PORT}/0"
-CELERY_RESULT_BACKEND = f"redis://{REDIS_HOST}:{REDIS_PORT}/1"
-
-CELERY_ACCEPT_CONTENT = ["json"]
-CELERY_TASK_SERIALIZER = "json"
-CELERY_RESULT_SERIALIZER = "json"
-CELERY_TASK_IGNORE_RESULT = True
-
-# Retry broker connection during startup
-CELERY_BROKER_CONNECTION_RETRY_ON_STARTUP = True
-
-# Celery Beat: Put schedule file in a writable directory
-CELERY_BEAT_SCHEDULE_FILENAME = '/tmp/celerybeat-schedule'
-
-# Default TAT hours used by views and model escalation
 DEFAULT_TAT_HOURS = 48
 
-# Celery Beat Schedule
-CELERY_BEAT_SCHEDULE = {
-    'run-escalation-every-minute': {
-        'task': 'inventory.tasks.escalate_expired_issues',
-        'schedule': 60.0,  # every 1 minute
-    },
-}
+CRON_SECRET = env(
+    "CRON_SECRET",
+    default="local-dev-cron-secret"
+)
