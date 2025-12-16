@@ -1,3 +1,4 @@
+from django.forms import ValidationError
 from django.shortcuts import redirect, get_object_or_404, render, reverse
 from django.urls import reverse_lazy
 from django.views.generic import ListView, UpdateView, DeleteView, TemplateView, CreateView, View
@@ -807,27 +808,28 @@ class PurchaseCreateView(LoginRequiredMixin, CreateView):
         org = self.request.user.profile.org
 
         purchase = form.save(commit=False)
+
+        # 🔒 HARD GUARANTEES
         purchase.organisation = org
         purchase.room = room
-        purchase.status = 'requested'
+        purchase.status = "requested"
 
-        # ✅ Auto-fill item_description if not given
-        if purchase.item and not purchase.item_description:
-            purchase.item_description = purchase.item.item_name
+        if not purchase.vendor:
+            form.add_error("vendor", "Vendor is required")
+            return self.form_invalid(form)
 
-        # ✅ Update stock counts automatically
+        if not purchase.purchase_date:
+            purchase.purchase_date = timezone.now().date()
+
+        # Update stock
         if purchase.item:
             item = purchase.item
-            from decimal import Decimal
-
-            qty = Decimal(str(purchase.quantity))
-
-            item.total_count += int(qty)
+            item.total_count += int(purchase.quantity)
             item.save(update_fields=["total_count", "updated_on"])
-
 
         purchase.save()
         return redirect(self.get_success_url())
+
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -901,20 +903,24 @@ class PurchaseNewItemCreateView(LoginRequiredMixin, CreateView):
         purchase_date = form.cleaned_data.get('purchase_date') or timezone.now().date()
 
         # 3️⃣ CREATE PURCHASE
+        if not vendor:
+            form.add_error("vendor", "Vendor is required")
+            return self.form_invalid(form)
+
         purchase = Purchase.objects.create(
             organisation=org,
             room=room,
             item=item,
+            vendor=vendor,
             quantity=qty,
             unit_of_measure=unit,
-            vendor=vendor,
-            cost=form.cleaned_data.get('cost'),
-            cost_per_unit=form.cleaned_data.get('cost_per_unit'),
-            invoice_number=form.cleaned_data.get('invoice_number'),
-            purchase_date=purchase_date,  # ✅ NEVER NULL
-            item_description=form.cleaned_data.get('item_description', item.item_name),
-            remarks=form.cleaned_data.get('remarks', ''),
-            status='requested'
+            cost=form.cleaned_data.get("cost"),
+            cost_per_unit=form.cleaned_data.get("cost_per_unit"),
+            invoice_number=form.cleaned_data.get("invoice_number"),
+            purchase_date=form.cleaned_data.get("purchase_date") or timezone.now().date(),
+            item_description=form.cleaned_data.get("item_description", item.item_name),
+            remarks=form.cleaned_data.get("remarks", ""),
+            status="requested",
         )
 
         # 4️⃣ TOTAL COST CALC (SAFE DECIMAL)
@@ -1454,10 +1460,13 @@ class PurchaseImportConfirmView(LoginRequiredMixin, FormView):
                         )
 
                     # Vendor
-                    vendor_obj = Vendor.objects.filter(
-                        organisation=org,
-                        vendor_name__iexact=vendor_name
+                    vendor = Vendor.objects.filter(
+                        organisation=org
                     ).first()
+
+                    if not vendor:
+                        raise ValidationError("At least one vendor must exist")
+                    
 
                     Purchase.objects.create(
                         organisation=org,
@@ -1465,7 +1474,7 @@ class PurchaseImportConfirmView(LoginRequiredMixin, FormView):
                         item=item,
                         quantity=qty,
                         unit_of_measure=row.get("Unit of Measure", "units"),
-                        vendor=vendor_obj,
+                        vendor=vendor,
                         purchase_date=purchase_date,
                         remarks=str(row.get("Remarks", "")),
                         status="requested"
@@ -1581,18 +1590,23 @@ class IssueListView(LoginRequiredMixin, ListView):
     paginate_by = 50
 
     def get_room(self):
-        # 1️⃣ Fetch room WITHOUT org filter (important)
-        room = get_object_or_404(Room, slug=self.kwargs['room_slug'])
+        room = get_object_or_404(Room, slug=self.kwargs["room_slug"])
+        profile = self.request.user.profile
 
-        # 2️⃣ Organisation safety
-        if room.organisation != self.request.user.profile.org:
-            raise PermissionDenied("Room does not belong to your organisation")
+        # Allow if:
+        # 1. Same organisation
+        # 2. User is the room incharge
+        # 3. User is sub admin / central admin
+        if (
+            room.organisation == profile.org
+            or room.incharge == profile
+            or profile.is_sub_admin
+            or profile.is_central_admin
+        ):
+            return room
 
-        # 3️⃣ Incharge safety (MULTI-ROOM FIX)
-        if room.incharge != self.request.user.profile:
-            raise PermissionDenied("You are not assigned to this room")
+        raise PermissionDenied("You do not have access to this room")
 
-        return room
 
     def get_queryset(self):
         room = self.get_room()
