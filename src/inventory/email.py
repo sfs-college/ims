@@ -17,9 +17,9 @@ def safe_send_mail(
 ):
     """
     Production-safe email sender.
-    - Uses Mailjet REST API (works on Railway)
-    - Never crashes the app
-    - Falls back silently if email fails
+    - Uses Mailjet REST API (Railway-safe)
+    - Keyword-only arguments enforced
+    - Never crashes app
     """
 
     api_key = getattr(settings, "EMAIL_HOST_USER", None)
@@ -27,11 +27,11 @@ def safe_send_mail(
     sender_email = from_email or getattr(settings, "DEFAULT_FROM_EMAIL", None)
 
     if not api_key or not api_secret or not sender_email:
-        logger.warning("[safe_send_mail] Missing Mailjet configuration")
+        logger.error("[safe_send_mail] Missing Mailjet credentials")
         return False
 
     if not recipient_list:
-        logger.warning("[safe_send_mail] No recipients provided")
+        logger.warning("[safe_send_mail] Empty recipient list")
         return False
 
     payload = {
@@ -58,16 +58,17 @@ def safe_send_mail(
 
         if response.status_code not in (200, 201):
             logger.error(
-                "[safe_send_mail] Mailjet error %s: %s",
+                "[safe_send_mail] Mailjet error %s → %s",
                 response.status_code,
                 response.text,
             )
             return False
 
+        logger.info("[safe_send_mail] Email sent successfully")
         return True
 
     except Exception as e:
-        logger.exception("[safe_send_mail] Unexpected error: %s", e)
+        logger.exception("[safe_send_mail] Unexpected failure")
         if not fail_silently:
             raise
         return False
