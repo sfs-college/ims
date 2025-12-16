@@ -1,27 +1,73 @@
-import logging
+import requests
 from django.conf import settings
-from django.core.mail import send_mail
+import logging
 
 logger = logging.getLogger(__name__)
 
-def safe_send_mail(*, subject, message, recipient_list):
+MAILJET_SEND_URL = "https://api.mailjet.com/v3.1/send"
+
+
+def safe_send_mail(
+    *,
+    subject,
+    message,
+    recipient_list,
+    from_email=None,
+    fail_silently=True,
+):
     """
     Production-safe email sender.
-    - No Celery
-    - No Redis
-    - No crash on SMTP failure
+    - Uses Mailjet REST API (works on Railway)
+    - Never crashes the app
+    - Falls back silently if email fails
     """
 
+    api_key = getattr(settings, "EMAIL_HOST_USER", None)
+    api_secret = getattr(settings, "EMAIL_HOST_PASSWORD", None)
+    sender_email = from_email or getattr(settings, "DEFAULT_FROM_EMAIL", None)
+
+    if not api_key or not api_secret or not sender_email:
+        logger.warning("[safe_send_mail] Missing Mailjet configuration")
+        return False
+
+    if not recipient_list:
+        logger.warning("[safe_send_mail] No recipients provided")
+        return False
+
+    payload = {
+        "Messages": [
+            {
+                "From": {
+                    "Email": sender_email,
+                    "Name": "Blixtro IMS",
+                },
+                "To": [{"Email": r} for r in recipient_list],
+                "Subject": subject,
+                "TextPart": message,
+            }
+        ]
+    }
+
     try:
-        send_mail(
-            subject=subject,
-            message=message,
-            from_email=settings.DEFAULT_FROM_EMAIL,
-            recipient_list=recipient_list,
-            fail_silently=False,
+        response = requests.post(
+            MAILJET_SEND_URL,
+            auth=(api_key, api_secret),
+            json=payload,
+            timeout=10,
         )
-        logger.info("Email sent to %s", recipient_list)
+
+        if response.status_code not in (200, 201):
+            logger.error(
+                "[safe_send_mail] Mailjet error %s: %s",
+                response.status_code,
+                response.text,
+            )
+            return False
+
+        return True
 
     except Exception as e:
-        # Never crash request
-        logger.exception("Email failed but app continues: %s", e)
+        logger.exception("[safe_send_mail] Unexpected error: %s", e)
+        if not fail_silently:
+            raise
+        return False
