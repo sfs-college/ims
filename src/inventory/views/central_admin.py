@@ -106,8 +106,8 @@ class PeopleCreateView(LoginRequiredMixin, CreateView):
         # Use safe_send_mail to avoid worker crash if SMTP fails
         try:
             safe_send_mail(
-                subject,
-                message,
+                subject=subject,
+                message=message,
                 recipient_list=[user.email],
             )
         except Exception as e:
@@ -219,9 +219,25 @@ class PurchaseListView(LoginRequiredMixin, ListView):
     template_name = 'central_admin/purchase_list.html'
     model = Purchase
     context_object_name = 'purchases'
-    
+
     def get_queryset(self):
-        return super().get_queryset().filter(organisation=self.request.user.profile.org)
+        profile = self.request.user.profile
+
+        # Central Admin & Sub Admin
+        if profile.is_central_admin or profile.is_sub_admin:
+            return (
+                Purchase.objects
+                .filter(room__organisation=profile.org)  # ✅ correct org resolution
+                .select_related(
+                    "room",
+                    "item",
+                    "vendor",
+                    "receipt",
+                )
+                .order_by("-created_on")
+            )
+
+        return Purchase.objects.none()
 
 
 class IssueListView(LoginRequiredMixin, ListView):
