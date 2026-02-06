@@ -16,12 +16,11 @@
 {% endblock sidebar %}
 
 {% block content %}
-    <h3>Delete Brand</h3>
-    <p>Are you sure you want to delete the brand "{{ object.brand_name }}"?</p>
-    <form method="post">
-        {% csrf_token %}
-        <button type="submit" class="btn btn-danger btn-sm">Yes, delete</button>
-        <a href="{% url 'room_incharge:brand_list' room_slug=object.room.slug %}" class="btn text-primary btn-sm fw-semibold">Cancel</a>
-    </form>
-
+<div class="alert alert-danger">
+    You do not have permission to delete brands.
+</div>
+<a href="{% url 'room_incharge:brand_list' room_slug=object.room.slug %}"
+   class="btn btn-secondary btn-sm">
+   Go back
+</a>
 {% endblock content %}

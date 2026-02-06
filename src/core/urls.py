@@ -15,4 +15,6 @@ urlpatterns = [
           views.ConfirmPasswordResetView.as_view(), name='confirm_password_reset'),
      path('complete-password-reset/', views.CompletePasswordResetView.as_view(),
           name='complete_password_reset'),
+     path("book-room/", views.room_booking_view, name="room_booking"),
+     path("ajax/rooms-by-category/", views.rooms_by_category, name="rooms_by_category"),
 ]

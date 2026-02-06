@@ -16,12 +16,11 @@
 {% endblock sidebar %}
 
 {% block content %}
-    <h3>Delete System Component</h3>
-    <p>Are you sure you want to delete the system component "{{ object.component_item.item_name }}"?</p>
-    <form method="post">
-        {% csrf_token %}
-        <button type="submit" class="btn btn-danger btn-sm">Yes, delete</button>
-        <a href="{% url 'room_incharge:system_component_list' room_slug=object.system.room.slug system_slug=object.system.slug %}" class="btn text-primary fw-semibold">Cancel</a>
-    </form>
-
+<div class="alert alert-danger">
+    You do not have permission to delete system component.
+</div>
+<a href="{% url 'room_incharge:item_list' room_slug=object.room.slug %}"
+   class="btn btn-secondary btn-sm">
+   Go back
+</a>
 {% endblock content %}

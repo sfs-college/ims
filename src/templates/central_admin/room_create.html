@@ -17,26 +17,12 @@
 
 {% block content %}
 <h1>Create Room</h1>
-    <form method="post">
-        {% csrf_token %}
-        {{ form.as_p | safe }}
-        <button class="btn btn-primary" type="submit">Create Room</button>
-    </form>
-{% endblock content %}
 
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Create Room</title>
-</head>
-<body>
-    <h1>Create Room</h1>
-    <form method="post">
-        {% csrf_token %}
-        {{ form.as_p | safe }}
-        <button type="submit">Create Room</button>
-    </form>
-</body>
-</html>
+<form method="post">
+    {% csrf_token %}
+    {{ form.as_p|safe }}
+
+    <button class="btn btn-primary" type="submit">Create Room</button>
+</form>
+<!-- CHANGE: Removed duplicate HTML and relied on form-driven room_category field -->
+{% endblock content %}

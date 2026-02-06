@@ -16,10 +16,11 @@
 {% endblock sidebar %}
 
 {% block content %}
-    <h3>Delete Item Group</h3>
-    <p>Are you sure you want to delete this item group?</p>
-    <form method="post">
-        {% csrf_token %}
-        <button type="submit" class="btn btn-danger btn-sm">Delete</button>
-    </form>
+<div class="alert alert-danger">
+    You do not have permission to delete items group.
+</div>
+<a href="{% url 'room_incharge:item_list' room_slug=object.room.slug %}"
+   class="btn btn-secondary btn-sm">
+   Go back
+</a>
 {% endblock content %}

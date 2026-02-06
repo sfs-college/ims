@@ -41,7 +41,7 @@
                 <td>{{ item_group_item.qty }}</td>
                 <td>
                     <a href="{% url 'room_incharge:item_group_item_update' room_slug=room_slug item_group_slug=item_group_slug item_group_item_slug=item_group_item.slug %}" class="btn btn-outline-dark btn-sm">Edit</a>
-                    <a href="{% url 'room_incharge:item_group_item_delete' room_slug=room_slug item_group_slug=item_group_slug item_group_item_slug=item_group_item.slug %}" class="btn btn-danger btn-sm">Delete</a>
+                    {% comment %} <a href="{% url 'room_incharge:item_group_item_delete' room_slug=room_slug item_group_slug=item_group_slug item_group_item_slug=item_group_item.slug %}" class="btn btn-danger btn-sm">Delete</a> {% endcomment %}
                 </td>
             </tr>
             {% endfor %}

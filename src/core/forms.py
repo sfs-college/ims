@@ -1,9 +1,11 @@
+import os
 from django import forms
 from django.contrib.auth import get_user_model
 from django.contrib.auth.forms import AuthenticationForm, UserCreationForm
 from django.core.exceptions import ValidationError
 from django.conf import settings
 from config.mixins import form_mixin
+from inventory.models import RoomBooking, Room, Department
 
 User = get_user_model()
 
@@ -104,3 +106,40 @@ class UserRegisterForm(form_mixin.BootstrapFormMixin, UserCreationForm):
         if commit:
             user.save()
         return user
+    
+ALLOWED_EMAILS = [
+    email.strip().lower()
+    for email in os.getenv("ALLOWED_FACULTY_EMAILS", "").split(",")
+    if email.strip()
+]
+
+class RoomBookingForm(forms.ModelForm):
+    category = forms.ChoiceField(choices=Room.ROOM_CATEGORIES)
+
+    class Meta:
+        model = RoomBooking
+        fields = [
+            'faculty_name',
+            'faculty_email',
+            'start_datetime',
+            'end_datetime',
+            'department',
+            'room',
+        ]
+        widgets = {
+            'start_datetime': forms.DateTimeInput(attrs={'type': 'datetime-local'}),
+            'end_datetime': forms.DateTimeInput(attrs={'type': 'datetime-local'}),
+        }
+
+    def clean_faculty_email(self):
+        email = self.cleaned_data['faculty_email'].lower()
+
+        if not email.endswith("@sfscollege.in"):
+            raise ValidationError("Only @sfscollege.in emails are allowed.")
+
+        if email not in ALLOWED_EMAILS:
+            raise ValidationError("You are not authorized to book rooms.")
+
+        return email
+
+    # CHANGE: Faculty email validation using environment variable allowlist

@@ -16,40 +16,67 @@
 {% endblock sidebar %}
 
 {% block content %}
-<div class="table-responsive">
-    
-    <div class="d-flex justify-content-between align-items-center my-3">
-        <h4>Rooms</h4>
-        <div>
-            <a href="{% url 'central_admin:room_create' %}" class="btn btn-primary">Create Room</a>
-        </div>
-    </div>
 
-    <table class="table">
-      <thead>
+<div class="d-flex justify-content-between align-items-center my-3">
+    <h4>Rooms</h4>
+    <a href="{% url 'central_admin:room_create' %}" class="btn btn-primary">Create Room</a>
+</div>
+
+<form method="get" class="d-flex gap-2 mb-3">
+    <select name="category" class="form-select">
+        <option value="">All Categories</option>
+        {% for value, label in categories %}
+            <option value="{{ value }}" {% if request.GET.category == value %}selected{% endif %}>
+                {{ label }}
+            </option>
+        {% endfor %}
+    </select>
+
+    <input
+        type="text"
+        name="search"
+        class="form-control"
+        placeholder="Search room..."
+        value="{{ request.GET.search }}"
+    >
+
+    <button class="btn btn-outline-primary">Filter</button>
+</form>
+<!-- CHANGE: Added category dropdown and room search filter -->
+
+<div class="table-responsive">
+<table class="table">
+    <thead>
         <tr>
-          <th>Room Name</th>
-          <th>Incharge</th>
-          <th>Department</th>
-          <th>Created On</th>
-          <th>Action</th>
+            <th>Room Name</th>
+            <th>Category</th>
+            <th>Incharge</th>
+            <th>Department</th>
+            <th>Created On</th>
+            <th>Action</th>
         </tr>
-      </thead>
-      <tbody>
+    </thead>
+    <tbody>
         {% for room in rooms %}
         <tr>
-          <td>{{ room.room_name }}</td>
-          <td>{{ room.incharge.user.get_full_name }}</td>
-          <td>{% if room.department %}{{ room.department.department_name }}{% else %}None{% endif %}</td>
-          <td>{{ room.created_on|date:"d-M-Y H:i:s" }}</td>
-          <td>
-            <a href="{% url 'room_incharge:room_dashboard' room_slug=room.slug %}" class="btn btn-outline-dark btn-sm">View room</a>
-            <a href="{% url 'central_admin:room_update' room_slug=room.slug %}" class="btn btn-dark btn-sm">Edit</a>
-            <a href="{% url 'central_admin:room_delete' room_slug=room.slug %}" class="btn btn-danger btn-sm">Delete</a>
-          </td>
+            <td>{{ room.room_name }}</td>
+            <td>
+                <span class="badge bg-secondary">
+                    {{ room.get_room_category_display }}
+                </span>
+            </td>
+            <td>{{ room.incharge.user.get_full_name }}</td>
+            <td>{% if room.department %}{{ room.department.department_name }}{% else %}None{% endif %}</td>
+            <td>{{ room.created_on|date:"d-M-Y H:i:s" }}</td>
+            <td>
+                <a href="{% url 'room_incharge:room_dashboard' room_slug=room.slug %}" class="btn btn-outline-dark btn-sm">View</a>
+                <a href="{% url 'central_admin:room_update' room_slug=room.slug %}" class="btn btn-dark btn-sm">Edit</a>
+                <a href="{% url 'central_admin:room_delete' room_slug=room.slug %}" class="btn btn-danger btn-sm">Delete</a>
+            </td>
         </tr>
         {% endfor %}
-      </tbody>
-    </table>
+    </tbody>
+</table>
 </div>
+
 {% endblock content %}

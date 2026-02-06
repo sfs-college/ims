@@ -43,7 +43,7 @@
                 <td>{{ component.serial_number }}</td>
                 <td>
                     <a href="{% url 'room_incharge:system_component_update' room_slug=room_slug system_slug=system_slug component_slug=component.slug %}" class="btn btn-outline-dark btn-sm">Edit</a>
-                    <a href="{% url 'room_incharge:system_component_delete' room_slug=room_slug system_slug=system_slug component_slug=component.slug %}" class="btn btn-danger btn-sm">Delete</a>
+                    {% comment %} <a href="{% url 'room_incharge:system_component_delete' room_slug=room_slug system_slug=system_slug component_slug=component.slug %}" class="btn btn-danger btn-sm">Delete</a> {% endcomment %}
                 </td>
             </tr>
             {% endfor %}

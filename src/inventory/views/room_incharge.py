@@ -86,6 +86,10 @@ class CategoryDeleteView(LoginRequiredMixin, DeleteView):
         context['room_settings'] = RoomSettings.objects.get_or_create(room=room)[0]
         return context
 
+    def dispatch(self, request, *args, **kwargs):
+    # Room Incharge is permanently restricted from delete operations
+        return HttpResponseForbidden("Delete operation is not allowed.")
+
 class CategoryCreateView(LoginRequiredMixin, CreateView):
     model = Category
     template_name = 'room_incharge/category_create.html'
@@ -241,6 +245,10 @@ class BrandDeleteView(LoginRequiredMixin, DeleteView):
         context['room_settings'] = RoomSettings.objects.get_or_create(room=room)[0]
         return context
 
+    def dispatch(self, request, *args, **kwargs):
+    # Room Incharge is permanently restricted from delete operations
+        return HttpResponseForbidden("Delete operation is not allowed.")
+
 class ItemListView(LoginRequiredMixin, ListView):
     model = Item
     template_name = 'room_incharge/item_list.html'
@@ -308,9 +316,21 @@ class RequestEditView(LoginRequiredMixin, View):
         room = get_object_or_404(Room, slug=kwargs['room_slug'])
         item = get_object_or_404(Item, slug=kwargs['item_slug'], room=room)
 
-        if EditRequest.objects.filter(item=item, status="pending").exists():
-            messages.info(request, "An edit request is already pending for this item.")
-            return redirect('room_incharge:item_list', room_slug=room.slug)
+        from django.db.utils import ProgrammingError
+
+        try:
+            has_pending_request = EditRequest.objects.filter(
+                item=item,
+                status="pending"
+            ).exists()
+        except ProgrammingError:
+            # EditRequest table not yet created (migration-safe fallback)
+            has_pending_request = False
+
+        if has_pending_request:
+            messages.error(request, "An edit request is already pending.")
+            return redirect(self.get_success_url())
+
 
         EditRequest.objects.create(
             item=item,
@@ -325,58 +345,87 @@ class RequestEditView(LoginRequiredMixin, View):
         return redirect('room_incharge:item_list', room_slug=room.slug)
 
 
-class ItemUpdateView(LoginRequiredMixin, UpdateView):
-    model = Item
-    form_class = ItemForm
-    template_name = 'room_incharge/item_update.html'
-    slug_field = 'slug'
-    slug_url_kwarg = 'item_slug'
+class ItemUpdateView(LoginRequiredMixin, View):
+    """
+    Room Incharge can only request edits.
+    Direct item updates are not allowed.
+    """
+
+    template_name = "room_incharge/item_edit_request.html"
+    form_class = ItemEditRequestForm
+
+    def get(self, request, *args, **kwargs):
+        item = self.get_item()
+        form = self.form_class(initial={
+            "item_name": item.item_name,
+            "item_description": item.item_description,
+            "total_count": item.total_count,
+            "available_count": item.available_count,
+            "in_use": item.in_use,
+        })
+
+        return self.render(form, item)
+
+    def post(self, request, *args, **kwargs):
+        item = self.get_item()
+        form = self.form_class(request.POST)
+
+        if form.is_valid():
+            user_profile = request.user.profile
+
+            # Admins are not allowed to raise edit requests
+            if user_profile.is_sub_admin or user_profile.is_central_admin:
+                messages.error(
+                    request,
+                    "Admins cannot edit items. They only approve edit requests."
+                )
+                return redirect(self.get_success_url())
+
+            # Prevent duplicate edit requests
+            if item.is_edit_lock:
+                messages.error(
+                    request,
+                    "An edit request is already pending for this item."
+                )
+                return redirect(self.get_success_url())
+
+            form.save(item=item, requested_by=user_profile)
+
+            messages.success(
+                request,
+                "Edit request submitted successfully for approval."
+            )
+            return redirect(self.get_success_url())
+
+        return self.render(form, item)
+
+    def get_item(self):
+        return get_object_or_404(
+            Item,
+            slug=self.kwargs["item_slug"],
+            room__slug=self.kwargs["room_slug"],
+        )
 
     def get_success_url(self):
-        return reverse_lazy('room_incharge:item_list', kwargs={'room_slug': self.kwargs['room_slug']})
+        return reverse_lazy(
+            "room_incharge:item_list",
+            kwargs={"room_slug": self.kwargs["room_slug"]},
+        )
 
-    def form_valid(self, form):
-        item = form.save(commit=False)
-        user_profile = self.request.user.profile
+    def render(self, form, item):
+        room = item.room
 
-        # Only room incharge can edit
-        if user_profile.is_sub_admin or user_profile.is_central_admin:
-            messages.error(self.request, "Admins cannot edit items. They only approve requests.")
-            return redirect(self.get_success_url())
+        context = {
+            "form": form,
+            "item": item,
+            "room": room,
+            "room_slug": room.slug,
+            "room_name": room.room_name,
+            "current_room": room,
+            "room_settings": RoomSettings.objects.get_or_create(room=room)[0],
+        }
 
-        # Only unlocked items can be edited
-        if item.is_edit_lock:
-            messages.error(self.request, "Item is locked. Request edit first.")
-            return redirect(self.get_success_url())
-
-        # Save changes
-        item.save()
-
-        # Immediately relock after edit
-        item.is_edit_lock = True
-        item.save()
-
-        messages.success(self.request, "Item updated and locked again.")
-        return redirect(self.get_success_url())
-    
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-
-        room_slug = self.kwargs.get("room_slug")
-        room = get_object_or_404(Room, slug=room_slug)
-
-        # FIX: Ensure both navbar and sidebar get room info
-        context["room_slug"] = room_slug
-        context["room"] = room
-        context["room_name"] = room.room_name
-
-        # If navbar/sidebar uses this:
-        context["current_room"] = room
-
-        context["room_settings"] = RoomSettings.objects.get_or_create(room=room)[0]
-
-        return context
-
+        return render(self.request, self.template_name, context)
 
 
 class IssueBulkDeleteView(LoginRequiredMixin, View):
@@ -416,6 +465,10 @@ class IssueBulkDeleteView(LoginRequiredMixin, View):
             messages.error(request, "No permitted issues to delete.")
 
         return redirect(request.META.get('HTTP_REFERER', '/'))
+    
+    def dispatch(self, request, *args, **kwargs):
+    # Room Incharge is permanently restricted from delete operations
+        return HttpResponseForbidden("Delete operation is not allowed.")
 
 
 class ItemDeleteView(LoginRequiredMixin, DeleteView):
@@ -437,6 +490,11 @@ class ItemDeleteView(LoginRequiredMixin, DeleteView):
         context['room_slug'] = self.kwargs['room_slug']
         context['room_settings'] = RoomSettings.objects.get_or_create(room=room)[0]
         return context
+    
+    def dispatch(self, request, *args, **kwargs):
+    # Room Incharge is not allowed to delete items (restricted permanently)
+        return HttpResponseForbidden("Delete action is not permitted.")
+
 
 class ItemArchiveView(LoginRequiredMixin, FormView):
     template_name = 'room_incharge/item_archive.html'
@@ -580,6 +638,10 @@ class SystemDeleteView(LoginRequiredMixin, DeleteView):
         context['room_slug'] = self.kwargs['room_slug']
         context['room_settings'] = RoomSettings.objects.get_or_create(room=room)[0]
         return context
+    
+    def dispatch(self, request, *args, **kwargs):
+    # Room Incharge is permanently restricted from delete operations
+        return HttpResponseForbidden("Delete operation is not allowed.")
 
 class SystemComponentListView(LoginRequiredMixin, ListView):
     template_name = 'room_incharge/system_component_list.html'
@@ -712,6 +774,10 @@ class SystemComponentDeleteView(LoginRequiredMixin, DeleteView):
         room = Room.objects.get(slug=self.kwargs['room_slug'])
         context['room_settings'] = RoomSettings.objects.get_or_create(room=room)[0]
         return context
+
+    def dispatch(self, request, *args, **kwargs):
+    # Room Incharge is permanently restricted from delete operations
+        return HttpResponseForbidden("Delete operation is not allowed.")
 
 class SystemComponentArchiveView(LoginRequiredMixin, FormView):
     template_name = 'room_incharge/system_component_archive.html'
@@ -954,6 +1020,10 @@ class PurchaseDeleteView(LoginRequiredMixin, DeleteView):
         context['room_slug'] = self.kwargs['room_slug']
         context['room_settings'] = RoomSettings.objects.get_or_create(room=room)[0]
         return context
+
+    def dispatch(self, request, *args, **kwargs):
+    # Room Incharge is permanently restricted from delete operations
+        return HttpResponseForbidden("Delete operation is not allowed.")
 
 # ============================
 # Excel Expected Column Formats
@@ -1822,6 +1892,10 @@ class ItemGroupDeleteView(LoginRequiredMixin, DeleteView):
         context['room_settings'] = RoomSettings.objects.get_or_create(room=room)[0]
         return context
 
+    def dispatch(self, request, *args, **kwargs):
+    # Room Incharge is permanently restricted from delete operations
+        return HttpResponseForbidden("Delete operation is not allowed.")
+
 class ItemGroupItemUpdateView(LoginRequiredMixin, UpdateView):
     model = ItemGroupItem
     template_name = 'room_incharge/item_group_item_update.html'
@@ -1873,6 +1947,10 @@ class ItemGroupItemDeleteView(LoginRequiredMixin, DeleteView):
         room = Room.objects.get(slug=self.kwargs['room_slug'])
         context['room_settings'] = RoomSettings.objects.get_or_create(room=room)[0]
         return context
+
+    def dispatch(self, request, *args, **kwargs):
+    # Room Incharge is permanently restricted from delete operations
+        return HttpResponseForbidden("Delete operation is not allowed.")
 
 class RoomSettingsView(LoginRequiredMixin, UpdateView):
     model = RoomSettings 
