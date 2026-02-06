@@ -114,8 +114,8 @@
                                         {% if purchase.status == 'requested' %}
                                         <a href="{% url 'room_incharge:purchase_update' room_slug=room_slug purchase_slug=purchase.slug %}"
                                             class="btn btn-sm btn-outline-dark">Edit</a>
-                                        <a href="{% url 'room_incharge:purchase_delete' room_slug=room_slug purchase_slug=purchase.slug %}"
-                                            class="btn btn-danger">Delete</a>
+                                        {% comment %} <a href="{% url 'room_incharge:purchase_delete' room_slug=room_slug purchase_slug=purchase.slug %}"
+                                            class="btn btn-danger">Delete</a> {% endcomment %}
                                         {% endif %}
                                         {% if purchase.status == 'approved' %}
                                         <a href="{% url 'room_incharge:purchase_complete' room_slug=room_slug purchase_slug=purchase.slug %}"

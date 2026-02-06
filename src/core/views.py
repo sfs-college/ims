@@ -14,6 +14,9 @@ from core.models import UserProfile, Organisation
 from django.contrib.auth import get_user_model
 from config.mixins.access_mixins import RedirectLoggedInUsersMixin
 from django.contrib import messages
+from core.forms import RoomBookingForm
+from inventory.models import Room
+from django.http import JsonResponse
 
 User = get_user_model()
 
@@ -113,4 +116,22 @@ class ConfirmPasswordResetView(PasswordResetConfirmView):
 class CompletePasswordResetView(PasswordResetCompleteView):
     template_name = 'core/password_reset/password_reset_complete.html'
     
-    
+def room_booking_view(request):
+    name="room_booking"
+    form = RoomBookingForm()
+
+    if request.method == "POST":
+        form = RoomBookingForm(request.POST)
+        if form.is_valid():
+            form.save()
+            return render(request, "booking/booking_success.html")
+
+    return render(request, "booking/room_booking.html", {"form": form})
+
+
+def rooms_by_category(request):
+    category = request.GET.get("category")
+    rooms = Room.objects.filter(room_category=category).values("id", "room_name")
+    return JsonResponse(list(rooms), safe=False)
+
+    # CHANGE: Dynamic room filtering by category

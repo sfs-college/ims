@@ -18,7 +18,7 @@
 {% block content %}
 <h3 class="my-3">Issues for {{ room.room_name }}</h3>
 
-<!-- BULK DELETE FORM (ONLY checkboxes + delete button) -->
+{% comment %} <!-- BULK DELETE FORM (ONLY checkboxes + delete button) -->
 <form id="bulk-delete-form" method="post" action="{% url 'room_incharge:issues_bulk_delete' room.slug %}">
     {% csrf_token %}
 
@@ -26,7 +26,7 @@
         <button type="submit" class="btn btn-danger btn-sm">Delete Selected</button>
     </div>
 
-</form>  <!-- IMPORTANT: Bulk delete form ends HERE -->
+</form>  <!-- IMPORTANT: Bulk delete form ends HERE --> {% endcomment %}
 
 <!-- TABLE STARTS OUTSIDE THE FORM -->
 <div class="table-responsive">
@@ -34,7 +34,7 @@
 
         <thead>
             <tr>
-                <th><input type="checkbox" id="select_all" onclick="toggleAll(this)"></th>
+               <!-- <th><input type="checkbox" id="select_all" onclick="toggleAll(this)"></th> -->
                 <th class="text-muted">Sno.</th>
                 <th class="text-muted">Subject</th>
                 <th class="text-muted">Raised By</th>
@@ -50,13 +50,13 @@
             {% for issue in issues %}
             <tr>
 
-                <!-- Checkbox belongs to Bulk Delete form using form attribute -->
+                {% comment %} <!-- Checkbox belongs to Bulk Delete form using form attribute -->
                 <td>
                     <input type="checkbox"
                            name="selected_issues"
                            value="{{ issue.pk }}"
                            form="bulk-delete-form">
-                </td>
+                </td> {% endcomment %}
 
                 <td>{{ forloop.counter }}</td>
 

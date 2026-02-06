@@ -14,6 +14,17 @@ from inventory.models import UserProfile
 from django.core.mail import send_mail
 
 class Room(models.Model):
+    # CHANGE: Added fixed room category support for central admin room management
+    ROOM_CATEGORIES = [
+    ('classrooms', 'Classrooms'),
+    ('labs', 'Labs'),
+    ('staffrooms', 'Staffrooms'),
+    ('halls', 'Halls'),
+    ('outdoors', 'Outdoors'),
+    ('washrooms', 'Washrooms'),
+    ('officerooms', 'Officerooms'),
+]
+
     organisation = models.ForeignKey(Organisation, on_delete=models.CASCADE)
     department = models.ForeignKey(Department, on_delete=models.SET_NULL, null=True, blank=True)
     label = models.CharField(max_length=20)
@@ -22,6 +33,8 @@ class Room(models.Model):
     created_on = models.DateTimeField(auto_now_add=True)
     updated_on = models.DateTimeField(auto_now=True)
     slug = models.SlugField(unique=True, max_length=255)
+    room_category = models.CharField(max_length=20, choices=ROOM_CATEGORIES, default='classrooms')
+
     
     def save(self, *args, **kwargs):
         if not self.slug:
@@ -628,27 +641,69 @@ class Receipt(models.Model):
 class EditRequest(models.Model):
     item = models.ForeignKey(Item, on_delete=models.CASCADE)
     room = models.ForeignKey(Room, on_delete=models.CASCADE)
+    requested_by = models.ForeignKey(UserProfile, on_delete=models.CASCADE)
 
-    # FIXED: requested_by must be UserProfile, NOT User
-    requested_by = models.ForeignKey(
-        UserProfile, on_delete=models.CASCADE, related_name="requested_edit_requests"
-    )
-
-    reason = models.TextField(blank=True, null=True)
-    proposed_data = models.JSONField(blank=True, null=True)
+    proposed_data = models.JSONField(default=dict)
+    reason = models.TextField(default="")
 
     status = models.CharField(
         max_length=20,
-        choices=[("pending", "Pending"), ("approved", "Approved"), ("rejected", "Rejected")],
-        default="pending"
+        choices=[
+            ("pending", "Pending"),
+            ("approved", "Approved"),
+            ("rejected", "Rejected"),
+        ],
+        default="pending",
     )
 
-    # reviewed_by = models.ForeignKey(
-    #     UserProfile, null=True, blank=True, on_delete=models.SET_NULL,
-    #     related_name="reviewed_edit_requests"
-    # )
+    reviewed_by = models.ForeignKey(
+        UserProfile,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="reviewed_edit_requests",
+    )
 
     created_on = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
-        return f"Edit Request for {self.item.item_name}"
+        return f"{self.item} ({self.status})"
+
+
+
+class RoomBooking(models.Model):
+    room = models.ForeignKey(Room, on_delete=models.CASCADE)
+    department = models.ForeignKey(Department, null=True, blank=True, on_delete=models.SET_NULL)
+
+    faculty_name = models.CharField(max_length=255)
+    faculty_email = models.EmailField()
+
+    start_datetime = models.DateTimeField()
+    end_datetime = models.DateTimeField()
+
+    created_on = models.DateTimeField(auto_now_add=True)
+
+    def clean(self):
+        if self.start_datetime >= self.end_datetime:
+            raise ValidationError("End time must be after start time.")
+
+        overlapping = RoomBooking.objects.filter(
+            room=self.room,
+            start_datetime__lt=self.end_datetime,
+            end_datetime__gt=self.start_datetime
+        )
+
+        if self.pk:
+            overlapping = overlapping.exclude(pk=self.pk)
+
+        if overlapping.exists():
+            raise ValidationError("This room is already booked for the selected time.")
+
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return f"{self.room.room_name} | {self.start_datetime} - {self.end_datetime}"
+
+    # CHANGE: Added room booking model with overlap prevention

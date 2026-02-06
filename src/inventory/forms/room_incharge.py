@@ -143,33 +143,55 @@ class ItemEditRequestForm(form_mixin.BootstrapFormMixin, forms.Form):
     """
 
     item_name = forms.CharField(required=False)
-    item_description = forms.CharField(widget=forms.Textarea(attrs={'rows': 3}), required=False)
+    item_description = forms.CharField(
+        widget=forms.Textarea(attrs={'rows': 3}),
+        required=False
+    )
     total_count = forms.IntegerField(required=False)
     available_count = forms.IntegerField(required=False)
     in_use = forms.IntegerField(required=False)
-    remarks = forms.CharField(widget=forms.Textarea(attrs={'rows': 3}), required=False)
-    reason = forms.CharField(widget=forms.Textarea(attrs={'rows': 3}), required=True)
+
+    remarks = forms.CharField(
+        widget=forms.Textarea(attrs={'rows': 3}),
+        required=False,
+        label="Additional remarks (optional)"
+    )
+    reason = forms.CharField(
+        widget=forms.Textarea(attrs={'rows': 3}),
+        required=True,
+        label="Why are you requesting this change?"
+    )
 
     def save(self, *, item: Item, requested_by: UserProfile):
-        cleaned = self.cleaned_data
-        proposed = {}
+        """
+        Creates an edit request instead of updating the item directly.
+        """
 
-        for field in ['item_name', 'item_description', 'total_count', 'available_count', 'in_use', 'remarks']:
-            if cleaned.get(field) not in [None, '']:
-                proposed[field] = cleaned[field]
+        cleaned = self.cleaned_data
+        proposed_data = {}
+
+        for field in [
+            'item_name',
+            'item_description',
+            'total_count',
+            'available_count',
+            'in_use',
+            'remarks',
+        ]:
+            if cleaned.get(field) not in [None, ""]:
+                proposed_data[field] = cleaned[field]
 
         edit_request = EditRequest.objects.create(
             item=item,
             room=item.room,
-            requested_by=requested_by.user.profile,   # NOW CORRECT TYPE: UserProfile
-            proposed_data=proposed,
+            requested_by=requested_by,
+            proposed_data=proposed_data,
             reason=cleaned['reason'],
-            status="pending"
+            status="pending",
         )
 
-        # Lock item AFTER request
+        # Lock item after edit request is raised
         item.is_edit_lock = True
-        item.save()
+        item.save(update_fields=["is_edit_lock"])
 
         return edit_request
-

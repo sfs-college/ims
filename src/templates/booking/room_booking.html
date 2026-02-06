@@ -1,0 +1,186 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Room / Venue Booking</title>
+
+    <!-- Bootstrap CSS -->
+    <link
+        href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
+        rel="stylesheet"
+    >
+    <link
+  href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css"
+  rel="stylesheet"
+>
+
+
+    <style>
+        body {
+            background-color: #f8f9fb;
+        }
+        .booking-wrapper {
+            max-width: 1100px;
+            margin: 60px auto;
+        }
+        .booking-header {
+            margin-bottom: 30px;
+        }
+        .booking-header h2 {
+            font-weight: 600;
+        }
+        .booking-header p {
+            color: #6c757d;
+            margin-top: 10px;
+        }
+        .booking-card {
+            border-radius: 12px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.06);
+            border: none;
+        }
+        .form-label {
+            font-weight: 500;
+        }
+        .helper-text {
+            font-size: 0.875rem;
+            color: #6c757d;
+        }
+        .btn-book {
+            height: 52px;
+            font-size: 1.05rem;
+            font-weight: 500;
+        }
+    </style>
+</head>
+
+<body>
+
+<div class="booking-wrapper">
+
+    <!-- =========================
+         PAGE HEADER / DESCRIPTION
+    ========================== -->
+    <div class="booking-header text-center">
+        <h2>Room / Venue Booking</h2>
+        <p>
+            Use this form to reserve classrooms, labs, halls, or other venues.
+            Only authorized faculty members can book rooms using their official
+            <strong>@sfscollege.in</strong> email address.
+        </p>
+    </div>
+
+    <!-- =========================
+         BOOKING FORM CARD
+    ========================== -->
+    <div class="card booking-card">
+        <div class="card-body p-4 p-md-5">
+
+            <form method="post">
+                {% csrf_token %}
+
+                <h6 class="text-muted mb-3">Faculty Details</h6>
+
+                <!-- Faculty Email -->
+                <div class="mb-4">
+                    <label class="form-label">Faculty Email</label>
+                    {{ form.faculty_email }}
+                    <div class="helper-text">
+                        Only official faculty emails are allowed
+                    </div>
+                </div>
+
+                <!-- Faculty Name -->
+                <div class="mb-4">
+                    <label class="form-label">Faculty Name</label>
+                    {{ form.faculty_name }}
+                </div>
+
+                <!-- Date & Time -->
+                <div class="row mb-4">
+                    <div class="col-md-4">
+                        <label class="form-label">
+                            <i class="bi bi-calendar-event"></i> Date
+                        </label>
+                        {{ form.start_datetime }}
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">
+                            <i class="bi bi-clock"></i> Start Time
+                        </label>
+                        {{ form.start_datetime }}
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">
+                            <i class="bi bi-clock-history"></i> End Time
+                        </label>
+                        {{ form.end_datetime }}
+                    </div>
+                </div>
+
+
+                <hr class="my-4">
+                <h6 class="text-muted mb-3">Room Selection</h6>
+
+                <!-- Category -->
+                <div class="mb-4">
+                    <label class="form-label">Category</label>
+                    {{ form.category }}
+                </div>
+
+                <!-- Room -->
+                <div class="mb-4">
+                    <label class="form-label">Room / Venue</label>
+                    {{ form.room }}
+                </div>
+
+                <!-- Department -->
+                <div class="mb-4">
+                    <label class="form-label">Department</label>
+                    {{ form.department }}
+                    <div class="helper-text">
+                        Optional
+                    </div>
+                </div>
+
+                <!-- Submit -->
+                <div class="mt-4">
+                    <button type="submit" class="btn btn-primary w-100 btn-book">
+                        Book Room
+                    </button>
+                </div>
+
+            </form>
+
+        </div>
+    </div>
+</div>
+
+<!-- Existing JS remains unchanged -->
+<script>
+document.getElementById("id_category").addEventListener("change", function () {
+    const category = this.value;
+    const roomSelect = document.getElementById("id_room");
+
+    roomSelect.innerHTML = "<option value=''>Loading rooms...</option>";
+
+    fetch("{% url 'core:rooms_by_category' %}?category=" + category)
+        .then(response => response.json())
+        .then(data => {
+            roomSelect.innerHTML = "<option value=''>Select Room</option>";
+            if (data.length === 0) {
+                roomSelect.innerHTML += "<option value=''>No rooms available</option>";
+            }
+            data.forEach(room => {
+                roomSelect.innerHTML += `<option value="${room.id}">${room.room_name}</option>`;
+            });
+        })
+        .catch(() => {
+            roomSelect.innerHTML = "<option value=''>Error loading rooms</option>";
+        });
+});
+</script>
+
+
+</body>
+</html>

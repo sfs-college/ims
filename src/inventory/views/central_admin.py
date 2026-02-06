@@ -123,7 +123,6 @@ class PeopleDeleteView(LoginRequiredMixin, DeleteView):
     slug_field = 'slug'  # Changed from 'people_slug' to 'slug'
     slug_url_kwarg = 'people_slug'
     success_url = reverse_lazy('central_admin:people_list')
-    
 
 class RoomListView(LoginRequiredMixin, ListView):
     template_name = 'central_admin/room_list.html'
@@ -131,7 +130,24 @@ class RoomListView(LoginRequiredMixin, ListView):
     context_object_name = 'rooms'
 
     def get_queryset(self):
-        return Room.objects.filter(organisation=self.request.user.profile.org)
+        qs = Room.objects.filter(organisation=self.request.user.profile.org)
+
+        category = self.request.GET.get('category')
+        search = self.request.GET.get('search')
+
+        if category:
+            qs = qs.filter(room_category=category)
+
+        if search:
+            qs = qs.filter(room_name__icontains=search)
+
+        return qs
+        # CHANGE: Added category filtering and search support for rooms
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['categories'] = Room.ROOM_CATEGORIES
+        return context
     
     
 class RoomCreateView(LoginRequiredMixin, CreateView):
@@ -366,33 +382,54 @@ class EditRequestListView(ListView):
     context_object_name = "edit_requests"
 
     def get_queryset(self):
-        return EditRequest.objects.filter(status="pending").order_by("-created_on")
+        # Show newest pending requests first
+        return (
+            EditRequest.objects
+            .filter(status="pending")
+            .select_related("item", "room", "requested_by")
+            .order_by("-created_on")
+        )
+
 
 class ApproveEditRequestView(LoginRequiredMixin, View):
     def post(self, request, pk, *args, **kwargs):
-        er = get_object_or_404(EditRequest, pk=pk)
-        item = er.item
+        edit_request = get_object_or_404(EditRequest, pk=pk)
+        item = edit_request.item
 
-        # STEP 1 — Mark request as approved
-        er.status = "approved"
-        er.reviewed_by = request.user.profile
-        er.save()
+        # Apply proposed changes to the item (approved edit request)
+        for field, value in edit_request.proposed_data.items():
+            setattr(item, field, value)
 
-        # STEP 2 — Unlock item so room incharge can edit it
         item.is_edit_lock = False
         item.save()
 
-        messages.success(request, "Edit request approved. Item is now unlocked for editing.")
-        return redirect('central_admin:edit_request_list')
+        edit_request.status = "approved"
+        edit_request.reviewed_by = request.user.profile
+        edit_request.save(update_fields=["status", "reviewed_by"])
+
+        messages.success(
+            request,
+            "Edit request approved and item updated successfully."
+        )
+        return redirect("central_admin:edit_request_list")
 
 
 class RejectEditRequestView(LoginRequiredMixin, View):
     def post(self, request, pk, *args, **kwargs):
-        er = get_object_or_404(EditRequest, pk=pk)
-        er.status = 'rejected'
-        er.save()
+        edit_request = get_object_or_404(EditRequest, pk=pk)
+        item = edit_request.item
+
+        # Unlock item without applying requested changes
+        item.is_edit_lock = False
+        item.save(update_fields=["is_edit_lock"])
+
+        edit_request.status = "rejected"
+        edit_request.reviewed_by = request.user.profile
+        edit_request.save(update_fields=["status", "reviewed_by"])
+
         messages.info(request, "Edit request rejected.")
-        return redirect('central_admin:edit_request_list')
+        return redirect("central_admin:edit_request_list")
+
 
 # added this for admin issue actions
 
