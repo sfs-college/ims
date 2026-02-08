@@ -6,8 +6,8 @@ from inventory.models import Category, Vendor, Purchase, Room, Brand, Item, Syst
 from inventory.forms.room_incharge import CategoryForm, BrandForm, ItemForm, ItemPurchaseForm, PurchaseForm, PurchaseUpdateForm, SystemForm, SystemComponentForm, ItemGroupForm, ItemGroupItemForm, RoomSettingsForm, ExcelUploadForm, ItemEditRequestForm  # Import RoomSettingsForm
 from django.contrib import messages
 from django.views.generic.edit import FormView
-from inventory.forms.room_incharge import SystemComponentArchiveForm, ItemArchiveForm, RoomUpdateForm
-from inventory.models import Archive
+from inventory.forms.room_incharge import SystemComponentArchiveForm, ItemArchiveForm, RoomUpdateForm, IssueTimeExtensionForm
+from inventory.models import Archive, IssueTimeExtensionRequest
 from inventory.forms.room_incharge import PurchaseCompleteForm
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.http import HttpResponse
@@ -15,6 +15,7 @@ from django.template.loader import render_to_string
 from weasyprint import HTML
 import pandas as pd
 import io
+from datetime import timedelta
 from django.utils import timezone
 from datetime import datetime, date
 from openpyxl.utils import datetime as xl_datetime
@@ -2218,3 +2219,49 @@ class RoomReportView(LoginRequiredMixin, View):
         response = HttpResponse(pdf, content_type='application/pdf')
         response['Content-Disposition'] = f'attachment; filename="{room.room_name}_report.pdf"'
         return response
+
+class IssueTimeExtensionRequestView(LoginRequiredMixin, View):
+    def post(self, request, issue_id):
+        issue = get_object_or_404(Issue, pk=issue_id)
+
+        requested_extra_hours = request.POST.get("requested_extra_hours")
+        reason = request.POST.get("reason")
+
+        if not requested_extra_hours or not reason:
+            messages.error(
+                request,
+                "Both additional time and reason are required."
+            )
+            return redirect(
+                "room_incharge:issue_list",
+                room_slug=issue.room.slug
+            )
+
+
+        # Calculate current TAT in hours
+        if issue.tat_deadline:
+            remaining_seconds = (issue.tat_deadline - timezone.now()).total_seconds()
+            current_tat_hours = max(int(remaining_seconds // 3600), 0)
+        else:
+            # Fallback to standard SLA (48 hours)
+            current_tat_hours = 48
+
+        IssueTimeExtensionRequest.objects.create(
+            issue=issue,
+            requested_by=request.user.profile,
+            current_tat_hours=current_tat_hours,  # ✅ FIX
+            requested_extra_hours=int(requested_extra_hours),
+            reason=reason,
+        )
+
+
+        messages.success(
+            request,
+            "Time extension request submitted successfully."
+        )
+
+        return redirect(
+            "room_incharge:issue_list",
+            room_slug=issue.room.slug
+        )
+

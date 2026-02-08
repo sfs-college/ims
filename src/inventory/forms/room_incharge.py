@@ -197,3 +197,19 @@ class ItemEditRequestForm(form_mixin.BootstrapFormMixin, forms.Form):
         item.save(update_fields=["is_edit_lock"])
 
         return edit_request
+
+class IssueTimeExtensionForm(forms.Form):
+    """
+    Room Incharge requests additional TAT for an Issue.
+    """
+
+    requested_extra_hours = forms.IntegerField(
+        min_value=1,
+        label="Additional Time Required (in hours)"
+    )
+
+    reason = forms.CharField(
+        widget=forms.Textarea(attrs={"rows": 3}),
+        required=True,
+        label="Reason for requesting additional time"
+    )

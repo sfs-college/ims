@@ -98,14 +98,9 @@ urlpatterns = [
     path('rooms/<slug:room_slug>/issue/<int:pk>/unresolve/', 
      room_incharge.MarkUnresolvedView.as_view(), 
      name='unresolve'),
-    # -----------------------------------------------------------
-    # BULK DELETE ISSUES (ADDED)
-    # -----------------------------------------------------------
-    # path(
-    #     'rooms/<slug:room_slug>/issues/bulk-delete/',
-    #     room_incharge.IssueBulkDeleteView.as_view(),
-    #     name='issues_bulk_delete'
-    # ),
+    path("issues/<int:issue_id>/request-time-extension/",
+        room_incharge.IssueTimeExtensionRequestView.as_view(),
+        name="issue_time_extension_request"),
 
 
 ]

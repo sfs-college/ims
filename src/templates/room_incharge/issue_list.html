@@ -18,193 +18,189 @@
 {% block content %}
 <h3 class="my-3">Issues for {{ room.room_name }}</h3>
 
-{% comment %} <!-- BULK DELETE FORM (ONLY checkboxes + delete button) -->
-<form id="bulk-delete-form" method="post" action="{% url 'room_incharge:issues_bulk_delete' room.slug %}">
-    {% csrf_token %}
-
-    <div class="d-flex justify-content-end mb-2">
-        <button type="submit" class="btn btn-danger btn-sm">Delete Selected</button>
-    </div>
-
-</form>  <!-- IMPORTANT: Bulk delete form ends HERE --> {% endcomment %}
-
-<!-- TABLE STARTS OUTSIDE THE FORM -->
 <div class="table-responsive">
-    <table class="table align-middle">
-
+    <table class="table table-sm align-middle">
         <thead>
             <tr>
-               <!-- <th><input type="checkbox" id="select_all" onclick="toggleAll(this)"></th> -->
-                <th class="text-muted">Sno.</th>
-                <th class="text-muted">Subject</th>
-                <th class="text-muted">Raised By</th>
-                <th class="text-muted">Room</th>
-                <th class="text-muted">Status</th>
-                <th class="text-muted">TAT Deadline</th>
-                <th class="text-muted">Assigned To</th>
-                <th class="text-muted">Actions</th>
+                <th>Sno.</th>
+                <th>Subject</th>
+                <th>Raised By</th>
+                <th>Status</th>
+                <th>TAT Deadline</th>
+                <th class="text-center">Actions</th>
             </tr>
         </thead>
 
         <tbody>
-            {% for issue in issues %}
+        {% for issue in issues %}
             <tr>
-
-                {% comment %} <!-- Checkbox belongs to Bulk Delete form using form attribute -->
-                <td>
-                    <input type="checkbox"
-                           name="selected_issues"
-                           value="{{ issue.pk }}"
-                           form="bulk-delete-form">
-                </td> {% endcomment %}
-
                 <td>{{ forloop.counter }}</td>
 
-                <td>
+                <td class="text-wrap">
                     <a href="#"
                        data-bs-toggle="modal"
-                       data-bs-target="#issueModal{{ forloop.counter }}"
-                       class="fw-semibold">
+                       data-bs-target="#issueModal{{ issue.id }}"
+                       class="fw-semibold text-decoration-none">
                         {{ issue.subject }}
                     </a>
                 </td>
 
-                <td>{{ issue.created_by|default:"-" }}</td>
-                <td>{{ issue.room.room_name }}</td>
+                <!-- ✅ NEW: RAISED BY COLUMN -->
+                <td>
+                    {{ issue.created_by|default:"-" }}
+                </td>
 
                 <td>
                     {% if issue.status == "open" %}
-                        <span class="badge bg-secondary rounded-pill">Open</span>
+                        <span class="badge bg-secondary">Open</span>
                     {% elif issue.status == "in_progress" %}
-                        <span class="badge bg-warning text-dark rounded-pill">In Progress</span>
+                        <span class="badge bg-warning text-dark">In Progress</span>
                     {% elif issue.status == "escalated" %}
-                        <span class="badge bg-info text-dark rounded-pill">Escalated</span>
+                        <span class="badge bg-danger">Escalated</span>
                     {% elif issue.status == "closed" %}
-                        <span class="badge bg-success rounded-pill">Resolved</span>
-                    {% else %}
-                        <span class="badge bg-light text-dark rounded-pill">{{ issue.status }}</span>
+                        <span class="badge bg-success">Resolved</span>
                     {% endif %}
                 </td>
 
                 <td>
                     {% if issue.tat_deadline %}
                         {{ issue.tat_deadline|date:"M d, Y H:i" }}
-                    {% else %} - {% endif %}
+                    {% else %}-{% endif %}
                 </td>
 
-                <td>
-                    {% if issue.assigned_to and issue.assigned_to.user %}
-                        {{ issue.assigned_to.user.get_full_name }}
-                    {% else %}
-                        Not assigned
-                    {% endif %}
-                </td>
+                <!-- ✅ ACTIONS COLUMN -->
+                <td class="text-center" style="width: 180px;">
+                    <div class="d-grid gap-1">
 
-                <!-- ACTION BUTTONS – separate forms -->
-                <td>
-                    <form method="post"
-                          action="{% url 'room_incharge:in_progress' room.slug issue.pk %}"
-                          class="d-inline">
-                        {% csrf_token %}
-                        <button type="submit" class="btn btn-sm btn-warning me-1">
-                            In Progress
-                        </button>
-                    </form>
+                        {% if issue.status == "open" %}
+                            <form method="post"
+                                  action="{% url 'room_incharge:in_progress' room.slug issue.pk %}">
+                                {% csrf_token %}
+                                <button class="btn btn-sm btn-warning w-100">
+                                    In Progress
+                                </button>
+                            </form>
 
-                    <form method="post"
-                          action="{% url 'room_incharge:resolve' room.slug issue.pk %}"
-                          class="d-inline">
-                        {% csrf_token %}
-                        <button type="submit" class="btn btn-sm btn-success me-1">
-                            Resolve
-                        </button>
-                    </form>
+                            <button class="btn btn-sm btn-outline-primary w-100"
+                                    data-bs-toggle="modal"
+                                    data-bs-target="#tatModal{{ issue.id }}">
+                                ⏱ Request Time Extension
+                            </button>
+                        {% endif %}
 
-                    <form method="post"
-                          action="{% url 'room_incharge:unresolve' room.slug issue.pk %}"
-                          class="d-inline">
-                        {% csrf_token %}
-                        <button type="submit" class="btn btn-sm btn-danger">
-                            Unresolve
-                        </button>
-                    </form>
+                        {% if issue.status == "in_progress" %}
+                            <form method="post"
+                                  action="{% url 'room_incharge:resolve' room.slug issue.pk %}">
+                                {% csrf_token %}
+                                <button class="btn btn-sm btn-success w-100">
+                                    Resolve
+                                </button>
+                            </form>
+
+                            <button class="btn btn-sm btn-outline-primary w-100"
+                                    data-bs-toggle="modal"
+                                    data-bs-target="#tatModal{{ issue.id }}">
+                                ⏱ Request Time Extension
+                            </button>
+                        {% endif %}
+
+                        {% if issue.status == "closed" %}
+                            <form method="post"
+                                  action="{% url 'room_incharge:unresolve' room.slug issue.pk %}">
+                                {% csrf_token %}
+                                <button class="btn btn-sm btn-outline-danger w-100">
+                                    Unresolve
+                                </button>
+                            </form>
+                        {% endif %}
+
+                        {% if issue.status == "escalated" %}
+                            <button class="btn btn-sm btn-outline-primary w-100"
+                                    data-bs-toggle="modal"
+                                    data-bs-target="#tatModal{{ issue.id }}">
+                                ⏱ Request Time Extension
+                            </button>
+                        {% endif %}
+
+                    </div>
                 </td>
             </tr>
 
-            <!-- MODAL -->
-            <div class="modal fade"
-                 id="issueModal{{ forloop.counter }}"
-                 tabindex="-1"
-                 aria-hidden="true">
-
-                <div class="modal-dialog modal-dialog-scrollable">
+            <!-- ISSUE DETAILS MODAL -->
+            <div class="modal fade" id="issueModal{{ issue.id }}" tabindex="-1">
+                <div class="modal-dialog modal-dialog-scrollable modal-md">
                     <div class="modal-content">
-
                         <div class="modal-header">
-                            <h5 class="modal-title">Description for {{ issue.subject }}</h5>
-                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                            <h5 class="modal-title">{{ issue.subject }}</h5>
+                            <button class="btn-close" data-bs-dismiss="modal"></button>
                         </div>
-
                         <div class="modal-body">
                             <p>{{ issue.description }}</p>
                             <hr>
                             <p><strong>Ticket ID:</strong> {{ issue.ticket_id }}</p>
                             <p><strong>Raised By:</strong> {{ issue.created_by|default:"-" }}</p>
-                            <p><strong>Room:</strong> {{ issue.room.room_name }}</p>
-
-                            <p><strong>Assigned To:</strong>
-                                {% if issue.assigned_to and issue.assigned_to.user %}
-                                    {{ issue.assigned_to.user.get_full_name }}
-                                {% else %}
-                                    Not assigned
-                                {% endif %}
-                            </p>
-
-                            <p><strong>TAT Deadline:</strong> {{ issue.tat_deadline|default:"-" }}</p>
                             <p><strong>Status:</strong> {{ issue.get_status_display }}</p>
+                            <p><strong>TAT Deadline:</strong> {{ issue.tat_deadline }}</p>
                         </div>
-
-                        <div class="modal-footer">
-                            <form method="post"
-                                  action="{% url 'room_incharge:in_progress' room.slug issue.pk %}"
-                                  class="d-inline me-1">
-                                {% csrf_token %}
-                                <button type="submit" class="btn btn-warning">In Progress</button>
-                            </form>
-
-                            <form method="post"
-                                  action="{% url 'room_incharge:resolve' room.slug issue.pk %}"
-                                  class="d-inline me-1">
-                                {% csrf_token %}
-                                <button type="submit" class="btn btn-success">Resolve</button>
-                            </form>
-
-                            <form method="post"
-                                  action="{% url 'room_incharge:unresolve' room.slug issue.pk %}"
-                                  class="d-inline">
-                                {% csrf_token %}
-                                <button type="submit" class="btn btn-danger">Unresolve</button>
-                            </form>
-
-                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
-                                Close
-                            </button>
-                        </div>
-
                     </div>
                 </div>
             </div>
 
-            {% endfor %}
+            <!-- ⏱ TIME EXTENSION MODAL -->
+            <div class="modal fade" id="tatModal{{ issue.id }}" tabindex="-1">
+                <div class="modal-dialog modal-md">
+                    <div class="modal-content">
+                        <form method="post"
+                              action="{% url 'room_incharge:issue_time_extension_request' issue.id %}">
+                            {% csrf_token %}
+                            <div class="modal-header">
+                                <h5 class="modal-title">
+                                    Request Additional Time
+                                </h5>
+                                <button class="btn-close" data-bs-dismiss="modal"></button>
+                            </div>
+
+                            <div class="modal-body">
+                                <div class="mb-3">
+                                    <label class="form-label">
+                                        Additional Hours Required
+                                    </label>
+                                    <input type="number"
+                                           name="requested_extra_hours"
+                                           class="form-control"
+                                           min="1"
+                                           required>
+                                </div>
+
+                                <div class="mb-3">
+                                    <label class="form-label">
+                                        Reason <span class="text-danger">*</span>
+                                    </label>
+                                    <textarea name="reason"
+                                              class="form-control"
+                                              rows="3"
+                                              required
+                                              aria-required="true"
+                                              placeholder="Explain why extra time is required"></textarea>
+                                </div>
+                            </div>
+
+                            <div class="modal-footer">
+                                <button class="btn btn-primary">
+                                    Submit Request
+                                </button>
+                                <button class="btn btn-secondary"
+                                        data-bs-dismiss="modal">
+                                    Cancel
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+
+        {% endfor %}
         </tbody>
     </table>
 </div>
 {% endblock content %}
-
-{% block script %}
-<script>
-function toggleAll(source) {
-    document.querySelectorAll('input[name="selected_issues"]').forEach(cb => cb.checked = source.checked);
-}
-</script>
-{% endblock script %}
