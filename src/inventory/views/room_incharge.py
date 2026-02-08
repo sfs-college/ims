@@ -21,7 +21,8 @@ from openpyxl.utils import datetime as xl_datetime
 from decimal import Decimal, InvalidOperation
 from django.forms.models import model_to_dict
 from django.http import HttpResponseForbidden
-# from ..models import Issue
+from django.db import connection
+
 
 class CategoryListView(LoginRequiredMixin, ListView):
     template_name = 'room_incharge/category_list.html'
@@ -266,7 +267,19 @@ class ItemListView(LoginRequiredMixin, ListView):
         context['room_slug'] = self.kwargs['room_slug']
         # ensure RoomSettings exists and is available to the template
         context['room_settings'] = RoomSettings.objects.get_or_create(room=room)[0]
+
+        table_names = set(connection.introspection.table_names())
+        pending_items = set()
+
+        if "inventory_editrequest" in table_names:
+            pending_items = set(
+                EditRequest.objects
+                .filter(status="pending")
+                .values_list("item_id", flat=True)
+            )
+        context["pending_items"] = pending_items
         return context
+
 
 class ItemCreateView(LoginRequiredMixin, CreateView):
     model = Item
@@ -312,37 +325,78 @@ class ItemCreateView(LoginRequiredMixin, CreateView):
         return context
 
 class RequestEditView(LoginRequiredMixin, View):
-    def post(self, request, *args, **kwargs):
-        room = get_object_or_404(Room, slug=kwargs['room_slug'])
-        item = get_object_or_404(Item, slug=kwargs['item_slug'], room=room)
+    """
+    Handles both displaying the edit request form (GET)
+    and submitting the edit request (POST).
+    """
 
-        from django.db.utils import ProgrammingError
+    def get(self, request, *args, **kwargs):
+        room = get_object_or_404(Room, slug=kwargs["room_slug"])
+        item = get_object_or_404(Item, slug=kwargs["item_slug"], room=room)
 
-        try:
-            has_pending_request = EditRequest.objects.filter(
-                item=item,
-                status="pending"
-            ).exists()
-        except ProgrammingError:
-            # EditRequest table not yet created (migration-safe fallback)
-            has_pending_request = False
+        # Prevent duplicate pending requests
+        if EditRequest.objects.filter(item=item, status="pending").exists():
+            messages.warning(
+                request,
+                "An edit request for this item is already pending approval."
+            )
+            return redirect("room_incharge:item_list", room_slug=room.slug)
 
-        if has_pending_request:
-            messages.error(request, "An edit request is already pending.")
-            return redirect(self.get_success_url())
-
-
-        EditRequest.objects.create(
-            item=item,
-            room=room,
-            requested_by=request.user.profile,
-            status="pending",
+        form = ItemEditRequestForm(
+            initial={
+                "item_name": item.item_name,
+                "item_description": item.item_description,
+                "total_count": item.total_count,
+                "available_count": item.available_count,
+                "in_use": item.in_use,
+            }
         )
-        item.is_edit_lock = True
-        item.save()  # FIXED
 
-        messages.success(request, "Edit request submitted successfully.")
-        return redirect('room_incharge:item_list', room_slug=room.slug)
+        return render(
+            request,
+            "room_incharge/item_edit_request.html",
+            {
+                "form": form,
+                "item": item,
+                "room": room,
+            },
+        )
+
+    def post(self, request, *args, **kwargs):
+        room = get_object_or_404(Room, slug=kwargs["room_slug"])
+        item = get_object_or_404(Item, slug=kwargs["item_slug"], room=room)
+
+        # Prevent duplicate pending requests
+        if EditRequest.objects.filter(item=item, status="pending").exists():
+            messages.error(request, "An edit request is already pending.")
+            return redirect("room_incharge:item_list", room_slug=room.slug)
+
+        form = ItemEditRequestForm(request.POST)
+
+        if not form.is_valid():
+            return render(
+                request,
+                "room_incharge/item_edit_request.html",
+                {
+                    "form": form,
+                    "item": item,
+                    "room": room,
+                },
+            )
+
+        # Save edit request (item NOT updated)
+        form.save(
+            item=item,
+            requested_by=request.user.profile
+        )
+
+        messages.success(
+            request,
+            "Edit request submitted successfully and sent for approval."
+        )
+
+        return redirect("room_incharge:item_list", room_slug=room.slug)
+
 
 
 class ItemUpdateView(LoginRequiredMixin, View):
@@ -428,47 +482,47 @@ class ItemUpdateView(LoginRequiredMixin, View):
         return render(self.request, self.template_name, context)
 
 
-class IssueBulkDeleteView(LoginRequiredMixin, View):
-    """
-    Allows Room Incharge to bulk-delete selected issues.
-    Only deletes issues:
-      - belonging to the user's organisation
-      - belonging to the same room
-      - escalation_level == 0   (not escalated)
-    """
+# class IssueBulkDeleteView(LoginRequiredMixin, View):
+#     """
+#     Allows Room Incharge to bulk-delete selected issues.
+#     Only deletes issues:
+#       - belonging to the user's organisation
+#       - belonging to the same room
+#       - escalation_level == 0   (not escalated)
+#     """
 
-    def post(self, request, room_slug, *args, **kwargs):
-        ids = request.POST.getlist('selected_issues')
+#     def post(self, request, room_slug, *args, **kwargs):
+#         ids = request.POST.getlist('selected_issues')
 
-        if not ids:
-            messages.error(request, "No issues selected.")
-            return redirect(request.META.get('HTTP_REFERER', '/'))
+#         if not ids:
+#             messages.error(request, "No issues selected.")
+#             return redirect(request.META.get('HTTP_REFERER', '/'))
 
-        profile = getattr(request.user, 'profile', None)
-        room = get_object_or_404(Room, slug=room_slug)
+#         profile = getattr(request.user, 'profile', None)
+#         room = get_object_or_404(Room, slug=room_slug)
 
-        issues = Issue.objects.filter(id__in=ids, room=room)
+#         issues = Issue.objects.filter(id__in=ids, room=room)
 
-        allowed = []
-        for issue in issues:
-            if (
-                profile and profile.org and
-                issue.organisation == profile.org and
-                issue.escalation_level == 0
-            ):
-                allowed.append(issue.pk)
+#         allowed = []
+#         for issue in issues:
+#             if (
+#                 profile and profile.org and
+#                 issue.organisation == profile.org and
+#                 issue.escalation_level == 0
+#             ):
+#                 allowed.append(issue.pk)
 
-        if allowed:
-            Issue.objects.filter(pk__in=allowed).delete()
-            messages.success(request, f"Deleted {len(allowed)} issue(s).")
-        else:
-            messages.error(request, "No permitted issues to delete.")
+#         if allowed:
+#             Issue.objects.filter(pk__in=allowed).delete()
+#             messages.success(request, f"Deleted {len(allowed)} issue(s).")
+#         else:
+#             messages.error(request, "No permitted issues to delete.")
 
-        return redirect(request.META.get('HTTP_REFERER', '/'))
+#         return redirect(request.META.get('HTTP_REFERER', '/'))
     
-    def dispatch(self, request, *args, **kwargs):
-    # Room Incharge is permanently restricted from delete operations
-        return HttpResponseForbidden("Delete operation is not allowed.")
+#     def dispatch(self, request, *args, **kwargs):
+#     # Room Incharge is permanently restricted from delete operations
+#         return HttpResponseForbidden("Delete operation is not allowed.")
 
 
 class ItemDeleteView(LoginRequiredMixin, DeleteView):

@@ -1,6 +1,6 @@
 from django.shortcuts import redirect, render
 from django.views.generic import TemplateView
-from django.db import transaction
+from django.db import transaction, connection
 from django.contrib.auth.views import (
     LoginView, LogoutView, PasswordChangeView, 
     PasswordResetCompleteView, PasswordResetConfirmView, 
@@ -15,8 +15,11 @@ from django.contrib.auth import get_user_model
 from config.mixins.access_mixins import RedirectLoggedInUsersMixin
 from django.contrib import messages
 from core.forms import RoomBookingForm
-from inventory.models import Room
+from inventory.models import Room, RoomBooking
 from django.http import JsonResponse
+from django.utils.dateparse import parse_datetime
+from django.db.models import Q
+from django.utils import timezone
 
 User = get_user_model()
 
@@ -129,9 +132,57 @@ def room_booking_view(request):
     return render(request, "booking/room_booking.html", {"form": form})
 
 
+def _roombooking_has_datetime_columns():
+    """
+    Checks once per request whether the roombooking table
+    actually has start_datetime and end_datetime columns.
+    """
+    with connection.cursor() as cursor:
+        cursor.execute("""
+            SELECT column_name
+            FROM information_schema.columns
+            WHERE table_name = 'inventory_roombooking'
+        """)
+        columns = {row[0] for row in cursor.fetchall()}
+
+    return {'start_datetime', 'end_datetime'}.issubset(columns)
+
+
 def rooms_by_category(request):
     category = request.GET.get("category")
-    rooms = Room.objects.filter(room_category=category).values("id", "room_name")
-    return JsonResponse(list(rooms), safe=False)
+    start = request.GET.get("start")
+    end = request.GET.get("end")
 
-    # CHANGE: Dynamic room filtering by category
+    rooms = Room.objects.filter(room_category=category)
+
+    start_dt = parse_datetime(start) if start else None
+    end_dt = parse_datetime(end) if end else None
+
+    if start_dt and timezone.is_naive(start_dt):
+        start_dt = timezone.make_aware(start_dt)
+
+    if end_dt and timezone.is_naive(end_dt):
+        end_dt = timezone.make_aware(end_dt)
+
+    # 🔒 SAFE SCHEMA CHECK
+    can_check_availability = _roombooking_has_datetime_columns()
+
+    data = []
+    for room in rooms:
+        is_booked = False
+
+        if can_check_availability and start_dt and end_dt:
+            is_booked = RoomBooking.objects.filter(
+                room=room,
+                start_datetime__lt=end_dt,
+                end_datetime__gt=start_dt
+            ).exists()
+
+        data.append({
+            "id": room.id,
+            "name": room.room_name,
+            "category": room.room_category,
+            "available": not is_booked,
+        })
+
+    return JsonResponse(data, safe=False)

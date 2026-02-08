@@ -41,7 +41,7 @@
                 </td>
                 <td>
                     <a class="btn btn-sm btn-outline-dark" href="{% url 'room_incharge:item_group_update' room_slug=room_slug item_group_slug=item_group.slug %}">Edit</a>
-                    <a class="btn btn-sm btn-danger" href="{% url 'room_incharge:item_group_delete' room_slug=room_slug item_group_slug=item_group.slug %}">Delete</a>
+                    {% comment %} <a class="btn btn-sm btn-danger" href="{% url 'room_incharge:item_group_delete' room_slug=room_slug item_group_slug=item_group.slug %}">Delete</a> {% endcomment %}
                 </td>
             </tr>
             {% endfor %}

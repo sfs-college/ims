@@ -7,7 +7,7 @@ from django.contrib.auth.tokens import PasswordResetTokenGenerator
 from django.utils.http import urlsafe_base64_encode
 from django.utils.encoding import force_bytes
 from django.contrib.auth.base_user import BaseUserManager
-from django.db import transaction
+from django.db import transaction, connection
 from inventory.forms.central_admin import PeopleCreateForm, RoomCreateForm, DepartmentForm, VendorForm  # Import the form
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.core.mail import send_mail
@@ -376,13 +376,18 @@ class ItemListView(LoginRequiredMixin, ListView):
 
         return Item.objects.none()
 
-class EditRequestListView(ListView):
+class EditRequestListView(LoginRequiredMixin, ListView):
     model = EditRequest
     template_name = "central_admin/edit_request_list.html"
     context_object_name = "edit_requests"
 
     def get_queryset(self):
-        # Show newest pending requests first
+        table_names = set(connection.introspection.table_names())
+
+        # If table doesn't exist, return EMPTY queryset safely
+        if "inventory_editrequest" not in table_names:
+            return EditRequest.objects.none()
+
         return (
             EditRequest.objects
             .filter(status="pending")
