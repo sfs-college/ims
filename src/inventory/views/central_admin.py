@@ -2,13 +2,13 @@ from django.shortcuts import redirect, get_object_or_404
 from django.urls import reverse, reverse_lazy
 from django.views.generic import TemplateView, ListView, CreateView, UpdateView, DeleteView, View
 from core.models import User, UserProfile
-from inventory.models import Room, Vendor, Purchase, Issue, Department, Item, EditRequest  # Import the Department model
+from inventory.models import Room, Vendor, Purchase, Issue, Department, Item, EditRequest, IssueTimeExtensionRequest
 from django.contrib.auth.tokens import PasswordResetTokenGenerator
 from django.utils.http import urlsafe_base64_encode
 from django.utils.encoding import force_bytes
 from django.contrib.auth.base_user import BaseUserManager
 from django.db import transaction, connection
-from inventory.forms.central_admin import PeopleCreateForm, RoomCreateForm, DepartmentForm, VendorForm  # Import the form
+from inventory.forms.central_admin import PeopleCreateForm, RoomCreateForm, DepartmentForm, VendorForm
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.core.mail import send_mail
 from django.contrib import messages
@@ -16,6 +16,7 @@ from django.conf import settings
 from inventory.email import safe_send_mail
 from django.utils import timezone
 from django.views.decorators.http import require_POST
+from datetime import timedelta
 
 class DashboardView(LoginRequiredMixin, TemplateView):
     template_name = 'central_admin/dashboard.html'
@@ -377,23 +378,39 @@ class ItemListView(LoginRequiredMixin, ListView):
         return Item.objects.none()
 
 class EditRequestListView(LoginRequiredMixin, ListView):
-    model = EditRequest
+    """
+    Central Admin – Unified Edit Requests page
+    Handles:
+    - Item Edit Requests
+    - Issue Time Extension Requests
+    """
+
     template_name = "central_admin/edit_request_list.html"
-    context_object_name = "edit_requests"
+    context_object_name = "requests"
 
     def get_queryset(self):
-        table_names = set(connection.introspection.table_names())
+        request_type = self.request.GET.get("type", "item")
 
-        # If table doesn't exist, return EMPTY queryset safely
-        if "inventory_editrequest" not in table_names:
-            return EditRequest.objects.none()
+        if request_type == "issue":
+            return (
+                IssueTimeExtensionRequest.objects
+                .filter(status="pending")
+                .select_related("issue", "requested_by")
+                .order_by("-created_on")
+            )
 
+        # Default: Item edit requests
         return (
             EditRequest.objects
             .filter(status="pending")
             .select_related("item", "room", "requested_by")
             .order_by("-created_on")
         )
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["request_type"] = self.request.GET.get("type", "item")
+        return context
 
 
 class ApproveEditRequestView(LoginRequiredMixin, View):
@@ -481,3 +498,96 @@ def admin_deescalate_issue(request, pk):
         messages.error(request, "Issue is already at the lowest escalation level.")
 
     return redirect("central_admin:issue_list")
+
+class ApprovalRequestListView(LoginRequiredMixin, ListView):
+    """
+    Central Admin unified approval page
+    Handles:
+    - Item Edit Requests
+    - Issue Time Extension Requests
+    """
+
+    template_name = "central_admin/approval_requests.html"
+    context_object_name = "requests"
+
+    def get_queryset(self):
+        request_type = self.request.GET.get("type", "item_edit")
+
+        if request_type == "issue_tat":
+            return (
+                IssueTimeExtensionRequest.objects
+                .filter(status="pending")
+                .select_related("issue", "requested_by")
+                .order_by("-created_on")
+            )
+
+        # Default: Item edit requests
+        return (
+            EditRequest.objects
+            .filter(status="pending")
+            .select_related("item", "room", "requested_by")
+            .order_by("-created_on")
+        )
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["request_type"] = self.request.GET.get("type", "item_edit")
+        return context
+
+
+# ================================
+# ISSUE TIME EXTENSION APPROVAL
+# ================================
+
+class ApproveIssueTimeExtensionView(LoginRequiredMixin, View):
+    def post(self, request, pk):
+        req = get_object_or_404(
+            IssueTimeExtensionRequest,
+            pk=pk,
+            status="pending"
+        )
+
+        issue = req.issue
+
+        # Extend SLA
+        if issue.tat_deadline:
+            issue.tat_deadline += timedelta(
+                hours=req.requested_extra_hours
+            )
+        else:
+            issue.tat_deadline = timezone.now() + timedelta(
+                hours=req.requested_extra_hours
+            )
+
+        issue.save(update_fields=["tat_deadline"])
+
+        req.status = "approved"
+        req.reviewed_by = request.user.profile
+        req.save(update_fields=["status", "reviewed_by"])
+
+        messages.success(
+            request,
+            "Issue time extension approved successfully."
+        )
+
+        return redirect("central_admin:approval_requests")
+
+
+class RejectIssueTimeExtensionView(LoginRequiredMixin, View):
+    def post(self, request, pk):
+        req = get_object_or_404(
+            IssueTimeExtensionRequest,
+            pk=pk,
+            status="pending"
+        )
+
+        req.status = "rejected"
+        req.reviewed_by = request.user.profile
+        req.save(update_fields=["status", "reviewed_by"])
+
+        messages.info(
+            request,
+            "Issue time extension request rejected."
+        )
+
+        return redirect("central_admin:approval_requests")

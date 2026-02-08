@@ -31,5 +31,37 @@ urlpatterns = [
     path("issues/<int:pk>/resolve/", central_admin.admin_resolve_issue, name="resolve_issue"),
     path("issues/<int:pk>/unresolve/", central_admin.admin_unresolve_issue, name="unresolve_issue"),
     path("issues/<int:pk>/deescalate/",central_admin.admin_deescalate_issue, name="deescalate_issue"),
+    
+    path(
+        "approval-requests/",
+        central_admin.ApprovalRequestListView.as_view(),
+        name="approval_requests",
+    ),
+
+    # Issue Time Extension approvals
+    path(
+        "edit-requests/<int:pk>/approve/",
+        central_admin.ApproveEditRequestView.as_view(),
+        name="approve_edit_request",
+    ),
+    path(
+        "edit-requests/<int:pk>/reject/",
+        central_admin.RejectEditRequestView.as_view(),
+        name="reject_edit_request",
+    ),
+
+    # Issue time extension approvals (NEW, SAME PAGE)
+    path(
+        "issue-time-extension/<int:pk>/approve/",
+        central_admin.ApproveIssueTimeExtensionView.as_view(),
+        name="approve_issue_time_extension",
+    ),
+    path(
+        "issue-time-extension/<int:pk>/reject/",
+        central_admin.RejectIssueTimeExtensionView.as_view(),
+        name="reject_issue_time_extension",
+    ),
+
+
 
 ]

@@ -707,3 +707,49 @@ class RoomBooking(models.Model):
         return f"{self.room.room_name} | {self.start_datetime} - {self.end_datetime}"
 
     # CHANGE: Added room booking model with overlap prevention
+    
+class IssueTimeExtensionRequest(models.Model):
+    """
+    Request raised by Room Incharge to extend Issue TAT.
+    """
+
+    STATUS_CHOICES = (
+        ("pending", "Pending"),
+        ("approved", "Approved"),
+        ("rejected", "Rejected"),
+    )
+
+    issue = models.ForeignKey(
+        "Issue",
+        on_delete=models.CASCADE,
+        related_name="time_extension_requests"
+    )
+
+    requested_by = models.ForeignKey(
+        UserProfile,
+        on_delete=models.CASCADE
+    )
+
+    current_tat_hours = models.PositiveIntegerField()
+    requested_extra_hours = models.PositiveIntegerField()
+
+    reason = models.TextField()
+
+    status = models.CharField(
+        max_length=20,
+        choices=STATUS_CHOICES,
+        default="pending"
+    )
+
+    reviewed_by = models.ForeignKey(
+        UserProfile,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="reviewed_time_extensions"
+    )
+
+    created_on = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"Issue #{self.issue.id} – {self.status}"

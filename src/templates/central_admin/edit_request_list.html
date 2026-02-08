@@ -3,48 +3,146 @@
 
 {% block content %}
 
-<h2 class="mb-4">Edit Requests Pending Approval</h2>
+<style>
+/* ---------- Page Container ---------- */
+.admin-card {
+    background: #fff;
+    border-radius: 12px;
+    padding: 24px 28px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.06);
+}
 
-<div class="table-responsive">
-    <table class="table table-hover align-middle">
-        <thead class="table-light">
-            <tr>
-                <th>Item</th>
-                <th>Room</th>
-                <th>Requested By</th>
-                <th>Status</th>
-                <th>Action</th>
-            </tr>
-        </thead>
+/* ---------- Header ---------- */
+.page-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 24px;
+}
 
-        <tbody>
-        {% for r in edit_requests %}
-            <!-- SUMMARY ROW -->
-            <tr>
-                <td class="fw-semibold">{{ r.item.item_name }}</td>
-                <td>{{ r.room.room_name }}</td>
-                <td>{{ r.requested_by }}</td>
-                <td>
-                    <span class="badge bg-warning text-dark">Pending</span>
-                </td>
-                <td>
-                    <button
-                        class="btn btn-outline-primary btn-sm"
-                        onclick="toggleDetails('{{ r.id }}')">
-                        View Details
-                    </button>
-                </td>
-            </tr>
+.page-header h2 {
+    font-weight: 700;
+    margin-bottom: 0;
+}
 
-            <!-- DETAILS PANEL -->
-            <tr id="details-{{ r.id }}" class="d-none">
-                <td colspan="5">
-                    <div class="card shadow-sm border-0 mt-2">
-                        <div class="card-body">
+/* ---------- Table ---------- */
+.table thead th {
+    font-size: 0.85rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: #6c757d;
+    border-bottom: 2px solid #dee2e6;
+}
+
+.table tbody tr {
+    transition: background 0.2s ease;
+}
+
+.table tbody tr:hover {
+    background-color: #f8f9fa;
+}
+
+/* ---------- Badges ---------- */
+.badge-pending {
+    background: #fff3cd;
+    color: #856404;
+    font-weight: 600;
+}
+
+/* ---------- Detail Card ---------- */
+.detail-card {
+    background: #f9fafb;
+    border: 1px solid #e5e7eb;
+    border-radius: 10px;
+    padding: 20px;
+}
+
+/* ---------- Buttons ---------- */
+.btn-action {
+    min-width: 100px;
+}
+</style>
+
+<div class="admin-card">
+
+    <!-- HEADER -->
+    <div class="page-header">
+        <div>
+            <h2>Edit Requests Pending Approval</h2>
+            <p class="text-muted mb-0">
+                Review and take action on pending inventory and issue requests.
+            </p>
+        </div>
+
+        <form method="get">
+            <select name="type"
+                    class="form-select shadow-sm"
+                    style="width: 260px;"
+                    onchange="this.form.submit()">
+                <option value="item"
+                    {% if request_type == "item" %}selected{% endif %}>
+                    Item Edit Requests
+                </option>
+                <option value="issue"
+                    {% if request_type == "issue" %}selected{% endif %}>
+                    Issue Time Extension Requests
+                </option>
+            </select>
+        </form>
+    </div>
+
+    <!-- TABLE -->
+    <div class="table-responsive">
+        <table class="table align-middle">
+            <thead>
+                {% if request_type == "item" %}
+                <tr>
+                    <th>Item</th>
+                    <th>Room</th>
+                    <th>Requested By</th>
+                    <th>Status</th>
+                    <th class="text-end">Action</th>
+                </tr>
+                {% else %}
+                <tr>
+                    <th>Issue</th>
+                    <th>Requested By</th>
+                    <th>Current SLA</th>
+                    <th>Extra Time</th>
+                    <th>Reason</th>
+                    <th class="text-end">Action</th>
+                </tr>
+                {% endif %}
+            </thead>
+
+            <tbody>
+
+            {% for r in requests %}
+
+                {% if request_type == "item" %}
+                <!-- ITEM EDIT REQUEST -->
+                <tr>
+                    <td class="fw-semibold">{{ r.item.item_name }}</td>
+                    <td>{{ r.room.room_name }}</td>
+                    <td>{{ r.requested_by }}</td>
+                    <td>
+                        <span class="badge badge-pending rounded-pill">
+                            Pending
+                        </span>
+                    </td>
+                    <td class="text-end">
+                        <button class="btn btn-outline-primary btn-sm"
+                                onclick="toggleDetails('{{ r.id }}')">
+                            View Details
+                        </button>
+                    </td>
+                </tr>
+
+                <tr id="details-{{ r.id }}" class="d-none">
+                    <td colspan="5">
+                        <div class="detail-card mt-3">
 
                             <div class="row g-4">
-
-                                <!-- CURRENT ITEM DATA -->
                                 <div class="col-md-6">
                                     <h6 class="fw-bold text-secondary mb-2">
                                         Current Item Details
@@ -57,18 +155,14 @@
                                             <strong>Description:</strong> {{ r.item.item_description }}
                                         </li>
                                         <li class="list-group-item">
-                                            <strong>Total Count:</strong> {{ r.item.total_count }}
+                                            <strong>Total:</strong> {{ r.item.total_count }}
                                         </li>
                                         <li class="list-group-item">
                                             <strong>Available:</strong> {{ r.item.available_count }}
                                         </li>
-                                        <li class="list-group-item">
-                                            <strong>In Use:</strong> {{ r.item.in_use }}
-                                        </li>
                                     </ul>
                                 </div>
 
-                                <!-- REQUESTED CHANGES -->
                                 <div class="col-md-6">
                                     <h6 class="fw-bold text-warning mb-2">
                                         Requested Changes
@@ -85,23 +179,20 @@
                                         {% endfor %}
                                     </ul>
                                 </div>
-
                             </div>
 
-                            <!-- REASON -->
-                            <div class="mt-4">
-                                <h6 class="fw-bold text-danger">Reason for Change</h6>
-                                <div class="p-3 bg-light rounded">
+                            <div class="mt-3">
+                                <strong>Reason:</strong>
+                                <div class="mt-1 text-muted">
                                     {{ r.reason }}
                                 </div>
                             </div>
 
-                            <!-- ACTION BUTTONS -->
-                            <div class="d-flex gap-2 mt-4">
+                            <div class="d-flex gap-3 mt-4">
                                 <form method="post"
                                       action="{% url 'central_admin:approve_edit_request' r.pk %}">
                                     {% csrf_token %}
-                                    <button class="btn btn-success btn-sm px-4">
+                                    <button class="btn btn-success btn-action">
                                         Approve
                                     </button>
                                 </form>
@@ -109,32 +200,70 @@
                                 <form method="post"
                                       action="{% url 'central_admin:reject_edit_request' r.pk %}">
                                     {% csrf_token %}
-                                    <button class="btn btn-outline-danger btn-sm px-4">
+                                    <button class="btn btn-outline-danger btn-action">
                                         Reject
                                     </button>
                                 </form>
                             </div>
 
                         </div>
-                    </div>
-                </td>
-            </tr>
+                    </td>
+                </tr>
 
-        {% empty %}
-            <tr>
-                <td colspan="5" class="text-center text-muted">
-                    No pending edit requests.
-                </td>
-            </tr>
-        {% endfor %}
-        </tbody>
-    </table>
+                {% else %}
+                <!-- ISSUE TIME EXTENSION -->
+                <tr>
+                    <td class="fw-semibold">
+                        #{{ r.issue.ticket_id }}
+                    </td>
+                    <td>{{ r.requested_by }}</td>
+                    <td>{{ r.current_tat_hours }} hrs</td>
+                    <td class="fw-bold text-warning">
+                        +{{ r.requested_extra_hours }} hrs
+                    </td>
+                    <td style="max-width: 280px;">
+                        {{ r.reason }}
+                    </td>
+                    <td class="text-end">
+                        <div class="d-flex justify-content-end gap-2">
+                            <form method="post"
+                                  action="{% url 'central_admin:approve_issue_time_extension' r.pk %}">
+                                {% csrf_token %}
+                                <button class="btn btn-success btn-sm">
+                                    Approve
+                                </button>
+                            </form>
+
+                            <form method="post"
+                                  action="{% url 'central_admin:reject_issue_time_extension' r.pk %}">
+                                {% csrf_token %}
+                                <button class="btn btn-outline-danger btn-sm">
+                                    Reject
+                                </button>
+                            </form>
+                        </div>
+                    </td>
+                </tr>
+                {% endif %}
+
+            {% empty %}
+                <tr>
+                    <td colspan="6" class="text-center text-muted py-5">
+                        No pending requests.
+                    </td>
+                </tr>
+            {% endfor %}
+
+            </tbody>
+        </table>
+    </div>
+
 </div>
 
 <script>
 function toggleDetails(id) {
     const row = document.getElementById("details-" + id);
-    row.classList.toggle("d-none");
+    if (row) row.classList.toggle("d-none");
 }
 </script>
 
