@@ -1,31 +1,55 @@
 {% extends 'sidebar_base.html' %}
 {% block content %}
-<h2>Request Edit for {{ item.item_name }}</h2>
 
-<form method="post">
+<h2 class="mb-4">Request Edit for {{ item.item_name }}</h2>
+
+<form method="post" class="card p-4 shadow-sm">
   {% csrf_token %}
   {{ form.non_field_errors }}
-  <div class="form-group">
-    {{ form.item_name.label_tag }} {{ form.item_name }}
+
+  <div class="row g-3">
+
+    <div class="col-md-6">
+      {{ form.item_name.label_tag }} {{ form.item_name }}
+    </div>
+
+    <div class="col-md-6">
+      {{ form.total_count.label_tag }} {{ form.total_count }}
+    </div>
+
+    <div class="col-md-12">
+      {{ form.item_description.label_tag }} {{ form.item_description }}
+    </div>
+
+    <div class="col-md-6">
+      {{ form.available_count.label_tag }} {{ form.available_count }}
+    </div>
+
+    <div class="col-md-6">
+      {{ form.in_use.label_tag }} {{ form.in_use }}
+    </div>
+
+    <div class="col-md-12">
+      {{ form.remarks.label_tag }} {{ form.remarks }}
+    </div>
+
+    <div class="col-md-12">
+      {{ form.reason.label_tag }}
+      <span class="text-danger">*</span>
+      {{ form.reason }}
+    </div>
+
   </div>
-  <div class="form-group">
-    {{ form.item_description.label_tag }} {{ form.item_description }}
+
+  <div class="mt-4 d-flex gap-2">
+    <button type="submit" class="btn btn-primary">
+      Submit for Approval
+    </button>
+    <a href="{% url 'room_incharge:item_list' room_slug=room.slug %}"
+       class="btn btn-secondary">
+      Cancel
+    </a>
   </div>
-  <div class="form-group">
-    {{ form.total_count.label_tag }} {{ form.total_count }}
-  </div>
-  <div class="form-group">
-    {{ form.available_count.label_tag }} {{ form.available_count }}
-  </div>
-  <div class="form-group">
-    {{ form.in_use.label_tag }} {{ form.in_use }}
-  </div>
-  <div class="form-group">
-    {{ form.remarks.label_tag }} {{ form.remarks }}
-  </div>
-  <div class="form-group">
-    {{ form.reason.label_tag }} {{ form.reason }}
-  </div>
-  <button type="submit" class="btn btn-primary">Submit for Approval</button>
 </form>
+
 {% endblock %}

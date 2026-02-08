@@ -19,9 +19,13 @@ urlpatterns = [
     # Items URLs
     path('rooms/<slug:room_slug>/items/', room_incharge.ItemListView.as_view(), name='item_list'),
     path('rooms/<slug:room_slug>/items/create/', room_incharge.ItemCreateView.as_view(), name='item_create'),
-    path('rooms/<slug:room_slug>/items/<slug:item_slug>/update/', room_incharge.ItemUpdateView.as_view(), name='item_update'),
+    
+    # direct item edit url (without request)
+    # path('rooms/<slug:room_slug>/items/<slug:item_slug>/update/', room_incharge.ItemUpdateView.as_view(), name='item_update'),
+    
     # path('rooms/<slug:room_slug>/items/<slug:item_slug>/delete/', room_incharge.ItemDeleteView.as_view(), name='item_delete'),
     path('rooms/<slug:room_slug>/items/<slug:item_slug>/archive/', room_incharge.ItemArchiveView.as_view(), name='item_archive'),
+    
     #Item Edit request URL
     path("rooms/<slug:room_slug>/items/<slug:item_slug>/request-edit/", room_incharge.RequestEditView.as_view(), name="request_edit"),
     
@@ -33,7 +37,7 @@ urlpatterns = [
     path('rooms/<slug:room_slug>/item-groups/<slug:item_group_slug>/items/create/', room_incharge.ItemGroupItemCreateView.as_view(), name='item_group_item_create'),
     path('rooms/<slug:room_slug>/item-groups/<slug:item_group_slug>/items/', room_incharge.ItemGroupItemListView.as_view(), name='item_group_item_list'),
     path('rooms/<slug:room_slug>/item-groups/<slug:item_group_slug>/items/<slug:item_group_item_slug>/update/', room_incharge.ItemGroupItemUpdateView.as_view(), name='item_group_item_update'),
-    path('rooms/<slug:room_slug>/item-groups/<slug:item_group_slug>/items/<slug:item_group_item_slug>/delete/', room_incharge.ItemGroupItemDeleteView.as_view(), name='item_group_item_delete'),
+    # path('rooms/<slug:room_slug>/item-groups/<slug:item_group_slug>/items/<slug:item_group_item_slug>/delete/', room_incharge.ItemGroupItemDeleteView.as_view(), name='item_group_item_delete'),
     
     # Systems URLs
     path('rooms/<slug:room_slug>/systems/', room_incharge.SystemListView.as_view(), name='system_list'),
@@ -97,11 +101,11 @@ urlpatterns = [
     # -----------------------------------------------------------
     # BULK DELETE ISSUES (ADDED)
     # -----------------------------------------------------------
-    path(
-        'rooms/<slug:room_slug>/issues/bulk-delete/',
-        room_incharge.IssueBulkDeleteView.as_view(),
-        name='issues_bulk_delete'
-    ),
+    # path(
+    #     'rooms/<slug:room_slug>/issues/bulk-delete/',
+    #     room_incharge.IssueBulkDeleteView.as_view(),
+    #     name='issues_bulk_delete'
+    # ),
 
 
 ]

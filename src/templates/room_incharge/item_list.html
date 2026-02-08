@@ -48,34 +48,28 @@
                     <td>{{ item.in_use }}</td>
                     <td>{{ item.archived_count }}</td>
 
-                    <td class="d-flex gap-1">
-
-                        {% comment %} <a class="btn btn-sm btn-danger"
-                           href="{% url 'room_incharge:item_delete' room_slug=room_slug item_slug=item.slug %}">
-                            Delete
-                        </a> {% endcomment %}
+                    <td class="d-flex gap-1 align-items-center">
 
                         <a class="btn btn-sm btn-outline-dark"
-                           href="{% url 'room_incharge:item_archive' room_slug=room_slug item_slug=item.slug %}">
+                        href="{% url 'room_incharge:item_archive' room_slug=room_slug item_slug=item.slug %}">
                             Archive
                         </a>
 
-                        <form method="POST"
-                              action="{% url 'room_incharge:request_edit' room_slug=room_slug item_slug=item.slug %}">
-                            {% csrf_token %}
-                            <button type="submit" class="btn btn-warning btn-sm">
+                        {% if item.is_edit_lock or item.id in pending_items %}
+                            <!-- LOCKED STATE -->
+                            <span class="badge bg-secondary">
+                                Edit Locked (Pending Approval)
+                            </span>
+                        {% else %}
+                            <!-- AVAILABLE STATE -->
+                            <a class="btn btn-warning btn-sm"
+                            href="{% url 'room_incharge:request_edit' room_slug=room_slug item_slug=item.slug %}">
                                 Request Edit
-                            </button>
-                        </form>
-
-                        {% comment %} {% if not item.is_edit_lock %}
-                        <a href="{% url 'room_incharge:item_update' room_slug=room_slug item_slug=item.slug %}"
-                           class="btn btn-primary btn-sm">
-                           Edit
-                        </a>
-                        {% endif %} {% endcomment %}
+                            </a>
+                        {% endif %}
 
                     </td>
+
                 </tr>
                 {% endfor %}
             </tbody>

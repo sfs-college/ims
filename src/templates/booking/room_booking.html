@@ -5,51 +5,100 @@
     <meta charset="UTF-8">
     <title>Room / Venue Booking</title>
 
-    <!-- Bootstrap CSS -->
-    <link
-        href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
-        rel="stylesheet"
-    >
-    <link
-  href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css"
-  rel="stylesheet"
->
-
+    <!-- Bootstrap -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css" rel="stylesheet">
 
     <style>
         body {
-            background-color: #f8f9fb;
+            background: linear-gradient(135deg, #f4f7fb, #eef2f7);
         }
+
         .booking-wrapper {
-            max-width: 1100px;
+            max-width: 1150px;
             margin: 60px auto;
         }
+
         .booking-header {
+            background: white;
+            border-radius: 14px;
+            padding: 35px;
+            box-shadow: 0 12px 30px rgba(0,0,0,0.06);
             margin-bottom: 30px;
         }
-        .booking-header h2 {
+
+        .booking-card {
+            border-radius: 16px;
+            border: none;
+            box-shadow: 0 15px 35px rgba(0,0,0,0.08);
+        }
+
+        .form-label {
             font-weight: 600;
         }
-        .booking-header p {
-            color: #6c757d;
-            margin-top: 10px;
-        }
-        .booking-card {
-            border-radius: 12px;
-            box-shadow: 0 10px 25px rgba(0,0,0,0.06);
-            border: none;
-        }
-        .form-label {
-            font-weight: 500;
-        }
-        .helper-text {
-            font-size: 0.875rem;
-            color: #6c757d;
-        }
-        .btn-book {
+
+        .form-control, select {
             height: 52px;
+            border-radius: 10px;
+        }
+
+        .input-group-text {
+            background: #f8f9fa;
+            border-radius: 10px 0 0 10px;
+            padding: 0 16px;
+        }
+
+        .booking-type-card {
+            border: 1px solid #dee2e6;
+            border-radius: 12px;
+            padding: 16px;
+            cursor: pointer;
+            transition: 0.25s ease;
+        }
+
+        .booking-type-card:hover {
+            border-color: #4f46e5;
+            background: #f8f9ff;
+        }
+
+        .section-box {
+            background: #f9fafc;
+            border-radius: 12px;
+            padding: 20px;
+            border: 1px dashed #dee2e6;
+        }
+
+        .btn-book {
+            height: 56px;
             font-size: 1.05rem;
-            font-weight: 500;
+            font-weight: 600;
+            border-radius: 12px;
+        }
+
+        /* ROOM CARD */
+        .room-card {
+            border-radius: 14px;
+            padding: 18px;
+            border: 2px solid transparent;
+            cursor: pointer;
+            transition: 0.25s ease;
+            background: #f8f9fa;
+        }
+
+        .room-card.available {
+            border-color: #198754;
+        }
+
+        .room-card.booked {
+            border-color: #dc3545;
+            background: #fbeaea;
+            cursor: not-allowed;
+            opacity: 0.75;
+        }
+
+        .room-card.selected {
+            border-color: #4f46e5;
+            background: #eef2ff;
         }
     </style>
 </head>
@@ -58,129 +107,190 @@
 
 <div class="booking-wrapper">
 
-    <!-- =========================
-         PAGE HEADER / DESCRIPTION
-    ========================== -->
+    <!-- HEADER -->
     <div class="booking-header text-center">
-        <h2>Room / Venue Booking</h2>
-        <p>
-            Use this form to reserve classrooms, labs, halls, or other venues.
-            Only authorized faculty members can book rooms using their official
-            <strong>@sfscollege.in</strong> email address.
+        <h2><i class="bi bi-building"></i> Room / Venue Booking</h2>
+        <p class="text-muted">
+            Only authorized faculty with <strong>@sfscollege.in</strong> email can book rooms
         </p>
     </div>
 
-    <!-- =========================
-         BOOKING FORM CARD
-    ========================== -->
+    <!-- FORM -->
     <div class="card booking-card">
         <div class="card-body p-4 p-md-5">
 
             <form method="post">
                 {% csrf_token %}
 
-                <h6 class="text-muted mb-3">Faculty Details</h6>
+                <h6 class="text-uppercase text-muted mb-3">Faculty Details</h6>
 
-                <!-- Faculty Email -->
                 <div class="mb-4">
                     <label class="form-label">Faculty Email</label>
                     {{ form.faculty_email }}
-                    <div class="helper-text">
-                        Only official faculty emails are allowed
-                    </div>
                 </div>
 
-                <!-- Faculty Name -->
                 <div class="mb-4">
                     <label class="form-label">Faculty Name</label>
                     {{ form.faculty_name }}
                 </div>
 
-                <!-- Date & Time -->
-                <div class="row mb-4">
-                    <div class="col-md-4">
-                        <label class="form-label">
-                            <i class="bi bi-calendar-event"></i> Date
+                <h6 class="text-uppercase text-muted mb-3">Booking Type</h6>
+
+                <div class="row g-3 mb-4">
+                    <div class="col-md-6">
+                        <label class="booking-type-card w-100">
+                            <input type="radio" class="form-check-input me-2"
+                                   name="booking_type" id="wholeDayBooking" checked>
+                            <strong>Whole Day</strong><br>
+                            <small class="text-muted">08:00 AM – 04:00 PM</small>
                         </label>
-                        {{ form.start_datetime }}
                     </div>
-                    <div class="col-md-4">
-                        <label class="form-label">
-                            <i class="bi bi-clock"></i> Start Time
+
+                    <div class="col-md-6">
+                        <label class="booking-type-card w-100">
+                            <input type="radio" class="form-check-input me-2"
+                                   name="booking_type" id="customBooking">
+                            <strong>Custom Time</strong><br>
+                            <small class="text-muted">Choose start & end</small>
                         </label>
-                        {{ form.start_datetime }}
-                    </div>
-                    <div class="col-md-4">
-                        <label class="form-label">
-                            <i class="bi bi-clock-history"></i> End Time
-                        </label>
-                        {{ form.end_datetime }}
                     </div>
                 </div>
 
+                <!-- WHOLE DAY -->
+                <div id="fullDaySection" class="section-box mb-4">
+                    <label class="form-label">Booking Date</label>
+                    <input type="date" class="form-control" id="fullDayDate">
+                </div>
+
+                <!-- CUSTOM DATE TIME (ENHANCED) -->
+                <div id="customSection" class="row g-3 mb-4 d-none">
+                    <div class="col-md-6">
+                        <label class="form-label">From</label>
+                        <div class="input-group">
+                            <span class="input-group-text">
+                                <i class="bi bi-clock"></i>
+                            </span>
+                            {{ form.start_datetime }}
+                        </div>
+                    </div>
+
+                    <div class="col-md-6">
+                        <label class="form-label">To</label>
+                        <div class="input-group">
+                            <span class="input-group-text">
+                                <i class="bi bi-clock-history"></i>
+                            </span>
+                            {{ form.end_datetime }}
+                        </div>
+                    </div>
+                </div>
 
                 <hr class="my-4">
-                <h6 class="text-muted mb-3">Room Selection</h6>
 
-                <!-- Category -->
+                <h6 class="text-uppercase text-muted mb-3">Room Selection</h6>
+
                 <div class="mb-4">
                     <label class="form-label">Category</label>
                     {{ form.category }}
                 </div>
 
-                <!-- Room -->
                 <div class="mb-4">
-                    <label class="form-label">Room / Venue</label>
-                    {{ form.room }}
+                    <label class="form-label">Select Room</label>
+                    <div class="row g-3" id="roomGrid"></div>
+                    <input type="hidden" name="room" id="selectedRoom">
                 </div>
 
-                <!-- Department -->
                 <div class="mb-4">
                     <label class="form-label">Department</label>
                     {{ form.department }}
-                    <div class="helper-text">
-                        Optional
-                    </div>
                 </div>
 
-                <!-- Submit -->
-                <div class="mt-4">
-                    <button type="submit" class="btn btn-primary w-100 btn-book">
-                        Book Room
-                    </button>
-                </div>
-
+                <button type="submit" class="btn btn-primary w-100 btn-book">
+                    <i class="bi bi-check-circle"></i> Book Room
+                </button>
             </form>
 
         </div>
     </div>
 </div>
 
-<!-- Existing JS remains unchanged -->
 <script>
-document.getElementById("id_category").addEventListener("change", function () {
-    const category = this.value;
-    const roomSelect = document.getElementById("id_room");
+const fullDayRadio = document.getElementById("wholeDayBooking");
+const customRadio = document.getElementById("customBooking");
+const fullDaySection = document.getElementById("fullDaySection");
+const customSection = document.getElementById("customSection");
 
-    roomSelect.innerHTML = "<option value=''>Loading rooms...</option>";
+function toggleBookingType() {
+    if (fullDayRadio.checked) {
+        fullDaySection.classList.remove("d-none");
+        customSection.classList.add("d-none");
+    } else {
+        fullDaySection.classList.add("d-none");
+        customSection.classList.remove("d-none");
+    }
+    loadRooms();
+}
 
-    fetch("{% url 'core:rooms_by_category' %}?category=" + category)
-        .then(response => response.json())
+fullDayRadio.addEventListener("change", toggleBookingType);
+customRadio.addEventListener("change", toggleBookingType);
+
+function getDateTimes() {
+    if (fullDayRadio.checked) {
+        const date = document.getElementById("fullDayDate").value;
+        if (!date) return {};
+        return {
+            start: `${date}T08:00`,
+            end: `${date}T16:00`
+        };
+    }
+    return {
+        start: document.getElementById("id_start_datetime").value,
+        end: document.getElementById("id_end_datetime").value
+    };
+}
+
+function loadRooms() {
+    const category = document.getElementById("id_category").value;
+    if (!category) return;
+
+    const { start, end } = getDateTimes();
+
+    fetch(`{% url 'core:rooms_by_category' %}?category=${category}&start=${start}&end=${end}`)
+        .then(res => res.json())
         .then(data => {
-            roomSelect.innerHTML = "<option value=''>Select Room</option>";
-            if (data.length === 0) {
-                roomSelect.innerHTML += "<option value=''>No rooms available</option>";
-            }
-            data.forEach(room => {
-                roomSelect.innerHTML += `<option value="${room.id}">${room.room_name}</option>`;
-            });
-        })
-        .catch(() => {
-            roomSelect.innerHTML = "<option value=''>Error loading rooms</option>";
-        });
-});
-</script>
+            const grid = document.getElementById("roomGrid");
+            grid.innerHTML = "";
 
+            data.forEach(room => {
+                const col = document.createElement("div");
+                col.className = "col-md-4";
+
+                col.innerHTML = `
+                    <div class="room-card ${room.available ? "available" : "booked"}">
+                        <h6>${room.name}</h6>
+                        <small>${room.available ? "Available" : "Booked"}</small>
+                    </div>
+                `;
+
+                if (room.available) {
+                    col.onclick = () => {
+                        document.querySelectorAll(".room-card")
+                            .forEach(c => c.classList.remove("selected"));
+                        col.querySelector(".room-card").classList.add("selected");
+                        document.getElementById("selectedRoom").value = room.id;
+                    };
+                }
+
+                grid.appendChild(col);
+            });
+        });
+}
+
+document.getElementById("id_category").addEventListener("change", loadRooms);
+document.getElementById("fullDayDate").addEventListener("change", loadRooms);
+document.getElementById("id_start_datetime").addEventListener("change", loadRooms);
+document.getElementById("id_end_datetime").addEventListener("change", loadRooms);
+</script>
 
 </body>
 </html>

@@ -139,58 +139,60 @@ class ExcelUploadForm(forms.Form):
 class ItemEditRequestForm(form_mixin.BootstrapFormMixin, forms.Form):
     """
     Room Incharge requests item edits.
-    Proposed changes stored as JSON.
+    Proposed changes are stored as JSON.
     """
 
     item_name = forms.CharField(required=False)
     item_description = forms.CharField(
-        widget=forms.Textarea(attrs={'rows': 3}),
-        required=False
+        widget=forms.Textarea(attrs={"rows": 3}),
+        required=False,
     )
     total_count = forms.IntegerField(required=False)
     available_count = forms.IntegerField(required=False)
     in_use = forms.IntegerField(required=False)
 
     remarks = forms.CharField(
-        widget=forms.Textarea(attrs={'rows': 3}),
+        widget=forms.Textarea(attrs={"rows": 3}),
         required=False,
-        label="Additional remarks (optional)"
+        label="Additional remarks (optional)",
     )
+
     reason = forms.CharField(
-        widget=forms.Textarea(attrs={'rows': 3}),
+        widget=forms.Textarea(attrs={"rows": 3}),
         required=True,
-        label="Why are you requesting this change?"
+        label="Why are you requesting this change?",
     )
 
     def save(self, *, item: Item, requested_by: UserProfile):
         """
-        Creates an edit request instead of updating the item directly.
+        Create edit request without updating item.
         """
 
         cleaned = self.cleaned_data
         proposed_data = {}
 
         for field in [
-            'item_name',
-            'item_description',
-            'total_count',
-            'available_count',
-            'in_use',
-            'remarks',
+            "item_name",
+            "item_description",
+            "total_count",
+            "available_count",
+            "in_use",
+            "remarks",
         ]:
-            if cleaned.get(field) not in [None, ""]:
-                proposed_data[field] = cleaned[field]
+            value = cleaned.get(field)
+            if value not in [None, ""]:
+                proposed_data[field] = value
 
         edit_request = EditRequest.objects.create(
             item=item,
             room=item.room,
             requested_by=requested_by,
             proposed_data=proposed_data,
-            reason=cleaned['reason'],
+            reason=cleaned["reason"],
             status="pending",
         )
 
-        # Lock item after edit request is raised
+        # Lock item until admin review
         item.is_edit_lock = True
         item.save(update_fields=["is_edit_lock"])
 
