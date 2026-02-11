@@ -21,6 +21,60 @@
     <div class="d-flex justify-content-between align-items-center mb-4">
         <h3 class="fw-bold">Admin Dashboard</h3>
     </div>
+    <div class="row mb-5">
+        <div class="col-12">
+            <a href="{% url 'central_admin:aura_dashboard' %}" class="aura-entry-card-link">
+                <div class="aura-entry-card">
+                    <div class="aura-orb"></div>
+                    <div class="aura-text">
+                        <h2 class="display-5 fw-bold mb-0">AURA Dashboard</h2>
+                        <p class="lead mb-0">Admin Unified Report & Analysis • Command Center</p>
+                    </div>
+                    <div class="aura-action">
+                        <span>Enter System Brain</span>
+                        <i class="bi bi-arrow-right-circle-fill"></i>
+                    </div>
+                </div>
+            </a>
+        </div>
+    </div>
+
+    <style>
+    .aura-entry-card-link { text-decoration: none !important; }
+    .aura-entry-card {
+        background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+        border-radius: 20px;
+        padding: 40px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        position: relative;
+        overflow: hidden;
+        color: white;
+        box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.2);
+        transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    }
+    .aura-entry-card:hover {
+        transform: translateY(-10px);
+        box-shadow: 0 25px 50px -12px rgba(59, 130, 246, 0.3);
+    }
+    .aura-orb {
+        position: absolute;
+        width: 200px; height: 200px;
+        background: radial-gradient(circle, #3b82f6 0%, transparent 70%);
+        filter: blur(40px);
+        top: -50px; left: -50px;
+        opacity: 0.5;
+    }
+    .aura-action {
+        background: rgba(255,255,255,0.1);
+        padding: 15px 25px;
+        border-radius: 50px;
+        font-weight: 600;
+        backdrop-filter: blur(10px);
+        border: 1px solid rgba(255,255,255,0.2);
+    }
+    </style>
     <div class="row">
         <div class="col-md-6 mb-4">
             <div class="card">

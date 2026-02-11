@@ -6,6 +6,7 @@ from django.core.exceptions import ValidationError
 from django.conf import settings
 from config.mixins import form_mixin
 from inventory.models import RoomBooking, Room, Department
+from django.utils import timezone
 
 User = get_user_model()
 
@@ -118,17 +119,11 @@ class RoomBookingForm(forms.ModelForm):
 
     class Meta:
         model = RoomBooking
-        fields = [
-            'faculty_name',
-            'faculty_email',
-            'start_datetime',
-            'end_datetime',
-            'department',
-            'room',
-        ]
+        fields = ['faculty_name', 'faculty_email', 'purpose', 'start_datetime', 'end_datetime', 'department', 'room']
         widgets = {
-            'start_datetime': forms.DateTimeInput(attrs={'type': 'datetime-local'}),
-            'end_datetime': forms.DateTimeInput(attrs={'type': 'datetime-local'}),
+            'purpose': forms.Textarea(attrs={'rows': 3, 'placeholder': 'Enter the purpose of booking...', 'class': 'form-control rounded-4'}),
+            'start_datetime': forms.DateTimeInput(attrs={'type': 'datetime-local', 'class': 'form-control'}),
+            'end_datetime': forms.DateTimeInput(attrs={'type': 'datetime-local', 'class': 'form-control'}),
         }
 
     def clean_faculty_email(self):
@@ -141,5 +136,19 @@ class RoomBookingForm(forms.ModelForm):
             raise ValidationError("You are not authorized to book rooms.")
 
         return email
+    
+    def clean(self):
+        cleaned_data = super().clean()
+
+        start = cleaned_data.get("start_datetime")
+        end = cleaned_data.get("end_datetime")
+
+        if start and timezone.is_naive(start):
+            cleaned_data["start_datetime"] = timezone.make_aware(start)
+
+        if end and timezone.is_naive(end):
+            cleaned_data["end_datetime"] = timezone.make_aware(end)
+
+        return cleaned_data
 
     # CHANGE: Faculty email validation using environment variable allowlist

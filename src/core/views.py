@@ -119,17 +119,6 @@ class ConfirmPasswordResetView(PasswordResetConfirmView):
 class CompletePasswordResetView(PasswordResetCompleteView):
     template_name = 'core/password_reset/password_reset_complete.html'
     
-def room_booking_view(request):
-    name="room_booking"
-    form = RoomBookingForm()
-
-    if request.method == "POST":
-        form = RoomBookingForm(request.POST)
-        if form.is_valid():
-            form.save()
-            return render(request, "booking/booking_success.html")
-
-    return render(request, "booking/room_booking.html", {"form": form})
 
 
 def _roombooking_has_datetime_columns():
@@ -147,6 +136,20 @@ def _roombooking_has_datetime_columns():
 
     return {'start_datetime', 'end_datetime'}.issubset(columns)
 
+def room_booking_view(request):
+    form = RoomBookingForm()
+
+    if request.method == "POST":
+        form = RoomBookingForm(request.POST)
+        if form.is_valid():
+            # Save the booking and capture the object to show details on the success page
+            booking = form.save()
+            return render(request, "booking/booking_success.html", {"booking": booking})
+        else:
+            # If form is invalid, re-render with errors
+            messages.error(request, "Please correct the errors below.")
+
+    return render(request, "booking/room_booking.html", {"form": form})
 
 def rooms_by_category(request):
     category = request.GET.get("category")
@@ -154,35 +157,36 @@ def rooms_by_category(request):
     end = request.GET.get("end")
 
     rooms = Room.objects.filter(room_category=category)
-
     start_dt = parse_datetime(start) if start else None
     end_dt = parse_datetime(end) if end else None
-
+    
     if start_dt and timezone.is_naive(start_dt):
         start_dt = timezone.make_aware(start_dt)
 
     if end_dt and timezone.is_naive(end_dt):
         end_dt = timezone.make_aware(end_dt)
 
-    # 🔒 SAFE SCHEMA CHECK
+    # Use the safe check to see if the table is ready for datetime queries
     can_check_availability = _roombooking_has_datetime_columns()
 
     data = []
     for room in rooms:
         is_booked = False
-
         if can_check_availability and start_dt and end_dt:
-            is_booked = RoomBooking.objects.filter(
-                room=room,
-                start_datetime__lt=end_dt,
-                end_datetime__gt=start_dt
-            ).exists()
+            try:
+                is_booked = RoomBooking.objects.filter(
+                    room=room,
+                    start_datetime__lt=end_dt,
+                    end_datetime__gt=start_dt
+                ).exists()
+            except Exception:
+                is_booked = False
 
         data.append({
             "id": room.id,
             "name": room.room_name,
             "category": room.room_category,
+            "capacity": getattr(room, 'capacity', 40),
             "available": not is_booked,
         })
-
     return JsonResponse(data, safe=False)
