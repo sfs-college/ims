@@ -3,291 +3,280 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Room / Venue Booking</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Premium Venue Booking | IMS</title>
 
-    <!-- Bootstrap -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
 
     <style>
+        :root {
+            --primary: #6366f1;
+            --primary-dark: #4f46e5;
+            --secondary: #64748b;
+            --accent: #10b981;
+            --bg-gradient: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+            --glass-bg: rgba(255, 255, 255, 0.85);
+            --glass-border: rgba(255, 255, 255, 0.5);
+        }
+
         body {
-            background: linear-gradient(135deg, #f4f7fb, #eef2f7);
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            background: var(--bg-gradient);
+            color: #1e293b;
+            min-height: 100vh;
+            padding: 40px 20px;
         }
 
-        .booking-wrapper {
-            max-width: 1150px;
-            margin: 60px auto;
-        }
+        .booking-container { max-width: 1000px; margin: 0 auto; }
 
-        .booking-header {
-            background: white;
-            border-radius: 14px;
-            padding: 35px;
-            box-shadow: 0 12px 30px rgba(0,0,0,0.06);
+        .glass-header {
+            background: var(--glass-bg);
+            backdrop-filter: blur(12px);
+            border: 1px solid var(--glass-border);
+            border-radius: 24px;
+            padding: 40px;
+            text-align: center;
             margin-bottom: 30px;
+            box-shadow: 0 10px 25px -5px rgba(0,0,0,0.05);
         }
 
-        .booking-card {
-            border-radius: 16px;
-            border: none;
-            box-shadow: 0 15px 35px rgba(0,0,0,0.08);
+        .glass-header h2 {
+            font-weight: 800;
+            background: linear-gradient(to right, #4f46e5, #9333ea);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
         }
 
-        .form-label {
-            font-weight: 600;
+        .glass-card {
+            background: var(--glass-bg);
+            backdrop-filter: blur(16px);
+            border: 1px solid var(--glass-border);
+            border-radius: 30px;
+            padding: 40px;
+            box-shadow: 0 25px 50px -12px rgba(0,0,0,0.1);
         }
 
-        .form-control, select {
-            height: 52px;
-            border-radius: 10px;
-        }
+        .form-label { font-weight: 700; color: var(--secondary); margin-bottom: 10px; display: flex; align-items: center; gap: 8px; }
 
-        .input-group-text {
-            background: #f8f9fa;
-            border-radius: 10px 0 0 10px;
-            padding: 0 16px;
-        }
-
-        .booking-type-card {
-            border: 1px solid #dee2e6;
-            border-radius: 12px;
-            padding: 16px;
-            cursor: pointer;
-            transition: 0.25s ease;
-        }
-
-        .booking-type-card:hover {
-            border-color: #4f46e5;
-            background: #f8f9ff;
-        }
-
-        .section-box {
-            background: #f9fafc;
-            border-radius: 12px;
-            padding: 20px;
-            border: 1px dashed #dee2e6;
-        }
-
-        .btn-book {
-            height: 56px;
-            font-size: 1.05rem;
-            font-weight: 600;
-            border-radius: 12px;
-        }
-
-        /* ROOM CARD */
-        .room-card {
+        .form-control, .form-select {
+            border: 2px solid #e2e8f0;
             border-radius: 14px;
-            padding: 18px;
+            padding: 14px 18px;
+            transition: all 0.2s ease;
+        }
+
+        .form-control:focus { border-color: var(--primary); box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.1); }
+
+        /* Custom Booking Type Selector */
+        .booking-type-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 30px; }
+        .type-card {
+            background: #fff; border: 2px solid #e2e8f0; border-radius: 18px; padding: 20px;
+            cursor: pointer; transition: 0.3s; text-align: center;
+        }
+        .type-card:hover { border-color: var(--primary); transform: translateY(-3px); }
+        .type-card.active { border-color: var(--primary); background: #f5f3ff; box-shadow: 0 10px 15px -3px rgba(79, 70, 229, 0.1); }
+
+        /* Movie-Styled Room Cards */
+        #roomGrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 20px; }
+
+        .room-item {
+            background: #fff;
+            border-radius: 20px;
+            padding: 24px;
             border: 2px solid transparent;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
             cursor: pointer;
-            transition: 0.25s ease;
-            background: #f8f9fa;
+            position: relative;
         }
 
-        .room-card.available {
-            border-color: #198754;
+        .room-item:hover { transform: translateY(-8px); box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1); }
+
+        .room-item.available.selected {
+            border-color: var(--primary);
+            background: #f5f3ff;
+            box-shadow: 0 0 0 5px rgba(99, 102, 241, 0.1);
         }
 
-        .room-card.booked {
-            border-color: #dc3545;
-            background: #fbeaea;
-            cursor: not-allowed;
-            opacity: 0.75;
-        }
+        .room-item.booked { background: #f1f5f9; opacity: 0.6; cursor: not-allowed; }
 
-        .room-card.selected {
-            border-color: #4f46e5;
-            background: #eef2ff;
+        .status-pill {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.75rem;
+            font-weight: 800;
+            text-transform: uppercase;
+        }
+        .available .status-pill { background: #dcfce7; color: #166534; }
+        .booked .status-pill { background: #fee2e2; color: #991b1b; }
+
+        .btn-confirm {
+            background: linear-gradient(135deg, var(--primary), #9333ea);
+            color: white;
+            border: none;
+            border-radius: 18px;
+            padding: 20px;
+            font-weight: 800;
+            width: 100%;
+            margin-top: 40px;
+            transition: all 0.3s ease;
+            box-shadow: 0 10px 15px -3px rgba(79, 70, 229, 0.3);
         }
     </style>
 </head>
-
 <body>
 
-<div class="booking-wrapper">
-
-    <!-- HEADER -->
-    <div class="booking-header text-center">
-        <h2><i class="bi bi-building"></i> Room / Venue Booking</h2>
-        <p class="text-muted">
-            Only authorized faculty with <strong>@sfscollege.in</strong> email can book rooms
-        </p>
+<div class="booking-container">
+    <div class="glass-header">
+        <h2><i class="bi bi-calendar-check-fill me-2"></i> Premium Venue Reservation</h2>
+        <p class="text-muted">High-end space management for SFS College Faculty</p>
     </div>
 
-    <!-- FORM -->
-    <div class="card booking-card">
-        <div class="card-body p-4 p-md-5">
+    <div class="glass-card">
+        <form method="post" id="bookingForm">
+            {% csrf_token %}
+            
+            <div class="section-title mb-4">
+                <span class="badge bg-primary rounded-pill px-3 mb-2">Step 1</span>
+                <h4 class="fw-bold">Faculty Identification</h4>
+            </div>
 
-            <form method="post">
-                {% csrf_token %}
-
-                <h6 class="text-uppercase text-muted mb-3">Faculty Details</h6>
-
-                <div class="mb-4">
-                    <label class="form-label">Faculty Email</label>
-                    {{ form.faculty_email }}
-                </div>
-
-                <div class="mb-4">
-                    <label class="form-label">Faculty Name</label>
+            <div class="row g-4 mb-5">
+                <div class="col-md-6">
+                    <label class="form-label"><i class="bi bi-person-circle"></i> Faculty Full Name</label>
                     {{ form.faculty_name }}
                 </div>
-
-                <h6 class="text-uppercase text-muted mb-3">Booking Type</h6>
-
-                <div class="row g-3 mb-4">
-                    <div class="col-md-6">
-                        <label class="booking-type-card w-100">
-                            <input type="radio" class="form-check-input me-2"
-                                   name="booking_type" id="wholeDayBooking" checked>
-                            <strong>Whole Day</strong><br>
-                            <small class="text-muted">08:00 AM – 04:00 PM</small>
-                        </label>
-                    </div>
-
-                    <div class="col-md-6">
-                        <label class="booking-type-card w-100">
-                            <input type="radio" class="form-check-input me-2"
-                                   name="booking_type" id="customBooking">
-                            <strong>Custom Time</strong><br>
-                            <small class="text-muted">Choose start & end</small>
-                        </label>
-                    </div>
+                <div class="col-md-6">
+                    <label class="form-label"><i class="bi bi-envelope-at-fill"></i> College Email Address</label>
+                    {{ form.faculty_email }}
                 </div>
+            </div>
 
-                <!-- WHOLE DAY -->
-                <div id="fullDaySection" class="section-box mb-4">
-                    <label class="form-label">Booking Date</label>
-                    <input type="date" class="form-control" id="fullDayDate">
+            <div class="section-title mb-4">
+                <span class="badge bg-primary rounded-pill px-3 mb-2">Step 2</span>
+                <h4 class="fw-bold">Purpose of Booking</h4>
+            </div>
+            <div class="mb-5">
+                <label class="form-label"><i class="bi bi-chat-left-text-fill"></i> Description</label>
+                {{ form.purpose }}
+            </div>
+
+            <div class="section-title mb-4">
+                <span class="badge bg-primary rounded-pill px-3 mb-2">Step 3</span>
+                <h4 class="fw-bold">Space Selection</h4>
+            </div>
+
+            <div class="mb-4">
+                <label class="form-label">Category</label>
+                {{ form.category }}
+            </div>
+
+            <div id="roomGrid" class="mb-5"></div>
+
+            <input type="hidden" name="room" id="id_room" required>
+
+            <div class="section-title mb-4">
+                <span class="badge bg-primary rounded-pill px-3 mb-2">Step 4</span>
+                <h4 class="fw-bold">Scheduling</h4>
+            </div>
+
+            <div class="booking-type-grid">
+                <div class="type-card active" id="typeWholeDay" onclick="switchType('whole')">
+                    <i class="bi bi-clock-fill mb-2 h4 d-block"></i>
+                    <strong>Whole Day</strong><br><small>08:00 AM - 04:00 PM</small>
                 </div>
-
-                <!-- CUSTOM DATE TIME (ENHANCED) -->
-                <div id="customSection" class="row g-3 mb-4 d-none">
-                    <div class="col-md-6">
-                        <label class="form-label">From</label>
-                        <div class="input-group">
-                            <span class="input-group-text">
-                                <i class="bi bi-clock"></i>
-                            </span>
-                            {{ form.start_datetime }}
-                        </div>
-                    </div>
-
-                    <div class="col-md-6">
-                        <label class="form-label">To</label>
-                        <div class="input-group">
-                            <span class="input-group-text">
-                                <i class="bi bi-clock-history"></i>
-                            </span>
-                            {{ form.end_datetime }}
-                        </div>
-                    </div>
+                <div class="type-card" id="typeCustom" onclick="switchType('custom')">
+                    <i class="bi bi-sliders2-vertical mb-2 h4 d-block"></i>
+                    <strong>Custom Time</strong><br><small>Specific start & end</small>
                 </div>
+            </div>
 
-                <hr class="my-4">
+            <div id="wholeDaySection" class="p-4 border rounded-4 mb-5 bg-white">
+                <label class="form-label">Booking Date</label>
+                <input type="date" class="form-control" id="wholeDayDate" onchange="updateWholeDayTimes()">
+            </div>
 
-                <h6 class="text-uppercase text-muted mb-3">Room Selection</h6>
-
-                <div class="mb-4">
-                    <label class="form-label">Category</label>
-                    {{ form.category }}
+            <div id="customTimeSection" class="row g-4 mb-5 d-none">
+                <div class="col-md-6">
+                    <label class="form-label">From</label>
+                    {{ form.start_datetime }}
                 </div>
-
-                <div class="mb-4">
-                    <label class="form-label">Select Room</label>
-                    <div class="row g-3" id="roomGrid"></div>
-                    <input type="hidden" name="room" id="selectedRoom">
+                <div class="col-md-6">
+                    <label class="form-label">To</label>
+                    {{ form.end_datetime }}
                 </div>
+            </div>
 
-                <div class="mb-4">
-                    <label class="form-label">Department</label>
-                    {{ form.department }}
-                </div>
+            <div class="mb-4">
+                <label class="form-label">Department</label>
+                {{ form.department }}
+            </div>
 
-                <button type="submit" class="btn btn-primary w-100 btn-book">
-                    <i class="bi bi-check-circle"></i> Book Room
-                </button>
-            </form>
-
-        </div>
+            <button type="submit" class="btn btn-confirm">
+                <i class="bi bi-shield-lock-fill me-2"></i> Finalize Booking
+            </button>
+        </form>
     </div>
 </div>
 
 <script>
-const fullDayRadio = document.getElementById("wholeDayBooking");
-const customRadio = document.getElementById("customBooking");
-const fullDaySection = document.getElementById("fullDaySection");
-const customSection = document.getElementById("customSection");
+let currentMode = 'whole';
 
-function toggleBookingType() {
-    if (fullDayRadio.checked) {
-        fullDaySection.classList.remove("d-none");
-        customSection.classList.add("d-none");
-    } else {
-        fullDaySection.classList.add("d-none");
-        customSection.classList.remove("d-none");
-    }
+function switchType(mode) {
+    currentMode = mode;
+    document.getElementById('typeWholeDay').classList.toggle('active', mode === 'whole');
+    document.getElementById('typeCustom').classList.toggle('active', mode === 'custom');
+    document.getElementById('wholeDaySection').classList.toggle('d-none', mode === 'custom');
+    document.getElementById('customTimeSection').classList.toggle('d-none', mode === 'whole');
     loadRooms();
 }
 
-fullDayRadio.addEventListener("change", toggleBookingType);
-customRadio.addEventListener("change", toggleBookingType);
-
-function getDateTimes() {
-    if (fullDayRadio.checked) {
-        const date = document.getElementById("fullDayDate").value;
-        if (!date) return {};
-        return {
-            start: `${date}T08:00`,
-            end: `${date}T16:00`
-        };
+function updateWholeDayTimes() {
+    const date = document.getElementById('wholeDayDate').value;
+    if (date) {
+        document.getElementById('id_start_datetime').value = date + 'T08:00';
+        document.getElementById('id_end_datetime').value = date + 'T16:00';
+        loadRooms();
     }
-    return {
-        start: document.getElementById("id_start_datetime").value,
-        end: document.getElementById("id_end_datetime").value
-    };
 }
 
 function loadRooms() {
     const category = document.getElementById("id_category").value;
-    if (!category) return;
+    const start = document.getElementById("id_start_datetime").value;
+    const end = document.getElementById("id_end_datetime").value;
 
-    const { start, end } = getDateTimes();
+    if (!category || !start || !end) return;
 
     fetch(`{% url 'core:rooms_by_category' %}?category=${category}&start=${start}&end=${end}`)
         .then(res => res.json())
         .then(data => {
             const grid = document.getElementById("roomGrid");
             grid.innerHTML = "";
-
+            
             data.forEach(room => {
-                const col = document.createElement("div");
-                col.className = "col-md-4";
-
-                col.innerHTML = `
-                    <div class="room-card ${room.available ? "available" : "booked"}">
-                        <h6>${room.name}</h6>
-                        <small>${room.available ? "Available" : "Booked"}</small>
-                    </div>
+                const roomDiv = document.createElement("div");
+                roomDiv.className = `room-item ${room.available ? 'available' : 'booked'}`;
+                roomDiv.innerHTML = `
+                    <span class="status-pill">${room.available ? 'Available' : 'Booked'}</span>
+                    <h5 class="mt-3">${room.name}</h5>
+                    <div class="small text-muted mt-2"><i class="bi bi-people-fill"></i> Capacity: ${room.capacity || 40} Seats</div>
                 `;
 
                 if (room.available) {
-                    col.onclick = () => {
-                        document.querySelectorAll(".room-card")
-                            .forEach(c => c.classList.remove("selected"));
-                        col.querySelector(".room-card").classList.add("selected");
-                        document.getElementById("selectedRoom").value = room.id;
+                    roomDiv.onclick = () => {
+                        document.querySelectorAll(".room-card").forEach(r => r.classList.remove("selected"));
+                        roomDiv.classList.add("selected");
+                        document.getElementById("id_room").value = room.id;
                     };
                 }
-
-                grid.appendChild(col);
+                grid.appendChild(roomDiv);
             });
         });
 }
 
 document.getElementById("id_category").addEventListener("change", loadRooms);
-document.getElementById("fullDayDate").addEventListener("change", loadRooms);
 document.getElementById("id_start_datetime").addEventListener("change", loadRooms);
 document.getElementById("id_end_datetime").addEventListener("change", loadRooms);
 </script>

@@ -1,5 +1,5 @@
 from django.urls import path
-from inventory.views import central_admin
+from inventory.views import central_admin, aura
 
 app_name = 'central_admin'
 
@@ -61,7 +61,9 @@ urlpatterns = [
         central_admin.RejectIssueTimeExtensionView.as_view(),
         name="reject_issue_time_extension",
     ),
-
-
-
+    path('aura/', aura.AuraDashboardView.as_view(), name='aura_dashboard'),
+    path('aura/api/analytics/', aura.aura_analytics_data, name='aura_api_analytics'),
+    path('aura/api/data-manager/', aura.aura_data_manager, name='aura_api_data'),
+    path('aura/api/delete/', aura.aura_delete_record, name='aura_api_delete'),
+    
 ]

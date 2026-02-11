@@ -34,6 +34,7 @@ class Room(models.Model):
     updated_on = models.DateTimeField(auto_now=True)
     slug = models.SlugField(unique=True, max_length=255)
     room_category = models.CharField(max_length=20, choices=ROOM_CATEGORIES, default='classrooms')
+    capacity = models.PositiveIntegerField(default=0)
 
     
     def save(self, *args, **kwargs):
@@ -674,30 +675,36 @@ class EditRequest(models.Model):
 class RoomBooking(models.Model):
     room = models.ForeignKey(Room, on_delete=models.CASCADE)
     department = models.ForeignKey(Department, null=True, blank=True, on_delete=models.SET_NULL)
-
     faculty_name = models.CharField(max_length=255)
     faculty_email = models.EmailField()
-
     start_datetime = models.DateTimeField()
     end_datetime = models.DateTimeField()
-
     created_on = models.DateTimeField(auto_now_add=True)
+    purpose = models.TextField(null=True, blank=True)
 
     def clean(self):
-        if self.start_datetime >= self.end_datetime:
-            raise ValidationError("End time must be after start time.")
+    # FORCE timezone awareness (critical fix)
+        if self.start_datetime and timezone.is_naive(self.start_datetime):
+            self.start_datetime = timezone.make_aware(self.start_datetime)
 
-        overlapping = RoomBooking.objects.filter(
-            room=self.room,
-            start_datetime__lt=self.end_datetime,
-            end_datetime__gt=self.start_datetime
-        )
+        if self.end_datetime and timezone.is_naive(self.end_datetime):
+            self.end_datetime = timezone.make_aware(self.end_datetime)
 
-        if self.pk:
-            overlapping = overlapping.exclude(pk=self.pk)
+        if self.start_datetime and self.end_datetime:
+            if self.start_datetime >= self.end_datetime:
+                raise ValidationError("End time must be after start time.")
 
-        if overlapping.exists():
-            raise ValidationError("This room is already booked for the selected time.")
+            overlapping = RoomBooking.objects.filter(
+                room=self.room,
+                start_datetime__lt=self.end_datetime,
+                end_datetime__gt=self.start_datetime
+            )
+
+            if self.pk:
+                overlapping = overlapping.exclude(pk=self.pk)
+
+            if overlapping.exists():
+                raise ValidationError("Room is already booked for this time slot.")
 
     def save(self, *args, **kwargs):
         self.full_clean()
@@ -705,8 +712,6 @@ class RoomBooking(models.Model):
 
     def __str__(self):
         return f"{self.room.room_name} | {self.start_datetime} - {self.end_datetime}"
-
-    # CHANGE: Added room booking model with overlap prevention
     
 class IssueTimeExtensionRequest(models.Model):
     """
