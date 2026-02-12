@@ -1,7 +1,7 @@
-import json
+import json, csv
 from django.views.generic import TemplateView
 from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
-from django.http import JsonResponse
+from django.http import JsonResponse, HttpResponse
 from django.db.models import Count, Q
 from django.utils import timezone
 from django.shortcuts import get_object_or_404
@@ -67,44 +67,61 @@ def aura_analytics_data(request):
     })
 
 def aura_data_manager(request):
+    """
+    Fetches AURA report data for all modules with module and date filtering.
+    """
     if not request.user.profile.is_central_admin:
         return JsonResponse({'error': 'Unauthorized'}, status=403)
     
     model_name = request.GET.get('model')
-    org = request.user.profile.org
+    date_from = request.GET.get('date_from')
+    date_to = request.GET.get('date_to')
     
     model_map = {
-        'issues': Issue, 'items': Item, 'rooms': Room, 
-        'bookings': RoomBooking, 'purchases': Purchase,
-        'vendors': Vendor, 'departments': Department
+        'issues': Issue, 
+        'items': Item, 
+        'rooms': Room, 
+        'bookings': RoomBooking, 
+        'purchases': Purchase,
+        'vendors': Vendor, 
+        'departments': Department
     }
     
     model = model_map.get(model_name)
     if not model:
         return JsonResponse({'error': 'Invalid model'}, status=400)
     
-    # Corrected filter logic strictly by Organisation
-    if model_name == 'rooms':
-        qs = model.objects.all()
-    elif model_name in ['items', 'bookings']:
-        qs = model.objects.all()
-    else:
-        qs = model.objects.all()
-        
+    qs = model.objects.all()
+
+    # Apply Date Filtering across all applicable modules
+    if date_from and date_to:
+        if model_name == 'bookings':
+            qs = qs.filter(start_datetime__date__range=[date_from, date_to])
+        elif model_name in ['issues', 'items', 'rooms', 'purchases']:
+            qs = qs.filter(created_on__date__range=[date_from, date_to])
+
     data = []
     for obj in qs.order_by('-id'):
         row = {'id': obj.id, 'label': str(obj)}
         try:
             if model_name == 'bookings':
-                row['detail'] = f"Faculty: {obj.faculty_name} | Start: {obj.start_datetime.strftime('%H:%M')}"
+                row['label'] = f"{obj.room.room_name} | {obj.faculty_email}"
+                start_local = timezone.localtime(obj.start_datetime)
+                end_local = timezone.localtime(obj.end_datetime)
+                schedule_str = f"{start_local.strftime('%d %b, %Y | %H:%M')} - {end_local.strftime('%H:%M')}"
+                row['detail'] = f"Faculty: {obj.faculty_name} | Schedule: {schedule_str}"
+            elif model_name == 'rooms':
+                row['detail'] = f"Category: {obj.get_room_category_display()} | Capacity: {obj.capacity}"
             elif model_name == 'issues':
                 row['detail'] = f"Status: {obj.status} | {obj.subject}"
             elif model_name == 'items':
-                row['detail'] = f"Room: {obj.room.room_name} | Qty: {obj.total_count}"
+                row['detail'] = f"Room: {obj.room.room_name} | Qty: {obj.total_count} | Available: {obj.available_count}"
+            elif model_name == 'purchases':
+                row['detail'] = f"Vendor: {obj.vendor.vendor_name} | Status: {obj.status}"
             else:
                 row['detail'] = "General Record"
         except Exception:
-            row['detail'] = "N/A (Database Mismatch)"
+            row['detail'] = "N/A (Data Mismatch)"
         data.append(row)
         
     return JsonResponse({'results': data})

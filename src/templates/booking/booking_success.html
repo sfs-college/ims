@@ -60,10 +60,35 @@
     }
 
     .btn-return:hover { background: #4338ca; transform: translateY(-2px); color: white; }
+
+    .btn-home-top {
+        position: absolute;
+        top: 20px;
+        right: 20px;
+        background: #f1f5f9;
+        color: #475569;
+        padding: 8px 16px;
+        border-radius: 10px;
+        font-weight: 600;
+        text-decoration: none;
+        font-size: 0.85rem;
+        transition: all 0.2s ease;
+        border: 1px solid #e2e8f0;
+    }
+
+    .btn-home-top:hover {
+        background: #e2e8f0;
+        color: #1e293b;
+    }
+
+    .success-card {
+        position: relative;
+    }
 </style>
 
 <div class="success-wrapper">
     <div class="success-card">
+        <a href="{% url 'landing_page' %}" class="btn-home-top"><i class="bi bi-house-door me-1"></i> Home</a>
         <div class="check-icon"><i class="bi bi-check-lg"></i></div>
         <h2 class="fw-bold mb-2">Reservation Confirmed!</h2>
         <p class="text-muted">Your venue booking has been successfully recorded.</p>
