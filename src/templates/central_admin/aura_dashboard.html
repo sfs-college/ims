@@ -31,6 +31,15 @@
     .modal-header { background: var(--aura-dark); color: white; border-radius: 20px 20px 0 0; padding: 1.5rem; }
     .btn-close-white { filter: invert(1) grayscale(100%) brightness(200%); }
     .report-table thead { position: sticky; top: 0; background: var(--aura-dark); color: white; }
+    .table-responsive {
+        overflow: visible !important;
+        max-height: none !important;
+    }
+    
+    #reportContainer table {
+        width: 100% !important;
+        background-color: white !important;
+    }
 </style>
 {% endblock style %}
 
@@ -38,6 +47,9 @@
 <div class="container-fluid py-4">
     <div class="aura-header d-flex justify-content-between align-items-center">
         <div>
+            <a href="{% url 'central_admin:dashboard' %}" class="btn btn-sm btn-outline-secondary mb-3 rounded-pill px-3">
+                <i class="bi bi-arrow-left me-1"></i> Dashboard
+            </a>
             <h1 class="fw-bold text-dark mb-0">AURA <span class="text-primary">Command</span></h1>
             <p class="text-muted mb-0">Admin Unified Report & Analysis System</p>
         </div>
@@ -169,9 +181,13 @@
                     <div class="col-md-4">
                         <label class="form-label small fw-bold">MODULE</label>
                         <select class="form-select" id="reportModule">
+                            <option value="rooms">Rooms</option>
+                            <option value="bookings">Room Bookings</option>
                             <option value="issues">Issues Tracking</option>
                             <option value="items">Inventory/Assets</option>
-                            <option value="bookings">Room Bookings</option>
+                            <option value="purchases">Purchases</option>
+                            <option value="vendors">Vendors</option>
+                            <option value="departments">Departments</option>
                         </select>
                     </div>
                     <div class="col-md-3">
@@ -189,7 +205,9 @@
                 <div id="reportContainer" style="display:none;">
                     <div class="d-flex justify-content-between mb-2">
                         <h6 class="fw-bold">Report Results</h6>
-                        <button class="btn btn-sm btn-outline-success" onclick="window.print()"><i class="bi bi-printer me-1"></i>Print/PDF</button>
+                        <button class="btn btn-sm btn-outline-danger" onclick="downloadAuraPDF()">
+                            <i class="bi bi-file-earmark-pdf me-1"></i> Download PDF
+                        </button>
                     </div>
                     <div class="table-responsive" style="max-height: 400px;">
                         <table class="table table-bordered report-table">
@@ -226,6 +244,7 @@
     </div>
 </div>
 
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
 <script>
     // 1. Live Charts Logic
@@ -293,19 +312,37 @@
     // 3. Report Engine Logic
     function generateAuraReport() {
         const module = document.getElementById('reportModule').value;
+        const dateFrom = document.getElementById('dateFrom').value;
+        const dateTo = document.getElementById('dateTo').value;
         const container = document.getElementById('reportContainer');
         const head = document.getElementById('reportHead');
         const content = document.getElementById('reportContent');
 
-        fetch(`{% url "central_admin:aura_api_data" %}?model=${module}`)
+        // Loading State
+        container.style.display = 'block';
+        content.innerHTML = '<tr><td colspan="3" class="text-center py-5"><div class="spinner-border text-primary me-2"></div>Records loading...</td></tr>';
+        head.innerHTML = '<tr><th>ID</th><th>Primary Record</th><th>Full Metadata/Details</th></tr>';
+
+        fetch(`{% url "central_admin:aura_api_data" %}?model=${module}&date_from=${dateFrom}&date_to=${dateTo}`)
             .then(res => res.json())
             .then(data => {
-                container.style.display = 'block';
-                head.innerHTML = '<tr><th>ID</th><th>Primary Record</th><th>Full Metadata/Details</th></tr>';
                 content.innerHTML = '';
+                if (!data.results || data.results.length === 0) {
+                    content.innerHTML = '<tr><td colspan="3" class="text-center py-5 text-muted">No records found for the selected criteria.</td></tr>';
+                    return;
+                }
                 data.results.forEach(row => {
-                    content.innerHTML += `<tr><td>${row.id}</td><td class="fw-bold">${row.label}</td><td>${row.detail}</td></tr>`;
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `
+                        <td>${row.id}</td>
+                        <td class="fw-bold">${row.label}</td>
+                        <td>${row.detail || '---'}</td>
+                    `;
+                    content.appendChild(tr);
                 });
+            })
+            .catch(err => {
+                content.innerHTML = '<tr><td colspan="3" class="text-center py-5 text-danger">Error connecting to AURA system.</td></tr>';
             });
     }
 
@@ -318,15 +355,25 @@
             .then(res => res.json())
             .then(data => {
                 body.innerHTML = '';
+                if (data.results.length === 0) {
+                    body.innerHTML = '<tr><td colspan="6" class="text-center">No bookings found.</td></tr>';
+                    return;
+                }
                 data.results.forEach(row => {
-                    const statusClass = row.detail.includes('Expired') ? 'bg-secondary' : 'bg-success';
+                    // Split the updated label to get Room Name and Faculty Email
+                    const labelParts = row.label.split('|');
+                    const roomName = labelParts[0].trim();
+                    const facultyEmail = labelParts[1] ? labelParts[1].trim() : '---';
+                    const facultyName = row.detail.replace('Faculty: ', '');
+                    const schedule = row.schedule || '---';
+                    
                     body.innerHTML += `
                         <tr>
-                            <td class="fw-bold">${row.label.split('|')[0]}</td>
-                            <td>${row.detail.split('|')[0].replace('Faculty: ', '')}</td>
-                            <td><small>${row.label.split('|')[1] || '---'}</small></td>
-                            <td>${row.detail.split('|')[1] || '---'}</td>
-                            <td><span class="badge ${statusClass}">Active</span></td>
+                            <td class="fw-bold text-primary">${roomName}</td>
+                            <td>${facultyName}</td>
+                            <td><small class="text-muted">${facultyEmail}</small></td>
+                            <td class="fw-semibold">${schedule}</td>
+                            <td><span class="badge bg-success">Active</span></td>
                             <td>
                                 <button class="btn btn-sm btn-danger" onclick="deleteRecord('bookings', ${row.id})">Cancel</button>
                             </td>
@@ -350,6 +397,60 @@
                 }
             });
         }
+    }
+
+    // 6. Print Report Logic
+    {% comment %} function printReportTable() {
+        const reportArea = document.getElementById('reportContainer').innerHTML;
+        const originalContent = document.body.innerHTML;
+
+        document.body.innerHTML = `
+            <div style="padding: 30px;">
+                <h2 style="text-align: center; margin-bottom: 20px;">AURA Generated Report</h2>
+                <hr>
+                ${reportArea}
+            </div>
+        `;
+        
+        // Hide the print button in the printed version
+        const printBtn = document.querySelector('body .btn-outline-success');
+        if(printBtn) printBtn.style.display = 'none';
+
+        window.print();
+        document.body.innerHTML = originalContent;
+        window.location.reload();
+    } {% endcomment %}
+
+    // 7. Direct PDF Download Logic
+    function downloadAuraPDF() {
+        const element = document.getElementById('reportContainer');
+        const content = document.getElementById('reportContent');
+        const moduleName = document.getElementById('reportModule').value;
+        
+        // Validation: Ensure there is data to print
+        if (!content || content.children.length === 0 || content.innerText.includes('Records loading')) {
+            alert("Please generate the report results first.");
+            return;
+        }
+
+        // Configure PDF options
+        const opt = {
+            margin:       [0.5, 0.5],
+            filename:     `AURA_Blixtro_${moduleName}_Report.pdf`,
+            image:        { type: 'jpeg', quality: 0.98 },
+            html2canvas:  { 
+                scale: 2, 
+                useCORS: true,
+                logging: false,
+                scrollX: 0,
+                scrollY: 0,
+                windowWidth: document.documentElement.offsetWidth // Captures full width
+            },
+            jsPDF:        { unit: 'in', format: 'letter', orientation: 'portrait' }
+        };
+
+        // Execution: Target the element containing headers and rows
+        html2pdf().set(opt).from(element).save();
     }
 </script>
 {% endblock content %}

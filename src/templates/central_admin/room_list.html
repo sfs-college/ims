@@ -42,7 +42,6 @@
 
     <button class="btn btn-outline-primary">Filter</button>
 </form>
-<!-- CHANGE: Added category dropdown and room search filter -->
 
 <div class="table-responsive">
 <table class="table">
@@ -50,6 +49,7 @@
         <tr>
             <th>Room Name</th>
             <th>Category</th>
+            <th>Capacity</th>
             <th>Incharge</th>
             <th>Department</th>
             <th>Created On</th>
@@ -65,11 +65,11 @@
                     {{ room.get_room_category_display }}
                 </span>
             </td>
+            <td>{{ room.capacity }}</td>
             <td>{{ room.incharge.user.get_full_name }}</td>
             <td>{% if room.department %}{{ room.department.department_name }}{% else %}None{% endif %}</td>
             <td>{{ room.created_on|date:"d-M-Y H:i:s" }}</td>
             <td>
-                <a href="{% url 'room_incharge:room_dashboard' room_slug=room.slug %}" class="btn btn-outline-dark btn-sm">View</a>
                 <a href="{% url 'central_admin:room_update' room_slug=room.slug %}" class="btn btn-dark btn-sm">Edit</a>
                 <a href="{% url 'central_admin:room_delete' room_slug=room.slug %}" class="btn btn-danger btn-sm">Delete</a>
             </td>
