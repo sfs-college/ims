@@ -237,6 +237,16 @@ if not DEBUG:
                 'level': 'DEBUG',
                 'propagate': False,
             },
+            'django.request': {
+            'handlers': ['console'],
+            'level': 'DEBUG',
+            'propagate': False,
+             },
+            'inventory': {
+            'handlers': ['console'],
+            'level': 'DEBUG',
+            'propagate': True,
+            },
             'services': {
                 'handlers': ['console'],
                 'level': 'DEBUG',
