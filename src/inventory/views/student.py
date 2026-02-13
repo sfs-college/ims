@@ -8,7 +8,7 @@ from django.conf import settings
 from inventory.email import safe_send_mail
 from django.utils import timezone
 from datetime import timedelta
-from django.core.mail import send_mail  # keep import if other non-critical code uses it
+from django.core.mail import send_mail
 from django.urls import reverse
 from django.contrib import messages
 
@@ -49,6 +49,11 @@ class IssueReportView(View):
     def get(self, request, *args, **kwargs):
         form = self.form_class()
 
+        # New: Category-based room filtering
+        selected_category = request.GET.get('category')
+        if selected_category:
+            form.fields['room'].queryset = Room.objects.filter(room_category=selected_category)
+
         ticket = None
         tickets = None
 
@@ -69,7 +74,9 @@ class IssueReportView(View):
         return render(request, self.template_name, {
             "form": form,
             "ticket": ticket,
-            "tickets": tickets
+            "tickets": tickets,
+            "categories": Room.ROOM_CATEGORIES,  # Pass categories for the dropdown filter
+            "selected_category": selected_category
         })
 
     def post(self, request, *args, **kwargs):
@@ -147,7 +154,6 @@ class IssueReportView(View):
                     fail_silently=True
                 )
             except Exception:
-                # swallow — do not crash on email failure
                 pass
 
             return redirect("student:issue_report_success")

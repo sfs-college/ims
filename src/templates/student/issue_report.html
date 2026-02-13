@@ -9,6 +9,9 @@
     <div class="row justify-content-center">
 
         <div class="col-md-10">
+            <a href="{% url 'landing_page' %}" class="btn btn-sm btn-outline-secondary mb-3 rounded-pill px-3">
+                <i class="bi bi-arrow-left me-1"></i> Dashboard
+            </a>
 
             <!-- Back Button -->
             <a href="javascript:history.back()" class="btn btn-dark btn-sm mb-3">Go Back</a>
@@ -42,13 +45,24 @@
                             {{ form.description }}
                         </div>
 
+                        <!-- Category -->
+                        <div class="mb-3">
+                            <label class="form-label">Filter Room by Category</label>
+                            <select class="form-select" onchange="location = this.value;">
+                                <option value="?category=">All Categories</option>
+                                {% for val, label in categories %}
+                                    <option value="?category={{ val }}" {% if selected_category == val %}selected{% endif %}>{{ label }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
                         <!-- Room -->
                         <div class="mb-3">
-                            <label class="form-label">Room / Lab</label>
+                            <label class="form-label">Select Room / Venue</label>
                             {{ form.room }}
                         </div>
 
-                        <button class="btn btn-primary w-100 mt-3">Submit Issue</button>
+                        <button type="submit" class="btn btn-primary w-100 mt-3" id="submitBtn">Submit Issue</button>
                     </form>
 
                 </div>
@@ -125,5 +139,24 @@
         </div>
     </div>
 </div>
+<!-- Script for Submit Button -->
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.querySelector('form[method="post"]');
+    const submitBtn = document.getElementById('submitBtn');
+    
+    form.addEventListener('submit', function(e) {
+        // Disable button immediately
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Submitting...';
+        
+        // Re-enable after 3 seconds as fallback (in case of validation errors)
+        setTimeout(function() {
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = 'Submit Issue';
+        }, 15000);
+    });
+});
+</script>
 
 {% endblock %}

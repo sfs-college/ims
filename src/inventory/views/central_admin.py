@@ -265,47 +265,44 @@ class IssueListView(LoginRequiredMixin, ListView):
     model = Issue
     context_object_name = 'issues'
 
-    # --- Replace the get_queryset method inside IssueListView with this full method ---
-def get_queryset(self):
-    """
-    Return issues visible to the central/sub admin view.
+    def get_queryset(self):
+        """
+        Return issues visible to the central/sub admin view.
+        Rules:
+          - Show issues belonging to the admin's organisation (profile.org)
+          - OR issues specifically assigned to the current user's profile (assigned_to)
+          - Filters by escalation level if 'filter=escalated' is provided.
+        """
+        qs = super().get_queryset()
+        profile = getattr(self.request.user, "profile", None)
+        issue_filter = self.request.GET.get('filter')
 
-    Rules:
-      - Show issues belonging to the admin's organisation (profile.org)
-      - OR issues specifically assigned to the current user's profile (assigned_to)
-      - Superuser sees everything
-      - If the user has no org and not superuser, and there's only one org in DB, show issues for that org
-      - Otherwise fallback to qs.none() to avoid cross-org leaks
-    """
-    qs = super().get_queryset()
-    profile = getattr(self.request.user, "profile", None)
+        if profile and getattr(profile, "org", None):
+            from django.db.models import Q
+            # Base logic: Org issues OR directly assigned
+            qs = qs.filter(Q(organisation=profile.org) | Q(assigned_to=profile))
 
-    # If the user has a profile and an organisation, show issues either belonging to that organisation
-    # OR those assigned directly to the user (this ensures escalated issues assigned to a user are visible).
-    if profile and getattr(profile, "org", None):
-        from django.db.models import Q
-        qs = qs.filter(Q(organisation=profile.org) | Q(assigned_to=profile))
+            # Filter by escalation level
+            if issue_filter == 'escalated':
+                # Level 2 for Central Admin, Level 1 for Sub Admin
+                target_level = 2 if profile.is_central_admin else 1
+                qs = qs.filter(escalation_level=target_level)
 
-    elif self.request.user.is_superuser:
-        # Superusers see everything
-        qs = qs
+        elif self.request.user.is_superuser:
+            qs = qs
+            if issue_filter == 'escalated':
+                qs = qs.filter(status='escalated')
 
-    else:
-        # If only one organisation exists, show that org's issues
-        from inventory.models import Organisation
-        org_count = Organisation.objects.count()
-        if org_count == 1:
-            org = Organisation.objects.first()
-            qs = qs.filter(organisation=org)
         else:
-            # Fallback: avoid cross-organisation leakage
-            qs = qs.none()
+            from inventory.models import Organisation
+            org_count = Organisation.objects.count()
+            if org_count == 1:
+                org = Organisation.objects.first()
+                qs = qs.filter(organisation=org)
+            else:
+                qs = qs.none()
 
-    # Use select_related for efficiency and order newest first
-    return qs.select_related('room', 'assigned_to').order_by('-created_on')
-
-
-
+        return qs.select_related('room', 'assigned_to').order_by('-created_on')
 
 
 class DepartmentListView(LoginRequiredMixin, ListView):

@@ -364,15 +364,15 @@
                     const labelParts = row.label.split('|');
                     const roomName = labelParts[0].trim();
                     const facultyEmail = labelParts[1] ? labelParts[1].trim() : '---';
-                    const facultyName = row.detail.replace('Faculty: ', '');
-                    const schedule = row.schedule || '---';
+                    const facultyName = row.detail;
+                    const scheduleTime = row.schedule || '---';
                     
                     body.innerHTML += `
                         <tr>
                             <td class="fw-bold text-primary">${roomName}</td>
                             <td>${facultyName}</td>
                             <td><small class="text-muted">${facultyEmail}</small></td>
-                            <td class="fw-semibold">${schedule}</td>
+                            <td class="fw-semibold">${scheduleTime}</td>
                             <td><span class="badge bg-success">Active</span></td>
                             <td>
                                 <button class="btn btn-sm btn-danger" onclick="deleteRecord('bookings', ${row.id})">Cancel</button>
@@ -399,58 +399,25 @@
         }
     }
 
-    // 6. Print Report Logic
-    {% comment %} function printReportTable() {
-        const reportArea = document.getElementById('reportContainer').innerHTML;
-        const originalContent = document.body.innerHTML;
-
-        document.body.innerHTML = `
-            <div style="padding: 30px;">
-                <h2 style="text-align: center; margin-bottom: 20px;">AURA Generated Report</h2>
-                <hr>
-                ${reportArea}
-            </div>
-        `;
-        
-        // Hide the print button in the printed version
-        const printBtn = document.querySelector('body .btn-outline-success');
-        if(printBtn) printBtn.style.display = 'none';
-
-        window.print();
-        document.body.innerHTML = originalContent;
-        window.location.reload();
-    } {% endcomment %}
-
-    // 7. Direct PDF Download Logic
+    // 7. Optimized Backend PDF Download Logic
     function downloadAuraPDF() {
-        const element = document.getElementById('reportContainer');
-        const content = document.getElementById('reportContent');
         const moduleName = document.getElementById('reportModule').value;
+        const dateFrom = document.getElementById('dateFrom').value;
+        const dateTo = document.getElementById('dateTo').value;
+        const content = document.getElementById('reportContent');
         
-        // Validation: Ensure there is data to print
+        // Validation: Ensure there is at least something to download
         if (!content || content.children.length === 0 || content.innerText.includes('Records loading')) {
-            alert("Please generate the report results first.");
+            alert("Please generate the report results in the table first to verify data exists.");
             return;
         }
 
-        // Configure PDF options
-        const opt = {
-            margin:       [0.5, 0.5],
-            filename:     `AURA_Blixtro_${moduleName}_Report.pdf`,
-            image:        { type: 'jpeg', quality: 0.98 },
-            html2canvas:  { 
-                scale: 2, 
-                useCORS: true,
-                logging: false,
-                scrollX: 0,
-                scrollY: 0,
-                windowWidth: document.documentElement.offsetWidth // Captures full width
-            },
-            jsPDF:        { unit: 'in', format: 'letter', orientation: 'portrait' }
-        };
-
-        // Execution: Target the element containing headers and rows
-        html2pdf().set(opt).from(element).save();
+        // Redirect to the backend PDF view with existing filters
+        const baseUrl = '{% url "central_admin:aura_api_pdf" %}';   
+        const downloadUrl = `${baseUrl}?model=${moduleName}&date_from=${dateFrom}&date_to=${dateTo}`;
+        
+        // Open in new tab to trigger download
+        window.open(downloadUrl, '_blank');
     }
 </script>
 {% endblock content %}
