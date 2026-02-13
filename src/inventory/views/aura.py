@@ -5,6 +5,7 @@ from django.http import JsonResponse, HttpResponse
 from django.db.models import Count, Q
 from django.utils import timezone
 from django.shortcuts import get_object_or_404
+from django.views.decorators.http import require_POST
 from inventory.models import Issue, Item, Room, Category, RoomBooking, Purchase, Vendor, Department
 from core.models import UserProfile
 from reportlab.lib.pagesizes import A4, landscape
@@ -95,7 +96,7 @@ def aura_data_manager(request):
     if not model:
         return JsonResponse({'error': 'Invalid model'}, status=400)
     
-    qs = model.objects.all()
+    qs = model.objects.all().order_by('-id')
 
     # Apply Date Filtering across all applicable modules
     if date_from and date_to:
@@ -252,3 +253,43 @@ def aura_generate_report_pdf(request):
     response = HttpResponse(buffer, content_type='application/pdf')
     response['Content-Disposition'] = f'attachment; filename="Blixtro_AURA_{model_name}_Report.pdf"'
     return response
+
+@require_POST
+def aura_bulk_delete(request):
+    """
+    Bulk delete records for a specific model based on a list of IDs.
+    """
+    if not request.user.profile.is_central_admin:
+        return JsonResponse({'status': 'error', 'message': 'Unauthorized'}, status=403)
+    
+    try:
+        data = json.loads(request.body)
+        model_name = data.get('model')
+        record_ids = data.get('ids', []) # Expects a list of IDs
+        
+        model_map = {
+            'issues': Issue, 
+            'items': Item, 
+            'rooms': Room, 
+            'bookings': RoomBooking,
+            'purchases': Purchase
+        }
+        
+        model = model_map.get(model_name)
+        if not model or not record_ids:
+            return JsonResponse({'status': 'error', 'message': 'Invalid request'}, status=400)
+            
+        # Filter records belonging to the user's organization and delete
+        if model_name == 'rooms':
+            qs = model.objects.filter(id__in=record_ids, organisation=request.user.profile.org)
+        elif hasattr(model, 'room'):
+            qs = model.objects.filter(id__in=record_ids, room__organisation=request.user.profile.org)
+        else:
+            qs = model.objects.filter(id__in=record_ids, organisation=request.user.profile.org)
+            
+        count = qs.count()
+        qs.delete()
+        
+        return JsonResponse({'status': 'success', 'deleted_count': count})
+    except Exception as e:
+        return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
