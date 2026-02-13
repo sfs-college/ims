@@ -141,14 +141,17 @@
             </div>
             <div class="modal-body">
                 <div class="d-flex justify-content-between align-items-center mb-4">
-                    <div class="w-25">
+                    <div class="d-flex align-items-center gap-3 w-50">
                         <label class="small fw-bold text-muted">SELECT MODULE</label>
-                        <select class="form-select" id="modelSelector" onchange="loadAuraData()">
+                        <select class="form-select w-50" id="modelSelector" onchange="loadAuraData()">
                             <option value="issues">Issues</option>
                             <option value="items">Inventory Items</option>
                             <option value="rooms">Rooms</option>
                             <option value="purchases">Purchases</option>
                         </select>
+                        <button id="bulkDeleteBtn" class="btn btn-danger btn-sm d-none" onclick="bulkDeleteRecords()">
+                            <i class="bi bi-trash3-fill me-1"></i> Bulk Delete
+                        </button>
                     </div>
                     <div class="text-end">
                         <small class="text-muted" id="recordCount">Loading records...</small>
@@ -158,6 +161,7 @@
                     <table class="table table-hover align-middle">
                         <thead class="table-light">
                             <tr>
+                                <th style="width: 40px;"><input type="checkbox" id="selectAll" onclick="toggleSelectAll(this)"></th>
                                 <th>ID</th><th>Main Label</th><th>Details / Status</th><th class="text-end">Actions</th>
                             </tr>
                         </thead>
@@ -285,7 +289,11 @@
     function loadAuraData() {
         const model = document.getElementById('modelSelector').value;
         const body = document.getElementById('auraDataBody');
-        body.innerHTML = '<tr><td colspan="4" class="text-center py-5"><div class="spinner-border text-primary"></div></td></tr>';
+        const selectAllCb = document.getElementById('selectAll');
+
+        document.getElementById('selectAll').checked = false;
+        document.getElementById('bulkDeleteBtn').classList.add('d-none');
+        body.innerHTML = '<tr><td colspan="5" class="text-center py-5"><div class="spinner-border text-primary"></div></td></tr>';
 
         fetch(`{% url "central_admin:aura_api_data" %}?model=${model}`)
             .then(res => res.json())
@@ -295,6 +303,7 @@
                 data.results.forEach(row => {
                     body.innerHTML += `
                         <tr>
+                            <td><input type="checkbox" class="record-checkbox" value="${row.id}" onchange="updateBulkDeleteButton()"></td>
                             <td class="text-muted">#${row.id}</td>
                             <td class="fw-bold">${row.label}</td>
                             <td><span class="badge bg-light text-dark border">${row.detail || 'N/A'}</span></td>
@@ -418,6 +427,39 @@
         
         // Open in new tab to trigger download
         window.open(downloadUrl, '_blank');
+    }
+
+    // 8. Toggle all checkboxes and show/hide bulk delete button
+    function toggleSelectAll(masterCheckbox) {
+        const checkboxes = document.querySelectorAll('.record-checkbox');
+        checkboxes.forEach(cb => cb.checked = masterCheckbox.checked);
+        updateBulkDeleteButton();
+    }
+
+    function updateBulkDeleteButton() {
+        const selectedCount = document.querySelectorAll('.record-checkbox:checked').length;
+        const btn = document.getElementById('bulkDeleteBtn');
+        if (selectedCount > 0) btn.classList.remove('d-none');
+        else btn.classList.add('d-none');
+    }
+
+    // 9. New Bulk Delete Logic
+    function bulkDeleteRecords() {
+        const model = document.getElementById('modelSelector').value;
+        const selectedIds = Array.from(document.querySelectorAll('.record-checkbox:checked')).map(cb => cb.value);
+        
+        if (confirm(`MASS PURGE: Are you sure you want to delete ${selectedIds.length} records? This action is permanent.`)) {
+            fetch('{% url "central_admin:aura_api_bulk_delete" %}', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'X-CSRFToken': '{{ csrf_token }}' },
+                body: JSON.stringify({ model: model, ids: selectedIds })
+            }).then(res => {
+                if (res.ok) {
+                    loadAuraData();
+                    alert('Records purged successfully.');
+                }
+            });
+        }
     }
 </script>
 {% endblock content %}

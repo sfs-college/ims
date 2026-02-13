@@ -681,19 +681,23 @@ class RoomBooking(models.Model):
     end_datetime = models.DateTimeField()
     created_on = models.DateTimeField(auto_now_add=True)
     purpose = models.TextField(null=True, blank=True)
+    
+    slug = models.SlugField(unique=True, max_length=255, blank=True, null=True)
 
     def clean(self):
-    # FORCE timezone awareness (critical fix)
+        # 1. FORCE timezone awareness (Critical for Server/Localhost consistency)
         if self.start_datetime and timezone.is_naive(self.start_datetime):
             self.start_datetime = timezone.make_aware(self.start_datetime)
 
         if self.end_datetime and timezone.is_naive(self.end_datetime):
             self.end_datetime = timezone.make_aware(self.end_datetime)
 
+        # 2. Basic Validation
         if self.start_datetime and self.end_datetime:
             if self.start_datetime >= self.end_datetime:
                 raise ValidationError("End time must be after start time.")
 
+            # 3. Conflict Detection logic
             overlapping = RoomBooking.objects.filter(
                 room=self.room,
                 start_datetime__lt=self.end_datetime,
@@ -707,6 +711,14 @@ class RoomBooking(models.Model):
                 raise ValidationError("Room is already booked for this time slot.")
 
     def save(self, *args, **kwargs):
+        # Generate slug based on faculty name and timestamp if it doesn't exist
+        if not self.slug:
+            from django.utils.text import slugify
+            import uuid
+            base_slug = slugify(f"{self.faculty_name}-{timezone.now().strftime('%y%m%d%H%M')}")
+            # Use utility to ensure uniqueness
+            self.slug = f"{base_slug}-{str(uuid.uuid4())[:4]}"
+
         self.full_clean()
         super().save(*args, **kwargs)
 

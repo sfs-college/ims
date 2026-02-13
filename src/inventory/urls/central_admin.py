@@ -66,5 +66,6 @@ urlpatterns = [
     path('aura/api/data-manager/', aura.aura_data_manager, name='aura_api_data'),
     path('aura/api/delete/', aura.aura_delete_record, name='aura_api_delete'),
     path('aura/api/generate-pdf/', aura.aura_generate_report_pdf, name='aura_api_pdf'),
+    path('aura/api/bulk-delete/', aura.aura_bulk_delete, name='aura_api_bulk_delete'),
     
 ]
