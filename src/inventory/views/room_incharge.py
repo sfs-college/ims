@@ -287,15 +287,19 @@ class ItemCreateView(LoginRequiredMixin, CreateView):
     template_name = 'room_incharge/item_create.html'
     form_class = ItemForm
     success_url = reverse_lazy('room_incharge:item_list')
-
+    
+    def dispatch(self, request, *args, **kwargs):
+        # This ensures the room exists once for the entire view lifecycle
+        self.room = get_object_or_404(Room, slug=self.kwargs['room_slug'])
+        return super().dispatch(request, *args, **kwargs)
+    
     def get_success_url(self):
         return reverse_lazy('room_incharge:item_list', kwargs={'room_slug': self.kwargs['room_slug']})
     
     def get_form(self, form_class=None):
         form = super().get_form(form_class)
-        room = Room.objects.get(slug=self.kwargs['room_slug'])
-        form.fields['category'].queryset = Category.objects.filter(room=room)
-        form.fields['brand'].queryset = Brand.objects.filter(room=room)
+        form.fields['category'].queryset = Category.objects.filter(room=self.room)
+        form.fields['brand'].queryset = Brand.objects.filter(room=self.room)
         return form
 
     def form_valid(self, form):
@@ -306,23 +310,23 @@ class ItemCreateView(LoginRequiredMixin, CreateView):
             obj.organisation = profile.org
             obj.created_by = profile
 
-        # 🔒 Lock the item immediately after creation
-        obj.is_edit_lock = True  
-        obj.room = Room.objects.get(slug=self.kwargs['room_slug'])
+        # Lock the item immediately after creation
+        obj.is_edit_lock = True
+        obj.room = self.room
         obj.save()
 
         return redirect(self.get_success_url())
 
     def get_form_kwargs(self):
         kwargs = super().get_form_kwargs()
-        kwargs['initial']['room'] = Room.objects.get(slug=self.kwargs['room_slug'])
+        # Uses the safe room object from dispatch
+        kwargs['initial']['room'] = self.room
         return kwargs
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        room = Room.objects.get(slug=self.kwargs['room_slug'])
         context['room_slug'] = self.kwargs['room_slug']
-        context['room_settings'] = RoomSettings.objects.get_or_create(room=room)[0]
+        context['room_settings'] = RoomSettings.objects.get_or_create(room=self.room)[0]
         return context
 
 class RequestEditView(LoginRequiredMixin, View):
