@@ -61,14 +61,6 @@ urlpatterns = [
     path('rooms/<slug:room_slug>/purchases/import/', room_incharge.PurchaseImportView.as_view(), name='purchase_import'),
     path('rooms/<slug:room_slug>/purchases/import/confirm/', room_incharge.PurchaseImportConfirmView.as_view(), name='purchase_import_confirm'),
     
-#     # NEW URLS FOR EXCEL REPORT GENERATION
-#     path('rooms/<slug:room_slug>/purchases/export-inventory-register/', 
-#          room_incharge.ExportInventoryRegisterView.as_view(), 
-#          name='export_inventory_register'),
-#     path('rooms/<slug:room_slug>/items/export-asset-register/', 
-#          room_incharge.ExportAssetRegisterView.as_view(), 
-#          name='export_asset_register'),
-    
     # Archives URLs
     path('rooms/<slug:room_slug>/archives/', room_incharge.ArchiveListView.as_view(), name='archive_list'),
         

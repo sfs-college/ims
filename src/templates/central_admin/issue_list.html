@@ -20,6 +20,15 @@
     
     <div class="d-flex justify-content-between align-items-center my-3">
         <h4>Issues</h4>
+        <div class="dropdown">
+            <button class="btn btn-outline-primary dropdown-toggle" type="button" id="filterDropdown" data-bs-toggle="dropdown" aria-expanded="false">
+                <i class="bi bi-funnel me-1"></i> Filter Issues
+            </button>
+            <ul class="dropdown-menu dropdown-menu-end shadow-sm" aria-labelledby="filterDropdown">
+                <li><a class="dropdown-item {% if request.GET.filter == 'all' or not request.GET.filter %}active{% endif %}" href="?filter=all">All Issues</a></li>
+                <li><a class="dropdown-item {% if request.GET.filter == 'escalated' %}active{% endif %}" href="?filter=escalated">Escalated to Me</a></li>
+            </ul>
+        </div>
     </div>
 
     <table class="table table-hover">

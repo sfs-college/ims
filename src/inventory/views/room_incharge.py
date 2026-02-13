@@ -306,7 +306,7 @@ class ItemCreateView(LoginRequiredMixin, CreateView):
             obj.organisation = profile.org
             obj.created_by = profile
 
-        # 🔒 Lock the item immediately after creation
+        # Lock the item immediately after creation
         obj.is_edit_lock = True  
         obj.room = Room.objects.get(slug=self.kwargs['room_slug'])
         obj.save()
@@ -1712,7 +1712,7 @@ class IssueListView(LoginRequiredMixin, ListView):
     template_name = 'room_incharge/issue_list.html'
     model = Issue
     context_object_name = 'issues'
-    paginate_by = 50
+    # paginate_by = 50
 
     def get_room(self):
         room = get_object_or_404(Room, slug=self.kwargs["room_slug"])
