@@ -690,13 +690,13 @@ class RoomBooking(models.Model):
         
         if self.start_datetime and timezone.is_naive(self.start_datetime):
             self.start_datetime = timezone.make_aware(self.start_datetime, tz)
-        # elif self.start_datetime:
-        #     self.start_datetime = self.start_datetime.astimezone(tz)
+        elif self.start_datetime:
+            self.start_datetime = self.start_datetime.astimezone(tz)
 
         if self.end_datetime and timezone.is_naive(self.end_datetime):
             self.end_datetime = timezone.make_aware(self.end_datetime, tz)
-        # elif self.end_datetime:
-        #     self.end_datetime = self.end_datetime.astimezone(tz)
+        elif self.end_datetime:
+            self.end_datetime = self.end_datetime.astimezone(tz)
 
         # 2. Basic Validation
         if self.start_datetime and self.end_datetime:
