@@ -130,6 +130,9 @@
 
 <div class="booking-container">
     <div class="glass-header">
+        <a href="{% url 'landing_page' %}" class="btn btn-sm btn-outline-secondary mb-3 rounded-pill px-3">
+                <i class="bi bi-arrow-left me-1"></i> Dashboard
+            </a>
         <h2><i class="bi bi-calendar-check-fill me-2"></i> Premium Venue Reservation</h2>
         <p class="text-muted">High-end space management for SFS College Faculty</p>
     </div>
@@ -234,10 +237,13 @@ function switchType(mode) {
 }
 
 function updateWholeDayTimes() {
-    const date = document.getElementById('wholeDayDate').value;
-    if (date) {
-        document.getElementById('id_start_datetime').value = date + 'T08:00';
-        document.getElementById('id_end_datetime').value = date + 'T16:00';
+    const dateInput = document.getElementById('wholeDayDate').value;
+    if (dateInput) {
+        const start = `${dateInput}T08:00`;
+        const end = `${dateInput}T16:00`;
+        
+        document.getElementById('id_start_datetime').value = start;
+        document.getElementById('id_end_datetime').value = end;
         loadRooms();
     }
 }
@@ -249,11 +255,25 @@ function loadRooms() {
 
     if (!category || !start || !end) return;
 
-    fetch(`{% url 'core:rooms_by_category' %}?category=${category}&start=${start}&end=${end}`)
-        .then(res => res.json())
+    const params = new URLSearchParams({
+        category: category,
+        start: start,
+        end: end
+    });
+
+    fetch(`{% url 'core:rooms_by_category' %}?${params.toString()}`)
+        .then(res => {
+            if (!res.ok) throw new Error('Network response was not ok');
+            return res.json();
+        })
         .then(data => {
             const grid = document.getElementById("roomGrid");
             grid.innerHTML = "";
+        
+            if (data.length === 0) {
+                grid.innerHTML = '<div class="col-12 text-center text-muted">No rooms available in this category.</div>';
+                return;
+            }
             
             data.forEach(room => {
                 const roomDiv = document.createElement("div");
@@ -273,7 +293,8 @@ function loadRooms() {
                 }
                 grid.appendChild(roomDiv);
             });
-        });
+        })
+        .catch(err => console.error("Error loading rooms:", err));
 }
 
 document.getElementById("id_category").addEventListener("change", loadRooms);

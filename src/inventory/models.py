@@ -12,7 +12,7 @@ import random, string
 from django.conf import settings
 from inventory.models import UserProfile
 from django.core.mail import send_mail
-import pytz
+import pytz, uuid
 
 class Room(models.Model):
     # CHANGE: Added fixed room category support for central admin room management
@@ -690,13 +690,13 @@ class RoomBooking(models.Model):
         
         if self.start_datetime and timezone.is_naive(self.start_datetime):
             self.start_datetime = timezone.make_aware(self.start_datetime, tz)
-        elif self.start_datetime:
-            self.start_datetime = self.start_datetime.astimezone(tz)
+        # elif self.start_datetime:
+        #     self.start_datetime = self.start_datetime.astimezone(tz)
 
         if self.end_datetime and timezone.is_naive(self.end_datetime):
             self.end_datetime = timezone.make_aware(self.end_datetime, tz)
-        elif self.end_datetime:
-            self.end_datetime = self.end_datetime.astimezone(tz)
+        # elif self.end_datetime:
+        #     self.end_datetime = self.end_datetime.astimezone(tz)
 
         # 2. Basic Validation
         if self.start_datetime and self.end_datetime:
@@ -719,17 +719,14 @@ class RoomBooking(models.Model):
     def save(self, *args, **kwargs):
         # Generate slug based on faculty name and timestamp if it doesn't exist
         if not self.slug:
-            from django.utils.text import slugify
-            import uuid
-            base_slug = slugify(f"{self.faculty_name}-{timezone.now().strftime('%y%m%d%H%M')}")
-            # Use utility to ensure uniqueness
-            self.slug = f"{base_slug}-{str(uuid.uuid4())[:4]}"
+            unique_id = str(uuid.uuid4())[:8]
+            self.slug = slugify(f"{self.faculty_name}-{unique_id}")
 
         self.full_clean()
         super().save(*args, **kwargs)
 
     def __str__(self):
-        return f"{self.room.room_name} | {self.start_datetime} - {self.end_datetime}"
+        return f"{self.room.room_name} | {self.start_datetime.strftime('%Y-%m-%d %H:%M')}"
     
 class IssueTimeExtensionRequest(models.Model):
     """
