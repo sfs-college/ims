@@ -10,7 +10,7 @@ from inventory.forms.room_incharge import SystemComponentArchiveForm, ItemArchiv
 from inventory.models import Archive, IssueTimeExtensionRequest
 from inventory.forms.room_incharge import PurchaseCompleteForm
 from django.contrib.auth.mixins import LoginRequiredMixin
-from django.http import HttpResponse
+from django.http import HttpResponse, HttpResponseForbidden
 from django.template.loader import render_to_string
 from weasyprint import HTML
 import pandas as pd
@@ -21,8 +21,9 @@ from datetime import datetime, date
 from openpyxl.utils import datetime as xl_datetime
 from decimal import Decimal, InvalidOperation
 from django.forms.models import model_to_dict
-from django.http import HttpResponseForbidden
 from django.db import connection
+from django.views.generic import FormView, View
+from django.urls import reverse
 
 
 class CategoryListView(LoginRequiredMixin, ListView):
@@ -1114,15 +1115,6 @@ PURCHASES_EXPECTED_COLS = [
 
 # ----------------------------------------
 # ---------- Import view: upload + preview ----------
-import pandas as pd
-from django.shortcuts import render, redirect, get_object_or_404
-from django.contrib import messages
-from django.views.generic import FormView, View
-from django.contrib.auth.mixins import LoginRequiredMixin
-from django.urls import reverse
-from inventory.models import Room, RoomSettings, Category, Brand, Item
-from inventory.forms.room_incharge import ExcelUploadForm
-from decimal import Decimal
 
 class PurchaseImportView(LoginRequiredMixin, FormView):
     """
