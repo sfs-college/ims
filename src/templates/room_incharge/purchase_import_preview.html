@@ -1,11 +1,12 @@
 {% extends "sidebar_base.html" %}
 {% load static %}
 
-{% block title %} | Import Preview
-{% endblock title %}
+{% block title %} | Item Import Preview {% endblock title %}
+
 {% block navbar %}
 {% include "room_incharge/navbar.html" %}
 {% endblock navbar %} 
+
 {% block sidebar %}
 {% include "room_incharge/sidebar.html" %}
 {% endblock sidebar %}
@@ -13,148 +14,256 @@
 {% block style %}
 <link rel="stylesheet" href="{% static 'styles/inventory/room_incharge/purchase_list/style.css' %}">
 <style>
-    .import-wrapper {
-        padding: 20px 28px;
+    :root {
+        --primary-grad: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        --danger-grad: linear-gradient(135deg, #ff6a00 0%, #ee0979 100%);
+        --success-grad: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+        --glass: rgba(255, 255, 255, 0.95);
     }
-    .import-box {
-        background: #fff;
+
+    .preview-container {
         padding: 30px;
-        border-radius: 12px;
-        border: 1px solid #e5e5e5;
-        box-shadow: 0 1px 4px rgba(0,0,0,0.05);
+        background: #f4f7f9;
+        min-height: 100vh;
     }
-    .import-box h3 {
+
+    .glass-header {
+        background: var(--glass);
+        backdrop-filter: blur(10px);
+        padding: 25px;
+        border-radius: 15px;
+        border-left: 5px solid #764ba2;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.05);
+        margin-bottom: 30px;
+    }
+
+    .section-title {
+        background: var(--primary-grad);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        font-weight: 800;
+        font-size: 2rem;
+        margin: 0;
+    }
+
+    /* Modern Card Grid */
+    .item-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+        gap: 20px;
+    }
+
+    .item-card {
+        background: #fff;
+        border-radius: 16px;
+        padding: 20px;
+        border: 1px solid rgba(0,0,0,0.05);
+        transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+        position: relative;
+        overflow: hidden;
+    }
+
+    .item-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 15px 35px rgba(0,0,0,0.1);
+    }
+
+    .item-card::before {
+        content: '';
+        position: absolute;
+        top: 0; left: 0; width: 100%; height: 4px;
+        background: var(--primary-grad);
+    }
+
+    .item-card.has-error::before {
+        background: var(--danger-grad);
+    }
+
+    .row-badge {
+        position: absolute;
+        top: 15px;
+        right: 15px;
+        background: #f0f2f5;
+        padding: 2px 10px;
+        border-radius: 20px;
+        font-size: 12px;
+        font-weight: 600;
+        color: #666;
+    }
+
+    .item-main-info h6 {
         font-weight: 700;
-        margin-bottom: 12px;
+        color: #2d3436;
+        margin-bottom: 15px;
+        padding-right: 40px;
     }
-    .desc-text {
-        color: #555;
-        font-size: 15px;
-        line-height: 1.5;
+
+    .info-pill {
+        display: inline-block;
+        padding: 4px 12px;
+        border-radius: 8px;
+        font-size: 13px;
+        margin-bottom: 8px;
+        background: #f8f9fa;
+        border: 1px solid #edf2f7;
     }
-    input[type="file"] {
-        padding: 8px !important;
-        border-radius: 6px;
+
+    .label-meta {
+        font-size: 11px;
+        text-transform: uppercase;
+        color: #a0aec0;
+        display: block;
+        margin-bottom: 2px;
     }
+
+    .val-meta {
+        font-weight: 600;
+        color: #4a5568;
+    }
+
+    .status-zone {
+        margin-top: 15px;
+        padding-top: 15px;
+        border-top: 1px dashed #e2e8f0;
+    }
+
+    .error-box {
+        background: #fff5f5;
+        color: #c53030;
+        padding: 10px;
+        border-radius: 8px;
+        font-size: 12px;
+    }
+
+    /* Confirm Section */
+    .sticky-confirm {
+        position: sticky;
+        bottom: 20px;
+        background: var(--glass);
+        backdrop-filter: blur(10px);
+        padding: 20px 40px;
+        border-radius: 20px;
+        box-shadow: 0 -10px 40px rgba(0,0,0,0.1);
+        margin-top: 40px;
+        border: 1px solid rgba(255,255,255,0.3);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .btn-grad-success {
+        background: var(--success-grad);
+        color: white;
+        border: none;
+        padding: 12px 30px;
+        border-radius: 12px;
+        font-weight: 600;
+        transition: opacity 0.3s;
+    }
+
+    .btn-grad-success:hover:not(:disabled) {
+        opacity: 0.9;
+        color: white;
+    }
+
+    .btn-grad-success:disabled {
+        background: #cbd5e0;
+        cursor: not-allowed;
+    }
+
 </style>
 {% endblock style %}
 
 {% block content %} 
-<div class="container-fluid px-4 preview-wrapper">
-   <h3 class="section-heading">Import Preview</h3>
-    <p class="text-muted">Review all values before confirming import.</p>
-     {% if has_errors %}
-      <div class="alert alert-danger"> <strong>Validation Issues Found.</strong> Fix them in the Excel file and re-upload. </div>
-       {% endif %} 
-       {% if preview.errors %} 
-       <div class="alert alert-warning"> 
-        <h5 class="fw-semibold">Global Errors</h5> 
-        <ul>
-           {% for e in preview.errors %} 
-          <li>{{ e }}</li> 
-          {% endfor %} 
+<div class="preview-container">
+    <div class="glass-header">
+        <h3 class="section-title">Import Intelligence</h3>
+        <p class="text-muted mb-0">We've parsed your Excel. Review the extracted item entities below.</p>
+    </div>
+
+    {% if preview.errors %} 
+    <div class="alert alert-warning border-0 shadow-sm mb-4"> 
+        <h6 class="fw-bold"><i class="bi bi-exclamation-triangle-fill me-2"></i>System Alerts</h6> 
+        <ul class="mb-0 small">
+            {% for e in preview.errors %} <li>{{ e }}</li> {% endfor %} 
         </ul>
-       </div> 
-       {% endif %} 
-       {% if preview.items %} 
-       <h5 class="mt-4 mb-2 fw-bold">Items Preview</h5>
-        <div class="table-responsive mb-4"> 
-          <table class="table table-bordered table-sm align-middle"> 
-            <thead> 
-              <tr> 
-                <th>Row</th> 
-                <th>Item Description</th> 
-                <th>Category</th> 
-                <th>Opening Qty</th> 
-                <th>Arrival</th> 
-                <th>Total</th> 
-                <th>Closing</th> 
-                <th>Errors</th> 
-              </tr> 
-            </thead> 
-              <tbody> 
-                {% for r in preview.items %} 
-                <tr>
-                   <td>{{ r.rownum }}</td>
-                   <td>{{ r.sanitized.item_description }}</td>
-                   <td>{{ r.sanitized.category }}</td>
-                   <td>{{ r.sanitized.opening }}</td> 
-                   <td>{{ r.sanitized.arrival }}</td>
-                   <td>{{ r.sanitized.total }}</td>
-                   <td>{{ r.sanitized.closing }}</td>
-                   <td> {% if r.errors %}
-                    <ul class="error-list text-danger small"> 
-                      {% for er in r.errors %} 
-                      <li>{{ er }}</li> 
-                      {% endfor %} 
-                    </ul> 
-                    {% else %}
-                     <span class="text-success fw-semibold">OK</span>
-                      {% endif %} 
-                    </td>
-                   </tr>
-                    {% endfor %}
-                   </tbody> 
-                  </table>
-                 </div>
-                  {% endif %}
-                   {% if preview.purchases %}
-                    <h5 class="fw-bold mb-2">Purchases Preview</h5>
-                     <div class="table-responsive mb-4">
-                       <table class="table table-bordered table-sm align-middle"> 
-                        <thead> 
-                          <tr> 
-                            <th>Row</th> 
-                            <th>Date</th> 
-                            <th>Description</th> 
-                            <th>Model</th> 
-                            <th>Serial No</th> 
-                            <th>Qty</th> 
-                            <th>Unit</th> 
-                            <th>Vendor</th> 
-                            <th>Errors</th> 
-                          </tr> 
-                        </thead> 
-                        <tbody> 
-                          {% for r in preview.purchases %} 
-                          <tr> 
-                            <td>{{ r.rownum }}</td> 
-                            <td>{{ r.sanitized.date }}</td> 
-                            <td>{{ r.sanitized.item_description }}</td> 
-                            <td>{{ r.sanitized.model_code }}</td> 
-                            <td>{{ r.sanitized.serial_no }}</td> 
-                            <td>{{ r.sanitized.quantity }}</td> 
-                            <td>{{ r.sanitized.uom }}</td> 
-                            <td>{{ r.sanitized.vendor }}</td> 
-                            <td> 
-                              {% if r.errors %} 
-                              <ul class="error-list text-danger small"> 
-                                {% for er in r.errors %}
-                   <li>{{ er }}</li> 
-                  {% endfor %}
-                 </ul> 
-                  {% else %}
-                   <span class="text-success fw-semibold">OK</span> 
-                  {% endif %} 
-                </td> 
-                </tr> 
-                  {% endfor %} 
-                </tbody> 
-                </table> 
-                </div> 
+    </div> 
+    {% endif %} 
+
+    <div class="item-grid">
+        {% for r in preview.items %} 
+        <div class="item-card {% if r.errors %}has-error{% endif %}">
+            <span class="row-badge">Row {{ r.rownum }}</span>
+            
+            <div class="item-main-info">
+                <span class="label-meta">Item Name</span>
+                <h6>{{ r.name }}</h6>
+                
+                <div class="row g-2">
+                    <div class="col-6">
+                        <div class="info-pill w-100">
+                            <span class="label-meta">Category</span>
+                            <span class="val-meta">{{ r.category }}</span>
+                        </div>
+                    </div>
+                    <div class="col-6">
+                        <div class="info-pill w-100">
+                            <span class="label-meta">Brand</span>
+                            <span class="val-meta">{{ r.brand }}</span>
+                        </div>
+                    </div>
+                    <div class="col-6">
+                        <div class="info-pill w-100">
+                            <span class="label-meta">Quantity</span>
+                            <span class="val-meta">{{ r.total_count }}</span>
+                        </div>
+                    </div>
+                    <div class="col-6">
+                        <div class="info-pill w-100">
+                            <span class="label-meta">Cost</span>
+                            <span class="val-meta">₹{{ r.cost }}</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="status-zone">
+                {% if r.errors %}
+                <div class="error-box">
+                    {% for er in r.errors %} 
+                    <div class="d-flex align-items-center mb-1">
+                        <i class="bi bi-x-circle-fill me-2"></i> {{ er }}
+                    </div>
+                    {% endfor %} 
+                </div>
+                {% else %}
+                <div class="text-success small fw-bold d-flex align-items-center">
+                    <i class="bi bi-check-circle-fill me-2"></i> READY FOR IMPORT
+                </div>
                 {% endif %}
-                 <div class="confirm-box"> <h5 class="fw-bold">Confirm Import</h5> <p>Re-upload the same Excel file to confirm final import.</p> <form method="post" action="{% url 'room_incharge:purchase_import_confirm' room_slug=room_slug %}" enctype="multipart/form-data"> 
-                  {% csrf_token %} 
-                  <div class="mb-3"> <label class="fw-semibold">Upload Excel File Again</label> 
-                    <input type="file" name="file" class="form-control" required> 
-                  </div>
-                 <button class="btn btn-success px-4" type="submit" 
-                 {% if has_errors %}disabled{% endif %}> Confirm Import </button> 
-                  <a href="{% url 'room_incharge:purchase_import' room_slug=room_slug %}" class="btn btn-secondary ms-2"> Cancel </a> 
-                  {% if has_errors %}
-                   <div class="text-muted mt-2">Resolve errors to enable import.</div> 
-                   {% endif %} 
-                  </form>
-               </div> 
-              </div> 
-                {% endblock content %}
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    <div class="sticky-confirm">
+        <div class="confirm-text">
+            <h6 class="mb-1 fw-bold">Finalize Batch Import</h6>
+            <p class="small text-muted mb-0">Re-upload the source file to execute the database commit.</p>
+        </div>
+        
+        <form method="post" action="{% url 'room_incharge:purchase_import_confirm' room_slug=room_slug %}" enctype="multipart/form-data" class="d-flex align-items-center"> 
+            {% csrf_token %} 
+            <input type="file" name="file" class="form-control form-control-sm me-3" style="width: 250px;" required>
+            
+            <button class="btn btn-grad-success shadow-sm" type="submit" {% if has_errors %}disabled{% endif %}>
+                Confirm & Sync
+            </button> 
+            
+            <a href="{% url 'room_incharge:purchase_import' room_slug=room_slug %}" class="btn btn-link text-muted text-decoration-none ms-2 small">
+                Discard
+            </a> 
+        </form>
+    </div>
+</div> 
+{% endblock content %}

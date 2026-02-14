@@ -12,6 +12,7 @@ import random, string
 from django.conf import settings
 from inventory.models import UserProfile
 from django.core.mail import send_mail
+import pytz
 
 class Room(models.Model):
     # CHANGE: Added fixed room category support for central admin room management
@@ -685,12 +686,17 @@ class RoomBooking(models.Model):
     slug = models.SlugField(unique=True, max_length=255, blank=True, null=True)
 
     def clean(self):
-        # 1. FORCE timezone awareness (Critical for Server/Localhost consistency)
+        tz = pytz.timezone(settings.TIME_ZONE)
+        
         if self.start_datetime and timezone.is_naive(self.start_datetime):
-            self.start_datetime = timezone.make_aware(self.start_datetime)
+            self.start_datetime = timezone.make_aware(self.start_datetime, tz)
+        elif self.start_datetime:
+            self.start_datetime = self.start_datetime.astimezone(tz)
 
         if self.end_datetime and timezone.is_naive(self.end_datetime):
-            self.end_datetime = timezone.make_aware(self.end_datetime)
+            self.end_datetime = timezone.make_aware(self.end_datetime, tz)
+        elif self.end_datetime:
+            self.end_datetime = self.end_datetime.astimezone(tz)
 
         # 2. Basic Validation
         if self.start_datetime and self.end_datetime:

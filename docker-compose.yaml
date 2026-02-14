@@ -16,6 +16,8 @@ services:
       --bind 0.0.0.0:8000
       --workers 3
       --timeout 120
+      --log-level debug
+      --access-logfile -
       "
     ports:
       - "8000:8000"
@@ -23,6 +25,8 @@ services:
       - ./src:/app
     env_file:
       - ./src/.env
+    environment:
+      - TZ=Asia/Kolkata
     depends_on:
       - blixtro_postgres
     restart: unless-stopped
