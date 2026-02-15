@@ -168,20 +168,6 @@
 
             <div class="section-title mb-4">
                 <span class="badge bg-primary rounded-pill px-3 mb-2">Step 3</span>
-                <h4 class="fw-bold">Space Selection</h4>
-            </div>
-
-            <div class="mb-4">
-                <label class="form-label">Category</label>
-                {{ form.category }}
-            </div>
-
-            <div id="roomGrid" class="mb-5"></div>
-
-            <input type="hidden" name="room" id="id_room" required>
-
-            <div class="section-title mb-4">
-                <span class="badge bg-primary rounded-pill px-3 mb-2">Step 4</span>
                 <h4 class="fw-bold">Scheduling</h4>
             </div>
 
@@ -212,8 +198,22 @@
                 </div>
             </div>
 
+            <div class="section-title mb-4">
+                <span class="badge bg-primary rounded-pill px-3 mb-2">Step 4</span>
+                <h4 class="fw-bold">Space Selection</h4>
+            </div>
+
             <div class="mb-4">
-                <label class="form-label">Department</label>
+                <label class="form-label">Category</label>
+                {{ form.category }}
+            </div>
+
+            <div id="roomGrid" class="mb-5"></div>
+
+            <input type="hidden" name="room" id="id_room" required>
+
+            <div class="mb-4">
+                <label class="form-label">Department / Office / Cells</label>
                 {{ form.department }}
             </div>
 

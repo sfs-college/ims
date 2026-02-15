@@ -330,8 +330,7 @@
         // Loading State
         container.style.display = 'block';
         content.innerHTML = '<tr><td colspan="3" class="text-center py-5"><div class="spinner-border text-primary me-2"></div>Records loading...</td></tr>';
-        head.innerHTML = '<tr><th>ID</th><th>Primary Record</th><th>Full Metadata/Details</th></tr>';
-
+        
         fetch(`{% url "central_admin:aura_api_data" %}?model=${module}&date_from=${dateFrom}&date_to=${dateTo}`)
             .then(res => res.json())
             .then(data => {
@@ -340,6 +339,11 @@
                     content.innerHTML = '<tr><td colspan="3" class="text-center py-5 text-muted">No records found for the selected criteria.</td></tr>';
                     return;
                 }
+                
+                // Set dynamic headers based on the first result
+                const first = data.results[0];
+                head.innerHTML = `<tr><th>ID</th><th>${first.label_head}</th><th>${first.detail_head}</th></tr>`;
+
                 data.results.forEach(row => {
                     const tr = document.createElement('tr');
                     tr.innerHTML = `
@@ -364,33 +368,27 @@
             .then(res => res.json())
             .then(data => {
                 body.innerHTML = '';
-                if (data.results.length === 0) {
+                if (!data.results || data.results.length === 0) {
                     body.innerHTML = '<tr><td colspan="6" class="text-center">No bookings found.</td></tr>';
                     return;
                 }
                 data.results.forEach(row => {
-                    // Split the updated label to get Room Name and Faculty Email
-                    const labelParts = row.label.split('|');
-                    const roomName = labelParts[0].trim();
-                    const facultyEmail = labelParts[1] ? labelParts[1].trim() : '---';
-                    const facultyName = row.detail;
-                    const scheduleTime = row.schedule || '---';
-                    
-                    body.innerHTML += `
-                        <tr>
-                            <td class="fw-bold text-primary">${roomName}</td>
-                            <td>${facultyName}</td>
-                            <td><small class="text-muted">${facultyEmail}</small></td>
-                            <td class="fw-semibold">${scheduleTime}</td>
-                            <td><span class="badge bg-success">Active</span></td>
-                            <td>
-                                <button class="btn btn-sm btn-danger" onclick="deleteRecord('bookings', ${row.id})">Cancel</button>
-                            </td>
-                        </tr>
-                    `;
-                });
+                // We use the specific keys set in the aura_data_manager view for bookings
+                body.innerHTML += `
+                    <tr>
+                        <td class="fw-bold text-primary">${row.room_name}</td>
+                        <td>${row.faculty_name}</td>
+                        <td><small class="text-muted">${row.faculty_email}</small></td>
+                        <td class="fw-semibold">${row.schedule}</td>
+                        <td><span class="badge bg-success">Active</span></td>
+                        <td>
+                            <button class="btn btn-sm btn-danger" onclick="deleteRecord('bookings', ${row.id})">Cancel</button>
+                        </td>
+                    </tr>
+                `;
             });
-    }
+        });
+}
 
     // 5. Global Delete (Restricted to Central Admin Backend)
     function deleteRecord(model, id) {

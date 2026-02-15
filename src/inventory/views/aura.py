@@ -106,27 +106,58 @@ def aura_data_manager(request):
             qs = qs.filter(created_on__date__range=[date_from, date_to])
 
     data = []
-    for obj in qs.order_by('-id'):
-        row = {'id': obj.id, 'label': str(obj)}
+    for obj in qs:
+        row = {'id': obj.id}
         try:
-            if model_name == 'bookings':
-                row['label'] = f"{obj.room.room_name} | {obj.faculty_email}"
-                
-                start_local = timezone.localtime(obj.start_datetime)
-                end_local = timezone.localtime(obj.end_datetime)
-                
-                row['detail'] = f"{obj.faculty_name}"
-                row['schedule'] = f"{start_local.strftime('%d %b, %Y | %H:%M')} - {end_local.strftime('%H:%M')}"
-                
-            elif model_name == 'rooms':
+            if model_name == 'rooms':
+                row['label_head'] = "Room"
+                row['label'] = f"{obj.room_name}<br><small>Incharge: {obj.incharge}</small>"
+                row['detail_head'] = "Metadata"
                 row['detail'] = f"Category: {obj.get_room_category_display()} | Capacity: {obj.capacity}"
+            elif model_name == 'bookings':
+                # Report Generator Fields (Multi-line)
+                row['label_head'] = "Room Booked"
+                row['label'] = f"{obj.faculty_name}<br><small>{obj.faculty_email}</small>"
+                row['detail_head'] = "Metadata"
+                start_local = timezone.localtime(obj.start_datetime)
+                row['detail'] = f"Room: {obj.room.room_name}<br>Date: {start_local.strftime('%d %b, %Y')}<br>Time: {start_local.strftime('%H:%M')}"
+                
+                # SPECIFIC KEYS FOR ROOM BOOKING MANAGER MODAL
+                row['room_name'] = obj.room.room_name
+                row['faculty_name'] = obj.faculty_name
+                row['faculty_email'] = obj.faculty_email
+                row['schedule'] = f"{start_local.strftime('%d %b, %Y')} | {start_local.strftime('%H:%M')}"
             elif model_name == 'issues':
-                row['detail'] = f"Status: {obj.status} | {obj.subject}"
+                row['label_head'] = "Issue"
+                row['label'] = f"{obj.subject}"
+                row['detail_head'] = "Metadata"
+                assigned = obj.assigned_to.user.get_full_name() if obj.assigned_to else "N/A"
+                row['detail'] = f"Email: {obj.reporter_email}<br>Ticket ID: {obj.ticket_id}<br>Status: {obj.status}<br>Room: {obj.room.room_name}<br>Assigned: {assigned}"
             elif model_name == 'items':
-                row['detail'] = f"Room: {obj.room.room_name} | Qty: {obj.total_count} | Available: {obj.available_count}"
+                row['label_head'] = "Items"
+                row['label'] = f"{obj.item_name}"
+                row['detail_head'] = "Metadata"
+                row['detail'] = f"Room: {obj.room.room_name}<br>Qty: {obj.total_count}<br>Available: {obj.available_count}<br>In Use: {obj.in_use}"
             elif model_name == 'purchases':
-                row['detail'] = f"Vendor: {obj.vendor.vendor_name} | Status: {obj.status}"
+                row['label_head'] = "Purchase ID"
+                row['label'] = f"{obj.purchase_id or 'N/A'}<br>Room: {obj.room.room_name}"
+                row['detail_head'] = "Metadata"
+                row['detail'] = f"Vendor: {obj.vendor.vendor_name if obj.vendor else 'N/A'}<br>Status: {obj.status}"
+            elif model_name == 'vendors':
+                row['label_head'] = "Vendors"
+                row['label'] = f"{obj.vendor_name}"
+                row['detail_head'] = "Metadata"
+                row['detail'] = f"Email: {obj.email}<br>Contact: {obj.contact_number}"
+            elif model_name == 'departments':
+                row['label_head'] = "Department/Cell/Office"
+                row['label'] = f"{obj.department_name}"
+                row['detail_head'] = "Metadata"
+                room_count = Room.objects.filter(department=obj).count()
+                row['detail'] = f"Total Rooms: {room_count}"
             else:
+                row['label_head'] = "Primary Record"
+                row['label'] = str(obj)
+                row['detail_head'] = "Metadata / Details"
                 row['detail'] = "General Record"
         except Exception:
             row['detail'] = "N/A (Data Mismatch)"
@@ -181,16 +212,15 @@ def aura_generate_report_pdf(request):
     model = model_map.get(model_name)
     if not model:
         return HttpResponse("Invalid Model", status=400)
-
+    
     # 2. Query Data with Iterator
-    qs = model.objects.all()
+    qs = model.objects.all().order_by('id')
     if date_from and date_to:
         if model_name == 'bookings':
             qs = qs.filter(start_datetime__date__range=[date_from, date_to])
         elif model_name in ['issues', 'items', 'rooms', 'purchases']:
             qs = qs.filter(created_on__date__range=[date_from, date_to])
     
-    qs = qs.order_by('id')
 
     # 3. Setup PDF Buffer
     buffer = io.BytesIO()
@@ -199,11 +229,20 @@ def aura_generate_report_pdf(request):
     styles = getSampleStyleSheet()
 
     # Title
-    elements.append(Paragraph(f"AURA Generated Report: {model_name.upper()}", styles['Title']))
+    elements.append(Paragraph(f"Blixtro - Aura Generated Report: {model_name.upper()}", styles['Title']))
     elements.append(Spacer(1, 12))
 
-    # Table Header and Data
-    report_data = [["ID", "Primary Record", "Metadata / Details"]]
+    # Dynamic Headers
+    headers = ["ID", "Record", "Metadata"]
+    if model_name == 'rooms': headers = ["ID", "Room", "Metadata"]
+    elif model_name == 'bookings': headers = ["ID", "Room Booked", "Metadata"]
+    elif model_name == 'issues': headers = ["ID", "Issue", "Metadata"]
+    elif model_name == 'items': headers = ["ID", "Items", "Metadata"]
+    elif model_name == 'purchases': headers = ["ID", "Purchase ID", "Metadata"]
+    elif model_name == 'vendors': headers = ["ID", "Vendors", "Metadata"]
+    elif model_name == 'departments': headers = ["ID", "Department/Cell/Office", "Metadata"]
+    
+    report_data = [headers]
     
     # Efficiently loop through large data
     for obj in qs.iterator():
@@ -212,18 +251,30 @@ def aura_generate_report_pdf(request):
         detail = "General Record"
         
         try:
-            if model_name == 'bookings':
-                label = f"{obj.room.room_name} | {obj.faculty_email}"
+            if model_name == 'rooms':
+                label = f"{obj.room_name}<br/>Incharge: {obj.incharge}"
+                detail = f"Category: {obj.get_room_category_display()}<br/>Capacity: {obj.capacity}"
+            elif model_name == 'bookings':
+                label = f"{obj.faculty_name}<br/>{obj.faculty_email}"
                 start_local = timezone.localtime(obj.start_datetime)
-                end_local = timezone.localtime(obj.end_datetime)
-                schedule_str = f"{start_local.strftime('%d %b, %Y | %H:%M')} - {end_local.strftime('%H:%M')}"
-                detail = f"Faculty: {obj.faculty_name} | Schedule: {schedule_str}"
-            elif model_name == 'rooms':
-                detail = f"Category: {obj.get_room_category_display()} | Capacity: {obj.capacity}"
+                detail = f"Room: {obj.room.room_name}<br/>Date: {start_local.strftime('%d %b, %Y')}<br/>Time: {start_local.strftime('%H:%M')}"
             elif model_name == 'issues':
-                detail = f"Status: {obj.status} | {obj.subject}"
+                label = f"{obj.subject}"
+                assigned = obj.assigned_to.user.get_full_name() if obj.assigned_to else "N/A"
+                detail = f"Email: {obj.reporter_email}<br/>Ticket ID: {obj.ticket_id}<br/>Status: {obj.status}<br/>Room: {obj.room.room_name}<br/>Assigned: {assigned}"
             elif model_name == 'items':
-                detail = f"Room: {obj.room.room_name} | Qty: {obj.total_count}"
+                label = f"{obj.item_name}"
+                detail = f"Room: {obj.room.room_name}<br/>Qty: {obj.total_count}<br/>Available: {obj.available_count}<br/>In Use: {obj.in_use}"
+            elif model_name == 'purchases':
+                label = f"{obj.purchase_id or 'N/A'}<br/>Room: {obj.room.room_name}"
+                detail = f"Vendor: {obj.vendor.vendor_name if obj.vendor else 'N/A'}<br/>Status: {obj.status}"
+            elif model_name == 'vendors':
+                label = f"{obj.vendor_name}"
+                detail = f"Email: {obj.email}<br/>Contact: {obj.contact_number}"
+            elif model_name == 'departments':
+                label = f"{obj.department_name}"
+                room_count = Room.objects.filter(department=obj).count()
+                detail = f"Total Rooms: {room_count}"
         except Exception:
             detail = "Data Mismatch"
 
