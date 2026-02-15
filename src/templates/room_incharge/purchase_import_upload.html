@@ -152,18 +152,18 @@
 
     <div class="import-card">
         <div class="icon-box">
-            <i class="bi bi-file-earmark-excel"></i>
+            <i class="bi bi-file-earmark-excel">SFS</i>
         </div>
 
         <h3>Inventory Items Upload</h3>
         <p class="text-muted mb-4">Integrate your offline records with the system database instantly.</p>
 
-        <div class="instruction-badge">
-            <h6 class="fw-bold text-dark mb-2 small"><i class="bi bi-info-circle me-2"></i>MANDATORY SPECIFICATIONS:</h6>
-            <ul>
-                <li>Sheet name must be exactly <span class="fw-bold text-primary">Items</span></li>
-                <li>Columns: <span class="text-dark">Item Name, Category, Brand, Total Count, Cost</span></li>
-                <li>System will auto-deduplicate Categories and Brands</li>
+        <div class="instruction-badge" style="background: #fff5f5; border: 2px solid #e53e3e; box-shadow: 0 4px 6px rgba(229, 62, 62, 0.2);">
+            <h6 class="fw-bold text-danger mb-2 small"><i class="bi bi-exclamation-triangle-fill me-2"></i>MANDATORY SPECIFICATIONS (READ CAREFULLY):</h6>
+            <ul class="mb-0" style="color: #c53030; font-weight: 600;">
+                <li>Sheet name must be exactly <span class="badge bg-danger">Items</span></li>
+                <li>Columns must be: <span class="text-dark">Item Name, Category, Brand, Total Count, Cost</span></li>
+                <li>System will auto-deduplicate Categories and Brands based on these names.</li>
             </ul>
         </div>
 

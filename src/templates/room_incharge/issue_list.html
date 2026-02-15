@@ -45,7 +45,7 @@
                     </a>
                 </td>
 
-                <!-- ✅ NEW: RAISED BY COLUMN -->
+                <!-- RAISED BY COLUMN -->
                 <td>
                     {{ issue.created_by|default:"-" }}
                 </td>
@@ -68,58 +68,55 @@
                     {% else %}-{% endif %}
                 </td>
 
-                <!-- ✅ ACTIONS COLUMN -->
+                <!-- ACTIONS COLUMN -->
                 <td class="text-center" style="width: 180px;">
                     <div class="d-grid gap-1">
 
                         {% if issue.status == "open" %}
-                            <form method="post"
-                                  action="{% url 'room_incharge:in_progress' room.slug issue.pk %}">
+                            <form method="post" action="{% url 'room_incharge:in_progress' room.slug issue.pk %}">
                                 {% csrf_token %}
-                                <button class="btn btn-sm btn-warning w-100">
-                                    In Progress
-                                </button>
+                                <button class="btn btn-sm btn-warning w-100">In Progress</button>
                             </form>
 
-                            <button class="btn btn-sm btn-outline-primary w-100"
-                                    data-bs-toggle="modal"
-                                    data-bs-target="#tatModal{{ issue.id }}">
-                                ⏱ Request Time Extension
-                            </button>
+                            {% if issue.issuetimerequest_set.exists %}
+                                <button class="btn btn-sm btn-secondary w-100" disabled> Extension Pending </button>
+                            {% else %}
+                                <button class="btn btn-sm btn-outline-primary w-100" data-bs-toggle="modal" data-bs-target="#tatModal{{ issue.id }}">
+                                    ⏱ Request Time Extension
+                                </button>
+                            {% endif %}
                         {% endif %}
 
                         {% if issue.status == "in_progress" %}
-                            <form method="post"
-                                  action="{% url 'room_incharge:resolve' room.slug issue.pk %}">
+                            <form method="post" action="{% url 'room_incharge:resolve' room.slug issue.pk %}">
                                 {% csrf_token %}
-                                <button class="btn btn-sm btn-success w-100">
-                                    Resolve
-                                </button>
+                                <button class="btn btn-sm btn-success w-100">Resolve</button>
                             </form>
 
-                            <button class="btn btn-sm btn-outline-primary w-100"
-                                    data-bs-toggle="modal"
-                                    data-bs-target="#tatModal{{ issue.id }}">
-                                ⏱ Request Time Extension
-                            </button>
+                            {% if issue.issuetimerequest_set.exists %}
+                                <button class="btn btn-sm btn-secondary w-100" disabled> Extension Pending </button>
+                            {% else %}
+                                <button class="btn btn-sm btn-outline-primary w-100" data-bs-toggle="modal" data-bs-target="#tatModal{{ issue.id }}">
+                                    ⏱ Request Time Extension
+                                </button>
+                            {% endif %}
                         {% endif %}
 
                         {% if issue.status == "closed" %}
-                            <form method="post"
-                                  action="{% url 'room_incharge:unresolve' room.slug issue.pk %}">
+                            <form method="post" action="{% url 'room_incharge:unresolve' room.slug issue.pk %}">
                                 {% csrf_token %}
-                                <button class="btn btn-sm btn-outline-danger w-100">
-                                    Unresolve
-                                </button>
+                                <button class="btn btn-sm btn-outline-danger w-100">Unresolve</button>
                             </form>
                         {% endif %}
 
                         {% if issue.status == "escalated" %}
-                            <button class="btn btn-sm btn-outline-primary w-100"
-                                    data-bs-toggle="modal"
-                                    data-bs-target="#tatModal{{ issue.id }}">
-                                ⏱ Request Time Extension
-                            </button>
+                            {% if issue.issuetimerequest_set.exists %}
+                                <button class="btn btn-sm btn-secondary w-100" disabled> Extension Pending </button>
+                            {% else %}
+                                <button class="btn btn-sm btn-outline-primary w-100" data-bs-toggle="modal" data-bs-target="#tatModal{{ issue.id }}">
+                                    ⏱ Request Time Extension
+                                </button>
+                            {% endif %}
                         {% endif %}
 
                     </div>
