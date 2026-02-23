@@ -51,6 +51,7 @@ INSTALLED_APPS = [
     'core.apps.CoreConfig',
     'inventory.apps.InventoryConfig',
     'django.contrib.sites',
+    'django.contrib.sitemaps',
     'allauth',
     'allauth.account',
     'allauth.socialaccount',
