@@ -21,6 +21,99 @@ from django.urls import reverse
 from inventory.forms.room_incharge import ExcelUploadForm
 from django.db import models
 
+
+def _extract_docx_structured(raw_bytes):
+    """
+    Parse a .docx binary and return:
+      {
+        'blocks': [
+            {'type': 'paragraph', 'text': '...'},
+            {'type': 'table', 'rows': [['cell','cell',...], ...]},
+            ...
+        ],
+        'plain_text': 'flattened string for caching / PDF fallback'
+      }
+
+    Covers:
+      1. Body paragraphs  (headings, normal text, list items)
+      2. Tables           (preserves row/column structure)
+      3. Text boxes       (<w:txbxContent> drawing shapes)
+
+    The document's XML body is walked in document order so blocks come out
+    in the same sequence they appear on the page.
+    """
+    import io as _io
+    from docx import Document as _Doc
+    from docx.oxml.ns import qn as _qn
+
+    doc = _Doc(_io.BytesIO(raw_bytes))
+    blocks = []
+    plain_lines = []
+
+    # Walk the body XML in document order so paragraphs and tables are
+    # interleaved correctly (doc.paragraphs and doc.tables are separate lists
+    # and lose positional context relative to each other).
+    body = doc.element.body
+    for child in body:
+        tag = child.tag.split('}')[-1] if '}' in child.tag else child.tag
+
+        if tag == 'p':
+            # Plain paragraph (heading, body text, list item, etc.)
+            text = ''.join(
+                node.text or ''
+                for node in child.iter(_qn('w:t'))
+            ).strip()
+            if text:
+                blocks.append({'type': 'paragraph', 'text': text})
+                plain_lines.append(text)
+
+        elif tag == 'tbl':
+            # Table — collect all rows and cells
+            rows_data = []
+            for tr in child.iter(_qn('w:tr')):
+                row_cells = []
+                for tc in tr.iter(_qn('w:tc')):
+                    # Each cell may have multiple paragraphs
+                    cell_text = ' '.join(
+                        ''.join(node.text or '' for node in p.iter(_qn('w:t'))).strip()
+                        for p in tc.iter(_qn('w:p'))
+                    ).strip()
+                    row_cells.append(cell_text)
+                if any(c for c in row_cells):
+                    rows_data.append(row_cells)
+
+            if rows_data:
+                blocks.append({'type': 'table', 'rows': rows_data})
+                # Flatten table for plain_text cache
+                for row in rows_data:
+                    plain_lines.append(' | '.join(row))
+
+        elif tag == 'txbxContent':
+            # Text box
+            text = ''.join(
+                node.text or ''
+                for node in child.iter(_qn('w:t'))
+            ).strip()
+            if text:
+                blocks.append({'type': 'paragraph', 'text': text})
+                plain_lines.append(text)
+
+    # Also catch text boxes nested anywhere deeper in the body
+    ns = {'w': 'http://schemas.openxmlformats.org/wordprocessingml/2006/main'}
+    for txbx in body.findall('.//w:txbxContent', ns):
+        # Only pick up ones NOT already in the top-level walk above
+        if txbx.getparent() is not None and txbx.getparent().getparent() is not body:
+            text = ''.join(
+                node.text or ''
+                for node in txbx.iter(_qn('w:t'))
+            ).strip()
+            if text:
+                blocks.append({'type': 'paragraph', 'text': text})
+                plain_lines.append(text)
+
+    plain_text = '\n'.join(plain_lines) if plain_lines else None
+    return {'blocks': blocks, 'plain_text': plain_text}
+
 class CentralAdminRequiredMixin(UserPassesTestMixin):
     def test_func(self):
         profile = getattr(self.request.user, 'profile', None)
@@ -612,18 +705,12 @@ def confirmed_booking_files(request):
 
         results = []
         for b in bookings:
-            doc_url  = None
-            doc_name = None
-            try:
-                if b.requirements_doc and b.requirements_doc.name:
-                    # Use a proxy download URL to avoid AccessDenied on private storage
-                    from django.urls import reverse as _reverse
-                    doc_url  = request.build_absolute_uri(
-                        _reverse('central_admin:download_booking_doc', kwargs={'booking_id': b.id})
-                    )
-                    doc_name = b.requirements_doc.name.split('/')[-1]
-            except Exception:
-                pass
+            # has_doc is True whenever a file path is recorded — regardless of
+            # whether text has been extracted yet. The actual reading/extraction
+            # is deferred to get_booking_doc_text (called lazily on "View Doc"
+            # click), so a silent storage failure here never hides the buttons.
+            has_doc  = bool(b.requirements_doc and b.requirements_doc.name)
+            doc_name = b.requirements_doc.name.split('/')[-1] if has_doc else None
 
             # Safe datetime localisation
             try:
@@ -634,21 +721,79 @@ def confirmed_booking_files(request):
                 to_str   = str(b.end_datetime)
 
             results.append({
-                'id':       b.id,
-                'room':     b.room.room_name if b.room else '—',
-                'faculty':  b.faculty_name  or '—',
-                'email':    b.faculty_email or '—',
-                'from':     from_str,
-                'to':       to_str,
-                'purpose':  b.purpose or '',
-                'doc_url':  doc_url,
-                'doc_name': doc_name,
+                'id':           b.id,
+                'room':         b.room.room_name if b.room else '—',
+                'faculty':      b.faculty_name  or '—',
+                'email':        b.faculty_email or '—',
+                'from':         from_str,
+                'to':           to_str,
+                'purpose':      b.purpose or '',
+                'doc_name':     doc_name,
+                # True whenever a doc file is attached — buttons are always shown.
+                # Extraction happens lazily inside get_booking_doc_text.
+                'has_doc_text': has_doc,
             })
 
         return JsonResponse({'results': results})
 
     except Exception as e:
         return JsonResponse({'error': f'Failed to load booking files: {str(e)}'}, status=500)
+
+
+# ─────────────────────────────────────────────
+# DELETE CONFIRMED BOOKING (central admin only)
+# ─────────────────────────────────────────────
+
+@require_POST
+def delete_confirmed_booking(request, booking_id):
+    """
+    Delete a single confirmed RoomBooking.
+    Central admin only — sub-admins cannot delete bookings.
+    """
+    profile = getattr(request.user, 'profile', None)
+    if not profile or not profile.is_central_admin:
+        return JsonResponse({'error': 'Only central admins can delete bookings.'}, status=403)
+
+    booking = get_object_or_404(RoomBooking, id=booking_id)
+    room_name = booking.room.room_name if booking.room else str(booking_id)
+    try:
+        booking.delete()
+        return JsonResponse({'status': 'success', 'message': f'Booking for {room_name} deleted.'})
+    except Exception as e:
+        return JsonResponse({'error': f'Could not delete booking: {str(e)}'}, status=500)
+
+
+@require_POST
+def bulk_delete_confirmed_bookings(request):
+    """
+    Bulk-delete confirmed RoomBookings by a list of IDs.
+    Central admin only — sub-admins cannot delete bookings.
+    Expects JSON body: { "ids": [1, 2, 3, ...] }
+    """
+    profile = getattr(request.user, 'profile', None)
+    if not profile or not profile.is_central_admin:
+        return JsonResponse({'error': 'Only central admins can delete bookings.'}, status=403)
+
+    try:
+        body = json.loads(request.body)
+        ids  = body.get('ids', [])
+        if not ids or not isinstance(ids, list):
+            return JsonResponse({'error': 'No booking IDs provided.'}, status=400)
+
+        # Only valid integers
+        ids = [int(i) for i in ids if str(i).isdigit()]
+        if not ids:
+            return JsonResponse({'error': 'No valid booking IDs provided.'}, status=400)
+
+        qs      = RoomBooking.objects.filter(id__in=ids)
+        count   = qs.count()
+        qs.delete()
+        return JsonResponse({'status': 'success', 'deleted_count': count,
+                             'message': f'{count} booking(s) deleted successfully.'})
+    except Exception as e:
+        return JsonResponse({'error': f'Bulk delete failed: {str(e)}'}, status=500)
+
+
 
 # ─────────────────────────────────────────────
 # PROXY DOWNLOAD VIEW FOR BOOKING DOCUMENTS
@@ -718,7 +863,371 @@ def download_booking_doc(request, booking_id):
 
     except Exception as e:
         return HttpResponse(f"Failed to retrieve document: {str(e)}", status=500)
-    
+
+
+def get_booking_doc_text(request, booking_id):
+    """
+    Returns structured document content as JSON for the "View Doc" panel.
+
+    Response format:
+      {
+        'doc_name': 'filename.docx',
+        'blocks': [
+            {'type': 'paragraph', 'text': '...'},
+            {'type': 'table', 'rows': [['cell', 'cell'], ...]},
+            ...
+        ],
+        'text': 'plain text cache string'   # also returned for compatibility
+      }
+
+    Covers body paragraphs, tables, and text boxes in document order.
+    Skips the fast-path cache if it contains a stale sentinel value so that
+    old bookings automatically get proper re-extraction.
+    """
+    import traceback as _tb
+
+    profile = getattr(request.user, 'profile', None)
+    if not profile or not (profile.is_central_admin or profile.is_sub_admin):
+        return JsonResponse({'error': 'Unauthorized'}, status=403)
+
+    booking = get_object_or_404(RoomBooking, id=booking_id)
+    doc_name = (
+        booking.requirements_doc.name.split('/')[-1]
+        if booking.requirements_doc and booking.requirements_doc.name
+        else 'Document'
+    )
+
+    # ── Always re-parse from the file so tables/textboxes are returned as ──────
+    # structured blocks, not flat pipe-separated text rebuilt from cache.
+    # The file read is fast (typically <1 MB) and ensures the View Doc panel
+    # always shows real table structure.
+    if not (booking.requirements_doc and booking.requirements_doc.name):
+        return JsonResponse({'error': 'No document is attached to this booking.'}, status=404)
+
+    try:
+        from docx import Document  # noqa — just checking install
+    except ImportError:
+        return JsonResponse(
+            {'error': 'python-docx is not installed. Run: pip install python-docx'},
+            status=500
+        )
+
+    try:
+        _storage = booking.requirements_doc.storage
+        with _storage.open(booking.requirements_doc.name, 'rb') as _f:
+            raw = _f.read()
+    except Exception as e:
+        print(f"[get_booking_doc_text] Storage read failed booking={booking_id}: {e}\n{_tb.format_exc()}")
+        # Fall back to cached plain text if storage is unavailable
+        cached = (booking.requirements_doc_text or '').strip()
+        if cached:
+            return JsonResponse({
+                'doc_name': doc_name,
+                'text':     cached,
+                'blocks':   [{'type': 'paragraph', 'text': line}
+                             for line in cached.split('\n') if line.strip()],
+            })
+        return JsonResponse({'error': f'Could not read file from storage: {str(e)}'}, status=500)
+
+    try:
+        result = _extract_docx_structured(raw)
+    except Exception as e:
+        print(f"[get_booking_doc_text] Parse failed booking={booking_id}: {e}\n{_tb.format_exc()}")
+        return JsonResponse({'error': f'Could not parse document: {str(e)}'}, status=500)
+
+    blocks     = result['blocks']
+    plain_text = result['plain_text'] or '(No readable content found in this document)'
+
+    # Persist/update plain text cache
+    try:
+        booking.requirements_doc_text = plain_text
+        booking.save(update_fields=['requirements_doc_text'])
+    except Exception as e:
+        print(f"[get_booking_doc_text] Failed to persist text booking={booking_id}: {e}")
+
+    return JsonResponse({'doc_name': doc_name, 'blocks': blocks, 'text': plain_text})
+
+
+def download_booking_doc_as_pdf(request, booking_id):
+    """
+    Generates a beautifully formatted PDF from the booking requirements document.
+    Always re-parses the .docx file so table structure is preserved exactly.
+    Falls back to cached plain text only if storage is unreachable.
+    Central admin and sub-admin only.
+    """
+    import io
+    import traceback as _tb
+    from reportlab.lib.pagesizes import A4
+    from reportlab.lib.units import cm
+    from reportlab.lib import colors
+    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+    from reportlab.platypus import (
+        SimpleDocTemplate, Paragraph, Spacer, HRFlowable,
+        Table as RLTable, TableStyle as RLTableStyle, KeepTogether,
+    )
+    from reportlab.lib.enums import TA_LEFT, TA_CENTER
+
+    profile = getattr(request.user, 'profile', None)
+    if not profile or not (profile.is_central_admin or profile.is_sub_admin):
+        return HttpResponse("Unauthorized", status=403)
+
+    booking = get_object_or_404(RoomBooking, id=booking_id)
+
+    # ── Always re-parse from the .docx to preserve table structure ─────────────
+    blocks = None
+    if booking.requirements_doc and booking.requirements_doc.name:
+        try:
+            from docx import Document  # noqa
+        except ImportError:
+            return HttpResponse("python-docx not installed. Run: pip install python-docx", status=500)
+        try:
+            _storage = booking.requirements_doc.storage
+            with _storage.open(booking.requirements_doc.name, 'rb') as _f:
+                raw = _f.read()
+            result = _extract_docx_structured(raw)
+            blocks = result['blocks']
+            # Update plain text cache while we have the file
+            try:
+                _pt = result['plain_text'] or ''
+                if _pt:
+                    booking.requirements_doc_text = _pt
+                    booking.save(update_fields=['requirements_doc_text'])
+            except Exception:
+                pass
+        except Exception as e:
+            print(f"[download_pdf] file read failed booking={booking_id}: {e}\n{_tb.format_exc()}")
+            # Fall back to cached plain text
+            cached = (booking.requirements_doc_text or '').strip()
+            if cached:
+                blocks = [{'type': 'paragraph', 'text': line}
+                          for line in cached.split('\n') if line.strip()]
+            else:
+                return HttpResponse(f"Could not read document: {str(e)}", status=500)
+
+    if not blocks:
+        # No file attached and no cache
+        return HttpResponse("No document content available for this booking.", status=404)
+
+    # ── Colour palette ──────────────────────────────────────────────────────────
+    C_INDIGO      = colors.HexColor('#4f46e5')   # header bg, table header
+    C_INDIGO_DARK = colors.HexColor('#3730a3')   # gradient simulation
+    C_INDIGO_LIGHT= colors.HexColor('#e0e7ff')   # section bg tint
+    C_ROW_ALT     = colors.HexColor('#f0f4ff')   # table alt row
+    C_BORDER      = colors.HexColor('#c7d2fe')   # table grid
+    C_TEXT_DARK   = colors.HexColor('#1e293b')
+    C_TEXT_MID    = colors.HexColor('#475569')
+    C_TEXT_LIGHT  = colors.HexColor('#94a3b8')
+    C_WHITE       = colors.white
+    C_RULE        = colors.HexColor('#e2e8f0')
+
+    # ── Page setup ──────────────────────────────────────────────────────────────
+    PAGE_W = A4[0]
+    MARGIN = 2.2 * cm
+    USABLE = PAGE_W - 2 * MARGIN
+
+    buffer  = io.BytesIO()
+    pdf_doc = SimpleDocTemplate(
+        buffer, pagesize=A4,
+        leftMargin=MARGIN, rightMargin=MARGIN,
+        topMargin=MARGIN,  bottomMargin=MARGIN,
+    )
+    styles = getSampleStyleSheet()
+
+    # ── Typography ──────────────────────────────────────────────────────────────
+    s_title = ParagraphStyle(
+        'Title', parent=styles['Normal'],
+        fontName='Helvetica-Bold', fontSize=20,
+        textColor=C_WHITE, leading=26, spaceAfter=0,
+    )
+    s_meta = ParagraphStyle(
+        'Meta', parent=styles['Normal'],
+        fontName='Helvetica', fontSize=9,
+        textColor=colors.HexColor('#c7d2fe'), leading=14, spaceAfter=0,
+    )
+    s_label = ParagraphStyle(
+        'Label', parent=styles['Normal'],
+        fontName='Helvetica-Bold', fontSize=8,
+        textColor=C_TEXT_LIGHT, leading=11, spaceAfter=2,
+        spaceBefore=0,
+    )
+    s_section = ParagraphStyle(
+        'Section', parent=styles['Normal'],
+        fontName='Helvetica-Bold', fontSize=10,
+        textColor=C_INDIGO, leading=14, spaceAfter=4, spaceBefore=10,
+    )
+    s_body = ParagraphStyle(
+        'Body', parent=styles['Normal'],
+        fontName='Helvetica', fontSize=10,
+        textColor=C_TEXT_DARK, leading=16, spaceAfter=5,
+    )
+    s_cell_hdr = ParagraphStyle(
+        'CellHdr', parent=styles['Normal'],
+        fontName='Helvetica-Bold', fontSize=9,
+        textColor=C_WHITE, leading=13,
+    )
+    s_cell = ParagraphStyle(
+        'Cell', parent=styles['Normal'],
+        fontName='Helvetica', fontSize=9,
+        textColor=C_TEXT_DARK, leading=13,
+    )
+
+    # ── Helpers ─────────────────────────────────────────────────────────────────
+    def _esc(s):
+        return str(s).replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
+
+    try:
+        start_str = timezone.localtime(booking.start_datetime).strftime('%d %b %Y, %H:%M')
+        end_str   = timezone.localtime(booking.end_datetime).strftime('%d %b %Y, %H:%M')
+    except Exception:
+        start_str = str(booking.start_datetime)
+        end_str   = str(booking.end_datetime)
+
+    room_name    = booking.room.room_name if booking.room else '—'
+    faculty_name = booking.faculty_name  or '—'
+    faculty_email= booking.faculty_email or '—'
+
+    # ── Header banner (indigo box with title + meta) ────────────────────────────
+    HDR_W = USABLE
+    hdr_data = [[
+        Paragraph("Requirements Document", s_title),
+        Paragraph(
+            f"<b>Room</b>  {_esc(room_name)}<br/>"
+            f"<b>Faculty</b>  {_esc(faculty_name)}<br/>"
+            f"<b>Email</b>  {_esc(faculty_email)}<br/>"
+            f"<b>Booking</b>  {_esc(start_str)}  →  {_esc(end_str)}",
+            s_meta
+        ),
+    ]]
+    hdr_tbl = RLTable(hdr_data, colWidths=[HDR_W*0.45, HDR_W*0.55])
+    hdr_tbl.setStyle(RLTableStyle([
+        ('BACKGROUND',   (0,0), (-1,-1), C_INDIGO),
+        ('VALIGN',       (0,0), (-1,-1), 'MIDDLE'),
+        ('TOPPADDING',   (0,0), (-1,-1), 18),
+        ('BOTTOMPADDING',(0,0), (-1,-1), 18),
+        ('LEFTPADDING',  (0,0), (0,-1),  18),
+        ('RIGHTPADDING', (-1,0),(-1,-1), 18),
+        ('ROUNDEDCORNERS', [8, 8, 8, 8]),
+    ]))
+
+    elements = [hdr_tbl, Spacer(1, 0.5*cm)]
+
+    # ── Purpose box ─────────────────────────────────────────────────────────────
+    if booking.purpose:
+        purpose_data = [[
+            Paragraph("PURPOSE OF BOOKING", s_label),
+            Paragraph(_esc(booking.purpose).replace('\n', '<br/>'), s_body),
+        ]]
+        purpose_tbl = RLTable(purpose_data, colWidths=[HDR_W*0.22, HDR_W*0.78])
+        purpose_tbl.setStyle(RLTableStyle([
+            ('BACKGROUND',    (0,0), (-1,-1), C_INDIGO_LIGHT),
+            ('LINEAFTER',     (0,0), (0,-1),  2, C_INDIGO),
+            ('VALIGN',        (0,0), (-1,-1), 'TOP'),
+            ('TOPPADDING',    (0,0), (-1,-1), 12),
+            ('BOTTOMPADDING', (0,0), (-1,-1), 12),
+            ('LEFTPADDING',   (0,0), (0,-1),  14),
+            ('RIGHTPADDING',  (-1,0),(-1,-1), 14),
+            ('LEFTPADDING',   (1,0), (1,-1),  14),
+            ('ROUNDEDCORNERS', [6, 6, 6, 6]),
+        ]))
+        elements += [purpose_tbl, Spacer(1, 0.45*cm)]
+
+    # ── Section heading ─────────────────────────────────────────────────────────
+    elements.append(Paragraph("DOCUMENT CONTENT", s_label))
+    elements.append(HRFlowable(width=USABLE, thickness=1.5, color=C_INDIGO, spaceAfter=8))
+
+    # ── Content blocks ──────────────────────────────────────────────────────────
+    for block in blocks:
+        if block['type'] == 'paragraph':
+            txt = _esc(block['text'])
+            elements.append(Paragraph(txt, s_body))
+
+        elif block['type'] == 'table':
+            rows = block.get('rows', [])
+            if not rows:
+                continue
+
+            num_cols = max(len(r) for r in rows)
+            if num_cols == 0:
+                continue
+
+            # ── Smart column widths ─────────────────────────────────────────
+            # Give each column equal width; if only 2 cols give first col 30%
+            if num_cols == 2:
+                col_widths = [USABLE * 0.28, USABLE * 0.72]
+            elif num_cols == 3:
+                col_widths = [USABLE * 0.25, USABLE * 0.40, USABLE * 0.35]
+            else:
+                col_widths = [USABLE / num_cols] * num_cols
+
+            # ── Pad rows that have fewer cells than the max ─────────────────
+            padded_rows = []
+            for row in rows:
+                padded = list(row) + [''] * (num_cols - len(row))
+                padded_rows.append(padded)
+
+            # ── First row = header; rest = data rows ────────────────────────
+            header_row = [Paragraph(_esc(cell), s_cell_hdr) for cell in padded_rows[0]]
+            data_rows  = [
+                [Paragraph(_esc(cell), s_cell) for cell in row]
+                for row in padded_rows[1:]
+            ]
+            table_data = [header_row] + data_rows
+
+            tbl = RLTable(table_data, colWidths=col_widths, repeatRows=1)
+
+            ts = RLTableStyle([
+                # Header
+                ('BACKGROUND',    (0,0), (-1,0),  C_INDIGO),
+                ('TEXTCOLOR',     (0,0), (-1,0),  C_WHITE),
+                ('FONTNAME',      (0,0), (-1,0),  'Helvetica-Bold'),
+                ('FONTSIZE',      (0,0), (-1,0),  9),
+                # Data rows — alternate shading
+                ('FONTNAME',      (0,1), (-1,-1), 'Helvetica'),
+                ('FONTSIZE',      (0,1), (-1,-1), 9),
+                ('ROWBACKGROUNDS',(0,1), (-1,-1), [C_WHITE, C_ROW_ALT]),
+                # Grid
+                ('GRID',          (0,0), (-1,-1), 0.5, C_BORDER),
+                ('LINEBELOW',     (0,0), (-1,0),  1.5, C_INDIGO_DARK),
+                # Padding
+                ('VALIGN',        (0,0), (-1,-1), 'TOP'),
+                ('TOPPADDING',    (0,0), (-1,-1), 7),
+                ('BOTTOMPADDING', (0,0), (-1,-1), 7),
+                ('LEFTPADDING',   (0,0), (-1,-1), 8),
+                ('RIGHTPADDING',  (0,0), (-1,-1), 8),
+            ])
+
+            # If table has only 1 row (all header, no data), treat it as data
+            if len(rows) == 1:
+                ts.add('BACKGROUND', (0,0), (-1,0), C_ROW_ALT)
+                ts.add('TEXTCOLOR',  (0,0), (-1,0), C_TEXT_DARK)
+                ts.add('FONTNAME',   (0,0), (-1,0), 'Helvetica')
+
+            tbl.setStyle(ts)
+            # Keep table header + first few data rows together across page breaks
+            elements.append(KeepTogether([tbl]))
+            elements.append(Spacer(1, 0.35*cm))
+
+    # ── Footer rule ─────────────────────────────────────────────────────────────
+    elements.append(Spacer(1, 0.3*cm))
+    elements.append(HRFlowable(width=USABLE, thickness=0.5, color=C_RULE))
+    elements.append(Spacer(1, 0.1*cm))
+    elements.append(Paragraph(
+        f"Generated by AURA · {booking.room.room_name if booking.room else ''} · {start_str}",
+        ParagraphStyle('Footer', parent=styles['Normal'],
+                       fontName='Helvetica', fontSize=7, textColor=C_TEXT_LIGHT,
+                       alignment=TA_CENTER)
+    ))
+
+    pdf_doc.build(elements)
+    pdf_data = buffer.getvalue()
+    buffer.close()
+
+    safe_name = f"booking_{booking_id}_requirements.pdf"
+    response = HttpResponse(pdf_data, content_type='application/pdf')
+    response['Content-Disposition'] = f'attachment; filename="{safe_name}"'
+    return response
+
+
 def aura_generate_report_excel(request):
     """
     Generate Excel report for AURA data - matches dashboard display format.

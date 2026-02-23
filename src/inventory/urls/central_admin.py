@@ -76,6 +76,13 @@ urlpatterns = [
     path('notification-counts/', central_admin.admin_notification_counts, name='admin_notification_counts'),
     path('booking-doc/<int:booking_id>/download/', aura.download_booking_doc, name='download_booking_doc'),
     path('api/room-inventory/', aura.get_room_inventory, name='get_room_inventory'),
-    path('purchases/create/', central_admin.PurchaseCreateView.as_view(), name='purchase_create')
+    path('purchases/create/', central_admin.PurchaseCreateView.as_view(), name='purchase_create'),
+    
+    path('booking-doc-text/<int:booking_id>/', aura.get_booking_doc_text, name='get_booking_doc_text'),
+    path('booking-doc-pdf/<int:booking_id>/',  aura.download_booking_doc_as_pdf, name='download_booking_doc_as_pdf'),
+    
+    path('booking-delete/<int:booking_id>/', aura.delete_confirmed_booking,    name='delete_confirmed_booking'),
+    path('booking-bulk-delete/', aura.bulk_delete_confirmed_bookings, name='bulk_delete_confirmed_bookings'),
+
     
 ]

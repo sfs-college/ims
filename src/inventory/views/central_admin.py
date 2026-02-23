@@ -766,15 +766,64 @@ class ApproveRoomBookingRequestView(LoginRequiredMixin, View):
         booking_req = get_object_or_404(RoomBookingRequest, pk=pk, status="pending")
 
         try:
+            # ── Extract plain text from the uploaded .docx before saving ────────
+            # Uses _extract_docx_structured from aura.py which covers paragraphs,
+            # tables, and text boxes.  Failure is non-fatal — text is extracted
+            # lazily on first "View Doc" click via get_booking_doc_text.
+            doc_text = None
+            if booking_req.requirements_doc and booking_req.requirements_doc.name:
+                try:
+                    import io as _io
+                    import traceback as _tb
+                    from docx import Document as _DocxDoc
+                    from docx.oxml.ns import qn as _qn
+
+                    _storage = booking_req.requirements_doc.storage
+                    with _storage.open(booking_req.requirements_doc.name, 'rb') as _f:
+                        _raw = _f.read()
+
+                    _doc  = _DocxDoc(_io.BytesIO(_raw))
+                    _lines = []
+                    _body  = _doc.element.body
+
+                    for _child in _body:
+                        _tag = _child.tag.split('}')[-1] if '}' in _child.tag else _child.tag
+                        if _tag == 'p':
+                            _t = ''.join(n.text or '' for n in _child.iter(_qn('w:t'))).strip()
+                            if _t:
+                                _lines.append(_t)
+                        elif _tag == 'tbl':
+                            for _tr in _child.iter(_qn('w:tr')):
+                                _cells = []
+                                for _tc in _tr.iter(_qn('w:tc')):
+                                    _ct = ' '.join(
+                                        ''.join(n.text or '' for n in _p.iter(_qn('w:t'))).strip()
+                                        for _p in _tc.iter(_qn('w:p'))
+                                    ).strip()
+                                    _cells.append(_ct)
+                                if any(_cells):
+                                    _lines.append(' | '.join(_cells))
+                        elif _tag == 'txbxContent':
+                            _t = ''.join(n.text or '' for n in _child.iter(_qn('w:t'))).strip()
+                            if _t:
+                                _lines.append(_t)
+
+                    doc_text = '\n'.join(_lines) if _lines else None
+                    print(f"[ApproveBooking] docx text extracted OK ({len(doc_text or '')} chars, {len(_lines)} lines)")
+                except Exception as _e:
+                    import traceback as _tb
+                    print(f"[ApproveBooking] docx extraction failed (non-fatal): {_e}\n{_tb.format_exc()}")
+
             booking = RoomBooking(
-                room           = booking_req.room,
-                department     = booking_req.department,
-                faculty_name   = booking_req.faculty_name,
-                faculty_email  = booking_req.faculty_email,
-                start_datetime = booking_req.start_datetime,
-                end_datetime   = booking_req.end_datetime,
-                purpose        = booking_req.purpose,
-                requirements_doc = booking_req.requirements_doc,
+                room                  = booking_req.room,
+                department            = booking_req.department,
+                faculty_name          = booking_req.faculty_name,
+                faculty_email         = booking_req.faculty_email,
+                start_datetime        = booking_req.start_datetime,
+                end_datetime          = booking_req.end_datetime,
+                purpose               = booking_req.purpose,
+                requirements_doc      = booking_req.requirements_doc,
+                requirements_doc_text = doc_text,
             )
             booking.full_clean()  # runs conflict detection
             booking.save()

@@ -351,7 +351,12 @@
 
 <!-- ══ CONFIRMED BOOKING FILES MODAL ══ -->
 <div class="modal fade" id="bookingFilesModal" tabindex="-1"
-     data-booking-files-url="{% url 'central_admin:confirmed_booking_files' %}">
+     data-booking-files-url="{% url 'central_admin:confirmed_booking_files' %}"
+     data-doc-text-url="{% url 'central_admin:get_booking_doc_text' booking_id=0 %}"
+     data-doc-pdf-url="{% url 'central_admin:download_booking_doc_as_pdf' booking_id=0 %}"
+     data-delete-url="{% url 'central_admin:delete_confirmed_booking' booking_id=0 %}"
+     data-bulk-delete-url="{% url 'central_admin:bulk_delete_confirmed_bookings' %}"
+     data-is-central-admin="{{ request.user.profile.is_central_admin|yesno:'true,false' }}">
     <div class="modal-dialog modal-xl modal-dialog-scrollable">
         <div class="modal-content">
             <div class="modal-header">
@@ -359,7 +364,21 @@
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body">
-                <p class="text-muted small mb-3">All confirmed (admin-approved) bookings are listed here, including their purpose and any attached documents.</p>
+                <p class="text-muted small mb-2">All confirmed (admin-approved) bookings are listed here, including their purpose and any attached documents.</p>
+
+                <!-- Bulk-action toolbar — only rendered/visible for central admins via JS -->
+                <div id="bfcBulkToolbar" style="display:none;background:#fef3c7;border:1px solid #fbbf24;border-radius:12px;padding:10px 16px;margin-bottom:14px;align-items:center;gap:12px;flex-wrap:wrap;">
+                    <label style="display:flex;align-items:center;gap:8px;font-weight:700;font-size:0.85rem;color:#92400e;cursor:pointer;margin:0;">
+                        <input type="checkbox" id="bfcSelectAll" style="width:16px;height:16px;cursor:pointer;accent-color:#dc2626;">
+                        <span id="bfcSelectAllLabel">Select All</span>
+                    </label>
+                    <span id="bfcSelectedCount" style="font-size:0.82rem;color:#78350f;background:#fde68a;border-radius:20px;padding:2px 12px;font-weight:600;display:none;">0 selected</span>
+                    <button id="bfcBulkDeleteBtn" onclick="confirmBulkDelete()"
+                            style="display:none;background:linear-gradient(135deg,#dc2626,#b91c1c);color:#fff;border:none;border-radius:10px;padding:7px 18px;font-weight:700;font-size:0.82rem;cursor:pointer;transition:opacity 0.2s;display:none;align-items:center;gap:6px;">
+                        <i class="bi bi-trash3-fill"></i> Delete Selected
+                    </button>
+                </div>
+
                 <div id="bookingFilesBody">
                     <div class="text-center py-5">
                         <div class="spinner-border text-primary"></div>
@@ -394,7 +413,47 @@
     .btn-view-file:hover { opacity:0.85; }
     .btn-dl-file { background:#f1f5f9;color:#475569;border:1px solid #e2e8f0;border-radius:10px;padding:7px 14px;font-weight:600;font-size:0.82rem;text-decoration:none;display:inline-flex;align-items:center;gap:5px;transition:background 0.2s; }
     .btn-dl-file:hover { background:#e2e8f0; color:#1e293b; }
+    .doc-text-panel { display:none; margin-top:12px; background:#f8fafc; border:1px solid #e2e8f0; border-radius:12px; padding:14px 16px; }
+    .doc-text-panel.open { display:block; }
+    .doc-text-content { font-size:0.82rem; color:#334155; line-height:1.65; max-height:300px; overflow-y:auto; }
+    .doc-para { margin-bottom:6px; }
+    .doc-table-wrap { overflow-x:auto; margin-bottom:10px; }
+    .doc-table { width:100%; border-collapse:collapse; font-size:0.8rem; }
+    .doc-table th { background:linear-gradient(135deg,#6366f1,#7c3aed); color:#fff; font-weight:700; padding:7px 10px; text-align:left; }
+    .doc-table td { padding:6px 10px; border-bottom:1px solid #e2e8f0; color:#1e293b; }
+    .doc-table tr:nth-child(even) td { background:#f0f4ff; }
+    .doc-table tr:hover td { background:#e0e7ff; }
+    .btn-dl-pdf { background:linear-gradient(135deg,#10b981,#059669);color:#fff;border:none;border-radius:10px;padding:7px 14px;font-weight:700;font-size:0.82rem;cursor:pointer;text-decoration:none;display:inline-flex;align-items:center;gap:5px;transition:opacity 0.2s; }
+    .btn-dl-pdf:hover { opacity:0.85; color:#fff; }
+    /* Delete button on each card */
+    .btn-delete-booking { background:none;border:1px solid #fca5a5;color:#dc2626;border-radius:10px;padding:7px 14px;font-weight:600;font-size:0.82rem;cursor:pointer;transition:all 0.2s;display:inline-flex;align-items:center;gap:5px; }
+    .btn-delete-booking:hover { background:#fee2e2;border-color:#dc2626; }
+    /* Checkbox select state */
+    .booking-file-card.bfc-selected { border-color:#6366f1;box-shadow:0 0 0 2px rgba(99,102,241,0.25);background:#f5f3ff; }
+    .bfc-checkbox-wrap { display:flex;align-items:flex-start;padding-top:4px; }
+    .bfc-checkbox { width:18px;height:18px;cursor:pointer;accent-color:#6366f1;flex-shrink:0; }
+    /* Confirm delete modal */
+    #bfcDeleteConfirmOverlay { display:none;position:fixed;inset:0;z-index:3000;background:rgba(15,23,42,0.7);backdrop-filter:blur(4px);align-items:center;justify-content:center;padding:20px; }
+    #bfcDeleteConfirmOverlay.open { display:flex; }
+    #bfcDeleteConfirmBox { background:#fff;border-radius:20px;padding:36px 32px;max-width:420px;width:100%;box-shadow:0 30px 60px rgba(0,0,0,0.25);animation:fdSlideUp 0.25s ease;text-align:center; }
 </style>
+
+<!-- ══ DELETE CONFIRMATION OVERLAY ══ -->
+<div id="bfcDeleteConfirmOverlay">
+    <div id="bfcDeleteConfirmBox">
+        <div style="width:56px;height:56px;background:linear-gradient(135deg,#dc2626,#b91c1c);border-radius:16px;display:flex;align-items:center;justify-content:center;margin:0 auto 16px;">
+            <i class="bi bi-trash3-fill" style="color:#fff;font-size:1.5rem;"></i>
+        </div>
+        <h5 id="bfcConfirmTitle" style="font-weight:900;color:#1e293b;margin-bottom:8px;">Delete Booking?</h5>
+        <p id="bfcConfirmMsg" style="color:#64748b;font-size:0.9rem;margin-bottom:24px;line-height:1.6;">This action cannot be undone.</p>
+        <div style="display:flex;gap:12px;justify-content:center;">
+            <button onclick="closeBfcConfirm()" style="background:#f1f5f9;color:#475569;border:1px solid #e2e8f0;border-radius:12px;padding:10px 28px;font-weight:700;font-size:0.9rem;cursor:pointer;">Cancel</button>
+            <button id="bfcConfirmDeleteBtn" style="background:linear-gradient(135deg,#dc2626,#b91c1c);color:#fff;border:none;border-radius:12px;padding:10px 28px;font-weight:700;font-size:0.9rem;cursor:pointer;transition:opacity 0.2s;">
+                <i class="bi bi-trash3-fill me-1"></i>Yes, Delete
+            </button>
+        </div>
+    </div>
+</div>
 
 <!-- room booking faculty manager -->
 <div class="modal fade" id="facultyManagerModal" tabindex="-1">
@@ -1065,11 +1124,26 @@
     }
 
     // ── Confirmed Booking Files ──────────────────────────────────
+    // ── Booking Files state ───────────────────────────────────────────────────
+    var _bfcIsCentralAdmin = false;
+    var _bfcDeleteUrl      = null;
+    var _bfcBulkDeleteUrl  = null;
+
     function loadBookingFiles() {
         const body    = document.getElementById('bookingFilesBody');
         const modal   = document.getElementById('bookingFilesModal');
-        // Read URL from data attribute — avoids hardcoded paths that may differ per deployment
         const fileUrl = modal ? modal.dataset.bookingFilesUrl : null;
+        const docTextUrlTpl = modal ? modal.dataset.docTextUrl    : null;
+        const docPdfUrlTpl  = modal ? modal.dataset.docPdfUrl     : null;
+
+        // Capture central-admin flag and delete URLs from modal data attrs
+        _bfcIsCentralAdmin = modal && modal.dataset.isCentralAdmin === 'true';
+        _bfcDeleteUrl      = modal ? modal.dataset.deleteUrl      : null;
+        _bfcBulkDeleteUrl  = modal ? modal.dataset.bulkDeleteUrl  : null;
+
+        // Show / hide the bulk toolbar based on role
+        const toolbar = document.getElementById('bfcBulkToolbar');
+        if (toolbar) toolbar.style.display = _bfcIsCentralAdmin ? 'flex' : 'none';
 
         if (!fileUrl) {
             body.innerHTML = '<div class="text-center py-5 text-danger"><i class="bi bi-exclamation-triangle-fill me-2"></i>Configuration error: booking files URL not found.</div>';
@@ -1078,51 +1152,91 @@
 
         body.innerHTML = '<div class="text-center py-5"><div class="spinner-border text-primary"></div><p class="mt-2 text-muted small">Loading confirmed bookings…</p></div>';
 
-        fetch(fileUrl, {
-            headers: { 'X-Requested-With': 'XMLHttpRequest' }
-        })
+        fetch(fileUrl, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
         .then(function(res) {
             if (!res.ok) throw new Error('HTTP ' + res.status);
             return res.json();
         })
         .then(function(data) {
             body.innerHTML = '';
+            // Reset select-all
+            const selectAll = document.getElementById('bfcSelectAll');
+            if (selectAll) selectAll.checked = false;
+            updateBfcSelectedCount();
 
             if (data.error) {
                 body.innerHTML = `<div class="text-center py-5 text-danger"><i class="bi bi-lock me-2"></i>${escHtml(data.error)}</div>`;
                 return;
             }
-
             if (!data.results || data.results.length === 0) {
                 body.innerHTML = '<div class="text-center py-5 text-muted"><i class="bi bi-calendar-x fs-2 d-block mb-2 opacity-25"></i><p class="mb-0">No confirmed bookings found.</p></div>';
                 return;
             }
 
             data.results.forEach(function(b) {
-                // Safe-serialise b for the inline onclick attribute
-                const bJson = JSON.stringify(b)
-                    .replace(/\\/g, '\\\\')
-                    .replace(/'/g, "\\'");
+                // ── Doc action buttons ─────────────────────────────────────────
+                let docHtml = '';
+                let docPanelHtml = '';
+                if (b.has_doc_text) {
+                    const textUrl = docTextUrlTpl ? docTextUrlTpl.replace('/0/', '/' + b.id + '/') : null;
+                    const pdfUrl  = docPdfUrlTpl  ? docPdfUrlTpl.replace('/0/',  '/' + b.id + '/') : null;
+                    docHtml = `
+                        <button class="btn-view-file" onclick="toggleDocText(this, '${escHtml(textUrl)}')" data-booking-id="${b.id}">
+                            <i class="bi bi-eye me-1"></i>View Doc
+                        </button>
+                        ${pdfUrl ? `<a href="${escHtml(pdfUrl)}" class="btn-dl-pdf"><i class="bi bi-file-earmark-pdf me-1"></i>Download PDF</a>` : ''}
+                    `;
+                    docPanelHtml = `
+                        <div class="doc-text-panel" id="doc-panel-${b.id}">
+                            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+                                <span style="font-weight:700;font-size:0.78rem;color:#6366f1;text-transform:uppercase;letter-spacing:0.5px;">
+                                    <i class="bi bi-file-earmark-text me-1"></i>Document Content
+                                </span>
+                                <span class="text-muted" style="font-size:0.72rem;cursor:pointer;" onclick="closeDocPanel(${b.id})">✕ Close</span>
+                            </div>
+                            <div class="doc-text-content" id="doc-text-${b.id}"></div>
+                        </div>
+                    `;
+                } else {
+                    docHtml = `<span class="text-muted small"><i class="bi bi-dash-circle me-1"></i>No document attached</span>`;
+                }
+
+                // ── Delete button (central admin only) ─────────────────────────
+                const deleteBtn = _bfcIsCentralAdmin
+                    ? `<button class="btn-delete-booking" onclick="confirmSingleDelete(${b.id}, '${escHtml(b.room)}', '${escHtml(b.faculty)}')">
+                           <i class="bi bi-trash3"></i> Delete
+                       </button>`
+                    : '';
 
                 const purposeHtml = b.purpose
                     ? `<div class="bfc-purpose" title="${escHtml(b.purpose)}"><i class="bi bi-chat-left-text me-1"></i>${escHtml(b.purpose)}</div>`
                     : `<div class="bfc-purpose text-muted fst-italic" style="opacity:0.6;"><i class="bi bi-dash-circle me-1"></i>No purpose specified</div>`;
 
-                const docHtml = b.doc_url
-                    ? `<a href="${escHtml(b.doc_url)}" target="_blank" download class="btn-dl-file"><i class="bi bi-download me-1"></i>Download Document</a>`
-                    : `<span class="text-muted small"><i class="bi bi-dash-circle me-1"></i>No document attached</span>`;
+                // ── Checkbox (central admin only) ──────────────────────────────
+                const checkboxHtml = _bfcIsCentralAdmin
+                    ? `<div class="bfc-checkbox-wrap" style="margin-right:4px;">
+                           <input type="checkbox" class="bfc-checkbox bfc-item-check" data-booking-id="${b.id}"
+                                  onchange="onBfcCheckChange()">
+                       </div>`
+                    : '';
 
                 const card = document.createElement('div');
                 card.className = 'booking-file-card';
+                card.dataset.bookingId = b.id;
                 card.innerHTML = `
+                    ${checkboxHtml}
                     <div class="bfc-icon"><i class="bi bi-building"></i></div>
-                    <div class="bfc-body">
-                        <div class="bfc-room">${escHtml(b.room)}</div>
+                    <div class="bfc-body" style="width:100%;">
+                        <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;">
+                            <div class="bfc-room">${escHtml(b.room)}</div>
+                            ${deleteBtn}
+                        </div>
                         <div class="bfc-meta"><i class="bi bi-person me-1"></i>${escHtml(b.faculty)}</div>
                         <div class="bfc-meta"><i class="bi bi-envelope me-1"></i>${escHtml(b.email)}</div>
                         <div class="bfc-meta"><i class="bi bi-calendar3 me-1"></i>${escHtml(b.from)} &rarr; ${escHtml(b.to)}</div>
                         ${purposeHtml}
                         <div class="bfc-actions">${docHtml}</div>
+                        ${docPanelHtml}
                     </div>
                 `;
                 body.appendChild(card);
@@ -1134,28 +1248,307 @@
         });
     }
 
+    // ── Checkbox / selection helpers ──────────────────────────────────────────
+    function onBfcCheckChange() {
+        updateBfcSelectedCount();
+        // Sync select-all checkbox state
+        const all  = document.querySelectorAll('.bfc-item-check');
+        const chkd = document.querySelectorAll('.bfc-item-check:checked');
+        const sa   = document.getElementById('bfcSelectAll');
+        if (sa) sa.checked = all.length > 0 && chkd.length === all.length;
+        // Highlight selected cards
+        document.querySelectorAll('.booking-file-card').forEach(function(card) {
+            const cb = card.querySelector('.bfc-item-check');
+            if (cb) card.classList.toggle('bfc-selected', cb.checked);
+        });
+    }
+
+    function updateBfcSelectedCount() {
+        const chkd       = document.querySelectorAll('.bfc-item-check:checked');
+        const countEl    = document.getElementById('bfcSelectedCount');
+        const bulkBtn    = document.getElementById('bfcBulkDeleteBtn');
+        const count      = chkd.length;
+        if (countEl) {
+            countEl.textContent = count + ' selected';
+            countEl.style.display = count > 0 ? 'inline-block' : 'none';
+        }
+        if (bulkBtn) {
+            bulkBtn.style.display = count > 0 ? 'inline-flex' : 'none';
+        }
+    }
+
+    document.addEventListener('DOMContentLoaded', function() {
+        const sa = document.getElementById('bfcSelectAll');
+        if (sa) {
+            sa.addEventListener('change', function() {
+                document.querySelectorAll('.bfc-item-check').forEach(function(cb) {
+                    cb.checked = sa.checked;
+                });
+                onBfcCheckChange();
+            });
+        }
+    });
+
+    // ── Single delete ─────────────────────────────────────────────────────────
+    var _bfcPendingDeleteId = null;
+
+    function confirmSingleDelete(bookingId, room, faculty) {
+        _bfcPendingDeleteId = bookingId;
+        const title = document.getElementById('bfcConfirmTitle');
+        const msg   = document.getElementById('bfcConfirmMsg');
+        if (title) title.textContent = 'Delete Booking?';
+        if (msg)   msg.innerHTML = `Are you sure you want to permanently delete the booking for <b>${escHtml(room)}</b> by <b>${escHtml(faculty)}</b>?<br><span style="color:#dc2626;font-size:0.82rem;font-weight:600;">This action cannot be undone.</span>`;
+        const btn = document.getElementById('bfcConfirmDeleteBtn');
+        if (btn) btn.onclick = function() { executeSingleDelete(bookingId); };
+        document.getElementById('bfcDeleteConfirmOverlay').classList.add('open');
+    }
+
+    function executeSingleDelete(bookingId) {
+        const btn = document.getElementById('bfcConfirmDeleteBtn');
+        if (btn) { btn.disabled = true; btn.innerHTML = '<div class="spinner-border spinner-border-sm me-1"></div>Deleting…'; }
+
+        const url = _bfcDeleteUrl ? _bfcDeleteUrl.replace('/0/', '/' + bookingId + '/') : null;
+        if (!url) { closeBfcConfirm(); return; }
+
+        fetch(url, {
+            method: 'POST',
+            headers: { 'X-CSRFToken': getCsrfToken(), 'X-Requested-With': 'XMLHttpRequest' },
+        })
+        .then(function(r) { return r.json(); })
+        .then(function(d) {
+            closeBfcConfirm();
+            if (d.status === 'success') {
+                // Remove card from DOM
+                const card = document.querySelector(`.booking-file-card[data-booking-id="${bookingId}"]`);
+                if (card) {
+                    card.style.transition = 'opacity 0.3s,transform 0.3s';
+                    card.style.opacity = '0';
+                    card.style.transform = 'translateX(20px)';
+                    setTimeout(function() { card.remove(); updateBfcSelectedCount(); }, 300);
+                }
+                showBfcToast(d.message || 'Booking deleted.', 'success');
+            } else {
+                showBfcToast(d.error || 'Delete failed.', 'error');
+            }
+        })
+        .catch(function() { closeBfcConfirm(); showBfcToast('Delete failed. Please try again.', 'error'); });
+    }
+
+    // ── Bulk delete ───────────────────────────────────────────────────────────
+    function confirmBulkDelete() {
+        const chkd = document.querySelectorAll('.bfc-item-check:checked');
+        if (chkd.length === 0) return;
+        const title = document.getElementById('bfcConfirmTitle');
+        const msg   = document.getElementById('bfcConfirmMsg');
+        if (title) title.textContent = `Delete ${chkd.length} Booking${chkd.length > 1 ? 's' : ''}?`;
+        if (msg)   msg.innerHTML = `Are you sure you want to permanently delete <b>${chkd.length} booking${chkd.length > 1 ? 's' : ''}</b>?<br><span style="color:#dc2626;font-size:0.82rem;font-weight:600;">This action cannot be undone.</span>`;
+        const btn = document.getElementById('bfcConfirmDeleteBtn');
+        if (btn) btn.onclick = executeBulkDelete;
+        document.getElementById('bfcDeleteConfirmOverlay').classList.add('open');
+    }
+
+    function executeBulkDelete() {
+        const chkd = document.querySelectorAll('.bfc-item-check:checked');
+        const ids  = Array.from(chkd).map(function(cb) { return parseInt(cb.dataset.bookingId); });
+        if (!ids.length) return;
+
+        const btn = document.getElementById('bfcConfirmDeleteBtn');
+        if (btn) { btn.disabled = true; btn.innerHTML = '<div class="spinner-border spinner-border-sm me-1"></div>Deleting…'; }
+
+        fetch(_bfcBulkDeleteUrl, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCsrfToken(),
+                'X-Requested-With': 'XMLHttpRequest',
+            },
+            body: JSON.stringify({ ids: ids }),
+        })
+        .then(function(r) { return r.json(); })
+        .then(function(d) {
+            closeBfcConfirm();
+            if (d.status === 'success') {
+                ids.forEach(function(id) {
+                    const card = document.querySelector(`.booking-file-card[data-booking-id="${id}"]`);
+                    if (card) {
+                        card.style.transition = 'opacity 0.3s,transform 0.3s';
+                        card.style.opacity = '0';
+                        card.style.transform = 'translateX(20px)';
+                        setTimeout(function() { card.remove(); }, 300);
+                    }
+                });
+                setTimeout(updateBfcSelectedCount, 350);
+                showBfcToast(d.message || `${d.deleted_count} booking(s) deleted.`, 'success');
+                // Reset select-all
+                const sa = document.getElementById('bfcSelectAll');
+                if (sa) sa.checked = false;
+            } else {
+                showBfcToast(d.error || 'Bulk delete failed.', 'error');
+            }
+        })
+        .catch(function() { closeBfcConfirm(); showBfcToast('Bulk delete failed. Please try again.', 'error'); });
+    }
+
+    function closeBfcConfirm() {
+        document.getElementById('bfcDeleteConfirmOverlay').classList.remove('open');
+        const btn = document.getElementById('bfcConfirmDeleteBtn');
+        if (btn) { btn.disabled = false; btn.innerHTML = '<i class="bi bi-trash3-fill me-1"></i>Yes, Delete'; }
+    }
+
+    // ── Toast notification ────────────────────────────────────────────────────
+    function showBfcToast(message, type) {
+        const existing = document.getElementById('bfcToast');
+        if (existing) existing.remove();
+        const toast = document.createElement('div');
+        toast.id = 'bfcToast';
+        const bg = type === 'success' ? '#10b981' : '#dc2626';
+        toast.style.cssText = `position:fixed;bottom:28px;right:28px;z-index:9999;background:${bg};color:#fff;padding:14px 22px;border-radius:14px;font-weight:700;font-size:0.9rem;box-shadow:0 8px 24px rgba(0,0,0,0.18);display:flex;align-items:center;gap:10px;animation:fdSlideUp 0.3s ease;max-width:360px;`;
+        const icon = type === 'success' ? 'bi-check-circle-fill' : 'bi-exclamation-triangle-fill';
+        toast.innerHTML = `<i class="bi ${icon}"></i>${escHtml(message)}`;
+        document.body.appendChild(toast);
+        setTimeout(function() {
+            toast.style.transition = 'opacity 0.4s';
+            toast.style.opacity = '0';
+            setTimeout(function() { toast.remove(); }, 400);
+        }, 3200);
+    }
+
+    // ── CSRF helper ───────────────────────────────────────────────────────────
+    function getCsrfToken() {
+        const el = document.querySelector('[name=csrfmiddlewaretoken]');
+        if (el) return el.value;
+        const match = document.cookie.match(/csrftoken=([^;]+)/);
+        return match ? match[1] : '';
+    }
+
+    // Render structured blocks (paragraphs + tables) into a container element
+    function renderDocBlocks(container, blocks) {
+        if (!container) return;
+        if (!blocks || blocks.length === 0) {
+            container.innerHTML = '<span class="text-muted fst-italic">No readable content found.</span>';
+            return;
+        }
+        let html = '';
+        blocks.forEach(function(block) {
+            if (block.type === 'paragraph') {
+                html += `<p class="doc-para">${escHtml(block.text)}</p>`;
+            } else if (block.type === 'table' && block.rows && block.rows.length > 0) {
+                html += '<div class="doc-table-wrap"><table class="doc-table">';
+                // First row as header
+                html += '<thead><tr>';
+                block.rows[0].forEach(function(cell) {
+                    html += `<th>${escHtml(cell)}</th>`;
+                });
+                html += '</tr></thead><tbody>';
+                for (let i = 1; i < block.rows.length; i++) {
+                    html += '<tr>';
+                    block.rows[i].forEach(function(cell) {
+                        html += `<td>${escHtml(cell)}</td>`;
+                    });
+                    html += '</tr>';
+                }
+                html += '</tbody></table></div>';
+            }
+        });
+        container.innerHTML = html || '<span class="text-muted fst-italic">No readable content found.</span>';
+        container.dataset.loaded = '1';
+    }
+
+    function toggleDocText(btn, textUrl, forceClose) {
+        const card   = btn ? btn.closest('.bfc-body') : null;
+        const panel  = card ? card.querySelector('.doc-text-panel') : null;
+        const textEl = card ? card.querySelector('.doc-text-content') : null;
+
+        if (!panel) return;
+
+        if (panel.classList.contains('open') || forceClose) {
+            panel.classList.remove('open');
+            if (btn) btn.innerHTML = '<i class="bi bi-eye me-1"></i>View Doc';
+            return;
+        }
+
+        panel.classList.add('open');
+        if (btn) btn.innerHTML = '<i class="bi bi-eye-slash me-1"></i>Hide Doc';
+
+        // Already loaded — don't re-fetch
+        if (textEl && textEl.dataset.loaded) return;
+
+        if (!textUrl) {
+            if (textEl) textEl.innerHTML = '<span class="text-danger">Document URL not configured.</span>';
+            return;
+        }
+
+        if (textEl) textEl.innerHTML = '<div class="text-center text-muted py-3"><div class="spinner-border spinner-border-sm"></div> Loading…</div>';
+
+        fetch(textUrl, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+            .then(function(r) { return r.json(); })
+            .then(function(d) {
+                if (!textEl) return;
+                if (d.error) {
+                    textEl.innerHTML = `<span class="text-danger"><i class="bi bi-exclamation-triangle me-1"></i>${escHtml(d.error)}</span>`;
+                } else {
+                    renderDocBlocks(textEl, d.blocks);
+                }
+            })
+            .catch(function() {
+                if (textEl) textEl.innerHTML = `<span class="text-danger"><i class="bi bi-exclamation-triangle me-1"></i>Failed to load document.</span>`;
+            });
+    }
+
+    function closeDocPanel(bookingId) {
+        const panel = document.getElementById('doc-panel-' + bookingId);
+        if (!panel) return;
+        panel.classList.remove('open');
+        // Reset the View Doc button label
+        const btn = panel.closest('.bfc-body') ? panel.closest('.bfc-body').querySelector('.btn-view-file') : null;
+        if (btn) btn.innerHTML = '<i class="bi bi-eye me-1"></i>View Doc';
+    }
+
     function openFileDetail(b) {
         const overlay = document.getElementById('fileDetailOverlay');
         const content = document.getElementById('fileDetailContent');
+        const modal   = document.getElementById('bookingFilesModal');
+        const docTextUrlTpl = modal ? modal.dataset.docTextUrl : null;
+        const docPdfUrlTpl  = modal ? modal.dataset.docPdfUrl  : null;
 
         let docSection = '';
-        if (b.doc_url) {
+        if (b.has_doc_text) {
+            const textUrl = docTextUrlTpl ? docTextUrlTpl.replace('/0/', '/' + b.id + '/') : null;
+            const pdfUrl  = docPdfUrlTpl  ? docPdfUrlTpl.replace('/0/',  '/' + b.id + '/') : null;
             docSection = `
                 <div style="background:#f8fafc;border-radius:14px;padding:16px 20px;border:1px solid #e2e8f0;margin-top:16px;">
                     <div style="font-weight:700;font-size:0.8rem;color:#94a3b8;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:10px;">Attached Document</div>
-                    <div style="display:flex;align-items:center;gap:12px;">
+                    <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px;">
                         <div style="width:40px;height:40px;background:linear-gradient(135deg,#6366f1,#a855f7);border-radius:10px;display:flex;align-items:center;justify-content:center;">
                             <i class="bi bi-file-earmark-word" style="color:#fff;font-size:1.2rem;"></i>
                         </div>
                         <div style="flex:1;">
-                            <div style="font-weight:700;color:#1e293b;font-size:0.9rem;">${escHtml(b.doc_name || 'Attachment')}</div>
+                            <div style="font-weight:700;color:#1e293b;font-size:0.9rem;">${escHtml(b.doc_name || 'Requirements Document')}</div>
+                            <div style="font-size:0.78rem;color:#94a3b8;">Text extracted from uploaded document</div>
                         </div>
-                        <a href="${b.doc_url}" target="_blank"
-                           style="background:linear-gradient(135deg,#6366f1,#9333ea);color:#fff;border-radius:10px;padding:8px 18px;font-weight:700;font-size:0.82rem;text-decoration:none;display:inline-flex;align-items:center;gap:6px;">
-                            <i class="bi bi-download"></i> Download
-                        </a>
+                        ${pdfUrl ? `<a href="${escHtml(pdfUrl)}" class="btn-dl-pdf" style="flex-shrink:0;"><i class="bi bi-file-earmark-pdf"></i> Download PDF</a>` : ''}
+                    </div>
+                    <div id="overlayDocText" style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:12px 14px;max-height:260px;overflow-y:auto;font-size:0.8rem;color:#334155;">
+                        <div class="text-center text-muted py-2"><div class="spinner-border spinner-border-sm"></div> Loading…</div>
                     </div>
                 </div>`;
+            // Fetch and render blocks after DOM is set
+            if (textUrl) {
+                setTimeout(function() {
+                    const el = document.getElementById('overlayDocText');
+                    if (!el) return;
+                    fetch(textUrl, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+                        .then(function(r) { return r.json(); })
+                        .then(function(d) {
+                            if (d.error) {
+                                el.innerHTML = `<span class="text-danger"><i class="bi bi-exclamation-triangle me-1"></i>${escHtml(d.error)}</span>`;
+                            } else {
+                                renderDocBlocks(el, d.blocks);
+                            }
+                        })
+                        .catch(function() { el.innerHTML = '<span class="text-danger">Failed to load document.</span>'; });
+                }, 50);
+            }
         } else {
             docSection = '<p class="text-muted small mt-3"><i class="bi bi-dash-circle me-1"></i>No document attached for this booking.</p>';
         }
@@ -1193,6 +1586,10 @@
     document.addEventListener('DOMContentLoaded', function() {
         const ov = document.getElementById('fileDetailOverlay');
         if (ov) ov.addEventListener('click', function(e) { if (e.target === ov) closeFileDetail(); });
+
+        // Close delete confirm on background click
+        const dcOv = document.getElementById('bfcDeleteConfirmOverlay');
+        if (dcOv) dcOv.addEventListener('click', function(e) { if (e.target === dcOv) closeBfcConfirm(); });
 
         // ── Admin notification bell badge ──────────────────────────────
         function refreshAdminBellBadge() {
