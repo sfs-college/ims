@@ -27,7 +27,7 @@ urlpatterns = [
     path('rooms/<slug:room_slug>/items/<slug:item_slug>/archive/', room_incharge.ItemArchiveView.as_view(), name='item_archive'),
     
     #Item Edit request URL
-    path("rooms/<slug:room_slug>/items/<slug:item_slug>/request-edit/", room_incharge.RequestEditView.as_view(), name="request_edit"),
+    # path("rooms/<slug:room_slug>/items/<slug:item_slug>/request-edit/", room_incharge.RequestEditView.as_view(), name="request_edit"),
     
     # Item Groups URLs
     path('rooms/<slug:room_slug>/item-groups/', room_incharge.ItemGroupListView.as_view(), name='item_group_list'),
@@ -58,8 +58,8 @@ urlpatterns = [
     path('rooms/<slug:room_slug>/purchases/<slug:purchase_slug>/complete/', room_incharge.PurchaseCompleteView.as_view(), name='purchase_complete'),
     path('rooms/<slug:room_slug>/purchases/<slug:purchase_slug>/add_to_stock/', room_incharge.PurchaseAddToStockView.as_view(), name='purchase_add_to_stock'),
     path('rooms/<slug:room_slug>/purchases/new_item/create/', room_incharge.PurchaseNewItemCreateView.as_view(), name='purchase_new_item_create'),
-    path('rooms/<slug:room_slug>/purchases/import/', room_incharge.PurchaseImportView.as_view(), name='purchase_import'),
-    path('rooms/<slug:room_slug>/purchases/import/confirm/', room_incharge.PurchaseImportConfirmView.as_view(), name='purchase_import_confirm'),
+    # path('rooms/<slug:room_slug>/purchases/import/', room_incharge.PurchaseImportView.as_view(), name='purchase_import'),
+    # path('rooms/<slug:room_slug>/purchases/import/confirm/', room_incharge.PurchaseImportConfirmView.as_view(), name='purchase_import_confirm'),
     
     # Archives URLs
     path('rooms/<slug:room_slug>/archives/', room_incharge.ArchiveListView.as_view(), name='archive_list'),
@@ -93,6 +93,8 @@ urlpatterns = [
     path("issues/<int:issue_id>/request-time-extension/",
         room_incharge.IssueTimeExtensionRequestView.as_view(),
         name="issue_time_extension_request"),
+    path('<slug:room_slug>/items/stock-request/', room_incharge.SubmitStockRequestView.as_view(), name='submit_stock_request'),
+    path('rooms/<slug:room_slug>/notifications/', room_incharge.RoomInchargeNotificationsView.as_view(), name='notifications'),
 
 
 ]

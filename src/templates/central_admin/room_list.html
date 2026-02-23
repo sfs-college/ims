@@ -5,6 +5,70 @@
 
 {% block style %}
 <link rel="stylesheet" href="{% static 'styles/inventory/central_admin/rooms/style.css' %}">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
+<style>
+    /* ── View toggle ─────────────────────────────────── */
+    .view-toggle { display:flex; gap:8px; }
+    .view-btn {
+        padding: 7px 20px; border-radius: 20px; border: 1.5px solid #dee2e6;
+        background: #fff; color: #6c757d; font-weight: 600; font-size: 0.85rem;
+        cursor: pointer; transition: all 0.18s; text-decoration: none;
+    }
+    .view-btn.active, .view-btn:hover {
+        background: #6366f1; color: #fff; border-color: #6366f1;
+    }
+
+    /* ── Booking status panels ───────────────────────── */
+    .status-sections { display: flex; flex-direction: column; gap: 28px; }
+    .status-section-title {
+        display: flex; align-items: center; gap: 10px;
+        font-size: 1rem; font-weight: 700; margin-bottom: 14px;
+    }
+    .status-badge {
+        padding: 3px 12px; border-radius: 20px; font-size: 0.75rem; font-weight: 700;
+    }
+    .badge-available { background: #d1fae5; color: #065f46; }
+    .badge-booked    { background: #dbeafe; color: #1e40af; }
+    .badge-pending   { background: #fef3c7; color: #92400e; }
+
+    /* Room cards grid */
+    .room-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 16px; }
+    .room-card {
+        background: #fff; border-radius: 14px; padding: 20px;
+        border: 1px solid #e5e7eb;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+        position: relative; overflow: hidden;
+        transition: transform 0.2s, box-shadow 0.2s;
+    }
+    .room-card:hover { transform: translateY(-3px); box-shadow: 0 8px 24px rgba(0,0,0,0.08); }
+
+    /* left colour stripe */
+    .room-card::before {
+        content:''; position:absolute; top:0; left:0; width:4px; height:100%;
+    }
+    .room-card.card-available::before { background: #10b981; }
+    .room-card.card-booked::before    { background: #3b82f6; }
+    .room-card.card-pending::before   { background: #f59e0b; }
+
+    .room-card-name { font-weight: 700; font-size: 1rem; color: #1e293b; margin-bottom: 4px; }
+    .room-card-meta { font-size: 0.80rem; color: #64748b; margin-bottom: 10px; }
+    .room-card-detail {
+        background: #f8fafc; border-radius: 8px; padding: 10px 12px;
+        font-size: 0.80rem; color: #475569;
+    }
+    .room-card-detail-row { display:flex; justify-content:space-between; padding: 2px 0; }
+    .room-card-actions { display:flex; gap:8px; margin-top:12px; }
+    .btn-card-sm {
+        padding: 5px 14px; border-radius: 8px; font-size: 0.78rem; font-weight: 600;
+        border: 1.5px solid; cursor: pointer; transition: all 0.18s; text-decoration: none;
+    }
+    .btn-edit-dark { background:#1e293b; color:#fff; border-color:#1e293b; }
+    .btn-del-red   { background:#fff; color:#ef4444; border-color:#fee2e2; }
+    .btn-edit-dark:hover { background:#334155; color:#fff; }
+    .btn-del-red:hover   { background:#fef2f2; }
+
+    .empty-section { color:#94a3b8; text-align:center; padding:24px; font-size:0.88rem; }
+</style>
 {% endblock style %}
 
 {% block navbar %}
@@ -17,12 +81,27 @@
 
 {% block content %}
 
-<div class="d-flex justify-content-between align-items-center my-3">
-    <h4>Rooms</h4>
-    <a href="{% url 'central_admin:room_create' %}" class="btn btn-primary">Create Room</a>
+<div class="d-flex justify-content-between align-items-center my-3 flex-wrap gap-2">
+    <h4 class="mb-0">Rooms</h4>
+    <div class="d-flex align-items-center gap-3">
+        <!-- View toggle -->
+        <div class="view-toggle">
+            <a href="?view=list{% if request.GET.category %}&category={{ request.GET.category }}{% endif %}{% if request.GET.search %}&search={{ request.GET.search }}{% endif %}"
+               class="view-btn {% if view_mode == 'list' %}active{% endif %}">
+                <i class="bi bi-table me-1"></i> List
+            </a>
+            <a href="?view=booking{% if request.GET.category %}&category={{ request.GET.category }}{% endif %}{% if request.GET.search %}&search={{ request.GET.search }}{% endif %}"
+               class="view-btn {% if view_mode == 'booking' %}active{% endif %}">
+                <i class="bi bi-calendar3 me-1"></i> Booking Status
+            </a>
+        </div>
+        <a href="{% url 'central_admin:room_create' %}" class="btn btn-primary">Create Room</a>
+    </div>
 </div>
 
+<!-- Shared filter bar -->
 <form method="get" class="d-flex gap-2 mb-3">
+    <input type="hidden" name="view" value="{{ view_mode }}">
     <select name="category" class="form-select">
         <option value="">All Categories</option>
         {% for value, label in categories %}
@@ -31,52 +110,204 @@
             </option>
         {% endfor %}
     </select>
-
-    <input
-        type="text"
-        name="search"
-        class="form-control"
-        placeholder="Search room..."
-        value="{{ request.GET.search }}"
-    >
-
+    <input type="text" name="search" class="form-control" placeholder="Search room..."
+           value="{{ request.GET.search }}">
     <button class="btn btn-outline-primary">Filter</button>
 </form>
 
+{% if view_mode == 'list' %}
+<!-- ════════════════════════════════
+     LIST VIEW (original table)
+════════════════════════════════ -->
 <div class="table-responsive">
-<table class="table">
-    <thead>
-        <tr>
-            <th>Room Name</th>
-            <th>Category</th>
-            <th>Capacity</th>
-            <th>Incharge</th>
-            <th>Department</th>
-            <th>Created On</th>
-            <th>Action</th>
-        </tr>
-    </thead>
-    <tbody>
-        {% for room in rooms %}
-        <tr>
-            <td>{{ room.room_name }}</td>
-            <td>
-                <span class="badge bg-secondary">
-                    {{ room.get_room_category_display }}
-                </span>
-            </td>
-            <td>{{ room.capacity }}</td>
-            <td>{{ room.incharge.user.get_full_name }}</td>
-            <td>{% if room.department %}{{ room.department.department_name }}{% else %}None{% endif %}</td>
-            <td>{{ room.created_on|date:"d-M-Y H:i:s" }}</td>
-            <td>
-                <a href="{% url 'central_admin:room_update' room_slug=room.slug %}" class="btn btn-dark btn-sm">Edit</a>
-                <a href="{% url 'central_admin:room_delete' room_slug=room.slug %}" class="btn btn-danger btn-sm">Delete</a>
-            </td>
-        </tr>
-        {% endfor %}
-    </tbody>
-</table>
+    <table class="table">
+        <thead>
+            <tr>
+                <th>Room Name</th>
+                <th>Category</th>
+                <th>Capacity</th>
+                <th>Incharge</th>
+                <th>Department</th>
+                <th>Created On</th>
+                <th>Action</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for room in rooms %}
+            <tr>
+                <td>{{ room.room_name }}</td>
+                <td><span class="badge bg-secondary">{{ room.get_room_category_display }}</span></td>
+                <td>{{ room.capacity }}</td>
+                <td>{{ room.incharge.user.get_full_name }}</td>
+                <td>{% if room.department %}{{ room.department.department_name }}{% else %}None{% endif %}</td>
+                <td>{{ room.created_on|date:"d-M-Y H:i:s" }}</td>
+                <td>
+                    {% if not request.user.userprofile.is_sub_admin %}
+                    <a href="{% url 'central_admin:room_update' room_slug=room.slug %}" class="btn btn-dark btn-sm">Edit</a>
+                    <a href="{% url 'central_admin:room_delete' room_slug=room.slug %}" class="btn btn-danger btn-sm">Delete</a>
+                    {% else %}
+                    <span class="text-muted small">View Only</span>
+                    {% endif %}
+                </td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="7" class="text-center text-muted py-4">No rooms found.</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
 </div>
+
+{% else %}
+<!-- ════════════════════════════════
+     BOOKING STATUS VIEW
+════════════════════════════════ -->
+<div class="status-sections">
+
+    <!-- ── BOOKED ────────────────────────────────────── -->
+    <div>
+        <div class="status-section-title">
+            <i class="bi bi-calendar-check-fill text-primary"></i>
+            <span>Booked</span>
+            <span class="status-badge badge-booked">{{ booked_rooms|length }} room{{ booked_rooms|length|pluralize }}</span>
+        </div>
+        {% if booked_rooms %}
+        <div class="room-cards">
+            {% for entry in booked_rooms %}
+            <div class="room-card card-booked">
+                <div class="room-card-name">{{ entry.room.room_name }}</div>
+                <div class="room-card-meta">
+                    <span class="badge bg-secondary me-1">{{ entry.room.get_room_category_display }}</span>
+                    {% if entry.room.department %}{{ entry.room.department.department_name }}{% endif %}
+                </div>
+                <div class="room-card-detail">
+                    <div class="room-card-detail-row">
+                        <span class="text-muted">Booked By</span>
+                        <span class="fw-semibold">{{ entry.booking.faculty_name }}</span>
+                    </div>
+                    <div class="room-card-detail-row">
+                        <span class="text-muted">Email</span>
+                        <span>{{ entry.booking.faculty_email }}</span>
+                    </div>
+                    <div class="room-card-detail-row">
+                        <span class="text-muted">From</span>
+                        <span class="fw-semibold">{{ entry.booking.start_datetime|date:"d M Y, H:i" }}</span>
+                    </div>
+                    <div class="room-card-detail-row">
+                        <span class="text-muted">Until</span>
+                        <span class="fw-semibold">{{ entry.booking.end_datetime|date:"d M Y, H:i" }}</span>
+                    </div>
+                    {% if entry.booking.purpose %}
+                    <div class="room-card-detail-row">
+                        <span class="text-muted">Purpose</span>
+                        <span>{{ entry.booking.purpose|truncatechars:40 }}</span>
+                    </div>
+                    {% endif %}
+                </div>
+                <div class="room-card-actions">
+                    {% if not request.user.userprofile.is_sub_admin %}
+                    <a href="{% url 'central_admin:room_update' room_slug=entry.room.slug %}" class="btn-card-sm btn-edit-dark">Edit Room</a>
+                    {% endif %}
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="empty-section"><i class="bi bi-calendar-x me-2"></i>No rooms currently booked.</div>
+        {% endif %}
+    </div>
+
+    <!-- ── PENDING APPROVAL ──────────────────────────── -->
+    <div>
+        <div class="status-section-title">
+            <i class="bi bi-hourglass-split text-warning"></i>
+            <span>Pending Approval</span>
+            <span class="status-badge badge-pending">{{ pending_booking_rooms|length }} request{{ pending_booking_rooms|length|pluralize }}</span>
+        </div>
+        {% if pending_booking_rooms %}
+        <div class="room-cards">
+            {% for entry in pending_booking_rooms %}
+            <div class="room-card card-pending">
+                <div class="room-card-name">{{ entry.room.room_name }}</div>
+                <div class="room-card-meta">
+                    <span class="badge bg-secondary me-1">{{ entry.room.get_room_category_display }}</span>
+                    {% if entry.room.department %}{{ entry.room.department.department_name }}{% endif %}
+                </div>
+                <div class="room-card-detail">
+                    <div class="room-card-detail-row">
+                        <span class="text-muted">Requested By</span>
+                        <span class="fw-semibold">{{ entry.request.faculty_name }}</span>
+                    </div>
+                    <div class="room-card-detail-row">
+                        <span class="text-muted">Email</span>
+                        <span>{{ entry.request.faculty_email }}</span>
+                    </div>
+                    <div class="room-card-detail-row">
+                        <span class="text-muted">Requested From</span>
+                        <span class="fw-semibold">{{ entry.request.start_datetime|date:"d M Y, H:i" }}</span>
+                    </div>
+                    <div class="room-card-detail-row">
+                        <span class="text-muted">Until</span>
+                        <span class="fw-semibold">{{ entry.request.end_datetime|date:"d M Y, H:i" }}</span>
+                    </div>
+                    <div class="room-card-detail-row">
+                        <span class="text-muted">Submitted</span>
+                        <span>{{ entry.request.created_on|date:"d M Y" }}</span>
+                    </div>
+                </div>
+                <div class="room-card-actions">
+                    <a href="{% url 'central_admin:approval_requests' %}?type=booking_req"
+                       class="btn-card-sm btn-edit-dark">Review Request</a>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="empty-section"><i class="bi bi-check2-circle me-2"></i>No pending booking requests.</div>
+        {% endif %}
+    </div>
+
+    <!-- ── AVAILABLE ─────────────────────────────────── -->
+    <div>
+        <div class="status-section-title">
+            <i class="bi bi-check-circle-fill text-success"></i>
+            <span>Available</span>
+            <span class="status-badge badge-available">{{ available_rooms|length }} room{{ available_rooms|length|pluralize }}</span>
+        </div>
+        {% if available_rooms %}
+        <div class="room-cards">
+            {% for room in available_rooms %}
+            <div class="room-card card-available">
+                <div class="room-card-name">{{ room.room_name }}</div>
+                <div class="room-card-meta">
+                    <span class="badge bg-secondary me-1">{{ room.get_room_category_display }}</span>
+                    {% if room.department %}{{ room.department.department_name }}{% endif %}
+                    &nbsp;·&nbsp; Capacity: {{ room.capacity }}
+                </div>
+                <div class="room-card-detail">
+                    <div class="room-card-detail-row">
+                        <span class="text-muted">Incharge</span>
+                        <span class="fw-semibold">{{ room.incharge.user.get_full_name }}</span>
+                    </div>
+                    <div class="room-card-detail-row">
+                        <span class="text-muted">Status</span>
+                        <span class="fw-semibold text-success">Available Now</span>
+                    </div>
+                </div>
+                <div class="room-card-actions">
+                    {% if not request.user.userprofile.is_sub_admin %}
+                    <a href="{% url 'central_admin:room_update' room_slug=room.slug %}" class="btn-card-sm btn-edit-dark">Edit</a>
+                    <a href="{% url 'central_admin:room_delete' room_slug=room.slug %}" class="btn-card-sm btn-del-red">Delete</a>
+                    {% endif %}
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="empty-section"><i class="bi bi-calendar-check me-2"></i>All rooms are currently booked or pending.</div>
+        {% endif %}
+    </div>
+
+</div>
+{% endif %}
 
 {% endblock content %}

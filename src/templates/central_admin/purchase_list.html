@@ -1,10 +1,17 @@
 {% extends "sidebar_base.html" %}
 {% load static %}
 
-{% block title %}| Purchase List{% endblock title %}
+{% block title %}| Purchase Requests{% endblock title %}
 
 {% block style %}
 <link rel="stylesheet" href="{% static 'styles/inventory/central_admin/purchase_list/style.css' %}">
+<style>
+    .status-badge { padding: 5px 12px; border-radius: 20px; font-size: 0.8rem; font-weight: 600; }
+    .status-requested  { background: #fef3c7; color: #92400e; }
+    .status-approved   { background: #d1fae5; color: #065f46; }
+    .status-rejected   { background: #fee2e2; color: #991b1b; }
+    .status-completed  { background: #dbeafe; color: #1e40af; }
+</style>
 {% endblock style %}
 
 {% block navbar %}
@@ -18,136 +25,179 @@
 {% block content %}
 <section>
     <div class="d-flex justify-content-between align-items-center my-3">
-        <h4>Purchases</h4>
+        {% if is_sub_admin %}
+            <div>
+                <h4 class="mb-0">My Purchase Requests</h4>
+                <small class="text-muted">Requests you have raised — track their approval status here</small>
+            </div>
+            <a href="{% url 'central_admin:purchase_create' %}" class="btn btn-primary">
+                <i class="bi bi-plus-circle me-1"></i> New Request
+            </a>
+        {% else %}
+            <div>
+                <h4 class="mb-0">Purchase Requests</h4>
+                <small class="text-muted">Requests raised by sub-admins — review and approve them here</small>
+            </div>
+        {% endif %}
     </div>
+
+    {% if messages %}
+    <div class="mb-3">
+        {% for message in messages %}
+        <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+            {{ message }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    {% if purchases %}
     <div class="table-responsive">
-        <table class="table">
-            <thead>
+        <table class="table table-hover align-middle">
+            <thead class="table-light">
                 <tr>
-                    <th>Purchase Id</th>
+                    <th>Request ID</th>
                     <th>Item Name</th>
-                    <th>Quantity</th>
-                    <th>Vendor</th>
+                    <th>Qty</th>
                     <th>Room</th>
+                    {% if is_central_admin %}<th>Raised By</th>{% endif %}
+                    <th>Reason</th>
                     <th>Status</th>
-                    <th>Action</th>
+                    <th>Date</th>
+                    <th class="text-center">Action</th>
                 </tr>
             </thead>
             <tbody>
                 {% for purchase in purchases %}
                 <tr>
-                    <td>{{purchase.id}}</td>
-                    <td>{{purchase.item.item_name}}</td>
-                    <td>{{purchase.quantity}}</td>
-                    <td>{{purchase.vendor.vendor_name}}</td>
-                    <td>{{purchase.room.room_name}}</td>
+                    <td><code class="small">{{ purchase.purchase_id }}</code></td>
+                    <td class="fw-semibold">{{ purchase.item.item_name }}</td>
+                    <td>{{ purchase.quantity }} {{ purchase.unit_of_measure }}</td>
+                    <td>{{ purchase.room.room_name|default:"—" }}</td>
+                    {% if is_central_admin %}
+                    <td>
+                        {% if purchase.requested_by %}
+                            <span class="badge bg-light text-dark border">
+                                <i class="bi bi-person me-1"></i>{{ purchase.requested_by.user.get_full_name|default:purchase.requested_by.user.username }}
+                            </span>
+                        {% else %}
+                            <span class="text-muted small">—</span>
+                        {% endif %}
+                    </td>
+                    {% endif %}
+                    <td>
+                        {% if purchase.reason %}
+                            <span class="small text-muted" title="{{ purchase.reason }}">{{ purchase.reason|truncatechars:40 }}</span>
+                        {% else %}
+                            <span class="text-muted small">—</span>
+                        {% endif %}
+                    </td>
                     <td>
                         {% if purchase.status == 'requested' %}
-                        <span class="fw-semibold text-dark">Requested</span>
-                        {% endif %}
-                        {% if purchase.status == 'approved' %}
-                        <span class="fw-semibold text-success">Approved</span>
+                            <span class="status-badge status-requested">Requested</span>
+                        {% elif purchase.status == 'approved' %}
+                            <span class="status-badge status-approved">Approved</span>
+                        {% elif purchase.status == 'rejected' %}
+                            <span class="status-badge status-rejected">Rejected</span>
                         {% elif purchase.status == 'completed' %}
-                        {% if not purchase.added_to_stock %}
-                        <span class="fw-semibold text-primary">Purchase completed</span>
-                        {% else %}
-                        <span class="fw-semibold text-success">Added to Stock</span>
-                        {% endif %}
-                        {% endif %}
-                        {% if purchase.status == 'rejected' %}
-                        <span class="fw-semibold text-danger">Rejected</span>
+                            <span class="status-badge status-completed">
+                                {% if not purchase.added_to_stock %}Purchased{% else %}Added to Stock{% endif %}
+                            </span>
                         {% endif %}
                     </td>
-                    <td>
-                        <button type="button" class="btn btn-outline-dark btn-sm" data-bs-toggle="modal"
-                            data-bs-target="#purchaseModal{{ purchase.id }}">
-                            View Details
+                    <td><small class="text-muted">{{ purchase.created_on|date:"d M Y" }}</small></td>
+                    <td class="text-center">
+                        <button type="button" class="btn btn-sm btn-outline-secondary"
+                            data-bs-toggle="modal" data-bs-target="#purchaseModal{{ purchase.id }}">
+                            <i class="bi bi-eye me-1"></i>Details
                         </button>
                     </td>
+                </tr>
 
-                    <!-- Modal -->
-                    <div class="modal fade" id="purchaseModal{{ purchase.id }}" tabindex="-1"
-                        aria-labelledby="purchaseModalLabel{{ purchase.id }}" aria-hidden="true">
-                        <div class="modal-dialog">
-                            <div class="modal-content">
-                                <div class="modal-header">
-                                    <h5 class="modal-title" id="purchaseModalLabel{{ purchase.id }}">Purchase Details
-                                    </h5>
-                                    <button type="button" class="btn-close" data-bs-dismiss="modal"
-                                        aria-label="Close"></button>
-                                </div>
-                                <div class="modal-body">
-                                    <p><strong>Purchase ID:</strong> {{ purchase.purchase_id }}</p>
-                                    <p><strong>Item:</strong> {{ purchase.item.item_name }}</p>
-                                    <p><strong>Quantity:</strong> {{ purchase.quantity }}</p>
-                                    <p><strong>Unit of Measure:</strong> {{ purchase.unit_of_measure }}</p>
-                                    <p><strong>Vendor:</strong> {{ purchase.vendor.vendor_name }}</p>
-                                    <p><strong>Created On:</strong> {{ purchase.created_on }}</p>
-                                    <p><strong>Updated On:</strong> {{ purchase.updated_on }}</p>
-                                    {% if purchase.receipt %}
-                                    <p><strong>Receipt:</strong> <a href="{{ purchase.receipt.receipt.url }}"
-                                            target="_blank">View</a></p>
-                                    {% endif %}
-                                </div>
-                                <div class="modal-footer">
+                <!-- Details Modal -->
+                <div class="modal fade" id="purchaseModal{{ purchase.id }}" tabindex="-1" aria-hidden="true">
+                    <div class="modal-dialog">
+                        <div class="modal-content">
+                            <div class="modal-header" style="background: #0f172a; color: white;">
+                                <h5 class="modal-title fw-bold">
+                                    <i class="bi bi-bag-check me-2"></i>Purchase Request Details
+                                </h5>
+                                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                            </div>
+                            <div class="modal-body">
+                                <p><strong>Request ID:</strong> <code>{{ purchase.purchase_id }}</code></p>
+                                <p><strong>Item:</strong> {{ purchase.item.item_name }}</p>
+                                <p><strong>Quantity:</strong> {{ purchase.quantity }} {{ purchase.unit_of_measure }}</p>
+                                <p><strong>Room:</strong> {{ purchase.room.room_name|default:"Not specified" }}</p>
+                                {% if purchase.reason %}
+                                <p><strong>Reason:</strong> {{ purchase.reason }}</p>
+                                {% endif %}
+                                {% if is_central_admin and purchase.requested_by %}
+                                <p><strong>Raised By:</strong> {{ purchase.requested_by.user.get_full_name|default:purchase.requested_by.user.username }}</p>
+                                {% endif %}
+                                {% if purchase.vendor %}
+                                <p><strong>Vendor:</strong> {{ purchase.vendor.vendor_name }}</p>
+                                {% endif %}
+                                <p><strong>Status:</strong>
                                     {% if purchase.status == 'requested' %}
-                                    <a class="btn btn-sm btn-success fw-semibold"
-                                        href="{% url 'central_admin:purchase_approve' purchase_slug=purchase.slug %}">Approve</a>
-                                    <a class="btn btn-sm btn-danger fw-semibold"
-                                        href="{% url 'central_admin:purchase_decline' purchase_slug=purchase.slug %}">Reject</a>
-                                    {% endif %}
-                                    {% if purchase.status == 'approved' %}
-                                    <span class="fw-semibold text-success">Approved</span>
+                                        <span class="badge bg-warning text-dark">Pending Review</span>
+                                    {% elif purchase.status == 'approved' %}
+                                        <span class="badge bg-success">Approved</span>
+                                    {% elif purchase.status == 'rejected' %}
+                                        <span class="badge bg-danger">Rejected</span>
                                     {% elif purchase.status == 'completed' %}
-                                    {% if not purchase.added_to_stock %}
-                                    <span class="fw-semibold text-primary">Purchase completed</span>
-                                    {% else %}
-                                    <span class="fw-semibold text-success">Added to Stock</span>
+                                        <span class="badge bg-primary">Completed</span>
                                     {% endif %}
-                                    {% endif %}
-                                    {% if purchase.status == 'rejected' %}
-                                    <span class="fw-semibold text-danger">Rejected</span>
-                                    {% endif %}
-                                </div>
+                                </p>
+                                <p><strong>Date Raised:</strong> {{ purchase.created_on|date:"d M Y, H:i" }}</p>
+                                {% if purchase.receipt %}
+                                <p><strong>Receipt:</strong> <a href="{{ purchase.receipt.receipt.url }}" target="_blank">View Receipt</a></p>
+                                {% endif %}
+                            </div>
+                            <div class="modal-footer">
+                                {% if is_central_admin and purchase.status == 'requested' %}
+                                    <a class="btn btn-success fw-semibold"
+                                        href="{% url 'central_admin:purchase_approve' purchase_slug=purchase.slug %}">
+                                        <i class="bi bi-check-circle me-1"></i>Approve
+                                    </a>
+                                    <a class="btn btn-danger fw-semibold"
+                                        href="{% url 'central_admin:purchase_decline' purchase_slug=purchase.slug %}">
+                                        <i class="bi bi-x-circle me-1"></i>Reject
+                                    </a>
+                                {% elif purchase.status == 'approved' %}
+                                    <span class="fw-semibold text-success"><i class="bi bi-check-circle-fill me-1"></i>Approved</span>
+                                {% elif purchase.status == 'rejected' %}
+                                    <span class="fw-semibold text-danger"><i class="bi bi-x-circle-fill me-1"></i>Rejected</span>
+                                {% elif purchase.status == 'completed' %}
+                                    <span class="fw-semibold text-primary"><i class="bi bi-bag-check-fill me-1"></i>
+                                        {% if not purchase.added_to_stock %}Purchase Completed{% else %}Added to Stock{% endif %}
+                                    </span>
+                                {% else %}
+                                    <button class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                                {% endif %}
                             </div>
                         </div>
                     </div>
-
-                </tr>
+                </div>
                 {% endfor %}
             </tbody>
         </table>
     </div>
+    {% else %}
+    <div class="text-center py-5">
+        <i class="bi bi-bag-x" style="font-size: 4rem; color: #cbd5e0;"></i>
+        {% if is_sub_admin %}
+            <h5 class="text-muted mt-3">No Purchase Requests Yet</h5>
+            <p class="text-muted">Raise a new purchase request when you need items.</p>
+            <a href="{% url 'central_admin:purchase_create' %}" class="btn btn-primary mt-2">
+                <i class="bi bi-plus-circle me-1"></i>Raise Purchase Request
+            </a>
+        {% else %}
+            <h5 class="text-muted mt-3">No Purchase Requests</h5>
+            <p class="text-muted">No purchase requests have been raised by sub-admins yet.</p>
+        {% endif %}
+    </div>
+    {% endif %}
 </section>
-
 {% endblock content %}
-
-
-
-<!DOCTYPE html>
-<html lang="en">
-
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Purchase List</title>
-</head>
-
-<body>
-    <h1>Purchase List</h1>
-    <p><a href="{% url 'central_admin:dashboard' %}">Back to Dashboard</a></p>
-    <ul>
-        {% for purchase in purchases %}
-        <li>
-            {{ purchase.item.item_name }} - {{ purchase.quantity }} {{ purchase.unit_of_measure }} - {{ purchase.status
-            }}
-            {% if purchase.status == 'requested' %}
-            <a href="{% url 'central_admin:purchase_approve' purchase_slug=purchase.slug %}">Approve</a>
-            <a href="{% url 'central_admin:purchase_decline' purchase_slug=purchase.slug %}">Decline</a>
-            {% endif %}
-        </li>
-        {% endfor %}
-    </ul>
-</body>
-
-</html>

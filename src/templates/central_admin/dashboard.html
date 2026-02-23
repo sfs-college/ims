@@ -6,6 +6,7 @@
 {% block style %}
 <link rel="stylesheet" href="{% static 'styles/inventory/central_admin/dashboard/style.css' %}">
 <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
 {% endblock style %}
 
 {% block navbar %}
@@ -20,6 +21,24 @@
 <section>
     <div class="d-flex justify-content-between align-items-center mb-4">
         <h3 class="fw-bold">Admin Dashboard</h3>
+        <!-- Admin Notification Bell -->
+        <a href="{% url 'central_admin:admin_notifications' %}"
+           class="position-relative text-decoration-none" id="dashBellLink" title="Notifications"
+           style="display:inline-flex;align-items:center;gap:10px;">
+            <div style="width:42px;height:42px;background:#fff;border:1.5px solid #e2e8f0;
+                        border-radius:12px;display:flex;align-items:center;justify-content:center;
+                        box-shadow:0 2px 6px rgba(0,0,0,0.06);transition:background 0.18s;"
+                 onmouseover="this.style.background='#f1f5f9'"
+                 onmouseout="this.style.background='#fff'">
+                <i class="bi bi-bell-fill" style="font-size:1.1rem;color:#6366f1;"></i>
+            </div>
+            <span id="dashBellBadge"
+                  style="display:none;position:absolute;top:-7px;right:-7px;
+                         background:#ef4444;color:#fff;border-radius:999px;
+                         font-size:0.62rem;font-weight:800;padding:2px 5px;
+                         min-width:18px;text-align:center;line-height:1.5;
+                         border:2px solid #fff;pointer-events:none;">0</span>
+        </a>
     </div>
     <div class="row mb-5">
         <div class="col-12">
@@ -106,9 +125,20 @@
         <div class="col-md-6 mb-4">
             <div class="card">
                 <div class="card-body">
-                    <h5 class="card-title">Purchases</h5>
-                    <p class="card-text">Manage purchases in the system.</p>
-                    <a href="{% url 'central_admin:purchase_list' %}" class="btn btn-outline-primary">View Purchases</a>
+                    {% if request.user.profile.is_central_admin and not request.user.profile.is_sub_admin %}
+                        <h5 class="card-title">Purchase Requests</h5>
+                        <p class="card-text">Review and approve purchase requests from sub-admins.</p>
+                        <a href="{% url 'central_admin:purchase_list' %}" class="btn btn-outline-primary">View Requests</a>
+                    {% elif request.user.profile.is_sub_admin %}
+                        <h5 class="card-title">My Purchase Requests</h5>
+                        <p class="card-text">Raise new purchase requests or track existing ones.</p>
+                        <a href="{% url 'central_admin:purchase_list' %}" class="btn btn-outline-primary me-2">My Requests</a>
+                        <a href="{% url 'central_admin:purchase_create' %}" class="btn btn-primary">+ New Request</a>
+                    {% else %}
+                        <h5 class="card-title">Purchases</h5>
+                        <p class="card-text">Manage purchases in the system.</p>
+                        <a href="{% url 'central_admin:purchase_list' %}" class="btn btn-outline-primary">View Purchases</a>
+                    {% endif %}
                 </div>
             </div>
         </div>
@@ -133,3 +163,28 @@
     </div>
 </section>
 {% endblock content %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    function refreshDashBell() {
+        fetch('{% url "central_admin:admin_notification_counts" %}')
+            .then(function(r) { return r.ok ? r.json() : null; })
+            .then(function(data) {
+                if (!data) return;
+                var badge = document.getElementById('dashBellBadge');
+                if (!badge) return;
+                if (data.total > 0) {
+                    badge.textContent = data.total > 99 ? '99+' : data.total;
+                    badge.style.display = 'block';
+                } else {
+                    badge.style.display = 'none';
+                }
+            })
+            .catch(function() {});
+    }
+    refreshDashBell();
+    setInterval(refreshDashBell, 60000);
+});
+</script>
+{% endblock extra_js %}

@@ -18,7 +18,15 @@
     .chart-container { background: white; border-radius: 20px; padding: 20px; margin-bottom: 45px; border: 1px solid #e2e8f0; }
     .manager-card {
         background: white; border: 1px solid #e2e8f0; border-radius: 20px; cursor: pointer;
-        padding: 30px; text-align: center; transition: all 0.3s ease;
+        padding: 30px; text-align: center; transition: all 0.3s ease;height: 100%; 
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+    }
+    .row-equal-height > [class*='col-'] {
+        display: flex;
+        flex-direction: column;
     }
     .manager-card:hover { 
         background: var(--aura-primary); color: white !important; 
@@ -32,14 +40,27 @@
     .btn-close-white { filter: invert(1) grayscale(100%) brightness(200%); }
     .report-table thead { position: sticky; top: 0; background: var(--aura-dark); color: white; }
     .table-responsive {
-        overflow: visible !important;
-        max-height: none !important;
+        overflow: auto !important;
     }
+    /* Faculty table sticky header needs overflow auto, not visible */
+    #credTable thead th { position: sticky; top: 0; z-index: 2; }
+    .cred-checkbox { cursor: pointer; width: 16px; height: 16px; }
     
     #reportContainer table {
         width: 100% !important;
         background-color: white !important;
     }
+    
+    .hover-card {
+    transition: all 0.3s ease;
+    }
+
+    .hover-card:hover {
+    background-color: #f8fafc;
+    transform: translateY(-5px);
+    box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1);
+    }
+
 </style>
 {% endblock style %}
 
@@ -53,8 +74,25 @@
             <h1 class="fw-bold text-dark mb-0">AURA <span class="text-primary">Command</span></h1>
             <p class="text-muted mb-0">Admin Unified Report & Analysis System</p>
         </div>
-        <div class="text-end">
+        <div class="text-end d-flex align-items-center gap-3 justify-content-end">
             <span class="badge bg-primary px-3 py-2 rounded-pill"><i class="bi bi-broadcast me-1"></i> LIVE SYSTEM DATA</span>
+            <!-- ── Admin Notification Bell ── -->
+            <a href="{% url 'central_admin:admin_notifications' %}"
+               class="position-relative text-decoration-none" id="adminBellLink" title="Notifications">
+                <div style="width:42px;height:42px;background:#fff;border:1.5px solid #e2e8f0;
+                            border-radius:12px;display:flex;align-items:center;justify-content:center;
+                            box-shadow:0 2px 6px rgba(0,0,0,0.06);transition:background 0.18s;"
+                     onmouseover="this.style.background='#f1f5f9'"
+                     onmouseout="this.style.background='#fff'">
+                    <i class="bi bi-bell-fill" style="font-size:1.1rem;color:#6366f1;"></i>
+                </div>
+                <span id="adminBellBadge"
+                      style="display:none;position:absolute;top:-7px;right:-7px;
+                             background:#ef4444;color:#fff;border-radius:999px;
+                             font-size:0.62rem;font-weight:800;padding:2px 5px;
+                             min-width:18px;text-align:center;line-height:1.5;
+                             border:2px solid #fff;pointer-events:none;">0</span>
+            </a>
         </div>
     </div>
 
@@ -73,7 +111,7 @@
         </div>
         <div class="col-md-3">
             <div class="stat-card">
-                <small class="text-uppercase fw-bold text-muted">Active Bookings</small>
+                <small class="text-uppercase fw-bold text-muted">Confirmed Bookings</small>
                 <h2 class="fw-bold text-primary mt-1">{{ active_bookings }}</h2>
             </div>
         </div>
@@ -107,7 +145,7 @@
     </div>
 
     <h5 class="fw-bold mb-4 mt-2">Command Operations</h5>
-    <div class="row">
+    <div class="row row-equal-height">
         <div class="col-md-4 mb-4">
             <div class="manager-card" data-bs-toggle="modal" data-bs-target="#reportModal">
                 <i class="bi bi-file-earmark-spreadsheet-fill text-primary"></i>
@@ -126,7 +164,28 @@
             <div class="manager-card" data-bs-toggle="modal" data-bs-target="#bookingManagerModal" onclick="loadBookingData()">
                 <i class="bi bi-calendar-event-fill text-success"></i>
                 <h5 class="fw-bold">Room Booking Manager</h5>
-                <p class="small opacity-75 mb-0">Real-time Scheduling & Booking Control</p>
+                <p class="small opacity-75 mb-0">Confirmed Bookings &amp; Schedule Control</p>
+            </div>
+        </div>
+        <div class="col-md-4 mb-4">
+            <div class="manager-card" data-bs-toggle="modal" data-bs-target="#facultyManagerModal" onclick="loadFacultyCredentials()">
+                <i class="bi bi-person-check-fill text-info"></i>
+                <h5 class="fw-bold">Faculty Manager</h5>
+                <p class="small opacity-75 mb-0">Manage Booking Credentials</p>
+            </div>
+        </div>
+        <div class="col-md-4 mb-4">
+            <div class="manager-card" data-bs-toggle="modal" data-bs-target="#bookingFilesModal" onclick="loadBookingFiles()">
+                <i class="bi bi-file-earmark-text-fill text-danger"></i>
+                <h5 class="fw-bold">Confirmed Booking Files</h5>
+                <p class="small opacity-75 mb-0">View purposes &amp; attachments from approved bookings</p>
+            </div>
+        </div>
+        <div class="col-md-4 mb-4">
+            <div class="manager-card" data-bs-toggle="modal" data-bs-target="#masterInventoryModal">
+                <i class="bi bi-box-seam-fill" style="color: #9333ea;"></i>
+                <h5 class="fw-bold">Master Inventory</h5>
+                <p class="small opacity-75 mb-0">Master inventory stock</p>
             </div>
         </div>
     </div>
@@ -149,9 +208,11 @@
                             <option value="rooms">Rooms</option>
                             <option value="purchases">Purchases</option>
                         </select>
+                        {% if request.user.profile.is_central_admin and not request.user.profile.is_sub_admin %}
                         <button id="bulkDeleteBtn" class="btn btn-danger btn-sm d-none" onclick="bulkDeleteRecords()">
                             <i class="bi bi-trash3-fill me-1"></i> Bulk Delete
                         </button>
+                        {% endif %}
                     </div>
                     <div class="text-end">
                         <small class="text-muted" id="recordCount">Loading records...</small>
@@ -159,9 +220,12 @@
                 </div>
                 <div class="table-responsive">
                     <table class="table table-hover align-middle">
+                       
                         <thead class="table-light">
                             <tr>
+                                {% if request.user.profile.is_central_admin and not request.user.profile.is_sub_admin %}
                                 <th style="width: 40px;"><input type="checkbox" id="selectAll" onclick="toggleSelectAll(this)"></th>
+                                {% endif %}
                                 <th>ID</th><th>Main Label</th><th>Details / Status</th><th class="text-end">Actions</th>
                             </tr>
                         </thead>
@@ -209,9 +273,14 @@
                 <div id="reportContainer" style="display:none;">
                     <div class="d-flex justify-content-between mb-2">
                         <h6 class="fw-bold">Report Results</h6>
-                        <button class="btn btn-sm btn-outline-danger" onclick="downloadAuraPDF()">
-                            <i class="bi bi-file-earmark-pdf me-1"></i> Download PDF
-                        </button>
+                        <div>
+                            <button class="btn btn-sm btn-outline-success me-2" onclick="downloadAuraExcel()">
+                                <i class="bi bi-file-earmark-excel me-1"></i> Download Excel
+                            </button>
+                            <button class="btn btn-sm btn-outline-danger" onclick="downloadAuraPDF()">
+                                <i class="bi bi-file-earmark-pdf me-1"></i> Download PDF
+                            </button>
+                        </div>
                     </div>
                     <div class="table-responsive" style="max-height: 400px;">
                         <table class="table table-bordered report-table">
@@ -248,13 +317,211 @@
     </div>
 </div>
 
+
+<!-- Master Inventory Modal -->
+<div class="modal fade" id="masterInventoryModal" tabindex="-1">
+    <div class="modal-dialog modal-xl modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title fw-bold"><i class="bi bi-box-seam me-2"></i>Master Inventory Management</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body text-center py-5">
+                <div class="row g-3">
+                    <div class="col-6">
+                        <div class="p-4 border rounded-3 h-100 hover-card" style="cursor: pointer;" onclick="window.location.href='{% url 'central_admin:master_inventory_import' %}'">
+                            <i class="bi bi-file-earmark-spreadsheet-fill text-success" style="font-size: 3rem;"></i>
+                            <h6 class="fw-bold mt-3 mb-1">Import Excel</h6>
+                            <p class="small text-muted mb-0">Bulk upload items from spreadsheet</p>
+                        </div>
+                    </div>
+                    <div class="col-6">
+                        <div class="p-4 border rounded-3 h-100 hover-card" style="cursor: pointer;" onclick="window.location.href='{% url 'central_admin:master_inventory_list' %}'">
+                            <i class="bi bi-table text-primary" style="font-size: 3rem;"></i>
+                            <h6 class="fw-bold mt-3 mb-1">View Master Inventory</h6>
+                            <p class="small text-muted mb-0">See all items & assign to rooms</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+<!-- ══ CONFIRMED BOOKING FILES MODAL ══ -->
+<div class="modal fade" id="bookingFilesModal" tabindex="-1"
+     data-booking-files-url="{% url 'central_admin:confirmed_booking_files' %}">
+    <div class="modal-dialog modal-xl modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title fw-bold"><i class="bi bi-file-earmark-text me-2"></i>Confirmed Booking Files</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p class="text-muted small mb-3">All confirmed (admin-approved) bookings are listed here, including their purpose and any attached documents.</p>
+                <div id="bookingFilesBody">
+                    <div class="text-center py-5">
+                        <div class="spinner-border text-primary"></div>
+                        <p class="mt-2 text-muted">Loading confirmed bookings...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- File Detail Popup (in-page overlay) -->
+<div id="fileDetailOverlay" style="display:none;position:fixed;inset:0;z-index:2000;background:rgba(15,23,42,0.65);backdrop-filter:blur(6px);align-items:center;justify-content:center;padding:20px;">
+    <div id="fileDetailBox" style="background:#fff;border-radius:24px;padding:40px;max-width:560px;width:100%;position:relative;box-shadow:0 30px 60px -10px rgba(0,0,0,0.3);animation:fdSlideUp 0.3s ease;">
+        <button onclick="closeFileDetail()" style="position:absolute;top:16px;right:18px;background:none;border:none;font-size:1.4rem;cursor:pointer;color:#94a3b8;">&#x2715;</button>
+        <div id="fileDetailContent"></div>
+    </div>
+</div>
+<style>
+    @keyframes fdSlideUp { from { transform:translateY(28px);opacity:0; } to { transform:translateY(0);opacity:1; } }
+    #fileDetailOverlay.open { display:flex; }
+    .booking-file-card { background:#fff; border:1px solid #e2e8f0; border-radius:16px; padding:20px 24px; margin-bottom:14px; display:flex; align-items:flex-start; gap:16px; transition:box-shadow 0.2s; }
+    .booking-file-card:hover { box-shadow: 0 8px 24px rgba(0,0,0,0.07); }
+    .bfc-icon { width:48px;height:48px;border-radius:12px;background:linear-gradient(135deg,#6366f1,#a855f7);display:flex;align-items:center;justify-content:center;flex-shrink:0; }
+    .bfc-icon i { color:#fff;font-size:1.4rem; }
+    .bfc-body { flex:1; }
+    .bfc-room { font-weight:800;color:#1e293b;font-size:1rem;margin-bottom:4px; }
+    .bfc-meta { font-size:0.82rem;color:#64748b;margin-bottom:6px; }
+    .bfc-purpose { font-size:0.85rem;color:#475569;background:#f8fafc;border-radius:8px;padding:8px 12px;border-left:3px solid #6366f1;margin-bottom:8px; white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:400px; }
+    .bfc-actions { display:flex;gap:8px; }
+    .btn-view-file { background:linear-gradient(135deg,#6366f1,#9333ea);color:#fff;border:none;border-radius:10px;padding:7px 18px;font-weight:700;font-size:0.82rem;cursor:pointer;transition:opacity 0.2s; }
+    .btn-view-file:hover { opacity:0.85; }
+    .btn-dl-file { background:#f1f5f9;color:#475569;border:1px solid #e2e8f0;border-radius:10px;padding:7px 14px;font-weight:600;font-size:0.82rem;text-decoration:none;display:inline-flex;align-items:center;gap:5px;transition:background 0.2s; }
+    .btn-dl-file:hover { background:#e2e8f0; color:#1e293b; }
+</style>
+
+<!-- room booking faculty manager -->
+<div class="modal fade" id="facultyManagerModal" tabindex="-1">
+    <div class="modal-dialog modal-xl modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title fw-bold"><i class="bi bi-person-badge me-2"></i>Faculty Booking Credentials</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+
+                <!-- Central Admin: Import + Bulk Delete toolbar -->
+                {% if not request.user.userprofile.is_sub_admin %}
+                <div class="d-flex justify-content-between align-items-center mb-3 bg-light p-3 rounded-3">
+                    <div>
+                        <h6 class="fw-bold mb-0">Authorization Control</h6>
+                        <p class="text-muted small mb-0">Import Excel with columns: <code>email, designation, password</code></p>
+                    </div>
+                    <div class="d-flex gap-2 align-items-center">
+                        <form id="importCredForm" action="{% url 'core:import_booking_credentials' %}" method="POST" enctype="multipart/form-data" class="d-flex gap-2 align-items-center">
+                            {% csrf_token %}
+                            <label class="btn btn-outline-secondary btn-sm mb-0" style="cursor:pointer;">
+                                <i class="bi bi-file-earmark-excel me-1"></i>
+                                <span id="credFileName">Choose Excel File</span>
+                                <input type="file" name="excel_file" id="credExcelFile" accept=".xlsx,.xls" style="display:none;" onchange="updateCredFileName(this)" required>
+                            </label>
+                            <button type="submit" id="importCredBtn" class="btn btn-primary btn-sm px-3" disabled>
+                                <i class="bi bi-upload me-1"></i> Import
+                            </button>
+                        </form>
+                        <button class="btn btn-danger btn-sm" onclick="bulkDeleteCreds()">
+                            <i class="bi bi-trash me-1"></i> Bulk Delete
+                        </button>
+                    </div>
+                </div>
+                {% else %}
+                <div class="mb-3 bg-light p-3 rounded-3">
+                    <h6 class="fw-bold mb-0">Authorization Control</h6>
+                    <p class="text-muted small mb-0">View-only access — contact Central Admin to make changes.</p>
+                </div>
+                {% endif %}
+
+                <!-- Alert -->
+                <div id="facultyImportAlert" class="d-none mb-3"></div>
+
+                <!-- Summary bar -->
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <small class="text-muted" id="credCount"></small>
+                    <input type="text" id="credSearch" class="form-control form-control-sm w-25"
+                           placeholder="🔍  Search email..." oninput="filterCredTable()">
+                </div>
+
+                <div class="table-responsive" style="max-height:420px; overflow-y:auto;">
+                    <table class="table table-hover align-middle mb-0" id="credTable">
+                        <thead class="table-dark" style="position:sticky;top:0;z-index:1;">
+                            <tr>
+                                {% if not request.user.userprofile.is_sub_admin %}
+                                <th style="width:36px;"><input type="checkbox" id="selectAllCreds"></th>
+                                {% endif %}
+                                <th>Email</th>
+                                <th>Designation</th>
+                                <th>Password</th>
+                                <th class="text-end">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="facultyCredBody">
+                            <tr><td colspan="5" class="text-center py-4">
+                                <div class="spinner-border spinner-border-sm text-primary me-2"></div>Loading...
+                            </td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Edit Credential Modal (Central Admin only) -->
+<div class="modal fade" id="editCredModal" tabindex="-1" style="z-index:1060;">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header" style="background:#0f172a; color:white; border-radius:20px 20px 0 0;">
+                <h6 class="modal-title fw-bold"><i class="bi bi-pencil-square me-2"></i>Edit Credential</h6>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body p-4">
+                <input type="hidden" id="editCredId">
+                <div class="mb-3">
+                    <label class="form-label fw-bold small text-muted">EMAIL</label>
+                    <input type="email" id="editCredEmail" class="form-control" placeholder="faculty@sfscollege.in">
+                </div>
+                <div class="mb-3">
+                    <label class="form-label fw-bold small text-muted">DESIGNATION</label>
+                    <input type="text" id="editCredDesignation" class="form-control" placeholder="e.g. Faculty, HOD">
+                </div>
+                <div class="mb-3">
+                    <label class="form-label fw-bold small text-muted">PASSWORD <span class="text-muted fw-normal">(leave blank to keep existing)</span></label>
+                    <div class="input-group">
+                        <input type="password" id="editCredPassword" class="form-control" placeholder="New password (optional)">
+                        <button class="btn btn-outline-secondary" type="button" onclick="toggleEditPwd()">
+                            <i class="bi bi-eye" id="editPwdIcon"></i>
+                        </button>
+                    </div>
+                </div>
+                <div id="editCredAlert" class="d-none"></div>
+            </div>
+            <div class="modal-footer border-0">
+                <button class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>
+                <button class="btn btn-primary btn-sm px-4" onclick="saveCredEdit()">
+                    <i class="bi bi-check2 me-1"></i> Save Changes
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
 <script>
+    const IS_CENTRAL_ADMIN = {% if request.user.profile.is_central_admin and not request.user.profile.is_sub_admin %}true{% else %}false{% endif %};
+
     // 1. Live Charts Logic
     document.addEventListener('DOMContentLoaded', function() {
         fetch('{% url "central_admin:aura_api_analytics" %}')
-            .then(res => res.json())
+            .then(res => {
+                if (!res.ok) throw new Error('HTTP ' + res.status);
+                return res.json();
+            })
             .then(data => {
                 // Issues Chart
                 new ApexCharts(document.querySelector("#issueChart"), {
@@ -282,41 +549,88 @@
                     colors: ['#0f172a', '#3b82f6'],
                     legend: { position: 'bottom' }
                 }).render();
+            })
+            .catch(err => {
+                console.warn('AURA analytics load failed:', err);
+                ['issueChart','categoryChart','roomChart'].forEach(id => {
+                    const el = document.getElementById(id);
+                    if (el) el.innerHTML = '<div class="text-center text-muted py-4 small"><i class="bi bi-exclamation-circle me-1"></i>Chart data unavailable</div>';
+                });
             });
     });
 
     // 2. Data Manager Logic
     function loadAuraData() {
-        const model = document.getElementById('modelSelector').value;
-        const body = document.getElementById('auraDataBody');
-        const selectAllCb = document.getElementById('selectAll');
+    const model = document.getElementById('modelSelector').value;
+    const body = document.getElementById('auraDataBody');
+    const recordCount = document.getElementById('recordCount');
 
-        document.getElementById('selectAll').checked = false;
-        document.getElementById('bulkDeleteBtn').classList.add('d-none');
-        body.innerHTML = '<tr><td colspan="5" class="text-center py-5"><div class="spinner-border text-primary"></div></td></tr>';
+    const selectAllCheckbox = document.getElementById('selectAll');
+    const bulkDeleteBtn = document.getElementById('bulkDeleteBtn');
 
-        fetch(`{% url "central_admin:aura_api_data" %}?model=${model}`)
-            .then(res => res.json())
-            .then(data => {
-                body.innerHTML = '';
-                document.getElementById('recordCount').innerText = `${data.results.length} records found`;
-                data.results.forEach(row => {
-                    body.innerHTML += `
-                        <tr>
-                            <td><input type="checkbox" class="record-checkbox" value="${row.id}" onchange="updateBulkDeleteButton()"></td>
-                            <td class="text-muted">#${row.id}</td>
-                            <td class="fw-bold">${row.label}</td>
-                            <td><span class="badge bg-light text-dark border">${row.detail || 'N/A'}</span></td>
-                            <td class="text-end">
-                                <button class="btn btn-sm btn-outline-danger" onclick="deleteRecord('${model}', ${row.id})">
-                                    <i class="bi bi-trash"></i>
-                                </button>
-                            </td>
-                        </tr>
-                    `;
-                });
+    if (selectAllCheckbox) selectAllCheckbox.checked = false;
+    if (bulkDeleteBtn) bulkDeleteBtn.classList.add('d-none');
+
+    const colspan = IS_CENTRAL_ADMIN ? 5 : 4;
+    body.innerHTML = `<tr><td colspan="${colspan}" class="text-center py-5">
+        <div class="spinner-border text-primary" role="status"></div>
+        <p class="text-muted mt-2 mb-0">Loading records...</p>
+    </td></tr>`;
+    if (recordCount) recordCount.innerText = 'Loading...';
+
+    fetch(`{% url "central_admin:aura_api_data" %}?model=${model}`)
+        .then(res => {
+            if (!res.ok) throw new Error('HTTP ' + res.status);
+            return res.json();
+        })
+        .then(data => {
+            if (data.error) throw new Error(data.error);
+            body.innerHTML = '';
+            const results = data.results || [];
+            if (recordCount) recordCount.innerText = `${results.length} record${results.length !== 1 ? 's' : ''} found`;
+
+            if (results.length === 0) {
+                body.innerHTML = `<tr><td colspan="${colspan}" class="text-center py-5 text-muted">
+                    <i class="bi bi-inbox fs-1 d-block mb-2"></i>No records found for this module.
+                </td></tr>`;
+                return;
+            }
+
+            results.forEach(row => {
+                const actionCell = IS_CENTRAL_ADMIN
+                    ? `<button class="btn btn-sm btn-outline-danger" onclick="deleteRecord('${model}', ${row.id})">
+                           <i class="bi bi-trash"></i>
+                       </button>`
+                    : `<span class="badge bg-secondary">View Only</span>`;
+
+                const rowHTML = IS_CENTRAL_ADMIN
+                    ? `<tr>
+                           <td><input type="checkbox" class="record-checkbox" value="${row.id}" onchange="updateBulkDeleteButton()"></td>
+                           <td class="text-muted">#${row.id}</td>
+                           <td class="fw-bold">${row.label}</td>
+                           <td><span class="badge bg-light text-dark border">${row.detail || 'N/A'}</span></td>
+                           <td class="text-end">${actionCell}</td>
+                       </tr>`
+                    : `<tr>
+                           <td class="text-muted">#${row.id}</td>
+                           <td class="fw-bold">${row.label}</td>
+                           <td><span class="badge bg-light text-dark border">${row.detail || 'N/A'}</span></td>
+                           <td class="text-end">${actionCell}</td>
+                       </tr>`;
+
+                body.innerHTML += rowHTML;
             });
-    }
+        })
+        .catch(err => {
+            if (recordCount) recordCount.innerText = 'Error loading records';
+            body.innerHTML = `<tr><td colspan="${colspan}" class="text-center py-5 text-danger">
+                <i class="bi bi-exclamation-triangle-fill fs-1 d-block mb-2"></i>
+                Failed to load data. <button class="btn btn-sm btn-outline-danger mt-2" onclick="loadAuraData()">
+                    <i class="bi bi-arrow-clockwise me-1"></i>Retry
+                </button>
+            </td></tr>`;
+        });
+}
 
     // 3. Report Engine Logic
     function generateAuraReport() {
@@ -329,22 +643,29 @@
 
         // Loading State
         container.style.display = 'block';
-        content.innerHTML = '<tr><td colspan="3" class="text-center py-5"><div class="spinner-border text-primary me-2"></div>Records loading...</td></tr>';
-        
+        head.innerHTML = '<tr><th>ID</th><th>Record</th><th>Details</th></tr>';
+        content.innerHTML = '<tr><td colspan="3" class="text-center py-5"><div class="spinner-border text-primary me-2" role="status"></div><span class="text-muted">Loading records...</span></td></tr>';
+
         fetch(`{% url "central_admin:aura_api_data" %}?model=${module}&date_from=${dateFrom}&date_to=${dateTo}`)
-            .then(res => res.json())
+            .then(res => {
+                if (!res.ok) throw new Error('HTTP ' + res.status);
+                return res.json();
+            })
             .then(data => {
+                if (data.error) throw new Error(data.error);
                 content.innerHTML = '';
-                if (!data.results || data.results.length === 0) {
-                    content.innerHTML = '<tr><td colspan="3" class="text-center py-5 text-muted">No records found for the selected criteria.</td></tr>';
+                const results = data.results || [];
+                if (results.length === 0) {
+                    head.innerHTML = '';
+                    content.innerHTML = '<tr><td colspan="3" class="text-center py-5 text-muted"><i class="bi bi-inbox fs-1 d-block mb-2"></i>No records found for the selected criteria.</td></tr>';
                     return;
                 }
-                
-                // Set dynamic headers based on the first result
-                const first = data.results[0];
-                head.innerHTML = `<tr><th>ID</th><th>${first.label_head}</th><th>${first.detail_head}</th></tr>`;
 
-                data.results.forEach(row => {
+                // Set dynamic headers based on the first result
+                const first = results[0];
+                head.innerHTML = `<tr><th>ID</th><th>${first.label_head || 'Record'}</th><th>${first.detail_head || 'Details'}</th></tr>`;
+
+                results.forEach(row => {
                     const tr = document.createElement('tr');
                     tr.innerHTML = `
                         <td>${row.id}</td>
@@ -355,38 +676,63 @@
                 });
             })
             .catch(err => {
-                content.innerHTML = '<tr><td colspan="3" class="text-center py-5 text-danger">Error connecting to AURA system.</td></tr>';
+                head.innerHTML = '';
+                content.innerHTML = `<tr><td colspan="3" class="text-center py-5 text-danger">
+                    <i class="bi bi-exclamation-triangle-fill fs-1 d-block mb-2"></i>
+                    Error connecting to AURA system.
+                    <button class="btn btn-sm btn-outline-danger mt-2 d-block mx-auto" onclick="generateAuraReport()">
+                        <i class="bi bi-arrow-clockwise me-1"></i>Retry
+                    </button>
+                </td></tr>`;
             });
     }
 
     // 4. Room Booking Manager Logic
     function loadBookingData() {
         const body = document.getElementById('bookingDataBody');
-        body.innerHTML = '<tr><td colspan="6" class="text-center">Synchronizing Schedules...</td></tr>';
-        
+        body.innerHTML = '<tr><td colspan="6" class="text-center py-4"><div class="spinner-border text-primary" role="status"></div><p class="text-muted mt-2 mb-0">Synchronizing Schedules...</p></td></tr>';
+
         fetch(`{% url "central_admin:aura_api_data" %}?model=bookings`)
-            .then(res => res.json())
+            .then(res => {
+                if (!res.ok) throw new Error('HTTP ' + res.status);
+                return res.json();
+            })
             .then(data => {
+                if (data.error) throw new Error(data.error);
                 body.innerHTML = '';
-                if (!data.results || data.results.length === 0) {
-                    body.innerHTML = '<tr><td colspan="6" class="text-center">No bookings found.</td></tr>';
+                const results = data.results || [];
+                if (results.length === 0) {
+                    body.innerHTML = '<tr><td colspan="6" class="text-center py-5 text-muted"><i class="bi bi-calendar-x fs-1 d-block mb-2"></i>No confirmed bookings found.</td></tr>';
                     return;
                 }
-                data.results.forEach(row => {
-                // We use the specific keys set in the aura_data_manager view for bookings
+                results.forEach(row => {
                 body.innerHTML += `
                     <tr>
-                        <td class="fw-bold text-primary">${row.room_name}</td>
-                        <td>${row.faculty_name}</td>
-                        <td><small class="text-muted">${row.faculty_email}</small></td>
-                        <td class="fw-semibold">${row.schedule}</td>
+                        <td class="fw-bold text-primary">${row.room_name || 'N/A'}</td>
+                        <td>${row.faculty_name || 'N/A'}</td>
+                        <td><small class="text-muted">${row.faculty_email || 'N/A'}</small></td>
+                        <td class="fw-semibold">${row.schedule || 'N/A'}</td>
                         <td><span class="badge bg-success">Active</span></td>
+
                         <td>
-                            <button class="btn btn-sm btn-danger" onclick="deleteRecord('bookings', ${row.id})">Cancel</button>
+                            {% if request.user.profile.is_central_admin and not request.user.profile.is_sub_admin %}
+                                <button class="btn btn-sm btn-danger" onclick="deleteRecord('bookings', ${row.id})">Cancel</button>
+                            {% else %}
+                                <span class="badge bg-secondary">View Only</span>
+                            {% endif %}
                         </td>
                     </tr>
                 `;
             });
+        })
+        .catch(err => {
+            body.innerHTML = `<tr><td colspan="6" class="text-center py-5 text-danger">
+                <i class="bi bi-exclamation-triangle-fill fs-1 d-block mb-2"></i>
+                Failed to load booking data.
+                <button class="btn btn-sm btn-outline-danger mt-2 d-block mx-auto" onclick="loadBookingData()">
+                    <i class="bi bi-arrow-clockwise me-1"></i>Retry
+                </button>
+            </td></tr>`;
         });
 }
 
@@ -459,5 +805,415 @@
             });
         }
     }
+
+
+    // ── FACULTY CREDENTIALS ──────────────────────────────────────────
+    let allCredRows = [];   // cached for search filtering
+
+    // File input label update
+    function updateCredFileName(input) {
+        const label = document.getElementById('credFileName');
+        const btn   = document.getElementById('importCredBtn');
+        if (input.files && input.files[0]) {
+            label.textContent = input.files[0].name;
+            btn.disabled = false;
+        } else {
+            label.textContent = 'Choose Excel File';
+            btn.disabled = true;
+        }
+    }
+
+    // Load / refresh credentials table
+    function loadFacultyCredentials() {
+        const body = document.getElementById('facultyCredBody');
+        const colSpan = IS_CENTRAL_ADMIN ? 5 : 4;
+        body.innerHTML = `<tr><td colspan="${colSpan}" class="text-center py-4"><div class="spinner-border spinner-border-sm text-primary me-2"></div>Loading...</td></tr>`;
+
+        fetch(`{% url "central_admin:aura_api_data" %}?model=credentials`)
+            .then(res => { if (!res.ok) throw new Error(res.status); return res.json(); })
+            .then(data => {
+                allCredRows = data.results || [];
+                renderCredTable(allCredRows);
+            })
+            .catch(() => {
+                const colSpan = IS_CENTRAL_ADMIN ? 5 : 4;
+                body.innerHTML = `<tr><td colspan="${colSpan}" class="text-center py-4 text-danger"><i class="bi bi-exclamation-triangle-fill me-2"></i>Failed to load credentials. Please try again.</td></tr>`;
+            });
+    }
+
+    function renderCredTable(rows) {
+        const body = document.getElementById('facultyCredBody');
+        const colSpan = IS_CENTRAL_ADMIN ? 5 : 4;
+        document.getElementById('credCount').textContent = `${rows.length} credential${rows.length !== 1 ? 's' : ''} found`;
+
+        if (!rows.length) {
+            body.innerHTML = `<tr><td colspan="${colSpan}" class="text-center py-5 text-muted">
+                <i class="bi bi-person-x fs-2 d-block mb-2"></i>
+                No faculty credentials found.${IS_CENTRAL_ADMIN ? ' Import an Excel file to get started.' : ''}
+            </td></tr>`;
+            return;
+        }
+
+        body.innerHTML = '';
+        rows.forEach(row => {
+            const maskedPwd = '●'.repeat(Math.min((row.password || '').length, 10));
+            const cbCell = IS_CENTRAL_ADMIN
+                ? `<td><input type="checkbox" class="cred-checkbox form-check-input" value="${row.id}"></td>`
+                : '';
+            const actionCell = IS_CENTRAL_ADMIN
+                ? `<td class="text-end">
+                    <button class="btn btn-sm btn-outline-primary me-1" onclick="openEditCred(${row.id},'${escHtml(row.email)}','${escHtml(row.designation)}')">
+                        <i class="bi bi-pencil"></i>
+                    </button>
+                    <button class="btn btn-sm btn-outline-danger" onclick="deleteSingleCred(${row.id}, this)">
+                        <i class="bi bi-trash"></i>
+                    </button>
+                   </td>`
+                : `<td class="text-end"><span class="badge bg-light text-muted border">View Only</span></td>`;
+
+            const tr = document.createElement('tr');
+            tr.dataset.credId = row.id;
+            tr.innerHTML = `
+                ${cbCell}
+                <td class="fw-semibold">${escHtml(row.email)}</td>
+                <td><span class="badge bg-light text-dark border px-2">${escHtml(row.designation)}</span></td>
+                <td><code class="text-muted">${maskedPwd}</code>
+                    ${IS_CENTRAL_ADMIN ? `<button class="btn btn-link btn-sm p-0 ms-2 text-muted" title="Reveal" onclick="revealPwd(this,'${escHtml(row.password || '')}')"><i class="bi bi-eye"></i></button>` : ''}
+                </td>
+                ${actionCell}
+            `;
+            body.appendChild(tr);
+        });
+
+        // Rebind select-all
+        const sa = document.getElementById('selectAllCreds');
+        if (sa) {
+            sa.checked = false;
+            sa.onchange = function() {
+                document.querySelectorAll('.cred-checkbox').forEach(cb => cb.checked = this.checked);
+            };
+        }
+    }
+
+    // Search filter
+    function filterCredTable() {
+        const q = document.getElementById('credSearch').value.toLowerCase();
+        const filtered = allCredRows.filter(r => r.email.toLowerCase().includes(q) || (r.designation || '').toLowerCase().includes(q));
+        renderCredTable(filtered);
+    }
+
+    // Reveal password cell in-place
+    function revealPwd(btn, pwd) {
+        const cell = btn.closest('td');
+        cell.innerHTML = `<code class="text-dark">${escHtml(pwd)}</code>
+            <button class="btn btn-link btn-sm p-0 ms-2 text-muted" onclick="loadFacultyCredentials()"><i class="bi bi-eye-slash"></i></button>`;
+    }
+
+    // Open edit modal
+    function openEditCred(id, email, designation) {
+        document.getElementById('editCredId').value = id;
+        document.getElementById('editCredEmail').value = email;
+        document.getElementById('editCredDesignation').value = designation;
+        document.getElementById('editCredPassword').value = '';
+        document.getElementById('editCredAlert').className = 'd-none';
+        new bootstrap.Modal(document.getElementById('editCredModal')).show();
+    }
+
+    // Save edited credential
+    function saveCredEdit() {
+        const id    = document.getElementById('editCredId').value;
+        const email = document.getElementById('editCredEmail').value.trim();
+        const desig = document.getElementById('editCredDesignation').value.trim();
+        const pwd   = document.getElementById('editCredPassword').value.trim();
+        const alert = document.getElementById('editCredAlert');
+
+        if (!email) { showCredAlert(alert, 'danger', 'Email is required.'); return; }
+
+        fetch(`/aura/credentials/${id}/update/`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': '{{ csrf_token }}' },
+            body: JSON.stringify({ email, designation: desig, password: pwd })
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.status === 'success') {
+                bootstrap.Modal.getInstance(document.getElementById('editCredModal')).hide();
+                loadFacultyCredentials();
+            } else {
+                showCredAlert(alert, 'danger', data.message || 'Update failed.');
+            }
+        })
+        .catch(() => showCredAlert(alert, 'danger', 'Network error. Please try again.'));
+    }
+
+    // Delete single credential
+    function deleteSingleCred(id, btn) {
+        if (!confirm('Delete this credential? The faculty member will lose room booking access.')) return;
+        btn.disabled = true;
+        fetch(`/aura/credentials/${id}/delete/`, {
+            method: 'POST',
+            headers: { 'X-CSRFToken': '{{ csrf_token }}' }
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.status === 'success') {
+                const row = btn.closest('tr');
+                row.style.transition = 'opacity 0.3s';
+                row.style.opacity = '0';
+                setTimeout(() => { loadFacultyCredentials(); }, 300);
+            } else {
+                btn.disabled = false;
+                alert('Delete failed: ' + (data.message || 'Unknown error'));
+            }
+        })
+        .catch(() => { btn.disabled = false; alert('Network error.'); });
+    }
+
+    // Bulk Delete Faculty Credentials
+    function bulkDeleteCreds() {
+        const selectedIds = Array.from(document.querySelectorAll('.cred-checkbox:checked')).map(cb => cb.value);
+        if (!selectedIds.length) { alert('Please select at least one record.'); return; }
+
+        if (confirm(`SECURITY ALERT: Revoke access for ${selectedIds.length} faculty member(s)? This cannot be undone.`)) {
+            fetch('{% url "central_admin:aura_api_bulk_delete" %}', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'X-CSRFToken': '{{ csrf_token }}' },
+                body: JSON.stringify({ model: 'credentials', ids: selectedIds })
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.status === 'success') loadFacultyCredentials();
+                else alert('Bulk delete failed: ' + (data.message || 'Unknown error'));
+            });
+        }
+    }
+
+    // AJAX Import — keeps modal open, refreshes table on success
+    document.addEventListener('DOMContentLoaded', function() {
+        const form = document.getElementById('importCredForm');
+        if (!form) return;
+
+        form.addEventListener('submit', function(e) {
+            e.preventDefault();
+            const alertDiv = document.getElementById('facultyImportAlert');
+            const btn = document.getElementById('importCredBtn');
+            const formData = new FormData(form);
+
+            btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>';
+            btn.disabled = true;
+
+            fetch(form.action, {
+                method: 'POST',
+                body: formData,
+                headers: { 'X-Requested-With': 'XMLHttpRequest' }
+            })
+            .then(res => res.json().catch(() => ({ status: res.ok ? 'success' : 'error' })))
+            .then(data => {
+                if (data.status === 'success' || data.message === undefined) {
+                    showCredAlert(alertDiv, 'success', `<i class="bi bi-check-circle-fill me-2"></i>${data.message || 'Credentials imported successfully!'}`);
+                    form.reset();
+                    document.getElementById('credFileName').textContent = 'Choose Excel File';
+                    loadFacultyCredentials();
+                } else {
+                    showCredAlert(alertDiv, 'danger', `<i class="bi bi-exclamation-triangle-fill me-2"></i>${data.message || 'Import failed. Check your file format (columns: email, designation, password).'}`);
+                }
+            })
+            .catch(() => {
+                showCredAlert(alertDiv, 'danger', '<i class="bi bi-exclamation-triangle-fill me-2"></i>Import failed. Please check your file and try again.');
+            })
+            .finally(() => {
+                btn.innerHTML = '<i class="bi bi-upload me-1"></i> Import';
+                btn.disabled = false;
+                setTimeout(() => alertDiv.className = 'd-none', 6000);
+            });
+        });
+    });
+
+    
+    // Excel Download Logic
+    function downloadAuraExcel() {
+        const moduleName = document.getElementById('reportModule').value;
+        const dateFrom = document.getElementById('dateFrom').value;
+        const dateTo = document.getElementById('dateTo').value;
+        const content = document.getElementById('reportContent');
+    
+        if (!content || content.children.length === 0 || content.innerText.includes('Records loading')) {
+            alert("Please generate the report results first.");
+            return;
+        }
+
+        const baseUrl = '{% url "central_admin:aura_api_excel" %}';   
+        const downloadUrl = `${baseUrl}?model=${moduleName}&date_from=${dateFrom}&date_to=${dateTo}`;
+        window.open(downloadUrl, '_blank');
+    }
+
+    // Toggle edit password visibility
+    function toggleEditPwd() {
+        const input = document.getElementById('editCredPassword');
+        const icon  = document.getElementById('editPwdIcon');
+        if (input.type === 'password') { input.type = 'text'; icon.className = 'bi bi-eye-slash'; }
+        else { input.type = 'password'; icon.className = 'bi bi-eye'; }
+    }
+
+    // Helpers
+    function showCredAlert(el, type, html) {
+        el.className = `alert alert-${type} py-2 px-3 mb-0`;
+        el.innerHTML = html;
+    }
+    function escHtml(str) {
+        return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+    }
+
+    // ── Confirmed Booking Files ──────────────────────────────────
+    function loadBookingFiles() {
+        const body    = document.getElementById('bookingFilesBody');
+        const modal   = document.getElementById('bookingFilesModal');
+        // Read URL from data attribute — avoids hardcoded paths that may differ per deployment
+        const fileUrl = modal ? modal.dataset.bookingFilesUrl : null;
+
+        if (!fileUrl) {
+            body.innerHTML = '<div class="text-center py-5 text-danger"><i class="bi bi-exclamation-triangle-fill me-2"></i>Configuration error: booking files URL not found.</div>';
+            return;
+        }
+
+        body.innerHTML = '<div class="text-center py-5"><div class="spinner-border text-primary"></div><p class="mt-2 text-muted small">Loading confirmed bookings…</p></div>';
+
+        fetch(fileUrl, {
+            headers: { 'X-Requested-With': 'XMLHttpRequest' }
+        })
+        .then(function(res) {
+            if (!res.ok) throw new Error('HTTP ' + res.status);
+            return res.json();
+        })
+        .then(function(data) {
+            body.innerHTML = '';
+
+            if (data.error) {
+                body.innerHTML = `<div class="text-center py-5 text-danger"><i class="bi bi-lock me-2"></i>${escHtml(data.error)}</div>`;
+                return;
+            }
+
+            if (!data.results || data.results.length === 0) {
+                body.innerHTML = '<div class="text-center py-5 text-muted"><i class="bi bi-calendar-x fs-2 d-block mb-2 opacity-25"></i><p class="mb-0">No confirmed bookings found.</p></div>';
+                return;
+            }
+
+            data.results.forEach(function(b) {
+                // Safe-serialise b for the inline onclick attribute
+                const bJson = JSON.stringify(b)
+                    .replace(/\\/g, '\\\\')
+                    .replace(/'/g, "\\'");
+
+                const purposeHtml = b.purpose
+                    ? `<div class="bfc-purpose" title="${escHtml(b.purpose)}"><i class="bi bi-chat-left-text me-1"></i>${escHtml(b.purpose)}</div>`
+                    : `<div class="bfc-purpose text-muted fst-italic" style="opacity:0.6;"><i class="bi bi-dash-circle me-1"></i>No purpose specified</div>`;
+
+                const docHtml = b.doc_url
+                    ? `<a href="${escHtml(b.doc_url)}" target="_blank" download class="btn-dl-file"><i class="bi bi-download me-1"></i>Download Document</a>`
+                    : `<span class="text-muted small"><i class="bi bi-dash-circle me-1"></i>No document attached</span>`;
+
+                const card = document.createElement('div');
+                card.className = 'booking-file-card';
+                card.innerHTML = `
+                    <div class="bfc-icon"><i class="bi bi-building"></i></div>
+                    <div class="bfc-body">
+                        <div class="bfc-room">${escHtml(b.room)}</div>
+                        <div class="bfc-meta"><i class="bi bi-person me-1"></i>${escHtml(b.faculty)}</div>
+                        <div class="bfc-meta"><i class="bi bi-envelope me-1"></i>${escHtml(b.email)}</div>
+                        <div class="bfc-meta"><i class="bi bi-calendar3 me-1"></i>${escHtml(b.from)} &rarr; ${escHtml(b.to)}</div>
+                        ${purposeHtml}
+                        <div class="bfc-actions">${docHtml}</div>
+                    </div>
+                `;
+                body.appendChild(card);
+            });
+        })
+        .catch(function(err) {
+            console.error('Booking files error:', err);
+            body.innerHTML = '<div class="text-center py-5 text-danger"><i class="bi bi-exclamation-triangle-fill me-2"></i>Failed to load booking files. Please try again.</div>';
+        });
+    }
+
+    function openFileDetail(b) {
+        const overlay = document.getElementById('fileDetailOverlay');
+        const content = document.getElementById('fileDetailContent');
+
+        let docSection = '';
+        if (b.doc_url) {
+            docSection = `
+                <div style="background:#f8fafc;border-radius:14px;padding:16px 20px;border:1px solid #e2e8f0;margin-top:16px;">
+                    <div style="font-weight:700;font-size:0.8rem;color:#94a3b8;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:10px;">Attached Document</div>
+                    <div style="display:flex;align-items:center;gap:12px;">
+                        <div style="width:40px;height:40px;background:linear-gradient(135deg,#6366f1,#a855f7);border-radius:10px;display:flex;align-items:center;justify-content:center;">
+                            <i class="bi bi-file-earmark-word" style="color:#fff;font-size:1.2rem;"></i>
+                        </div>
+                        <div style="flex:1;">
+                            <div style="font-weight:700;color:#1e293b;font-size:0.9rem;">${escHtml(b.doc_name || 'Attachment')}</div>
+                        </div>
+                        <a href="${b.doc_url}" target="_blank"
+                           style="background:linear-gradient(135deg,#6366f1,#9333ea);color:#fff;border-radius:10px;padding:8px 18px;font-weight:700;font-size:0.82rem;text-decoration:none;display:inline-flex;align-items:center;gap:6px;">
+                            <i class="bi bi-download"></i> Download
+                        </a>
+                    </div>
+                </div>`;
+        } else {
+            docSection = '<p class="text-muted small mt-3"><i class="bi bi-dash-circle me-1"></i>No document attached for this booking.</p>';
+        }
+
+        content.innerHTML = `
+            <div style="display:flex;align-items:center;gap:14px;margin-bottom:22px;">
+                <div style="width:52px;height:52px;background:linear-gradient(135deg,#6366f1,#a855f7);border-radius:14px;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+                    <i class="bi bi-building" style="color:#fff;font-size:1.5rem;"></i>
+                </div>
+                <div>
+                    <h5 style="margin:0;font-weight:900;color:#1e293b;">${escHtml(b.room)}</h5>
+                    <p style="margin:0;color:#64748b;font-size:0.85rem;">${b.from} &rarr; ${b.to}</p>
+                </div>
+            </div>
+            <div style="background:#f8fafc;border-radius:14px;padding:14px 18px;border:1px solid #e2e8f0;margin-bottom:10px;">
+                <div style="font-weight:700;font-size:0.78rem;color:#94a3b8;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px;">Faculty</div>
+                <div style="font-weight:700;color:#1e293b;">${escHtml(b.faculty)}</div>
+                <div style="color:#64748b;font-size:0.85rem;">${escHtml(b.email)}</div>
+            </div>
+            ${b.purpose ? `<div style="background:#f0f4ff;border-radius:14px;padding:14px 18px;border-left:4px solid #6366f1;margin-bottom:10px;">
+                <div style="font-weight:700;font-size:0.78rem;color:#6366f1;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px;">Purpose of Booking</div>
+                <p style="margin:0;color:#1e293b;line-height:1.6;">${escHtml(b.purpose)}</p>
+            </div>` : ''}
+            ${docSection}
+        `;
+
+        overlay.classList.add('open');
+    }
+
+    function closeFileDetail() {
+        document.getElementById('fileDetailOverlay').classList.remove('open');
+    }
+
+    // Close on overlay click
+    document.addEventListener('DOMContentLoaded', function() {
+        const ov = document.getElementById('fileDetailOverlay');
+        if (ov) ov.addEventListener('click', function(e) { if (e.target === ov) closeFileDetail(); });
+
+        // ── Admin notification bell badge ──────────────────────────────
+        function refreshAdminBellBadge() {
+            fetch('{% url "central_admin:admin_notification_counts" %}')
+                .then(function(r) { return r.ok ? r.json() : null; })
+                .then(function(data) {
+                    if (!data) return;
+                    var badge = document.getElementById('adminBellBadge');
+                    if (!badge) return;
+                    if (data.total > 0) {
+                        badge.textContent = data.total > 99 ? '99+' : data.total;
+                        badge.style.display = 'block';
+                        badge.style.animation = 'none';
+                    } else {
+                        badge.style.display = 'none';
+                    }
+                })
+                .catch(function() {});
+        }
+        refreshAdminBellBadge();
+        setInterval(refreshAdminBellBadge, 60000); // refresh every 60 seconds
+    });
 </script>
 {% endblock content %}

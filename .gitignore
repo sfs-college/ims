@@ -283,4 +283,8 @@ pyrightconfig.json
 pyvenv.cfg
 pip-selfcheck.json
 
+# json files containing sensitive information
+firebase_key.json
+
+
 # End of https://www.toptal.com/developers/gitignore/api/django,python,sass,venv,dotenv

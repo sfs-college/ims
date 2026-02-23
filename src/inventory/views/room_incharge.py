@@ -2,12 +2,11 @@ from django.forms import ValidationError
 from django.shortcuts import redirect, get_object_or_404, render, reverse
 from django.urls import reverse_lazy
 from django.views.generic import ListView, UpdateView, DeleteView, TemplateView, CreateView, View
-from inventory.models import Category, Vendor, Purchase, Room, Brand, Item, System, SystemComponent, Issue, ItemGroup, ItemGroupItem, RoomSettings, EditRequest # Import RoomSettings
-from inventory.forms.room_incharge import CategoryForm, BrandForm, ItemForm, ItemPurchaseForm, PurchaseForm, PurchaseUpdateForm, SystemForm, SystemComponentForm, ItemGroupForm, ItemGroupItemForm, RoomSettingsForm, ExcelUploadForm, ItemEditRequestForm  # Import RoomSettingsForm
+from inventory.models import Category, Vendor, Purchase, Room, Brand, Item, System, SystemComponent, Issue, ItemGroup, ItemGroupItem, RoomSettings, StockRequest, Archive, IssueTimeExtensionRequest 
+from inventory.forms.room_incharge import CategoryForm, BrandForm, ItemForm, ItemPurchaseForm, PurchaseForm, PurchaseUpdateForm, SystemForm, SystemComponentForm, ItemGroupForm, ItemGroupItemForm, RoomSettingsForm, StockRequestForm 
 from django.contrib import messages
 from django.views.generic.edit import FormView
 from inventory.forms.room_incharge import SystemComponentArchiveForm, ItemArchiveForm, RoomUpdateForm, IssueTimeExtensionForm
-from inventory.models import Archive, IssueTimeExtensionRequest
 from inventory.forms.room_incharge import PurchaseCompleteForm
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.http import HttpResponse, HttpResponseForbidden
@@ -24,6 +23,8 @@ from django.forms.models import model_to_dict
 from django.db import connection
 from django.views.generic import FormView, View
 from django.urls import reverse
+from django.http import JsonResponse
+from django.core.exceptions import PermissionDenied
 
 
 class CategoryListView(LoginRequiredMixin, ListView):
@@ -273,10 +274,10 @@ class ItemListView(LoginRequiredMixin, ListView):
         table_names = set(connection.introspection.table_names())
         pending_items = set()
 
-        if "inventory_editrequest" in table_names:
+        if "inventory_stockrequest" in table_names:
             pending_items = set(
-                EditRequest.objects
-                .filter(status="pending")
+                StockRequest.objects
+                .filter(room=room, status="pending")
                 .values_list("item_id", flat=True)
             )
         context["pending_items"] = pending_items
@@ -307,8 +308,6 @@ class ItemCreateView(LoginRequiredMixin, CreateView):
             obj.organisation = profile.org
             obj.created_by = profile
 
-        # Lock the item immediately after creation
-        obj.is_edit_lock = True  
         obj.room = Room.objects.get(slug=self.kwargs['room_slug'])
         obj.save()
 
@@ -326,205 +325,65 @@ class ItemCreateView(LoginRequiredMixin, CreateView):
         context['room_settings'] = RoomSettings.objects.get_or_create(room=room)[0]
         return context
 
-class RequestEditView(LoginRequiredMixin, View):
+class SubmitStockRequestView(LoginRequiredMixin, View):
     """
-    Handles both displaying the edit request form (GET)
-    and submitting the edit request (POST).
+    AJAX POST only — Room Incharge submits a stock request for an item.
+    Called by the modal on item_list.html.
+    Returns JSON { status: 'success' } or { status: 'error', error: '...' }.
     """
-
-    def get(self, request, *args, **kwargs):
-        room = get_object_or_404(Room, slug=kwargs["room_slug"])
-        item = get_object_or_404(Item, slug=kwargs["item_slug"], room=room)
-
-        # Prevent duplicate pending requests
-        if EditRequest.objects.filter(item=item, status="pending").exists():
-            messages.warning(
-                request,
-                "An edit request for this item is already pending approval."
-            )
-            return redirect("room_incharge:item_list", room_slug=room.slug)
-
-        form = ItemEditRequestForm(
-            initial={
-                "item_name": item.item_name,
-                "item_description": item.item_description,
-                "total_count": item.total_count,
-                "available_count": item.available_count,
-                "in_use": item.in_use,
-            }
-        )
-
-        return render(
-            request,
-            "room_incharge/item_edit_request.html",
-            {
-                "form": form,
-                "item": item,
-                "room": room,
-            },
-        )
 
     def post(self, request, *args, **kwargs):
-        room = get_object_or_404(Room, slug=kwargs["room_slug"])
-        item = get_object_or_404(Item, slug=kwargs["item_slug"], room=room)
+        room  = get_object_or_404(Room, slug=kwargs["room_slug"])
+        item_id         = request.POST.get("item_id", "").strip()
+        requested_count = request.POST.get("requested_count", "").strip()
+        reason          = request.POST.get("reason", "").strip()
 
-        # Prevent duplicate pending requests
-        if EditRequest.objects.filter(item=item, status="pending").exists():
-            messages.error(request, "An edit request is already pending.")
-            return redirect("room_incharge:item_list", room_slug=room.slug)
+        # ── Basic validation ──────────────────────────────────────────
+        if not item_id or not requested_count or not reason:
+            return JsonResponse(
+                {"status": "error", "error": "All fields are required."},
+                status=400,
+            )
 
-        form = ItemEditRequestForm(request.POST)
+        try:
+            requested_count = int(requested_count)
+            if requested_count < 1:
+                raise ValueError
+        except (ValueError, TypeError):
+            return JsonResponse(
+                {"status": "error", "error": "Unit count must be a positive number."},
+                status=400,
+            )
 
-        if not form.is_valid():
-            return render(
-                request,
-                "room_incharge/item_edit_request.html",
+        item = get_object_or_404(Item, id=item_id, room=room)
+
+        # ── Prevent duplicate pending requests for the same item ──────
+        if StockRequest.objects.filter(item=item, status="pending").exists():
+            return JsonResponse(
                 {
-                    "form": form,
-                    "item": item,
-                    "room": room,
+                    "status": "error",
+                    "error": "A stock request for this item is already pending approval.",
                 },
+                status=400,
             )
 
-        # Save edit request (item NOT updated)
-        form.save(
-            item=item,
-            requested_by=request.user.profile
-        )
-
-        messages.success(
-            request,
-            "Edit request submitted successfully and sent for approval."
-        )
-
-        return redirect("room_incharge:item_list", room_slug=room.slug)
-
-
-
-class ItemUpdateView(LoginRequiredMixin, View):
-    """
-    Room Incharge can only request edits.
-    Direct item updates are not allowed.
-    """
-
-    template_name = "room_incharge/item_edit_request.html"
-    form_class = ItemEditRequestForm
-
-    def get(self, request, *args, **kwargs):
-        item = self.get_item()
-        form = self.form_class(initial={
-            "item_name": item.item_name,
-            "item_description": item.item_description,
-            "total_count": item.total_count,
-            "available_count": item.available_count,
-            "in_use": item.in_use,
-        })
-
-        return self.render(form, item)
-
-    def post(self, request, *args, **kwargs):
-        item = self.get_item()
-        form = self.form_class(request.POST)
-
-        if form.is_valid():
-            user_profile = request.user.profile
-
-            # Admins are not allowed to raise edit requests
-            if user_profile.is_sub_admin or user_profile.is_central_admin:
-                messages.error(
-                    request,
-                    "Admins cannot edit items. They only approve edit requests."
-                )
-                return redirect(self.get_success_url())
-
-            # Prevent duplicate edit requests
-            if item.is_edit_lock:
-                messages.error(
-                    request,
-                    "An edit request is already pending for this item."
-                )
-                return redirect(self.get_success_url())
-
-            form.save(item=item, requested_by=user_profile)
-
-            messages.success(
-                request,
-                "Edit request submitted successfully for approval."
+        profile = getattr(request.user, "profile", None)
+        if not profile:
+            return JsonResponse(
+                {"status": "error", "error": "User profile not found."},
+                status=403,
             )
-            return redirect(self.get_success_url())
 
-        return self.render(form, item)
-
-    def get_item(self):
-        return get_object_or_404(
-            Item,
-            slug=self.kwargs["item_slug"],
-            room__slug=self.kwargs["room_slug"],
+        StockRequest.objects.create(
+            item            = item,
+            room            = room,
+            requested_by    = profile,
+            requested_count = requested_count,
+            reason          = reason,
+            status          = "pending",
         )
 
-    def get_success_url(self):
-        return reverse_lazy(
-            "room_incharge:item_list",
-            kwargs={"room_slug": self.kwargs["room_slug"]},
-        )
-
-    def render(self, form, item):
-        room = item.room
-
-        context = {
-            "form": form,
-            "item": item,
-            "room": room,
-            "room_slug": room.slug,
-            "room_name": room.room_name,
-            "current_room": room,
-            "room_settings": RoomSettings.objects.get_or_create(room=room)[0],
-        }
-
-        return render(self.request, self.template_name, context)
-
-
-# class IssueBulkDeleteView(LoginRequiredMixin, View):
-#     """
-#     Allows Room Incharge to bulk-delete selected issues.
-#     Only deletes issues:
-#       - belonging to the user's organisation
-#       - belonging to the same room
-#       - escalation_level == 0   (not escalated)
-#     """
-
-#     def post(self, request, room_slug, *args, **kwargs):
-#         ids = request.POST.getlist('selected_issues')
-
-#         if not ids:
-#             messages.error(request, "No issues selected.")
-#             return redirect(request.META.get('HTTP_REFERER', '/'))
-
-#         profile = getattr(request.user, 'profile', None)
-#         room = get_object_or_404(Room, slug=room_slug)
-
-#         issues = Issue.objects.filter(id__in=ids, room=room)
-
-#         allowed = []
-#         for issue in issues:
-#             if (
-#                 profile and profile.org and
-#                 issue.organisation == profile.org and
-#                 issue.escalation_level == 0
-#             ):
-#                 allowed.append(issue.pk)
-
-#         if allowed:
-#             Issue.objects.filter(pk__in=allowed).delete()
-#             messages.success(request, f"Deleted {len(allowed)} issue(s).")
-#         else:
-#             messages.error(request, "No permitted issues to delete.")
-
-#         return redirect(request.META.get('HTTP_REFERER', '/'))
-    
-#     def dispatch(self, request, *args, **kwargs):
-#     # Room Incharge is permanently restricted from delete operations
-#         return HttpResponseForbidden("Delete operation is not allowed.")
+        return JsonResponse({"status": "success"})
 
 
 class ItemDeleteView(LoginRequiredMixin, DeleteView):
@@ -1081,200 +940,6 @@ class PurchaseDeleteView(LoginRequiredMixin, DeleteView):
     # Room Incharge is permanently restricted from delete operations
         return HttpResponseForbidden("Delete operation is not allowed.")
 
-# ============================
-# Excel Expected Column Formats
-# ============================
-
-ITEMS_EXPECTED_COLS = [
-    "Sl No",
-    "Date of Entry",
-    "Item Description",
-    "Category",
-    "Opening Stock Qty",
-    "Arrival / Receipts",
-    "Total",
-    "Consumed Stock/Issues Qty",
-    "Closing / Balance Qty",
-    "Unit of Measure",
-    "Remarks"
-]
-
-PURCHASES_EXPECTED_COLS = [
-    "Sl No",
-    "Date of Purchase/Entry",
-    "Item Description",
-    "Category",
-    "Purchase ID/Model Code",
-    "Serial No",
-    "Quantity",
-    "Unit of Measure",
-    "Status",
-    "Vendor",
-    "Remarks"
-]
-
-# ----------------------------------------
-# ---------- Import view: upload + preview ----------
-
-class PurchaseImportView(LoginRequiredMixin, FormView):
-    """
-    UPLOAD & PREVIEW:
-    Enforces mandatory columns: Item Name, Category, Brand, Total Count, Cost.
-    Validates data types and deduplicates Brands/Categories.
-    """
-    template_name = 'room_incharge/purchase_import_upload.html'
-    form_class = ExcelUploadForm
-
-    def get_success_url(self):
-        return reverse('room_incharge:purchase_import', kwargs={'room_slug': self.kwargs['room_slug']})
-
-    def form_valid(self, form):
-        upload_file = form.cleaned_data['file']
-        try:
-            excel = pd.ExcelFile(upload_file)
-        except Exception as e:
-            form.add_error('file', f'Invalid Excel file: {e}')
-            return self.form_invalid(form)
-
-        room = get_object_or_404(Room, slug=self.kwargs['room_slug'])
-        preview = {'items': [], 'errors': []}
-
-        if 'Items' not in excel.sheet_names:
-            preview['errors'].append("Sheet named 'Items' not found. Please name your sheet 'Items'.")
-        else:
-            df = excel.parse('Items')
-            # Normalize columns
-            df.columns = [str(c).strip() for c in df.columns]
-            
-            # MANDATORY COLUMNS CHECK
-            mandatory = ["Item Name", "Category", "Brand", "Total Count", "Cost"]
-            missing = [c for c in mandatory if c not in df.columns]
-            
-            if missing:
-                preview['errors'].append(f"Excel is missing mandatory columns: {missing}")
-            else:
-                for idx, row in df.iterrows():
-                    rownum = idx + 2
-                    row_errors = []
-
-                    # Fetch raw values
-                    name = str(row.get('Item Name', '')).strip()
-                    cat_name = str(row.get('Category', '')).strip()
-                    brand_name = str(row.get('Brand', '')).strip()
-                    
-                    # Null/NaN checks for Mandatory Fields
-                    if not name or name.lower() == 'nan':
-                        row_errors.append('Item Name is missing.')
-                    if not cat_name or cat_name.lower() == 'nan':
-                        row_errors.append('Category is missing.')
-                    if not brand_name or brand_name.lower() == 'nan':
-                        row_errors.append('Brand is missing.')
-
-                    # Numeric Validations
-                    try:
-                        total_count = int(row.get('Total Count', 0))
-                    except (ValueError, TypeError):
-                        total_count = 0
-                        row_errors.append('Total Count must be a whole number.')
-
-                    try:
-                        cost = Decimal(str(row.get('Cost', 0)))
-                    except (ValueError, TypeError, InvalidOperation):
-                        cost = Decimal('0.00')
-                        row_errors.append('Cost must be a valid decimal number.')
-
-                    preview['items'].append({
-                        'rownum': rownum,
-                        'name': name,
-                        'category': cat_name,
-                        'brand': brand_name,
-                        'total_count': total_count,
-                        'cost': cost,
-                        'errors': row_errors
-                    })
-
-        room_settings = RoomSettings.objects.get_or_create(room=room)[0]
-        has_errors = bool(preview['errors'] or any(r['errors'] for r in preview['items']))
-
-        return render(self.request, "room_incharge/purchase_import_preview.html", {
-            "room_slug": self.kwargs['room_slug'],
-            "preview": preview,
-            "has_errors": has_errors,
-            "room_settings": room_settings,
-        })
-
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        room = get_object_or_404(Room, slug=self.kwargs['room_slug'])
-        context['room_slug'] = self.kwargs['room_slug']
-        context["room_settings"] = RoomSettings.objects.get_or_create(room=room)[0]
-        return context
-
-class PurchaseImportConfirmView(LoginRequiredMixin, View):
-    """
-    PROCESS IMPORT:
-    Deduplicates Brands/Categories and creates/updates Items.
-    """
-    def post(self, request, *args, **kwargs):
-        upload_file = request.FILES.get('file')
-        if not upload_file:
-            messages.error(request, "No file uploaded for confirmation.")
-            return redirect('room_incharge:purchase_import', room_slug=kwargs['room_slug'])
-
-        room = get_object_or_404(Room, slug=kwargs['room_slug'])
-        org = request.user.profile.org
-        
-        try:
-            df = pd.read_excel(upload_file, sheet_name='Items')
-        except Exception as e:
-            messages.error(request, f"Processing error: {e}")
-            return redirect('room_incharge:purchase_import', room_slug=kwargs['room_slug'])
-
-        import_count = 0
-        for _, row in df.iterrows():
-            name = str(row.get('Item Name', '')).strip()
-            cat_name = str(row.get('Category', '')).strip()
-            brand_name = str(row.get('Brand', '')).strip()
-
-            # Skip empty rows silently (as they were caught in preview)
-            if not name or name.lower() == 'nan' or not cat_name or not brand_name:
-                continue
-
-            # 1. Deduplicate Category
-            category, _ = Category.objects.get_or_create(
-                organisation=org, 
-                room=room, 
-                category_name=cat_name
-            )
-
-            # 2. Deduplicate Brand
-            brand, _ = Brand.objects.get_or_create(
-                organisation=org, 
-                room=room, 
-                brand_name=brand_name
-            )
-
-            # 3. Create or Update Item
-            # available_count will be calculated by the model's save() method logic
-            Item.objects.update_or_create(
-                organisation=org,
-                room=room,
-                item_name=name,
-                defaults={
-                    'category': category,
-                    'brand': brand,
-                    'total_count': int(row.get('Total Count', 0)),
-                    'cost': Decimal(str(row.get('Cost', 0))),
-                    'is_listed': True,
-                    'item_description': f"{brand_name} {name} imported via Excel"
-                }
-            )
-            import_count += 1
-
-        messages.success(request, f"Successfully imported {import_count} items with their Brands and Categories.")
-        return redirect("room_incharge:item_list", room_slug=room.slug)
-
-
 
 class PurchaseCompleteView(LoginRequiredMixin, FormView):
     template_name = 'room_incharge/purchase_complete.html'
@@ -1317,8 +982,6 @@ class PurchaseAddToStockView(LoginRequiredMixin, View):
             messages.success(request, f"Added {purchase.quantity} {purchase.unit_of_measure} to {item.item_name} stock.")
         return redirect('room_incharge:purchase_list', room_slug=self.kwargs['room_slug'])
 
-
-from django.core.exceptions import PermissionDenied
 
 class IssueListView(LoginRequiredMixin, ListView):
     template_name = 'room_incharge/issue_list.html'
@@ -1861,7 +1524,7 @@ class IssueTimeExtensionRequestView(LoginRequiredMixin, View):
         IssueTimeExtensionRequest.objects.create(
             issue=issue,
             requested_by=request.user.profile,
-            current_tat_hours=current_tat_hours,  # ✅ FIX
+            current_tat_hours=current_tat_hours, 
             requested_extra_hours=int(requested_extra_hours),
             reason=reason,
         )
@@ -1877,3 +1540,52 @@ class IssueTimeExtensionRequestView(LoginRequiredMixin, View):
             room_slug=issue.room.slug
         )
 
+class RoomInchargeNotificationsView(LoginRequiredMixin, View):
+    """
+    Shows the room incharge their personalised notification feed:
+      - Stock requests they raised: approved / rejected outcomes
+      - Stock requests where items were assigned to their room by admin
+      - Issues assigned to their room (new, in_progress, escalated, closed)
+    """
+    template_name = "room_incharge/notifications.html"
+
+    def get(self, request, *args, **kwargs):
+        room_slug = kwargs["room_slug"]
+        room      = get_object_or_404(Room, slug=room_slug, incharge=request.user.profile)
+        room_settings = RoomSettings.objects.get_or_create(room=room)[0]
+
+        # Stock request outcomes raised BY this room (approved / rejected — skip pending)
+        # NOTE: StockRequest has no updated_on field — use created_on for ordering
+        stock_notifications = (
+            StockRequest.objects
+            .filter(room=room, status__in=["approved", "rejected"])
+            .select_related("item", "reviewed_by")
+            .order_by("-created_on")[:50]
+        )
+        try:
+            assigned_notifications = (
+                StockRequest.objects
+                .filter(room=room, status="approved", requested_by__isnull=True)
+                .select_related("item", "reviewed_by")
+                .order_by("-created_on")[:30]
+            )
+        except Exception:
+            assigned_notifications = StockRequest.objects.none()
+
+        # All issues for this room, most recently updated first
+        # Covers: new issues received, in-progress, escalated, resolved
+        issue_notifications = (
+            Issue.objects
+            .filter(room=room)
+            .order_by("-updated_on")[:50]
+        )
+
+        context = {
+            "room":                  room,
+            "room_slug":             room_slug,
+            "room_settings":         room_settings,
+            "stock_notifications":   stock_notifications,
+            "assigned_notifications": assigned_notifications,
+            "issue_notifications":   issue_notifications,
+        }
+        return render(request, self.template_name, context)

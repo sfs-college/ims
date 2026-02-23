@@ -1,0 +1,413 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Notifications | {{ room.room_name }}</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            background: #f1f5f9;
+            min-height: 100vh;
+            color: #1e293b;
+        }
+
+        /* ── Top bar ─────────────────────────────────────── */
+        .top-bar {
+            position: sticky; top: 0; z-index: 100;
+            background: #fff;
+            border-bottom: 1px solid #e2e8f0;
+            padding: 0 24px;
+            height: 62px;
+            display: flex; align-items: center; justify-content: space-between;
+            box-shadow: 0 1px 8px rgba(0,0,0,0.06);
+        }
+        .top-bar-left { display: flex; align-items: center; gap: 14px; }
+        .back-btn {
+            display: inline-flex; align-items: center; gap: 7px;
+            background: #f8fafc; border: 1.5px solid #e2e8f0;
+            border-radius: 10px; padding: 8px 16px;
+            font-weight: 700; font-size: 0.84rem; color: #475569;
+            text-decoration: none; transition: all 0.18s;
+        }
+        .back-btn:hover { background: #e2e8f0; color: #1e293b; }
+        .top-bar-title {
+            font-weight: 800; font-size: 1.05rem; color: #1e293b;
+            display: flex; align-items: center; gap: 8px;
+        }
+        .top-bar-title .room-chip {
+            font-size: 0.78rem; font-weight: 600; color: #6366f1;
+            background: rgba(99,102,241,0.1); border-radius: 999px;
+            padding: 2px 12px;
+        }
+        .clear-all-btn {
+            display: inline-flex; align-items: center; gap: 6px;
+            background: #fef2f2; border: 1.5px solid #fecaca;
+            border-radius: 10px; padding: 8px 16px;
+            font-weight: 700; font-size: 0.82rem; color: #dc2626;
+            cursor: pointer; transition: all 0.18s;
+            font-family: inherit;
+        }
+        .clear-all-btn:hover { background: #fee2e2; }
+        .clear-all-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+
+        /* ── Page body ───────────────────────────────────── */
+        .page-body { max-width: 780px; margin: 0 auto; padding: 28px 20px 80px; }
+
+        /* ── Section ─────────────────────────────────────── */
+        .section-header {
+            display: flex; align-items: center; justify-content: space-between;
+            margin-bottom: 12px; margin-top: 30px;
+        }
+        .section-title {
+            display: flex; align-items: center; gap: 8px;
+            font-weight: 700; font-size: 0.80rem; color: #64748b;
+            text-transform: uppercase; letter-spacing: 1px;
+        }
+        .section-count {
+            background: #f1f5f9; border: 1px solid #e2e8f0;
+            border-radius: 999px; padding: 2px 9px;
+            font-size: 0.70rem; font-weight: 700; color: #94a3b8;
+        }
+
+        /* ── Notification item ───────────────────────────── */
+        .notif-feed { display: flex; flex-direction: column; gap: 8px; }
+        .notif-item {
+            background: #fff;
+            border-radius: 14px; padding: 15px 18px;
+            border: 1px solid #e5e7eb;
+            display: flex; align-items: flex-start; gap: 14px;
+            box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+            transition: transform 0.18s, box-shadow 0.18s, opacity 0.28s, transform 0.28s;
+        }
+        .notif-item:hover { transform: translateY(-2px); box-shadow: 0 6px 18px rgba(0,0,0,0.07); }
+
+        /* ── Icon ────────────────────────────────────────── */
+        .notif-icon {
+            width: 40px; height: 40px; border-radius: 12px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 1.05rem; flex-shrink: 0;
+        }
+        .ni-approved  { background: #d1fae5; color: #059669; }
+        .ni-rejected  { background: #fee2e2; color: #dc2626; }
+        .ni-open      { background: #fff7ed; color: #ea580c; }
+        .ni-progress  { background: #fef3c7; color: #d97706; }
+        .ni-escalated { background: #fce7f3; color: #db2777; }
+        .ni-closed    { background: #f1f5f9; color: #64748b; }
+        .ni-assigned  { background: #ede9fe; color: #7c3aed; }
+        .ni-stock     { background: #dbeafe; color: #2563eb; }
+
+        /* ── Body ────────────────────────────────────────── */
+        .notif-body { flex: 1; min-width: 0; }
+        .notif-title { font-weight: 700; font-size: 0.88rem; color: #1e293b; margin-bottom: 3px; line-height: 1.4; }
+        .notif-sub   { font-size: 0.79rem; color: #64748b; margin: 0; line-height: 1.55; }
+
+        /* ── Right meta ──────────────────────────────────── */
+        .notif-meta { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; flex-shrink: 0; }
+        .notif-time { font-size: 0.72rem; color: #94a3b8; white-space: nowrap; }
+        .dismiss-btn {
+            background: none; border: none; cursor: pointer;
+            color: #cbd5e1; font-size: 1.1rem; padding: 0; line-height: 1;
+            transition: color 0.15s;
+        }
+        .dismiss-btn:hover { color: #ef4444; }
+
+        /* ── Badges ──────────────────────────────────────── */
+        .nbadge {
+            display: inline-block; padding: 1px 8px; border-radius: 999px;
+            font-size: 0.67rem; font-weight: 700; vertical-align: middle; margin-left: 4px;
+        }
+        .nb-green  { background:#d1fae5; color:#065f46; }
+        .nb-red    { background:#fee2e2; color:#991b1b; }
+        .nb-yellow { background:#fef3c7; color:#92400e; }
+        .nb-pink   { background:#fce7f3; color:#9d174d; }
+        .nb-purple { background:#ede9fe; color:#4c1d95; }
+        .nb-orange { background:#fff7ed; color:#9a3412; }
+        .nb-gray   { background:#f1f5f9; color:#475569; }
+        .nb-blue   { background:#dbeafe; color:#1e40af; }
+
+        /* ── Empty state ─────────────────────────────────── */
+        .empty-section {
+            text-align: center; padding: 32px 20px; color: #94a3b8;
+            background: #f8fafc; border-radius: 14px;
+            border: 1.5px dashed #e2e8f0;
+        }
+        .empty-section i { font-size: 2rem; opacity: 0.22; display: block; margin-bottom: 8px; }
+        .empty-section p { font-size: 0.83rem; margin: 0; }
+
+        /* ── All clear ───────────────────────────────────── */
+        #allClearMsg {
+            display: none; text-align: center; padding: 72px 20px 40px;
+            color: #94a3b8;
+        }
+        #allClearMsg i { font-size: 3.5rem; opacity: 0.18; display: block; margin-bottom: 14px; }
+        #allClearMsg p { font-size: 0.92rem; }
+
+        /* ── Mini toast ──────────────────────────────────── */
+        #toastWrap {
+            position: fixed; bottom: 28px; left: 50%; transform: translateX(-50%);
+            z-index: 9999; pointer-events: none;
+        }
+        .mini-toast {
+            background: #1e293b; color: #fff; border-radius: 999px;
+            padding: 10px 24px; font-size: 0.81rem; font-weight: 600;
+            opacity: 0; transform: translateY(10px);
+            transition: opacity 0.25s ease, transform 0.25s ease;
+            white-space: nowrap;
+        }
+        .mini-toast.show { opacity: 1; transform: translateY(0); }
+    </style>
+</head>
+<body>
+
+<!-- ── Top bar ──────────────────────────────────────────────── -->
+<div class="top-bar">
+    <div class="top-bar-left">
+        <a href="{% url 'room_incharge:room_dashboard' room.slug %}" class="back-btn">
+            <i class="bi bi-arrow-left"></i> Back to Dashboard
+        </a>
+        <div class="top-bar-title">
+            <i class="bi bi-bell-fill" style="color:#6366f1;font-size:1rem;"></i>
+            Notifications
+            <span class="room-chip">{{ room.room_name }}</span>
+        </div>
+    </div>
+    <button class="clear-all-btn" id="clearAllBtn" onclick="clearAll()">
+        <i class="bi bi-trash3"></i> Clear All
+    </button>
+</div>
+
+<!-- ── Page body ────────────────────────────────────────────── -->
+<div class="page-body" id="pageBody">
+
+    <!-- ════════════════════════════
+         1. STOCK REQUEST UPDATES
+    ════════════════════════════ -->
+    <div class="section-header">
+        <div class="section-title">
+            <i class="bi bi-box-seam" style="color:#2563eb;"></i>
+            Stock Requests
+            <span class="section-count">{{ stock_notifications|length }}</span>
+        </div>
+    </div>
+
+    {% if stock_notifications %}
+    <div class="notif-feed">
+        {% for req in stock_notifications %}
+        <div class="notif-item" id="n-stock-{{ req.id }}">
+            <div class="notif-icon {% if req.status == 'approved' %}ni-approved{% else %}ni-rejected{% endif %}">
+                {% if req.status == "approved" %}<i class="bi bi-check-lg"></i>
+                {% else %}<i class="bi bi-x-lg"></i>{% endif %}
+            </div>
+            <div class="notif-body">
+                <div class="notif-title">
+                    Stock Request
+                    {% if req.status == "approved" %}
+                        <span class="nbadge nb-green">Approved</span>
+                    {% else %}
+                        <span class="nbadge nb-red">Rejected</span>
+                    {% endif %}
+                    &mdash; {{ req.item.item_name }}
+                </div>
+                <p class="notif-sub">
+                    {% if req.status == "approved" %}
+                        +{{ req.requested_count }} unit{{ req.requested_count|pluralize }} approved and added to stock.
+                    {% else %}
+                        Request for +{{ req.requested_count }} unit{{ req.requested_count|pluralize }} was rejected.
+                    {% endif %}
+                    {% if req.reviewed_by %} Reviewed by {{ req.reviewed_by }}.{% endif %}
+                </p>
+            </div>
+            <div class="notif-meta">
+                <span class="notif-time">{{ req.updated_on|date:"d M, H:i" }}</span>
+                <button class="dismiss-btn" onclick="dismissItem('n-stock-{{ req.id }}')" title="Dismiss"><i class="bi bi-x-lg"></i></button>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="empty-section">
+        <i class="bi bi-box-seam"></i>
+        <p>No stock request updates yet. Approved or rejected requests will appear here.</p>
+    </div>
+    {% endif %}
+
+
+    <!-- ════════════════════════════
+         2. ITEMS ASSIGNED TO ROOM
+    ════════════════════════════ -->
+    {% if assigned_notifications %}
+    <div class="section-header">
+        <div class="section-title">
+            <i class="bi bi-box-arrow-in-down" style="color:#7c3aed;"></i>
+            Items Assigned
+            <span class="section-count">{{ assigned_notifications|length }}</span>
+        </div>
+    </div>
+    <div class="notif-feed">
+        {% for req in assigned_notifications %}
+        <div class="notif-item" id="n-assigned-{{ req.id }}">
+            <div class="notif-icon ni-assigned">
+                <i class="bi bi-box-arrow-in-down"></i>
+            </div>
+            <div class="notif-body">
+                <div class="notif-title">
+                    Item Assigned &mdash; {{ req.item.item_name }}
+                    <span class="nbadge nb-purple">Assigned</span>
+                </div>
+                <p class="notif-sub">
+                    {{ req.requested_count }} unit{{ req.requested_count|pluralize }} of <strong>{{ req.item.item_name }}</strong> have been assigned to your room.
+                    {% if req.reviewed_by %} Assigned by {{ req.reviewed_by }}.{% endif %}
+                </p>
+            </div>
+            <div class="notif-meta">
+                <span class="notif-time">{{ req.updated_on|date:"d M, H:i" }}</span>
+                <button class="dismiss-btn" onclick="dismissItem('n-assigned-{{ req.id }}')" title="Dismiss"><i class="bi bi-x-lg"></i></button>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+
+    <!-- ════════════════════════════
+         3. ISSUE NOTIFICATIONS
+    ════════════════════════════ -->
+    <div class="section-header">
+        <div class="section-title">
+            <i class="bi bi-exclamation-triangle" style="color:#d97706;"></i>
+            Issues
+            <span class="section-count">{{ issue_notifications|length }}</span>
+        </div>
+    </div>
+
+    {% if issue_notifications %}
+    <div class="notif-feed">
+        {% for issue in issue_notifications %}
+        <div class="notif-item" id="n-issue-{{ issue.id }}">
+
+            <div class="notif-icon
+                {% if issue.status == 'open' %}ni-open
+                {% elif issue.status == 'in_progress' %}ni-progress
+                {% elif issue.status == 'escalated' %}ni-escalated
+                {% elif issue.status == 'closed' %}ni-closed
+                {% else %}ni-stock{% endif %}">
+                {% if issue.status == "open" %}
+                    <i class="bi bi-exclamation-circle-fill"></i>
+                {% elif issue.status == "in_progress" %}
+                    <i class="bi bi-arrow-repeat"></i>
+                {% elif issue.status == "escalated" %}
+                    <i class="bi bi-arrow-up-circle-fill"></i>
+                {% elif issue.status == "closed" %}
+                    <i class="bi bi-check-circle-fill"></i>
+                {% else %}
+                    <i class="bi bi-bell-fill"></i>
+                {% endif %}
+            </div>
+
+            <div class="notif-body">
+                <div class="notif-title">
+                    {% if issue.status == "open" %}
+                        New Issue Received
+                        <span class="nbadge nb-orange">Open</span>
+                    {% elif issue.status == "in_progress" %}
+                        Issue In Progress
+                        <span class="nbadge nb-yellow">In Progress</span>
+                    {% elif issue.status == "escalated" %}
+                        Issue Escalated to Admin
+                        <span class="nbadge nb-pink">Escalated</span>
+                    {% elif issue.status == "closed" %}
+                        Issue Resolved
+                        <span class="nbadge nb-green">Resolved</span>
+                    {% endif %}
+                    &mdash; {{ issue.subject }}
+                </div>
+                <p class="notif-sub">
+                    Ticket #{{ issue.ticket_id }}
+                    {% if issue.created_by %} &middot; Raised by {{ issue.created_by }}{% endif %}
+                    {% if issue.status == "escalated" %}
+                        &middot; <span style="color:#db2777;font-weight:600;">This issue has been escalated to admin — no further actions needed from you.</span>
+                    {% endif %}
+                    {% if issue.tat_deadline %} &middot; TAT: {{ issue.tat_deadline|date:"d M, H:i" }}{% endif %}
+                </p>
+            </div>
+
+            <div class="notif-meta">
+                <span class="notif-time">{{ issue.updated_on|date:"d M, H:i" }}</span>
+                <button class="dismiss-btn" onclick="dismissItem('n-issue-{{ issue.id }}')" title="Dismiss"><i class="bi bi-x-lg"></i></button>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="empty-section">
+        <i class="bi bi-clipboard-check"></i>
+        <p>No issues reported for this room yet.</p>
+    </div>
+    {% endif %}
+
+    <!-- All-clear -->
+    <div id="allClearMsg">
+        <i class="bi bi-bell-slash"></i>
+        <p>You're all caught up — no notifications left.</p>
+    </div>
+
+</div><!-- /page-body -->
+
+<!-- Mini toast -->
+<div id="toastWrap"><div class="mini-toast" id="miniToast"></div></div>
+
+<script>
+function dismissItem(id) {
+    var el = document.getElementById(id);
+    if (!el) return;
+    el.style.opacity = '0';
+    el.style.transform = 'translateX(36px)';
+    el.style.pointerEvents = 'none';
+    setTimeout(function() {
+        el.remove();
+        checkAllGone();
+    }, 290);
+    showToast('Notification dismissed');
+}
+
+function clearAll() {
+    var items = document.querySelectorAll('.notif-item');
+    if (!items.length) return;
+    var delay = 0;
+    items.forEach(function(el) {
+        setTimeout(function() {
+            el.style.opacity = '0';
+            el.style.transform = 'translateX(36px)';
+            el.style.pointerEvents = 'none';
+            setTimeout(function() { el.remove(); checkAllGone(); }, 280);
+        }, delay);
+        delay += 50;
+    });
+    showToast('All notifications cleared');
+}
+
+function checkAllGone() {
+    if (!document.querySelectorAll('.notif-item').length) {
+        document.getElementById('allClearMsg').style.display = 'block';
+        var btn = document.getElementById('clearAllBtn');
+        if (btn) btn.disabled = true;
+    }
+}
+
+function showToast(msg) {
+    var t = document.getElementById('miniToast');
+    t.textContent = msg;
+    t.classList.add('show');
+    clearTimeout(window.__tt);
+    window.__tt = setTimeout(function() { t.classList.remove('show'); }, 2200);
+}
+
+document.addEventListener('DOMContentLoaded', checkAllGone);
+</script>
+</body>
+</html>

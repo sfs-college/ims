@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+{% load static %}
+{% block title %} | Student Portal{% endblock %}
+
+{% block content %}
+<style>
+    body { background: radial-gradient(circle at top right, #f8f9fa, #e9ecef); min-height: 100vh; }
+    .main-portal-card { border: none; border-radius: 24px; background: rgba(255, 255, 255, 0.9); backdrop-filter: blur(10px); box-shadow: 0 20px 40px rgba(0,0,0,0.08); }
+    .google-auth-box { background: linear-gradient(135deg, #ffffff 0%, #f1f3f5 100%); border-radius: 20px; border: 1px solid rgba(0,0,0,0.05); }
+</style>
+
+<div class="container my-5 pt-5">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card main-portal-card">
+                <div class="card-body p-5 text-center">
+                    <span class="badge bg-primary-soft text-primary mb-2 px-3 py-2 rounded-pill fw-bold" style="background: rgba(13, 110, 253, 0.1);">SFS COLLEGE IMS</span>
+                    <h2 class="fw-black display-6 mb-4">Issue Reporting Portal</h2>
+                    
+                    <div class="google-auth-box py-5 px-4 shadow-sm">
+                        <i class="bi bi-google text-danger mb-4 d-block" style="font-size: 4rem;"></i>
+                        <h4 class="fw-bold">Student Authentication Required</h4>
+                        <p class="text-muted mx-auto mb-4" style="max-width: 400px;">To maintain security, please sign in with your official <strong>@sfscollege.in</strong> account.</p>
+
+                        <button onclick="googleLogin()" class="btn btn-danger btn-lg rounded-pill px-5 py-3 fw-bold shadow">
+                            <i class="bi bi-google me-2"></i> Continue with Google
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
+<script>
+    const firebaseConfig = {
+      apiKey: "AIzaSyA0au_mW_eSZY77YfGZ2WVwKqm6Of2VZ9c",
+      authDomain: "blixtro-ims.firebaseapp.com",
+      projectId: "blixtro-ims",
+      storageBucket: "blixtro-ims.firebasestorage.app",
+      messagingSenderId: "1040677036771",
+      appId: "1:1040677036771:web:5afd622f882a8c17b8dbd6"
+    };
+    firebase.initializeApp(firebaseConfig);
+
+    async function googleLogin() {
+        const provider = new firebase.auth.GoogleAuthProvider();
+        provider.setCustomParameters({ hd: 'sfscollege.in' });
+        try {
+            const result = await firebase.auth().signInWithPopup(provider);
+            const idToken = await result.user.getIdToken();
+            const form = document.createElement('form');
+            form.method = 'POST';
+            form.action = "{% url 'core:firebase_login' %}";
+            const tokenInput = document.createElement('input');
+            tokenInput.type = 'hidden'; tokenInput.name = 'id_token'; tokenInput.value = idToken;
+            const csrfInput = document.createElement('input');
+            csrfInput.type = 'hidden'; csrfInput.name = 'csrfmiddlewaretoken'; csrfInput.value = '{{ csrf_token }}';
+            form.appendChild(tokenInput); form.appendChild(csrfInput);
+            document.body.appendChild(form);
+            form.submit();
+        } catch (error) { alert("Login failed: " + error.message); }
+    }
+</script>
+{% endblock %}

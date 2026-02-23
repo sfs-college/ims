@@ -46,10 +46,12 @@
 
         <!-- PURCHASES: visible to Central + Sub Admin -->
         {% if request.user.profile.is_central_admin or request.user.profile.is_sub_admin %}
-        <a class="navlink {% if request.resolver_match.url_name == 'purchase_list' %}active{% endif %}"
+        <a class="navlink {% if request.resolver_match.url_name == 'purchase_list' or request.resolver_match.url_name == 'purchase_create' %}active{% endif %}"
            href="{% url 'central_admin:purchase_list' %}">
             <span class="material-symbols-outlined me-2">shopping_cart</span>
-            <span class="menu-text">Purchases</span>
+            <span class="menu-text">
+                {% if request.user.profile.is_sub_admin %}My Purchases{% else %}Purchase Requests{% endif %}
+            </span>
         </a>
         {% endif %}
 
@@ -62,13 +64,12 @@
 
         <!-- EDIT REQUESTS: visible to Central + Sub Admin -->
         {% if request.user.profile.is_central_admin or request.user.profile.is_sub_admin %}
-        <a class="navlink {% if request.resolver_match.url_name == 'edit_request_list' %}active{% endif %}"
-           href="{% url 'central_admin:edit_request_list' %}">
-            <span class="material-symbols-outlined me-2">edit</span>
-            <span class="menu-text">Edit Requests</span>
+        <a class="navlink {% if request.resolver_match.url_name == 'approval_requests' %}active{% endif %}"
+           href="{% url 'central_admin:approval_requests' %}">
+            <span class="material-symbols-outlined me-2">Hub</span>
+            <span class="menu-text">Approval Hub</span>
         </a>
         {% endif %}
 
     </div>
 </section>
-    
