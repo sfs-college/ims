@@ -24,6 +24,7 @@ import firebase_admin
 from firebase_admin import auth, credentials
 from django.conf import settings
 import os
+from pathlib import Path
 import pandas as pd
 
 User = get_user_model()
@@ -381,54 +382,7 @@ def rooms_by_category(request):
         })
     return JsonResponse(data, safe=False)
 
-def portal_login(request):
-    """
-    Renders the student portal login page, injecting Firebase client-side
-    config from environment variables (via Django settings) so that no
-    secrets are ever hardcoded in the template.
-    """
-    context = {
-        'FIREBASE_API_KEY':            settings.FIREBASE_API_KEY,
-        'FIREBASE_AUTH_DOMAIN':        settings.FIREBASE_AUTH_DOMAIN,
-        'FIREBASE_PROJECT_ID':         settings.FIREBASE_PROJECT_ID,
-        'FIREBASE_STORAGE_BUCKET':     settings.FIREBASE_STORAGE_BUCKET,
-        'FIREBASE_MESSAGING_SENDER_ID': settings.FIREBASE_MESSAGING_SENDER_ID,
-        'FIREBASE_APP_ID':             settings.FIREBASE_APP_ID,
-    }
-    return render(request, 'student/portal_login.html', context)
-
-
-def _init_firebase_app():
-    """
-    Initialises the Firebase Admin SDK exactly once, using service-account
-    credentials loaded entirely from environment variables (no JSON key file
-    committed to the repository).
-    """
-    if firebase_admin._apps:
-        return 
-
-    service_account_info = {
-        "type":                        "service_account",
-        "project_id":                  settings.FIREBASE_PROJECT_ID,
-        "private_key_id":              settings.FIREBASE_PRIVATE_KEY_ID,
-        "private_key":                 settings.FIREBASE_PRIVATE_KEY.replace('\\n', '\n'),
-        "client_email":                settings.FIREBASE_CLIENT_EMAIL,
-        "client_id":                   settings.FIREBASE_CLIENT_ID,
-        "auth_uri":                    "https://accounts.google.com/o/oauth2/auth",
-        "token_uri":                   "https://oauth2.googleapis.com/token",
-        "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
-        "client_x509_cert_url":        settings.FIREBASE_CLIENT_CERT_URL,
-    }
-    cred = credentials.Certificate(service_account_info)
-    firebase_admin.initialize_app(cred)
-
-
 def firebase_login_callback(request):
-    """
-    Receives the Firebase ID token from portal_login.html,
-    verifies it, enforces @sfscollege.in domain, creates/syncs
-    the Django User, logs them in, then redirects to report_issue.
-    """
     if request.method != "POST":
         return redirect('student:portal_login')
 
@@ -436,16 +390,26 @@ def firebase_login_callback(request):
     if not id_token:
         return redirect('student:portal_login')
 
-    # ── Step 1: Verify Firebase token ─────────────────────────────────────
-    decoded_token = None
+    # ── Step 1: Verify Firebase token ────────────────────────────────────────
     try:
-        _init_firebase_app()
+        if not firebase_admin._apps:
+            # This should never happen if settings.py initialized correctly,
+            # but kept as a safety net
+            creds_json = os.environ.get('FIREBASE_ADMIN_CREDENTIALS_JSON', '')
+            if creds_json:
+                import json as _json
+                cred_dict = _json.loads(creds_json)
+                if 'private_key' in cred_dict:
+                    cred_dict['private_key'] = cred_dict['private_key'].replace('\\n', '\n')
+                firebase_admin.initialize_app(credentials.Certificate(cred_dict))
+            else:
+                print("[firebase_login] CRITICAL: No Firebase credentials available", flush=True)
+                return redirect('student:portal_login')
 
         decoded_token = auth.verify_id_token(id_token, clock_skew_seconds=10)
 
     except Exception as e:
         print(f"[firebase_login] Token verification failed: {e}", flush=True)
-        # Send back to login — do NOT redirect to report_issue unauthenticated
         return redirect('student:portal_login')
 
     # ── Step 2: Extract and validate email ────────────────────────────────
