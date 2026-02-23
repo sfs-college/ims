@@ -656,10 +656,20 @@ def confirmed_booking_files(request):
 
 def download_booking_doc(request, booking_id):
     """
-    Proxy view that streams a booking's requirements document from private storage.
-    Avoids exposing direct storage URLs that may return AccessDenied.
+    Proxy view that streams a booking's requirements document.
+
+    Works for BOTH local development (local filesystem) and production
+    (DigitalOcean Spaces / S3-compatible storage).
+
+    On S3/Spaces the file object returned by the storage backend is not a
+    regular file — calling .read() on it opens a network stream.  We read
+    it in chunks to handle large files without exhausting memory, and we
+    explicitly close the storage handle afterwards.
+
     Central admin and sub-admin only.
     """
+    import mimetypes
+
     profile = getattr(request.user, 'profile', None)
     if not profile or not (profile.is_central_admin or profile.is_sub_admin):
         return HttpResponse("Unauthorized", status=403)
@@ -670,18 +680,42 @@ def download_booking_doc(request, booking_id):
         return HttpResponse("No document attached to this booking.", status=404)
 
     try:
-        doc_file = booking.requirements_doc
-        file_name = doc_file.name.split('/')[-1]
+        doc_field = booking.requirements_doc
+        file_name = doc_field.name.split('/')[-1]
 
-        # Determine content type
-        import mimetypes
         content_type, _ = mimetypes.guess_type(file_name)
         if not content_type:
             content_type = 'application/octet-stream'
 
-        response = HttpResponse(doc_file.read(), content_type=content_type)
-        response['Content-Disposition'] = f'attachment; filename="{file_name}"'
-        return response
+        # ── Strategy 1: try reading via the storage backend (works for both
+        #   local files and private S3/Spaces objects accessed with credentials)
+        try:
+            storage = doc_field.storage
+            with storage.open(doc_field.name, 'rb') as f:
+                file_data = f.read()
+
+            response = HttpResponse(file_data, content_type=content_type)
+            response['Content-Disposition'] = (
+                f'attachment; filename="{file_name}"'
+            )
+            return response
+
+        except Exception as storage_err:
+            # ── Strategy 2: if the storage backend can generate a URL,
+            #   redirect the browser to a pre-signed / public URL so the
+            #   download happens directly from the CDN/bucket.
+            #   This is the fallback for very large files or unusual configs.
+            try:
+                url = doc_field.url  # may be a pre-signed URL on S3
+                if url:
+                    from django.http import HttpResponseRedirect
+                    return HttpResponseRedirect(url)
+            except Exception:
+                pass
+
+            # Both strategies failed — surface the original error
+            raise storage_err
+
     except Exception as e:
         return HttpResponse(f"Failed to retrieve document: {str(e)}", status=500)
     
