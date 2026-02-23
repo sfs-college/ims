@@ -1,4 +1,15 @@
+# Allow Google to crawl the main landing page
 User-agent: *
 Allow: /
+Allow: /static/
+
+# Hide sensitive IMS and Admin areas
 Disallow: /admin/
 Disallow: /core/login/
+Disallow: /core/register/
+Disallow: /central_admin/
+Disallow: /room_incharge/
+Disallow: /student/portal/
+
+# Link to your Sitemap (replace with your real URL if different)
+Sitemap: https://blixtro.sfscollege.app/

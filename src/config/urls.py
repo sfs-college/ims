@@ -5,6 +5,13 @@ from core.views import LandingPageView
 from django.conf import settings
 from django.conf.urls.static import static
 from inventory.views.escalation import run_escalation
+from django.contrib.sitemaps.views import sitemap
+from .sitemaps import StaticViewSitemap
+
+
+sitemaps = {
+    'static': StaticViewSitemap,
+}
 
 urlpatterns = [
     path('admin/', admin.site.urls),
@@ -16,6 +23,9 @@ urlpatterns = [
     path("internal/escalate/", run_escalation, name="run_escalation"),
     path('accounts/', include('allauth.urls')),
     path('googlea9164186443e93d5.html', TemplateView.as_view(template_name="googlea9164186443e93d5.html", content_type='text/html')),
+    path('robots.txt', TemplateView.as_view(template_name="robots.txt", content_type="text/plain")),
+    path('sitemap.xml', sitemap, {'sitemaps': sitemaps},
+         name='django.contrib.sitemaps.views.sitemap'),
 ]
 
 if settings.DEBUG:
