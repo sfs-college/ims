@@ -687,6 +687,13 @@ class RoomBooking(models.Model):
         validators=[FileExtensionValidator(allowed_extensions=['doc', 'docx'])],
         help_text="Upload a Word document or leave empty if Not Applicable."
     )
+    # Stores the plain-text content extracted from requirements_doc at approval time.
+    # This allows admin to view/download the document content without touching
+    requirements_doc_text = models.TextField(
+        null=True,
+        blank=True,
+        help_text="Auto-extracted plain text from the uploaded requirements document."
+    )
     
     slug = models.SlugField(unique=True, max_length=255, blank=True, null=True)
 
