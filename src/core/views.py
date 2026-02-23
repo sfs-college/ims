@@ -24,7 +24,6 @@ import firebase_admin
 from firebase_admin import auth, credentials
 from django.conf import settings
 import os
-from pathlib import Path
 import pandas as pd
 
 User = get_user_model()
@@ -382,6 +381,48 @@ def rooms_by_category(request):
         })
     return JsonResponse(data, safe=False)
 
+def portal_login(request):
+    """
+    Renders the student portal login page, injecting Firebase client-side
+    config from environment variables (via Django settings) so that no
+    secrets are ever hardcoded in the template.
+    """
+    context = {
+        'FIREBASE_API_KEY':            settings.FIREBASE_API_KEY,
+        'FIREBASE_AUTH_DOMAIN':        settings.FIREBASE_AUTH_DOMAIN,
+        'FIREBASE_PROJECT_ID':         settings.FIREBASE_PROJECT_ID,
+        'FIREBASE_STORAGE_BUCKET':     settings.FIREBASE_STORAGE_BUCKET,
+        'FIREBASE_MESSAGING_SENDER_ID': settings.FIREBASE_MESSAGING_SENDER_ID,
+        'FIREBASE_APP_ID':             settings.FIREBASE_APP_ID,
+    }
+    return render(request, 'student/portal_login.html', context)
+
+
+def _init_firebase_app():
+    """
+    Initialises the Firebase Admin SDK exactly once, using service-account
+    credentials loaded entirely from environment variables (no JSON key file
+    committed to the repository).
+    """
+    if firebase_admin._apps:
+        return 
+
+    service_account_info = {
+        "type":                        "service_account",
+        "project_id":                  settings.FIREBASE_PROJECT_ID,
+        "private_key_id":              settings.FIREBASE_PRIVATE_KEY_ID,
+        "private_key":                 settings.FIREBASE_PRIVATE_KEY.replace('\\n', '\n'),
+        "client_email":                settings.FIREBASE_CLIENT_EMAIL,
+        "client_id":                   settings.FIREBASE_CLIENT_ID,
+        "auth_uri":                    "https://accounts.google.com/o/oauth2/auth",
+        "token_uri":                   "https://oauth2.googleapis.com/token",
+        "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+        "client_x509_cert_url":        settings.FIREBASE_CLIENT_CERT_URL,
+    }
+    cred = credentials.Certificate(service_account_info)
+    firebase_admin.initialize_app(cred)
+
+
 def firebase_login_callback(request):
     """
     Receives the Firebase ID token from portal_login.html,
@@ -398,18 +439,7 @@ def firebase_login_callback(request):
     # ── Step 1: Verify Firebase token ─────────────────────────────────────
     decoded_token = None
     try:
-        # Ensure Firebase app is initialised (settings.py does this at startup
-        # but we guard here in case the key file was missing at boot time)
-        if not firebase_admin._apps:
-            key_path = os.path.join(
-                Path(settings.BASE_DIR), 'core', 'firebase_key.json'
-            )
-            if os.path.exists(key_path):
-                cred = credentials.Certificate(key_path)
-                firebase_admin.initialize_app(cred)
-            else:
-                print("[firebase_login] CRITICAL: firebase_key.json not found", flush=True)
-                return redirect('student:portal_login')
+        _init_firebase_app()
 
         decoded_token = auth.verify_id_token(id_token, clock_skew_seconds=10)
 

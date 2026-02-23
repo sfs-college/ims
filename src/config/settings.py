@@ -1,8 +1,6 @@
 import os
 from pathlib import Path
 from environ import Env
-import firebase_admin
-from firebase_admin import auth, credentials
 
 env = Env()
 Env.read_env()
@@ -309,16 +307,20 @@ CRON_SECRET = env(
     default="local-dev-cron-secret"
 )
 
-# Initialize Firebase Admin SDK
-FIREBASE_KEY_PATH = os.path.join(BASE_DIR,'core', 'firebase_key.json')
-if os.path.exists(FIREBASE_KEY_PATH):
-    try:
-        if not firebase_admin._apps:
-            cred = credentials.Certificate(FIREBASE_KEY_PATH)
-            firebase_admin.initialize_app(cred)
-    except Exception as e:
-        import logging
-        logger = logging.getLogger('django')
-        logger.error(f"Firebase Admin Initialization Error: {e}")
-else:
-    print(f"CRITICAL: Firebase key not found at {FIREBASE_KEY_PATH}")
+# ── Firebase Client-side config (injected into portal_login.html) ────────────
+# These are the values shown in Firebase Console → Project Settings → General
+FIREBASE_API_KEY             = env('FIREBASE_API_KEY')
+FIREBASE_AUTH_DOMAIN         = env('FIREBASE_AUTH_DOMAIN')
+FIREBASE_PROJECT_ID          = env('FIREBASE_PROJECT_ID')
+FIREBASE_STORAGE_BUCKET      = env('FIREBASE_STORAGE_BUCKET')
+FIREBASE_MESSAGING_SENDER_ID = env('FIREBASE_MESSAGING_SENDER_ID')
+FIREBASE_APP_ID              = env('FIREBASE_APP_ID')
+
+# ── Firebase Admin SDK / Service Account (used server-side in views.py) ──────
+# These come from the JSON downloaded via:
+# Firebase Console → Project Settings → Service Accounts → Generate New Private Key
+FIREBASE_PRIVATE_KEY_ID  = env('FIREBASE_PRIVATE_KEY_ID')
+FIREBASE_PRIVATE_KEY     = env('FIREBASE_PRIVATE_KEY')   # \n replaced at runtime in views.py
+FIREBASE_CLIENT_EMAIL    = env('FIREBASE_CLIENT_EMAIL')
+FIREBASE_CLIENT_ID       = env('FIREBASE_CLIENT_ID')
+FIREBASE_CLIENT_CERT_URL = env('FIREBASE_CLIENT_CERT_URL')
