@@ -1,6 +1,9 @@
 import os
+import json
 from pathlib import Path
 from environ import Env
+import firebase_admin
+from firebase_admin import auth, credentials
 
 env = Env()
 Env.read_env()
@@ -51,7 +54,6 @@ INSTALLED_APPS = [
     'core.apps.CoreConfig',
     'inventory.apps.InventoryConfig',
     'django.contrib.sites',
-    'django.contrib.sitemaps',
     'allauth',
     'allauth.account',
     'allauth.socialaccount',
@@ -124,6 +126,7 @@ TEMPLATES = [
                 'django.template.context_processors.request',
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
+                'core.context_processors.firebase_config',
             ],
         },
     },
@@ -206,7 +209,7 @@ else:
     AWS_SECRET_ACCESS_KEY = env('AWS_SECRET_ACCESS_KEY', default="aws_secret_access_key")
     AWS_STORAGE_BUCKET_NAME = env('AWS_STORAGE_BUCKET_NAME', default="aws_storage_bucket_name")
     AWS_S3_ENDPOINT_URL = env('AWS_S3_ENDPOINT_URL', default="aws_s3_endpoint_url")
-    AWS_S3_CUSTOM_DOMAIN = f"{env('AWS_S3_CUSTOM_DOMAIN', default="aws_s3_custom_domain")}/{AWS_STORAGE_BUCKET_NAME}"
+    AWS_S3_CUSTOM_DOMAIN = f"{env('AWS_S3_CUSTOM_DOMAIN', default='aws_s3_custom_domain')}/{AWS_STORAGE_BUCKET_NAME}"
 
     AWS_S3_OBJECT_PARAMETERS = {
         "CacheControl": "max-age=86400",
@@ -308,20 +311,55 @@ CRON_SECRET = env(
     default="local-dev-cron-secret"
 )
 
-# ── Firebase Client-side config (injected into portal_login.html) ────────────
-# These are the values shown in Firebase Console → Project Settings → General
-FIREBASE_API_KEY             = env('FIREBASE_API_KEY')
-FIREBASE_AUTH_DOMAIN         = env('FIREBASE_AUTH_DOMAIN')
-FIREBASE_PROJECT_ID          = env('FIREBASE_PROJECT_ID')
-FIREBASE_STORAGE_BUCKET      = env('FIREBASE_STORAGE_BUCKET')
-FIREBASE_MESSAGING_SENDER_ID = env('FIREBASE_MESSAGING_SENDER_ID')
-FIREBASE_APP_ID              = env('FIREBASE_APP_ID')
+# ── Firebase Client Config (passed to templates via context processor) ────────
+# These values power the Firebase JS SDK in the browser. They are NOT secret —
+# Firebase scopes them with Security Rules + the hd domain restriction.
+# Stored in env vars so they never appear hardcoded in source or HTML.
+FIREBASE_CLIENT_CONFIG = {
+    "apiKey":            env('FIREBASE_API_KEY'),
+    "authDomain":        env('FIREBASE_AUTH_DOMAIN'),
+    "projectId":         env('FIREBASE_PROJECT_ID'),
+    "storageBucket":     env('FIREBASE_STORAGE_BUCKET'),
+    "messagingSenderId": env('FIREBASE_MESSAGING_SENDER_ID'),
+    "appId":             env('FIREBASE_APP_ID'),
+}
 
-# ── Firebase Admin SDK / Service Account (used server-side in views.py) ──────
-# These come from the JSON downloaded via:
-# Firebase Console → Project Settings → Service Accounts → Generate New Private Key
-FIREBASE_PRIVATE_KEY_ID  = env('FIREBASE_PRIVATE_KEY_ID')
-FIREBASE_PRIVATE_KEY     = env('FIREBASE_PRIVATE_KEY')   # \n replaced at runtime in views.py
-FIREBASE_CLIENT_EMAIL    = env('FIREBASE_CLIENT_EMAIL')
-FIREBASE_CLIENT_ID       = env('FIREBASE_CLIENT_ID')
-FIREBASE_CLIENT_CERT_URL = env('FIREBASE_CLIENT_CERT_URL')
+# ── Firebase Admin SDK Initialization ────────────────────────────────────────
+# Priority 1: FIREBASE_ADMIN_CREDENTIALS_JSON env var (Railway + local .env).
+#             Paste the full service-account JSON as one line — no outer quotes.
+# Priority 2: Local file fallback at src/core/firebase_key.json.
+#             Must be in .gitignore, never committed.
+if not firebase_admin._apps:
+    _firebase_creds_json = env('FIREBASE_ADMIN_CREDENTIALS_JSON', default='')
+
+    if _firebase_creds_json:
+        try:
+            _cred_dict = json.loads(_firebase_creds_json)
+            # django-environ may store \n as literal \\n in the env value.
+            # Firebase needs real newline characters inside the private key.
+            if 'private_key' in _cred_dict:
+                _cred_dict['private_key'] = _cred_dict['private_key'].replace('\\n', '\n')
+            firebase_admin.initialize_app(credentials.Certificate(_cred_dict))
+        except json.JSONDecodeError as e:
+            import logging
+            logging.getLogger('django').error(
+                f"Firebase: FIREBASE_ADMIN_CREDENTIALS_JSON is not valid JSON: {e}"
+            )
+        except Exception as e:
+            import logging
+            logging.getLogger('django').error(f"Firebase Admin init error: {e}")
+    else:
+        # Fallback: local key file (dev convenience only, not for production)
+        _key_path = os.path.join(BASE_DIR, 'core', 'firebase_key.json')
+        if os.path.exists(_key_path):
+            try:
+                firebase_admin.initialize_app(credentials.Certificate(_key_path))
+            except Exception as e:
+                import logging
+                logging.getLogger('django').error(f"Firebase Admin init error (file): {e}")
+        else:
+            print(
+                "WARNING: Firebase Admin SDK not initialized.\n"
+                "Set FIREBASE_ADMIN_CREDENTIALS_JSON in your .env, "
+                f"or place firebase_key.json at {_key_path}"
+            )
