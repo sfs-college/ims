@@ -23,8 +23,6 @@
         <h3 class="fw-bold">{{ room.room_name }} Dashboard</h3>
         <div class="d-flex align-items-center">
 
-        <!-- Existing Edit Button -->
-        <a href="{% url 'room_incharge:room_update' room_slug=room_slug %}" class="btn btn-primary me-2">Edit Room</a>
 
         <!-- NEW: Dropdown and Form for Report Generation -->
         <form action="{% url 'room_incharge:room_report' room_slug=room_slug %}" method="get" class="d-flex align-items-center">
@@ -34,10 +32,6 @@
             </select>
             <button type="submit" class="btn btn-secondary">Generate Report</button>
         </form>
-        <!-- COMMENT: This replaces the old 'Generate Report' link.
-             It lets the incharge choose report type (PDF/Excel) dynamically. -->
-             <!-- Add next to Generate Report form -->
-        <a href="{% url 'room_incharge:purchase_import' room_slug=room_slug %}" class="btn btn-outline-secondary ms-2">Import Excel</a>
 
     </div>
 </div>
@@ -89,15 +83,7 @@
             </div>
         </div>
     </div>
-    <div class="col-md-6 mb-4">
-        <div class="card">
-            <div class="card-body">
-                <h5 class="card-title">Purchases</h5>
-                <p class="card-text">Manage purchases for this room.</p>
-                <a href="{% url 'room_incharge:purchase_list' room_slug=room_slug %}" class="btn btn-outline-primary">View Purchases</a>
-            </div>
-        </div>
-    </div>
+
     <div class="col-md-6 mb-4">
         <div class="card">
             <div class="card-body">
@@ -113,6 +99,15 @@
                 <h5 class="card-title">Issues</h5>
                 <p class="card-text">Manage issues reported in this room.</p>
                 <a href="{% url 'room_incharge:issue_list' room_slug=room_slug %}" class="btn btn-outline-primary">View Issues</a>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6 mb-4">
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title">Notifications</h5>
+                <p class="card-text">Manage Notifications related to stock Requests and Issues.</p>
+                <a href="{% url 'room_incharge:notifications' room_slug=room_slug %}" class="btn btn-outline-primary">View Notifications</a>
             </div>
         </div>
     </div>

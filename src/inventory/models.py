@@ -13,6 +13,7 @@ from django.conf import settings
 from inventory.models import UserProfile
 from django.core.mail import send_mail
 import pytz, uuid
+from django.core.validators import FileExtensionValidator
 
 class Room(models.Model):
     # CHANGE: Added fixed room category support for central admin room management
@@ -116,12 +117,14 @@ class Purchase(models.Model):
     ]
 
     organisation = models.ForeignKey(Organisation, on_delete=models.CASCADE)
-    room = models.ForeignKey(Room, on_delete=models.CASCADE)
+    room = models.ForeignKey(Room, on_delete=models.CASCADE, null=True, blank=True)
     purchase_id = models.CharField(max_length=8, unique=True)
     item = models.ForeignKey('inventory.Item', on_delete=models.CASCADE)
     quantity = models.FloatField()
     unit_of_measure = models.CharField(max_length=10, choices=UNIT_CHOICES)
-    vendor = models.ForeignKey(Vendor, on_delete=models.CASCADE)
+    vendor = models.ForeignKey(Vendor, on_delete=models.CASCADE, null=True, blank=True)
+    requested_by = models.ForeignKey('core.UserProfile', on_delete=models.SET_NULL, null=True, blank=True, related_name='purchase_requests_made')
+    reason = models.TextField(blank=True, help_text="Reason for purchase request")
 
     # ✅ Excel fields
     cost = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
@@ -200,7 +203,7 @@ class Issue(models.Model):
     organisation = models.ForeignKey(Organisation, on_delete=models.CASCADE)
     room = models.ForeignKey(Room, on_delete=models.CASCADE)
 
-    created_by = models.CharField(max_length=255, blank=True)
+    created_by = models.CharField(max_length=255, blank=True, null = True)
     reporter_email = models.EmailField(
         max_length=255,
         null=True,
@@ -375,7 +378,7 @@ class Issue(models.Model):
 
 class Category(models.Model):
     organisation = models.ForeignKey(Organisation, on_delete=models.CASCADE)
-    room = models.ForeignKey(Room, on_delete=models.CASCADE)
+    room = models.ForeignKey(Room, on_delete=models.CASCADE, null=True, blank=True)
     category_name = models.CharField(max_length=255)
     created_on = models.DateTimeField(auto_now_add=True)
     updated_on = models.DateTimeField(auto_now=True)
@@ -393,7 +396,7 @@ class Category(models.Model):
 
 class Brand(models.Model):
     organisation = models.ForeignKey(Organisation, on_delete=models.CASCADE)
-    room = models.ForeignKey(Room, on_delete=models.CASCADE)
+    room = models.ForeignKey(Room, on_delete=models.CASCADE, null=True, blank=True)
     brand_name = models.CharField(max_length=255)
     created_on = models.DateTimeField(auto_now_add=True)
     updated_on = models.DateTimeField(auto_now=True)
@@ -411,7 +414,7 @@ class Brand(models.Model):
 class Item(models.Model):
     organisation = models.ForeignKey(Organisation, on_delete=models.CASCADE)
     department = models.ForeignKey(Department, null=True, blank=True, on_delete=models.CASCADE)
-    room = models.ForeignKey(Room, on_delete=models.CASCADE)
+    room = models.ForeignKey(Room, on_delete=models.CASCADE, null=True, blank=True)
     category = models.ForeignKey(Category, on_delete=models.CASCADE)
     brand = models.ForeignKey(Brand, on_delete=models.CASCADE)
     item_name = models.CharField(max_length=255)
@@ -443,7 +446,6 @@ class Item(models.Model):
     updated_on = models.DateTimeField(auto_now=True)
     slug = models.SlugField(unique=True, max_length=255)
 
-    is_edit_lock = models.BooleanField(default=False)
 
     def save(self, *args, **kwargs):
         if not self.slug:
@@ -640,36 +642,32 @@ class Receipt(models.Model):
     def __str__(self):
         return f"Receipt for {self.purchase.purchase_id}"
 
-class EditRequest(models.Model):
-    item = models.ForeignKey(Item, on_delete=models.CASCADE)
-    room = models.ForeignKey(Room, on_delete=models.CASCADE)
-    requested_by = models.ForeignKey(UserProfile, on_delete=models.CASCADE)
+class StockRequest(models.Model):
+    """
+    Room Incharge requests additional stock for an item.
+    Admin approves → item.total_count and item.available_count are increased.
+    """
+    STATUS_CHOICES = [
+        ("pending",  "Pending"),
+        ("approved", "Approved"),
+        ("rejected", "Rejected"),
+    ]
 
-    proposed_data = models.JSONField(default=dict)
-    reason = models.TextField(default="")
-
-    status = models.CharField(
-        max_length=20,
-        choices=[
-            ("pending", "Pending"),
-            ("approved", "Approved"),
-            ("rejected", "Rejected"),
-        ],
-        default="pending",
-    )
-
-    reviewed_by = models.ForeignKey(
-        UserProfile,
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
-        related_name="reviewed_edit_requests",
-    )
-
-    created_on = models.DateTimeField(auto_now_add=True)
+    item            = models.ForeignKey(Item, on_delete=models.CASCADE, related_name="stock_requests")
+    room            = models.ForeignKey(Room, on_delete=models.CASCADE)
+    requested_by    = models.ForeignKey(UserProfile, on_delete=models.CASCADE, related_name="stock_requests_made")
+    requested_count = models.PositiveIntegerField(default=1)
+    reason          = models.TextField()
+    status          = models.CharField(max_length=20, choices=STATUS_CHOICES, default="pending")
+    reviewed_by     = models.ForeignKey(
+                        UserProfile, on_delete=models.SET_NULL,
+                        null=True, blank=True,
+                        related_name="reviewed_stock_requests"
+                      )
+    created_on      = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
-        return f"{self.item} ({self.status})"
+        return f"StockReq: {self.item.item_name} +{self.requested_count} ({self.status})"
 
 
 
@@ -682,6 +680,13 @@ class RoomBooking(models.Model):
     end_datetime = models.DateTimeField()
     created_on = models.DateTimeField(auto_now_add=True)
     purpose = models.TextField(null=True, blank=True)
+    requirements_doc = models.FileField(
+        upload_to='room_bookings/requirements/',
+        null=True, 
+        blank=True,
+        validators=[FileExtensionValidator(allowed_extensions=['doc', 'docx'])],
+        help_text="Upload a Word document or leave empty if Not Applicable."
+    )
     
     slug = models.SlugField(unique=True, max_length=255, blank=True, null=True)
 
@@ -727,7 +732,20 @@ class RoomBooking(models.Model):
 
     def __str__(self):
         return f"{self.room.room_name} | {self.start_datetime.strftime('%Y-%m-%d %H:%M')}"
-    
+
+
+class RoomBookingCredentials(models.Model):
+    """
+    Stores authorized emails and passwords for room booking validation.
+    """
+    email = models.EmailField(unique=True)
+    password = models.CharField(max_length=128)
+    designation = models.CharField(max_length=100)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return self.email
+
 class IssueTimeExtensionRequest(models.Model):
     """
     Request raised by Room Incharge to extend Issue TAT.
@@ -773,3 +791,79 @@ class IssueTimeExtensionRequest(models.Model):
 
     def __str__(self):
         return f"Issue #{self.issue.id} – {self.status}"
+
+
+# ─────────────────────────────────────────────────────────────────────
+# ROOM BOOKING APPROVAL WORKFLOW MODELS
+# ─────────────────────────────────────────────────────────────────────
+
+class RoomBookingRequest(models.Model):
+    """
+    Pending room booking that requires admin approval before becoming
+    a confirmed RoomBooking entry.
+    """
+    STATUS_CHOICES = [
+        ('pending',  'Pending'),
+        ('approved', 'Approved'),
+        ('rejected', 'Rejected'),
+    ]
+
+    room            = models.ForeignKey(Room, on_delete=models.CASCADE)
+    department      = models.ForeignKey(
+                        'core.Department', null=True, blank=True, on_delete=models.SET_NULL
+                      )
+    faculty_name    = models.CharField(max_length=255)
+    faculty_email   = models.EmailField()
+    start_datetime  = models.DateTimeField()
+    end_datetime    = models.DateTimeField()
+    purpose         = models.TextField(null=True, blank=True)
+    requirements_doc = models.FileField(
+                        upload_to='room_booking_requests/requirements/',
+                        null=True, blank=True,
+                        validators=[FileExtensionValidator(
+                            allowed_extensions=['doc', 'docx', 'pdf']
+                        )],
+                      )
+    status          = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
+    reviewed_by     = models.ForeignKey(
+                        UserProfile, on_delete=models.SET_NULL,
+                        null=True, blank=True,
+                        related_name='reviewed_booking_requests'
+                      )
+    review_note     = models.TextField(blank=True)
+    created_on      = models.DateTimeField(auto_now_add=True)
+    updated_on      = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"BookingReq [{self.status}]: {self.room} | {self.faculty_email}"
+
+
+class RoomCancellationRequest(models.Model):
+    """
+    Faculty-raised request to cancel an existing confirmed RoomBooking.
+    On approval  → the linked RoomBooking is deleted (room freed).
+    On rejection → booking stays active.
+    """
+    STATUS_CHOICES = [
+        ('pending',  'Pending'),
+        ('approved', 'Approved'),
+        ('rejected', 'Rejected'),
+    ]
+
+    booking         = models.ForeignKey(
+                        RoomBooking, on_delete=models.CASCADE,
+                        related_name='cancellation_requests'
+                      )
+    faculty_email   = models.EmailField()
+    reason          = models.TextField()
+    status          = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
+    reviewed_by     = models.ForeignKey(
+                        UserProfile, on_delete=models.SET_NULL,
+                        null=True, blank=True,
+                        related_name='reviewed_cancellation_requests'
+                      )
+    created_on      = models.DateTimeField(auto_now_add=True)
+    updated_on      = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"CancelReq [{self.status}]: {self.booking}"

@@ -1,0 +1,437 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}| Raise Purchase Request{% endblock title %}
+
+{% block style %}
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
+<style>
+    :root {
+        --indigo: #6366f1;
+        --indigo-dark: #4f46e5;
+        --violet: #8b5cf6;
+        --indigo-light: #eef2ff;
+        --border: #e2e8f0;
+        --text-dark: #1e293b;
+        --text-mid: #475569;
+        --text-muted: #94a3b8;
+        --surface: #f8fafc;
+        --shadow: 0 2px 8px rgba(0,0,0,0.06);
+        --primary-grad: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+    }
+
+    body { background: var(--surface); }
+
+    /* ── INTERNAL NAVBAR ── */
+    .internal-nav {
+        position: sticky;
+        top: 0;
+        z-index: 500;
+        background: #fff;
+        border-bottom: 1px solid var(--border);
+        box-shadow: 0 2px 12px rgba(99, 102, 241, 0.08);
+        display: flex;
+        align-items: center;
+        padding: 0 28px;
+        height: 62px;
+        gap: 16px;
+    }
+
+    .nav-brand {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        text-decoration: none;
+        flex-shrink: 0;
+    }
+
+    .nav-logo {
+        width: 36px;
+        height: 36px;
+        background: var(--primary-grad);
+        border-radius: 10px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.68rem;
+        font-weight: 900;
+        color: white;
+        letter-spacing: 0.5px;
+        flex-shrink: 0;
+    }
+
+    .nav-brand-text {
+        display: flex;
+        flex-direction: column;
+        line-height: 1.1;
+    }
+
+    .nav-brand-title {
+        font-size: 0.95rem;
+        font-weight: 800;
+        color: var(--text-dark);
+    }
+
+    .nav-brand-sub {
+        font-size: 0.68rem;
+        font-weight: 600;
+        color: var(--text-muted);
+        text-transform: uppercase;
+        letter-spacing: 0.8px;
+    }
+
+    .nav-divider {
+        width: 1px;
+        height: 28px;
+        background: var(--border);
+        flex-shrink: 0;
+    }
+
+    .nav-breadcrumb {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 0.82rem;
+        color: var(--text-muted);
+    }
+
+    .nav-breadcrumb a {
+        color: var(--text-muted);
+        text-decoration: none;
+        transition: color 0.2s;
+    }
+
+    .nav-breadcrumb a:hover { color: var(--indigo); }
+
+    .nav-breadcrumb .crumb-active {
+        color: var(--text-dark);
+        font-weight: 600;
+    }
+
+    .nav-breadcrumb i { font-size: 0.65rem; }
+
+    .nav-actions {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-left: auto;
+        flex-shrink: 0;
+    }
+
+    .nav-btn-ghost {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 7px 14px;
+        border-radius: 8px;
+        border: 1.5px solid var(--border);
+        background: white;
+        color: var(--text-mid);
+        font-size: 0.8rem;
+        font-weight: 600;
+        text-decoration: none;
+        cursor: pointer;
+        transition: all 0.2s;
+        white-space: nowrap;
+    }
+
+    .nav-btn-ghost:hover {
+        border-color: var(--indigo);
+        color: var(--indigo);
+        background: var(--indigo-light);
+    }
+
+    .nav-status-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 6px 14px;
+        border-radius: 20px;
+        background: var(--indigo-light);
+        color: var(--indigo-dark);
+        font-size: 0.75rem;
+        font-weight: 700;
+        letter-spacing: 0.3px;
+    }
+
+    .nav-status-dot {
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: var(--indigo);
+        animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+        0%, 100% { opacity: 1; transform: scale(1); }
+        50% { opacity: 0.6; transform: scale(1.3); }
+    }
+
+    /* ── PAGE ── */
+    .page-wrapper {
+        min-height: 100vh;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: flex-start;
+        padding: 40px 20px 60px;
+    }
+
+    .create-card {
+        background: white;
+        border-radius: 20px;
+        padding: 44px 48px;
+        box-shadow: 0 4px 24px rgba(0,0,0,0.08);
+        max-width: 700px;
+        width: 100%;
+    }
+
+    .card-icon {
+        width: 56px; height: 56px;
+        background: var(--primary-grad);
+        border-radius: 14px;
+        display: flex; align-items: center; justify-content: center;
+        font-size: 1.5rem; color: white;
+        margin-bottom: 18px;
+    }
+
+    .create-card h2 {
+        font-weight: 800;
+        color: #1e293b;
+        font-size: 1.75rem;
+        margin-bottom: 6px;
+    }
+
+    .create-card .subtitle {
+        color: #64748b;
+        font-size: 0.95rem;
+        margin-bottom: 0;
+    }
+
+    .divider { border-top: 1.5px solid #f1f5f9; margin: 24px 0; }
+
+    .form-label {
+        font-weight: 700;
+        font-size: 0.8rem;
+        color: #475569;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        margin-bottom: 6px;
+    }
+
+    .form-control, .form-select {
+        border-radius: 10px;
+        border: 1.5px solid #e2e8f0;
+        padding: 11px 14px;
+        font-size: 0.95rem;
+        color: #1e293b;
+        transition: border-color 0.2s, box-shadow 0.2s;
+    }
+
+    .form-control:focus, .form-select:focus {
+        border-color: #6366f1;
+        box-shadow: 0 0 0 3px rgba(99,102,241,0.12);
+        outline: none;
+    }
+
+    .form-control::placeholder { color: #94a3b8; }
+
+    .info-box {
+        background: #f0f9ff;
+        border: 1.5px solid #bae6fd;
+        border-radius: 12px;
+        padding: 14px 18px;
+        font-size: 0.9rem;
+        color: #0c4a6e;
+    }
+
+    .success-box {
+        background: #f0fdf4;
+        border: 1.5px solid #bbf7d0;
+        border-radius: 12px;
+        padding: 16px 20px;
+        font-size: 0.95rem;
+        color: #14532d;
+        display: flex;
+        align-items: flex-start;
+        gap: 12px;
+    }
+
+    .success-box i { font-size: 1.4rem; color: #16a34a; flex-shrink: 0; margin-top: 1px; }
+
+    .btn-submit {
+        background: var(--primary-grad);
+        color: white;
+        border: none;
+        padding: 13px 40px;
+        border-radius: 12px;
+        font-weight: 700;
+        font-size: 1rem;
+        cursor: pointer;
+        transition: opacity 0.2s, transform 0.15s;
+    }
+
+    .btn-submit:hover { opacity: 0.9; color: white; transform: translateY(-1px); }
+
+    .btn-cancel {
+        color: #94a3b8;
+        text-decoration: none;
+        font-size: 0.9rem;
+        padding: 12px 16px;
+        transition: color 0.2s;
+    }
+
+    .btn-cancel:hover { color: #475569; }
+
+    .field-hint { font-size: 0.8rem; color: #94a3b8; margin-top: 5px; }
+
+    @media (max-width: 640px) {
+        .create-card { padding: 28px 20px; }
+        .internal-nav { padding: 0 16px; }
+        .nav-breadcrumb { display: none; }
+        .nav-status-pill { display: none; }
+    }
+</style>
+{% endblock style %}
+
+{% block navbar %}
+<!-- Internal Navbar for Purchase Request -->
+<nav class="internal-nav">
+    <a class="nav-brand" href="{% url 'central_admin:dashboard' %}">
+        <div class="nav-logo">SFS</div>
+        <div class="nav-brand-text">
+            <span class="nav-brand-title">Procurement</span>
+            <span class="nav-brand-sub">Purchase Module</span>
+        </div>
+    </a>
+
+    <div class="nav-divider"></div>
+
+    <nav class="nav-breadcrumb">
+        <a href="{% url 'central_admin:dashboard' %}">Dashboard</a>
+        <i class="bi bi-chevron-right"></i>
+        <a href="{% url 'central_admin:purchase_list' %}">My Requests</a>
+        <i class="bi bi-chevron-right"></i>
+        <span class="crumb-active">New Request</span>
+    </nav>
+
+    <div class="nav-actions">
+        <span class="nav-status-pill">
+            <span class="nav-status-dot"></span>
+            Draft Mode
+        </span>
+        <a href="{% url 'central_admin:purchase_list' %}" class="nav-btn-ghost">
+            <i class="bi bi-arrow-left"></i> My Requests
+        </a>
+        <a href="{% url 'central_admin:dashboard' %}" class="nav-btn-ghost">
+            <i class="bi bi-speedometer2"></i> Dashboard
+        </a>
+    </div>
+</nav>
+{% endblock navbar %}
+
+{% block content %}
+<div class="page-wrapper">
+
+    <!-- Main Card -->
+    <div class="create-card">
+
+        <!-- Header -->
+        <div class="card-icon">
+            <i class="bi bi-bag-plus-fill"></i>
+        </div>
+        <h2>Raise Purchase Request</h2>
+        <p class="subtitle">Submit a request for items to be procured. The central admin will review and approve.</p>
+
+        <div class="divider"></div>
+
+        <!-- How it works banner -->
+        <div class="info-box mb-4">
+            <i class="bi bi-info-circle-fill me-2" style="color:#0ea5e9;"></i>
+            <strong>How it works:</strong> Fill in the item details below. You don't need to select a vendor —
+            the central admin will handle procurement once they approve your request.
+        </div>
+
+        <!-- Success message shown after submission -->
+        {% if messages %}
+        <div class="mb-4">
+            {% for message in messages %}
+            {% if message.tags == 'success' %}
+            <div class="success-box mb-3">
+                <i class="bi bi-check-circle-fill"></i>
+                <div>
+                    <div class="fw-bold mb-1">Request Submitted to Central Admin</div>
+                    <div>{{ message }} Your request is now pending review. You will be notified once it is approved or rejected.</div>
+                </div>
+            </div>
+            {% else %}
+            <div class="alert alert-{{ message.tags }} alert-dismissible fade show rounded-3" role="alert">
+                {{ message }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+            {% endif %}
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        <!-- Form -->
+        <form method="POST">
+            {% csrf_token %}
+
+            <!-- Item Name -->
+            <div class="mb-4">
+                <label class="form-label">Item Name <span class="text-danger">*</span></label>
+                <input type="text" name="item_name" class="form-control"
+                    placeholder="e.g. HP Laptop, Projector, Whiteboard Marker…" required>
+                <div class="field-hint">Enter the exact item name you need to purchase.</div>
+            </div>
+
+            <!-- Quantity + Unit -->
+            <div class="row g-3 mb-4">
+                <div class="col-7">
+                    <label class="form-label">Quantity <span class="text-danger">*</span></label>
+                    <input type="number" name="quantity" class="form-control"
+                        placeholder="e.g. 5" min="1" step="0.1" required>
+                </div>
+                <div class="col-5">
+                    <label class="form-label">Unit of Measure</label>
+                    <select name="unit_of_measure" class="form-select">
+                        <option value="units">Units</option>
+                        <option value="kilogram">Kilogram</option>
+                        <option value="liters">Liters</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- Room -->
+            <div class="mb-4">
+                <label class="form-label">Room <span class="text-muted fw-normal" style="text-transform:none;">(optional)</span></label>
+                <select name="room_id" class="form-select">
+                    <option value="">-- Select a Room --</option>
+                    {% for room in rooms %}
+                    <option value="{{ room.id }}">{{ room.room_name }}</option>
+                    {% endfor %}
+                </select>
+                <div class="field-hint">Specify which room needs this item, if applicable.</div>
+            </div>
+
+            <!-- Reason -->
+            <div class="mb-4">
+                <label class="form-label">Reason / Justification</label>
+                <textarea name="reason" class="form-control" rows="3"
+                    placeholder="Briefly explain why this item is needed, current stock situation, urgency level, etc."></textarea>
+            </div>
+
+            <div class="divider"></div>
+
+            <!-- Actions -->
+            <div class="d-flex align-items-center gap-2">
+                <button type="submit" class="btn btn-submit">
+                    <i class="bi bi-send-fill me-2"></i>Submit Request
+                </button>
+                <a href="{% url 'central_admin:purchase_list' %}" class="btn-cancel">Cancel</a>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock content %}

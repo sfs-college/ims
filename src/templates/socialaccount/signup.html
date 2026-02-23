@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+{% load i18n %}
+
+{% block content %}
+<style>
+    .signup-container {
+        min-height: 80vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: radial-gradient(circle at top right, #f8f9fa, #e9ecef);
+    }
+    .glass-signup-card {
+        background: rgba(255, 255, 255, 0.8);
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
+        border: 1px solid rgba(255, 255, 255, 0.3);
+        border-radius: 2rem;
+        padding: 3.5rem;
+        box-shadow: 0 20px 40px rgba(0,0,0,0.06);
+        max-width: 550px;
+        width: 100%;
+    }
+    .brand-accent {
+        width: 60px;
+        height: 6px;
+        background: #dc3545;
+        margin: 1.5rem auto;
+        border-radius: 3px;
+    }
+    .btn-complete {
+        background: #000;
+        color: #fff;
+        border-radius: 12px;
+        padding: 16px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        transition: all 0.3s ease;
+        border: none;
+    }
+    .btn-complete:hover {
+        background: #222;
+        transform: translateY(-2px);
+        box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+    }
+</style>
+
+<div class="signup-container">
+    <div class="glass-signup-card text-center">
+        <i class="bi bi-google text-danger" style="font-size: 3.5rem;"></i>
+        <div class="brand-accent"></div>
+        
+        <h2 class="fw-black mb-3">Finalize Registration</h2>
+        <p class="text-muted mb-5">
+            You are signing in with <strong>{{ account.get_provider.name }}</strong>. 
+            Click below to link your official college identity to the portal.
+        </p>
+
+        <form class="signup" id="signup_form" method="post" action="{% url 'socialaccount_signup' %}">
+            {% csrf_token %}
+            
+            {% if form.errors %}
+                <div class="alert alert-danger border-0 rounded-3 mb-4">
+                    Please use your valid @sfscollege.in email address.
+                </div>
+            {% endif %}
+
+            <div class="d-grid">
+                <button type="submit" class="btn btn-complete">
+                    Create My Profile & Continue
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

@@ -1,6 +1,18 @@
-{# ITEM DETAIL PAGE — Everyone uses Request Edit. No direct Edit button. #}
+{# ITEM DETAIL PAGE — Request Stock button opens the stock request modal. #}
 
-<a href="{% url 'room_incharge:item_edit_request' room_slug=item.room.slug item_slug=item.slug %}"
-   class="btn btn-warning">
-   Request Edit
-</a>
+{# Trigger the stock request modal from item detail page #}
+<button class="btn btn-warning"
+        onclick="openStockModal(
+            '{{ item.id }}',
+            '{{ item.item_name|escapejs }}',
+            {{ item.total_count }},
+            {{ item.available_count }},
+            {{ item.in_use }}
+        )">
+    <i class="bi bi-box-seam me-1"></i> Request Stock
+</button>
+
+{# Note: The stock request modal (srOverlay, srModal etc.) and the
+   submitStockRequest() JS must also be included on this page.
+   Copy the modal HTML + <script> block from item_list.html into
+   this template, or put them in a shared partial include. #}

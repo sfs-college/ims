@@ -4,133 +4,304 @@
 {% block title %} | Issues{% endblock title %}
 
 {% block content %}
+<style>
+    /* Premium Visual Enhancements */
+    body {
+        background: radial-gradient(circle at top right, #f8f9fa, #e9ecef);
+        min-height: 100vh;
+    }
+
+    .main-portal-card {
+        border: none;
+        border-radius: 24px;
+        background: rgba(255, 255, 255, 0.9);
+        backdrop-filter: blur(10px);
+        box-shadow: 0 20px 40px rgba(0,0,0,0.08);
+        transition: transform 0.3s ease;
+    }
+
+    .google-auth-box {
+        background: linear-gradient(135deg, #ffffff 0%, #f1f3f5 100%);
+        border-radius: 20px;
+        border: 1px solid rgba(0,0,0,0.05);
+    }
+
+    .bi-google {
+        filter: drop-shadow(0 4px 6px rgba(220, 53, 69, 0.2));
+    }
+
+    .form-label {
+        font-weight: 600;
+        color: #495057;
+        margin-bottom: 0.5rem;
+        font-size: 0.9rem;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+
+    .form-control, .form-select {
+        border-radius: 12px;
+        padding: 12px 16px;
+        border: 2px solid #eee;
+        transition: all 0.3s ease;
+    }
+
+    .form-control:focus, .form-select:focus {
+        border-color: #0d6efd;
+        box-shadow: 0 0 0 4px rgba(13, 110, 253, 0.1);
+    }
+
+    .btn-primary {
+        border-radius: 12px;
+        padding: 14px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        background: linear-gradient(45deg, #0d6efd, #004dc0);
+        border: none;
+        box-shadow: 0 8px 15px rgba(13, 110, 253, 0.2);
+    }
+
+    .btn-primary:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 12px 20px rgba(13, 110, 253, 0.3);
+    }
+
+    .track-section {
+        border-radius: 24px;
+        border: 1px solid rgba(0,0,0,0.05);
+        background: #ffffff;
+    }
+
+    .ticket-detail-box {
+        background: #f8f9fa;
+        border-left: 5px solid #212529;
+        border-radius: 12px;
+    }
+
+    .table {
+        border-radius: 12px;
+        overflow: hidden;
+    }
+
+    .table thead {
+        background-color: #212529;
+        color: white;
+    }
+
+    /* Animated background elements */
+    .bg-blob {
+        position: fixed;
+        width: 400px;
+        height: 400px;
+        background: rgba(13, 110, 253, 0.05);
+        filter: blur(80px);
+        border-radius: 50%;
+        z-index: -1;
+    }
+
+    .email-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        background: rgba(13, 110, 253, 0.08);
+        border: 1px solid rgba(13, 110, 253, 0.2);
+        border-radius: 999px;
+        padding: 4px 12px;
+        font-size: 0.85rem;
+        color: #0d6efd;
+        font-weight: 600;
+    }
+</style>
+
+<div class="bg-blob" style="top: -100px; right: -100px;"></div>
+<div class="bg-blob" style="bottom: -100px; left: -100px;"></div>
 
 <div class="container my-5 pt-3">
+
+    {% if messages %}
+        {% for message in messages %}
+        <div class="alert alert-{{ message.tags|default:'info' }} alert-dismissible fade show rounded-3 mb-3" role="alert">
+            {{ message }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+        {% endfor %}
+    {% endif %}
+
     <div class="row justify-content-center">
-
         <div class="col-md-10">
-            <a href="{% url 'landing_page' %}" class="btn btn-sm btn-outline-secondary mb-3 rounded-pill px-3">
-                <i class="bi bi-arrow-left me-1"></i> Dashboard
-            </a>
+            <div class="card main-portal-card mb-5">
+                <div class="card-body p-4 p-md-5">
+                    <div class="d-flex justify-content-between align-items-center mb-4">
+                        <div>
+                            <h2 class="fw-black mb-1">Submit Issue</h2>
+                            <p class="text-muted mb-0">
+                                Logged in as:&nbsp;
+                                {% if student_email %}
+                                    <span class="email-badge">
+                                        <i class="bi bi-shield-check-fill text-success"></i>
+                                        {{ student_email }}
+                                    </span>
+                                {% else %}
+                                    <span class="text-danger fw-semibold">
+                                        <i class="bi bi-exclamation-triangle-fill me-1"></i>
+                                        Email not detected — please <a href="{% url 'core:logout' %}">re-login</a>
+                                    </span>
+                                {% endif %}
+                            </p>
+                        </div>
+                        <a href="{% url 'core:logout' %}" class="btn btn-outline-danger btn-sm rounded-pill">Logout</a>
+                    </div>
 
-            <!-- Back Button -->
-            <a href="javascript:history.back()" class="btn btn-dark btn-sm mb-3">Go Back</a>
-
-            <div class="card shadow-lg mb-4">
-                <div class="card-body">
-
-                    <h3 class="mb-4">Report an Issue</h3>
-
-                    <form method="post">
+                    <form method="post" id="issueForm">
                         {% csrf_token %}
+                        <input type="hidden" name="email" value="{{ student_email }}">
 
-                        <!-- Email -->
-                        <div class="mb-3">
-                            <label class="form-label">College Email (must end with @sfscollege.in)</label>
-                            {{ form.email }}
-                            {% for error in form.email.errors %}
-                                <div class="text-danger small">{{ error }}</div>
-                            {% endfor %}
+                        <div class="row">
+                            <div class="col-md-12 mb-4">
+                                <label class="form-label">Subject</label>
+                                {{ form.subject }}
+                                {% if form.subject.errors %}
+                                    <div class="text-danger small mt-1">{{ form.subject.errors }}</div>
+                                {% endif %}
+                            </div>
+                            <div class="col-md-12 mb-4">
+                                <label class="form-label">Description</label>
+                                {{ form.description }}
+                                {% if form.description.errors %}
+                                    <div class="text-danger small mt-1">{{ form.description.errors }}</div>
+                                {% endif %}
+                            </div>
+                            <div class="col-md-6 mb-4">
+                                <label class="form-label">Filter Room by Category</label>
+                                <select name="category" class="form-select"
+                                        hx-get="{% url 'student:report_issue' %}"
+                                        hx-target="#id_room_container"
+                                        hx-trigger="change"
+                                        hx-select="#id_room_container">
+                                    <option value="">All Categories</option>
+                                    {% for val, label in categories %}
+                                        <option value="{{ val }}" {% if selected_category == val %}selected{% endif %}>
+                                            {{ label }}
+                                        </option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="col-md-6 mb-4" id="id_room_container">
+                                <label class="form-label">Select Room / Venue</label>
+                                {{ form.room }}
+                                {% if form.room.errors %}
+                                    <div class="text-danger small mt-1">{{ form.room.errors }}</div>
+                                {% endif %}
+                            </div>
                         </div>
 
-                        <!-- Subject -->
-                        <div class="mb-3">
-                            <label class="form-label">Subject</label>
-                            {{ form.subject }}
+                        <div class="mt-2">
+                            <button type="submit" class="btn btn-primary w-100 py-3 fw-bold rounded-3 shadow-sm" id="submitBtn"
+                                    {% if not student_email %}disabled title="Cannot submit: email not verified"{% endif %}>
+                                <i class="bi bi-send-fill me-2"></i>Submit Issue Report
+                            </button>
+                            {% if not student_email %}
+                                <p class="text-danger text-center small mt-2">
+                                    <i class="bi bi-exclamation-circle me-1"></i>
+                                    Your session email could not be verified. Please
+                                    <a href="{% url 'core:logout' %}">logout</a> and sign in again.
+                                </p>
+                            {% endif %}
                         </div>
-
-                        <!-- Description -->
-                        <div class="mb-3">
-                            <label class="form-label">Description</label>
-                            {{ form.description }}
-                        </div>
-
-                        <!-- Category -->
-                        <div class="mb-3">
-                            <label class="form-label">Filter Room by Category</label>
-                            <select class="form-select" onchange="location = this.value;">
-                                <option value="?category=">All Categories</option>
-                                {% for val, label in categories %}
-                                    <option value="?category={{ val }}" {% if selected_category == val %}selected{% endif %}>{{ label }}</option>
-                                {% endfor %}
-                            </select>
-                        </div>
-
-                        <!-- Room -->
-                        <div class="mb-3">
-                            <label class="form-label">Select Room / Venue</label>
-                            {{ form.room }}
-                        </div>
-
-                        <button type="submit" class="btn btn-primary w-100 mt-3" id="submitBtn">Submit Issue</button>
                     </form>
-
                 </div>
             </div>
 
+            <div class="card track-section shadow-sm">
+                <div class="card-body p-4 p-md-5">
+                    <div class="d-flex align-items-center mb-4">
+                        <div class="bg-dark text-white rounded-3 p-3 me-3">
+                            <i class="bi bi-search fs-4"></i>
+                        </div>
+                        <h3 class="mb-0 fw-bold">Track Your Ticket</h3>
+                    </div>
 
-            <!-- TICKET TRACKING SECTION -->
-            <div class="card shadow">
-                <div class="card-body">
-
-                    <h3 class="mb-4">Track Your Ticket</h3>
-
-                    <form method="get" class="row g-3">
+                    <form method="get" class="row g-3 mb-4">
                         <div class="col-md-5">
-                            <input type="text" name="ticket_id" class="form-control" placeholder="Enter Ticket ID">
+                            <div class="form-floating">
+                                <input type="text" name="ticket_id" id="t_id" class="form-control"
+                                       placeholder="Ticket ID"
+                                       value="{{ request.GET.ticket_id|default:'' }}">
+                                <label for="t_id">Enter Ticket ID</label>
+                            </div>
                         </div>
                         <div class="col-md-5">
-                            <input type="email" name="email" class="form-control" placeholder="Enter Your College Email">
+                            <div class="form-floating">
+                                <input type="email" name="email" id="t_email" class="form-control"
+                                       placeholder="College Email"
+                                       value="{{ request.GET.email|default:student_email }}">
+                                <label for="t_email">Enter Your College Email</label>
+                            </div>
                         </div>
-                        <div class="col-md-2">
-                            <button class="btn btn-dark w-100">Search</button>
+                        <div class="col-md-2 d-flex">
+                            <button class="btn btn-dark w-100 py-3 rounded-3 fw-bold">Search</button>
                         </div>
                     </form>
 
-                    <hr>
+                    {% if ticket or tickets %}
+                    <div class="mt-5 pt-3 border-top">
+                        {% if ticket %}
+                            <h5 class="fw-bold mb-4 text-primary">
+                                <i class="bi bi-info-circle me-2"></i>Ticket Details
+                            </h5>
+                            <div class="ticket-detail-box p-4 mb-3 border shadow-sm">
+                                <div class="row">
+                                    <div class="col-sm-6 mb-3">
+                                        <small class="text-muted d-block text-uppercase fw-bold">Ticket ID</small>
+                                        <span class="fw-bold fs-5">{{ ticket.ticket_id }}</span>
+                                    </div>
+                                    <div class="col-sm-6 mb-3">
+                                        <small class="text-muted d-block text-uppercase fw-bold">Status</small>
+                                        <span class="badge bg-dark px-3 py-2 rounded-pill">{{ ticket.get_status_display }}</span>
+                                    </div>
+                                    <div class="col-sm-6 mb-3">
+                                        <small class="text-muted d-block text-uppercase fw-bold">Room</small>
+                                        <span class="fw-bold">{{ ticket.room.room_name }}</span>
+                                    </div>
+                                    <div class="col-sm-6 mb-3">
+                                        <small class="text-muted d-block text-uppercase fw-bold">TAT Deadline</small>
+                                        <span class="text-danger fw-bold">{{ ticket.tat_deadline }}</span>
+                                    </div>
+                                </div>
+                            </div>
+                        {% endif %}
 
-                    <!-- Single Ticket Result -->
-                    {% if ticket %}
-                    <h5>Ticket Details</h5>
-
-                    <div class="border p-3 rounded mb-3">
-                        <p><strong>Ticket ID:</strong> {{ ticket.ticket_id }}</p>
-                        <p><strong>Subject:</strong> {{ ticket.subject }}</p>
-                        <p><strong>Description:</strong> {{ ticket.description }}</p>
-                        <p><strong>Status:</strong> {{ ticket.get_status_display }}</p>
-                        <p><strong>Room:</strong> {{ ticket.room.room_name }}</p>
-                        <p><strong>Assigned To:</strong> {{ ticket.assigned_to.user.get_full_name }}</p>
-                        <p><strong>TAT Deadline:</strong> {{ ticket.tat_deadline }}</p>
-                        <p><strong>Created On:</strong> {{ ticket.created_on }}</p>
+                        {% if tickets %}
+                            <h5 class="fw-bold mb-4 mt-4 text-primary">
+                                <i class="bi bi-list-ul me-2"></i>History for {{ request.GET.email }}
+                            </h5>
+                            <div class="table-responsive">
+                                <table class="table table-hover align-middle">
+                                    <thead>
+                                        <tr>
+                                            <th class="py-3 px-4">Ticket ID</th>
+                                            <th class="py-3 px-4">Subject</th>
+                                            <th class="py-3 px-4">Status</th>
+                                            <th class="py-3 px-4">TAT</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for t in tickets %}
+                                        <tr class="border-bottom">
+                                            <td class="px-4 fw-bold text-dark">{{ t.ticket_id }}</td>
+                                            <td class="px-4">{{ t.subject }}</td>
+                                            <td class="px-4">
+                                                <span class="badge bg-light text-dark border">{{ t.get_status_display }}</span>
+                                            </td>
+                                            <td class="px-4 text-muted small">{{ t.tat_deadline }}</td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                        {% endif %}
                     </div>
-                    {% endif %}
-
-                    <!-- Multiple Tickets By Email -->
-                    {% if tickets %}
-                    <h5>All Tickets Raised Using {{ request.GET.email }}</h5>
-
-                    <table class="table table-bordered mt-3">
-                        <thead>
-                            <tr>
-                                <th>Ticket ID</th>
-                                <th>Subject</th>
-                                <th>Status</th>
-                                <th>Room</th>
-                                <th>TAT</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for t in tickets %}
-                            <tr>
-                                <td>{{ t.ticket_id }}</td>
-                                <td>{{ t.subject }}</td>
-                                <td>{{ t.get_status_display }}</td>
-                                <td>{{ t.room.room_name }}</td>
-                                <td>{{ t.tat_deadline }}</td>
-                            </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
                     {% endif %}
 
                 </div>
@@ -139,23 +310,21 @@
         </div>
     </div>
 </div>
-<!-- Script for Submit Button -->
+
+<script src="https://unpkg.com/htmx.org@1.9.10"></script>
 <script>
-document.addEventListener('DOMContentLoaded', function() {
-    const form = document.querySelector('form[method="post"]');
+document.addEventListener('DOMContentLoaded', function () {
+    const form      = document.getElementById('issueForm');
     const submitBtn = document.getElementById('submitBtn');
-    
-    form.addEventListener('submit', function(e) {
-        // Disable button immediately
-        submitBtn.disabled = true;
-        submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Submitting...';
-        
-        // Re-enable after 3 seconds as fallback (in case of validation errors)
-        setTimeout(function() {
-            submitBtn.disabled = false;
-            submitBtn.innerHTML = 'Submit Issue';
-        }, 15000);
-    });
+
+    if (form && submitBtn) {
+        form.addEventListener('submit', function () {
+            if (form.checkValidity()) {
+                submitBtn.disabled = true;
+                submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Submitting...';
+            }
+        });
+    }
 });
 </script>
 

@@ -11,120 +11,274 @@
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
 
     <style>
-        :root {
-            --primary: #6366f1;
-            --primary-dark: #4f46e5;
-            --secondary: #64748b;
-            --accent: #10b981;
-            --bg-gradient: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
-            --glass-bg: rgba(255, 255, 255, 0.85);
-            --glass-border: rgba(255, 255, 255, 0.5);
-        }
+    :root {
+        --primary: #6366f1;
+        --primary-dark: #4f46e5;
+        --secondary: #64748b;
+        --accent: #10b981;
+        --bg-gradient: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+        --glass-bg: rgba(255, 255, 255, 0.85);
+        --glass-border: rgba(255, 255, 255, 0.5);
+    }
 
-        body {
-            font-family: 'Plus Jakarta Sans', sans-serif;
-            background: var(--bg-gradient);
-            color: #1e293b;
-            min-height: 100vh;
-            padding: 40px 20px;
-        }
+    body {
+        font-family: 'Plus Jakarta Sans', sans-serif;
+        background: var(--bg-gradient);
+        color: #1e293b;
+        min-height: 100vh;
+        padding: 40px 20px;
+    }
 
-        .booking-container { max-width: 1000px; margin: 0 auto; }
+    .booking-container { max-width: 1000px; margin: 0 auto; }
 
-        .glass-header {
-            background: var(--glass-bg);
-            backdrop-filter: blur(12px);
-            border: 1px solid var(--glass-border);
-            border-radius: 24px;
-            padding: 40px;
-            text-align: center;
-            margin-bottom: 30px;
-            box-shadow: 0 10px 25px -5px rgba(0,0,0,0.05);
-        }
+    .glass-header {
+        background: var(--glass-bg);
+        backdrop-filter: blur(12px);
+        border: 1px solid var(--glass-border);
+        border-radius: 24px;
+        padding: 40px;
+        text-align: center;
+        margin-bottom: 30px;
+        box-shadow: 0 10px 25px -5px rgba(0,0,0,0.05);
+    }
 
-        .glass-header h2 {
-            font-weight: 800;
-            background: linear-gradient(to right, #4f46e5, #9333ea);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-        }
+    .glass-header h2 {
+        font-weight: 800;
+        background: linear-gradient(to right, #4f46e5, #9333ea);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+    }
 
-        .glass-card {
-            background: var(--glass-bg);
-            backdrop-filter: blur(16px);
-            border: 1px solid var(--glass-border);
-            border-radius: 30px;
-            padding: 40px;
-            box-shadow: 0 25px 50px -12px rgba(0,0,0,0.1);
-        }
+    .glass-card {
+        background: var(--glass-bg);
+        backdrop-filter: blur(16px);
+        border: 1px solid var(--glass-border);
+        border-radius: 30px;
+        padding: 40px;
+        box-shadow: 0 25px 50px -12px rgba(0,0,0,0.1);
+    }
 
-        .form-label { font-weight: 700; color: var(--secondary); margin-bottom: 10px; display: flex; align-items: center; gap: 8px; }
+    .form-label { font-weight: 700; color: var(--secondary); margin-bottom: 10px; display: flex; align-items: center; gap: 8px; }
 
-        .form-control, .form-select {
-            border: 2px solid #e2e8f0;
-            border-radius: 14px;
-            padding: 14px 18px;
-            transition: all 0.2s ease;
-        }
+    /* UNIFIED INPUT FIX: Forces all Django auto-generated fields to match your style */
+    input[type="text"], 
+    input[type="email"], 
+    input[type="password"], 
+    input[type="date"],
+    input[type="datetime-local"],
+    select, 
+    textarea {
+        display: block;
+        width: 100%;
+        padding: 14px 18px;
+        font-size: 0.95rem;
+        font-weight: 500;
+        color: #1e293b;
+        background-color: #fff !important;
+        border: 2px solid #e2e8f0 !important;
+        border-radius: 14px !important;
+        transition: all 0.2s ease;
+    }
 
-        .form-control:focus { border-color: var(--primary); box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.1); }
+    input:focus, select:focus {
+        outline: none;
+        border-color: var(--primary) !important;
+        box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.1) !important;
+    }
 
-        /* Custom Booking Type Selector */
-        .booking-type-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 30px; }
-        .type-card {
-            background: #fff; border: 2px solid #e2e8f0; border-radius: 18px; padding: 20px;
-            cursor: pointer; transition: 0.3s; text-align: center;
-        }
-        .type-card:hover { border-color: var(--primary); transform: translateY(-3px); }
-        .type-card.active { border-color: var(--primary); background: #f5f3ff; box-shadow: 0 10px 15px -3px rgba(79, 70, 229, 0.1); }
+    /* Input Group & Icon Fixes */
+    .input-group { border-radius: 14px; overflow: hidden; display: flex; align-items: stretch; }
+    .input-group-text {
+        background: #f8fafc !important;
+        border: 2px solid #e2e8f0 !important;
+        border-right: none !important;
+        border-radius: 14px 0 0 14px !important;
+        color: var(--primary);
+        padding: 0 15px;
+        display: flex;
+        align-items: center;
+        flex-shrink: 0;
+    }
+    .input-group > div { flex: 1; min-width: 0; }
+    .input-group > div input,
+    .input-group > div select {
+        border-top-left-radius: 0 !important;
+        border-bottom-left-radius: 0 !important;
+        border-top-right-radius: 14px !important;
+        border-bottom-right-radius: 14px !important;
+    }
 
-        /* Movie-Styled Room Cards */
-        #roomGrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 20px; }
+    /* File Input Premium Styling */
+    input[type="file"] {
+        padding: 12px;
+        background: #fdfdfd;
+        border: 2px dashed #cbd5e1 !important;
+        cursor: pointer;
+    }
+    input[type="file"]::file-selector-button {
+        background: var(--primary);
+        color: white;
+        border: none;
+        padding: 8px 16px;
+        border-radius: 10px;
+        margin-right: 15px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: 0.3s;
+    }
+    input[type="file"]::file-selector-button:hover { background: var(--primary-dark); }
 
-        .room-item {
-            background: #fff;
-            border-radius: 20px;
-            padding: 24px;
-            border: 2px solid transparent;
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-            cursor: pointer;
-            position: relative;
-        }
+    /* Booking Type Selector */
+    .booking-type-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 30px; }
+    .type-card {
+        background: #fff; border: 2px solid #e2e8f0; border-radius: 18px; padding: 20px;
+        cursor: pointer; transition: 0.3s; text-align: center;
+    }
+    .type-card:hover { border-color: var(--primary); transform: translateY(-3px); }
+    .type-card.active { border-color: var(--primary); background: #f5f3ff; box-shadow: 0 10px 15px -3px rgba(79, 70, 229, 0.1); }
 
-        .room-item:hover { transform: translateY(-8px); box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1); }
+    /* Room Cards */
+    #roomGrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 20px; }
+    .room-item {
+        background: #fff; border-radius: 20px; padding: 24px; border: 2px solid transparent;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); cursor: pointer;
+    }
+    .room-item:hover { transform: translateY(-8px); box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1); }
+    .room-item.selected { border-color: var(--primary); background: #f5f3ff; }
+    .room-item.booked   { background: #f1f5f9; opacity: 0.65; cursor: not-allowed; pointer-events: none; }
+    .room-item.pending  { background: #fffbeb; opacity: 0.75; cursor: not-allowed; pointer-events: none; border-color: #fde68a; }
 
-        .room-item.available.selected {
-            border-color: var(--primary);
-            background: #f5f3ff;
-            box-shadow: 0 0 0 5px rgba(99, 102, 241, 0.1);
-        }
+    .status-pill {
+        display: inline-block; padding: 4px 12px; border-radius: 20px;
+        font-size: 0.75rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.3px;
+    }
+    .room-item.available .status-pill { background: #dcfce7; color: #166534; }
+    .room-item.booked    .status-pill { background: #fee2e2; color: #991b1b; }
+    .room-item.pending   .status-pill { background: #fef3c7; color: #92400e; }
 
-        .room-item.booked { background: #f1f5f9; opacity: 0.6; cursor: not-allowed; }
+    .btn-confirm {
+        background: linear-gradient(135deg, var(--primary), #9333ea);
+        color: white; border: none; border-radius: 18px; padding: 20px;
+        font-weight: 800; width: 100%; margin-top: 40px; transition: 0.3s;
+        box-shadow: 0 10px 15px -3px rgba(79, 70, 229, 0.3);
+    }
+    .btn-confirm:hover { transform: translateY(-2px); box-shadow: 0 15px 20px -3px rgba(79, 70, 229, 0.4); }
 
-        .status-pill {
-            display: inline-block;
-            padding: 4px 12px;
-            border-radius: 20px;
-            font-size: 0.75rem;
-            font-weight: 800;
-            text-transform: uppercase;
-        }
-        .available .status-pill { background: #dcfce7; color: #166534; }
-        .booked .status-pill { background: #fee2e2; color: #991b1b; }
+    /* ── Cancellation floating button ── */
+    .btn-cancel-float {
+        position: fixed; bottom: 32px; right: 32px; z-index: 900;
+        background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+        color: #fff; border: none; border-radius: 18px;
+        padding: 16px 26px; font-weight: 800; font-size: 0.92rem;
+        cursor: pointer; display: flex; align-items: center; gap: 10px;
+        box-shadow: 0 10px 25px -5px rgba(239,68,68,0.45);
+        transition: all 0.25s ease;
+        font-family: 'Plus Jakarta Sans', sans-serif;
+    }
+    .btn-cancel-float:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 18px 32px -5px rgba(239,68,68,0.55);
+    }
 
-        .btn-confirm {
-            background: linear-gradient(135deg, var(--primary), #9333ea);
-            color: white;
-            border: none;
-            border-radius: 18px;
-            padding: 20px;
-            font-weight: 800;
-            width: 100%;
-            margin-top: 40px;
-            transition: all 0.3s ease;
-            box-shadow: 0 10px 15px -3px rgba(79, 70, 229, 0.3);
-        }
-    </style>
+    /* ── Modal overlay ── */
+    .cancel-overlay {
+        display: none; position: fixed; inset: 0; z-index: 1000;
+        background: rgba(15,23,42,0.6); backdrop-filter: blur(6px);
+        align-items: center; justify-content: center; padding: 20px;
+    }
+    .cancel-overlay.open { display: flex; }
+
+    /* ── Modal box ── */
+    .cancel-modal {
+        background: #fff; border-radius: 28px; padding: 42px;
+        max-width: 520px; width: 100%; position: relative;
+        box-shadow: 0 30px 60px -10px rgba(0,0,0,0.3);
+        animation: cmSlideUp 0.28s ease;
+    }
+    @keyframes cmSlideUp {
+        from { transform: translateY(32px); opacity: 0; }
+        to   { transform: translateY(0);    opacity: 1; }
+    }
+    .cancel-modal .cm-icon-wrap {
+        width: 68px; height: 68px; border-radius: 18px;
+        display: inline-flex; align-items: center; justify-content: center;
+        margin-bottom: 14px;
+    }
+    .cancel-modal h4 { font-weight: 800; color: #1e293b; margin: 0 0 6px; }
+    .cancel-modal .cm-sub { color: #64748b; font-size: 0.88rem; margin: 0 0 28px; }
+
+    /* Form fields inside modal */
+    .cm-field { margin-bottom: 18px; }
+    .cm-label {
+        font-weight: 700; font-size: 0.8rem; color: #64748b;
+        text-transform: uppercase; letter-spacing: 0.5px;
+        display: block; margin-bottom: 7px;
+    }
+    .cm-input {
+        width: 100%; padding: 13px 16px; box-sizing: border-box;
+        border: 2px solid #e2e8f0; border-radius: 14px;
+        font-size: 0.92rem; font-weight: 500; color: #1e293b;
+        outline: none; transition: border-color 0.2s;
+        font-family: 'Plus Jakarta Sans', sans-serif;
+        background: #fff;
+    }
+    .cm-input:focus { border-color: #6366f1; box-shadow: 0 0 0 4px rgba(99,102,241,0.1); }
+    .cm-input-wrap { position: relative; }
+    .cm-eye-btn {
+        position: absolute; right: 14px; top: 50%; transform: translateY(-50%);
+        background: none; border: none; cursor: pointer; color: #94a3b8;
+        font-size: 1.1rem; padding: 0;
+    }
+
+    /* Alert boxes */
+    .cm-alert {
+        border-radius: 12px; padding: 12px 16px;
+        font-size: 0.84rem; font-weight: 600; margin-bottom: 16px; display: none;
+    }
+    .cm-alert.error   { background: #fef2f2; border: 1px solid #fecaca; color: #dc2626; }
+    .cm-alert.success { background: #f0fdf4; border: 1px solid #bbf7d0; color: #166534; }
+
+    /* Buttons inside modal */
+    .cm-btn-primary {
+        width: 100%; background: linear-gradient(135deg, #6366f1, #9333ea);
+        color: #fff; border: none; border-radius: 14px; padding: 14px;
+        font-weight: 800; font-size: 0.92rem; cursor: pointer;
+        transition: opacity 0.2s;
+        font-family: 'Plus Jakarta Sans', sans-serif;
+    }
+    .cm-btn-primary:hover { opacity: 0.88; }
+    .cm-btn-primary:disabled { opacity: 0.6; cursor: not-allowed; }
+
+    .cm-btn-submit {
+        flex: 2; background: linear-gradient(135deg, #ef4444, #dc2626);
+        color: #fff; border: none; border-radius: 14px; padding: 13px 10px;
+        font-weight: 800; font-size: 0.88rem; cursor: pointer; transition: opacity 0.2s;
+        font-family: 'Plus Jakarta Sans', sans-serif;
+    }
+    .cm-btn-submit:hover { opacity: 0.88; }
+    .cm-btn-submit:disabled { opacity: 0.6; cursor: not-allowed; }
+
+    .cm-btn-back {
+        flex: 1; background: #f1f5f9; color: #475569;
+        border: none; border-radius: 14px; padding: 13px 10px;
+        font-weight: 700; font-size: 0.88rem; cursor: pointer;
+        font-family: 'Plus Jakarta Sans', sans-serif;
+    }
+    .cm-btn-done {
+        background: linear-gradient(135deg, #10b981, #059669);
+        color: #fff; border: none; border-radius: 14px;
+        padding: 12px 36px; font-weight: 700; cursor: pointer;
+        margin-top: 10px;
+        font-family: 'Plus Jakarta Sans', sans-serif;
+    }
+    .cm-close {
+        position: absolute; top: 18px; right: 20px; background: none;
+        border: none; font-size: 1.4rem; cursor: pointer; color: #94a3b8;
+        line-height: 1;
+    }
+    .cm-close:hover { color: #475569; }
+</style>
+
 </head>
 <body>
 
@@ -138,7 +292,7 @@
     </div>
 
     <div class="glass-card">
-        <form method="post" id="bookingForm">
+        <form method="post" id="bookingForm" enctype="multipart/form-data">
             {% csrf_token %}
             
             <div class="section-title mb-4">
@@ -147,13 +301,26 @@
             </div>
 
             <div class="row g-4 mb-5">
-                <div class="col-md-6">
+                <div class="col-md-4">
                     <label class="form-label"><i class="bi bi-person-circle"></i> Faculty Full Name</label>
-                    {{ form.faculty_name }}
+                    <div class="input-group" style="flex-wrap:nowrap;">
+                        <span class="input-group-text" style="border-radius:14px 0 0 14px !important; border-right:none !important;"><i class="bi bi-person"></i></span>
+                        <div style="flex:1; min-width:0;">{{ form.faculty_name }}</div>
+                    </div>
                 </div>
-                <div class="col-md-6">
-                    <label class="form-label"><i class="bi bi-envelope-at-fill"></i> College Email Address</label>
-                    {{ form.faculty_email }}
+                <div class="col-md-4">
+                    <label class="form-label"><i class="bi bi-envelope-at-fill"></i> College Email</label>
+                    <div class="input-group" style="flex-wrap:nowrap;">
+                        <span class="input-group-text" style="border-radius:14px 0 0 14px !important; border-right:none !important;"><i class="bi bi-at text-primary"></i></span>
+                        <div style="flex:1; min-width:0;">{{ form.faculty_email }}</div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label"><i class="bi bi-shield-lock"></i> Booking Password</label>
+                    <div class="input-group" style="flex-wrap:nowrap;">
+                        <span class="input-group-text" style="border-radius:14px 0 0 14px !important; border-right:none !important;"><i class="bi bi-key text-primary"></i></span>
+                        <div style="flex:1; min-width:0;">{{ form.password }}</div>
+                    </div>
                 </div>
             </div>
 
@@ -217,6 +384,34 @@
                 {{ form.department }}
             </div>
 
+            <div class="section-title mb-4">
+                <span class="badge bg-primary rounded-pill px-3 mb-2">Step 5</span>
+                <h4 class="fw-bold">Additional Requirements</h4>
+            </div>
+            <div class="mb-5">
+                <label class="form-label"><i class="bi bi-paperclip"></i> Requirement List</label>
+                
+                <div class="d-flex gap-3 mb-3">
+                    <div class="type-card flex-fill" id="reqAttach" onclick="switchRequirement('attach')" style="padding:14px 20px;">
+                        <i class="bi bi-file-earmark-arrow-up mb-1 h5 d-block"></i>
+                        <strong style="font-size:0.9rem;">Attach Document</strong><br>
+                        <small class="text-muted">.doc, .docx</small>
+                    </div>
+                    <div class="type-card flex-fill active" id="reqNA" onclick="switchRequirement('na')" style="padding:14px 20px;">
+                        <i class="bi bi-dash-circle mb-1 h5 d-block"></i>
+                        <strong style="font-size:0.9rem;">Not Applicable</strong><br>
+                        <small class="text-muted">No document needed</small>
+                    </div>
+                </div>
+
+                <div id="fileUploadSection" class="d-none">
+                    {{ form.requirements_doc }}
+                    <small class="text-muted d-block mt-2">Upload .doc, .docx (Max 5MB).</small>
+                </div>
+                <div id="naSection" class="p-3 bg-light rounded-3 text-center text-muted">
+                    <i class="bi bi-check-circle-fill text-success me-2"></i>No additional requirements document needed.
+                </div>
+            </div>
             <button type="submit" class="btn btn-confirm">
                 <i class="bi bi-shield-lock-fill me-2"></i> Finalize Booking
             </button>
@@ -250,16 +445,18 @@ function updateWholeDayTimes() {
 
 function loadRooms() {
     const category = document.getElementById("id_category").value;
-    const start = document.getElementById("id_start_datetime").value;
-    const end = document.getElementById("id_end_datetime").value;
+    const start    = document.getElementById("id_start_datetime").value;
+    const end      = document.getElementById("id_end_datetime").value;
 
     if (!category || !start || !end) return;
 
-    const params = new URLSearchParams({
-        category: category,
-        start: start,
-        end: end
-    });
+    // Reset any previously selected room when reloading the grid
+    document.getElementById("id_room").value = '';
+
+    const params = new URLSearchParams({ category, start, end });
+
+    const grid = document.getElementById("roomGrid");
+    grid.innerHTML = '<div class="col-12 text-center text-muted py-4"><div class="spinner-border spinner-border-sm me-2 text-primary"></div>Loading rooms...</div>';
 
     fetch(`{% url 'core:rooms_by_category' %}?${params.toString()}`)
         .then(res => {
@@ -267,40 +464,487 @@ function loadRooms() {
             return res.json();
         })
         .then(data => {
-            const grid = document.getElementById("roomGrid");
             grid.innerHTML = "";
-        
+
             if (data.length === 0) {
-                grid.innerHTML = '<div class="col-12 text-center text-muted">No rooms available in this category.</div>';
+                grid.innerHTML = '<div class="col-12 text-center text-muted py-4"><i class="bi bi-building-slash d-block fs-2 mb-2"></i>No rooms found in this category.</div>';
                 return;
             }
-            
+
             data.forEach(room => {
+                /*
+                 * Status priority:
+                 *  1. has_pending  → "Waiting for Approval" (amber)  — cannot select
+                 *  2. is_booked    → "Approved / Booked"   (red)     — cannot select
+                 *  3. available    → "Available"            (green)   — selectable
+                 */
+                let cardClass, statusLabel, statusIcon;
+
+                if (room.has_pending) {
+                    cardClass   = 'pending';
+                    statusLabel = 'Waiting for Approval';
+                    statusIcon  = 'bi-hourglass-split';
+                } else if (room.is_booked || !room.available) {
+                    cardClass   = 'booked';
+                    statusLabel = 'Approved / Booked';
+                    statusIcon  = 'bi-calendar-check-fill';
+                } else {
+                    cardClass   = 'available';
+                    statusLabel = 'Available';
+                    statusIcon  = 'bi-check-circle-fill';
+                }
+
                 const roomDiv = document.createElement("div");
-                roomDiv.className = `room-item ${room.available ? 'available' : 'booked'}`;
+                roomDiv.className = `room-item ${cardClass}`;
                 roomDiv.innerHTML = `
-                    <span class="status-pill">${room.available ? 'Available' : 'Booked'}</span>
-                    <h5 class="mt-3">${room.name}</h5>
-                    <div class="small text-muted mt-2"><i class="bi bi-people-fill"></i> Capacity: ${room.capacity || 40} Seats</div>
+                    <span class="status-pill"><i class="bi ${statusIcon} me-1"></i>${statusLabel}</span>
+                    <h5 class="mt-3 mb-1 fw-bold">${room.name}</h5>
+                    <div class="small text-muted"><i class="bi bi-people-fill me-1"></i>Capacity: ${room.capacity || 40} Seats</div>
                 `;
 
-                if (room.available) {
+                if (cardClass === 'available') {
                     roomDiv.onclick = () => {
-                        document.querySelectorAll(".room-card").forEach(r => r.classList.remove("selected"));
+                        document.querySelectorAll(".room-item").forEach(r => r.classList.remove("selected"));
                         roomDiv.classList.add("selected");
                         document.getElementById("id_room").value = room.id;
                     };
                 }
+
                 grid.appendChild(roomDiv);
             });
         })
-        .catch(err => console.error("Error loading rooms:", err));
+        .catch(err => {
+            console.error("Error loading rooms:", err);
+            grid.innerHTML = '<div class="col-12 text-center text-danger py-4"><i class="bi bi-exclamation-triangle-fill me-2"></i>Failed to load rooms. Please try again.</div>';
+        });
+}
+function switchRequirement(mode) {
+    document.getElementById('reqAttach').classList.toggle('active', mode === 'attach');
+    document.getElementById('reqNA').classList.toggle('active', mode === 'na');
+    document.getElementById('fileUploadSection').classList.toggle('d-none', mode === 'na');
+    document.getElementById('naSection').classList.toggle('d-none', mode === 'attach');
+    if (mode === 'na') {
+        const fileInput = document.querySelector('#fileUploadSection input[type="file"]');
+        if (fileInput) fileInput.value = '';
+    }
 }
 
+document.getElementById('bookingForm').addEventListener('submit', function(e) {
+    const name     = document.querySelector('[name="faculty_name"]')  ? document.querySelector('[name="faculty_name"]').value.trim()  : '';
+    const email    = document.querySelector('[name="faculty_email"]') ? document.querySelector('[name="faculty_email"]').value.trim() : '';
+    const password = document.querySelector('[name="password"]')      ? document.querySelector('[name="password"]').value.trim()      : '';
+    const category = document.getElementById('id_category').value;
+    const start    = document.getElementById('id_start_datetime').value;
+    const end      = document.getElementById('id_end_datetime').value;
+    const room     = document.getElementById('id_room').value;
+
+    const errors = [];
+    if (!name)     errors.push('Faculty Full Name is required.');
+    if (!email)    errors.push('College Email is required.');
+    if (!password) errors.push('Booking Password is required.');
+    if (!category) errors.push('Please select a Room Category.');
+    if (!start || !end) errors.push('Please select a valid booking date and time.');
+    if (!room)     errors.push('Please select an available room from the grid.');
+
+    if (errors.length > 0) {
+        e.preventDefault();
+        let banner = document.getElementById('bookingErrorBanner');
+        if (!banner) {
+            banner = document.createElement('div');
+            banner.id = 'bookingErrorBanner';
+            banner.style.cssText = 'background:#fef2f2;border:1.5px solid #fecaca;color:#dc2626;border-radius:14px;padding:16px 20px;margin-top:20px;font-weight:600;font-size:0.88rem;line-height:1.8;';
+            this.querySelector('.btn-confirm').insertAdjacentElement('beforebegin', banner);
+        }
+        banner.innerHTML = '<i class="bi bi-exclamation-triangle-fill me-2"></i><strong>Please fix the following:</strong><br>• ' + errors.join('<br>• ');
+        banner.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        return;
+    }
+
+    // Clear error banner and show loading state
+    const banner = document.getElementById('bookingErrorBanner');
+    if (banner) banner.remove();
+
+    const btn = this.querySelector('.btn-confirm');
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span> Processing Reservation...';
+    btn.style.opacity = '0.7';
+    btn.style.pointerEvents = 'none';
+});
 document.getElementById("id_category").addEventListener("change", loadRooms);
 document.getElementById("id_start_datetime").addEventListener("change", loadRooms);
 document.getElementById("id_end_datetime").addEventListener("change", loadRooms);
 </script>
 
+
+<!-- ══════════════════════════════════════════════════
+     CANCELLATION — floating button + 3-step modal
+══════════════════════════════════════════════════ -->
+<div style="position:fixed;bottom:32px;right:32px;z-index:900;display:flex;flex-direction:column;gap:12px;align-items:flex-end;">
+    <button class="btn-cancel-float" style="position:static;" onclick="openTrackModal()">
+        <i class="bi bi-search"></i> Track My Request
+    </button>
+    <button class="btn-cancel-float" style="position:static;" onclick="openCancelModal()">
+        <i class="bi bi-calendar-x-fill"></i> Cancel a Booking
+    </button>
+</div>
+
+
+<!-- ══ TRACK BOOKING REQUEST STATUS MODAL ══ -->
+<div class="cancel-overlay" id="trackOverlay" onclick="trackOverlayClose(event)">
+    <div class="cancel-modal" id="trackModal" style="max-width:560px;">
+        <button class="cm-close" onclick="closeTrackModal()"><i class="bi bi-x-lg"></i></button>
+
+        <!-- Step 1: Credentials -->
+        <div id="trStep1">
+            <div style="text-align:center;margin-bottom:24px;">
+                <div class="cm-icon-wrap" style="background:#eff6ff;margin:0 auto;">
+                    <i class="bi bi-search" style="font-size:1.8rem;color:#3b82f6;"></i>
+                </div>
+                <h4>Track My Booking</h4>
+                <p class="cm-sub">Enter your Faculty Manager credentials to see the status of your booking and cancellation requests.</p>
+            </div>
+            <div class="cm-field">
+                <label class="cm-label">College Email</label>
+                <input type="email" id="trEmail" class="cm-input" placeholder="faculty@sfscollege.in" oninput="cmClearAlert('trAlert1')">
+            </div>
+            <div class="cm-field">
+                <label class="cm-label">Booking Password</label>
+                <div class="cm-input-wrap">
+                    <input type="password" id="trPassword" class="cm-input" placeholder="Your booking password" style="padding-right:44px;" oninput="cmClearAlert('trAlert1')">
+                    <button type="button" class="cm-eye-btn" onclick="trTogglePwd()"><i class="bi bi-eye" id="trEyeIcon"></i></button>
+                </div>
+            </div>
+            <div class="cm-alert error" id="trAlert1"></div>
+            <button class="cm-btn-primary" id="trFetchBtn" onclick="trFetchStatus()">
+                <i class="bi bi-search me-2"></i>View My Requests
+            </button>
+        </div>
+
+        <!-- Step 2: Results -->
+        <div id="trStep2" style="display:none;">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;">
+                <h4 style="margin:0;">Your Requests</h4>
+                <button class="cm-btn-back" style="padding:8px 16px;font-size:0.82rem;" onclick="trGoStep(1)">
+                    <i class="bi bi-arrow-left me-1"></i> Back
+                </button>
+            </div>
+            <div id="trResultsContainer" style="max-height:420px;overflow-y:auto;"></div>
+        </div>
+    </div>
+</div>
+
+<style>
+    /* Track status card styles */
+    .tr-req-card {
+        background:#f8fafc; border:1px solid #e2e8f0; border-radius:16px;
+        padding:16px 18px; margin-bottom:12px; border-left:4px solid #e2e8f0;
+    }
+    .tr-req-card.status-approved { border-left-color:#10b981; }
+    .tr-req-card.status-rejected { border-left-color:#ef4444; }
+    .tr-req-card.status-pending  { border-left-color:#f59e0b; }
+    .tr-type-label { font-size:0.7rem;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#94a3b8;margin-bottom:4px; }
+    .tr-room { font-weight:800;color:#1e293b;font-size:0.95rem;margin-bottom:4px; }
+    .tr-meta { font-size:0.82rem;color:#64748b;margin-bottom:8px; }
+    .tr-status-badge { display:inline-flex;align-items:center;gap:5px;padding:4px 12px;border-radius:999px;font-size:0.78rem;font-weight:700; }
+    .badge-approved { background:#dcfce7;color:#166534; }
+    .badge-rejected { background:#fee2e2;color:#991b1b; }
+    .badge-pending  { background:#fef3c7;color:#92400e; }
+    .tr-note { font-size:0.82rem;color:#64748b;background:#fff;border-radius:8px;padding:7px 10px;margin-top:6px;border:1px solid #e2e8f0; }
+</style>
+
+<div class="cancel-overlay" id="cancelOverlay" onclick="overlayClickClose(event)">
+    <div class="cancel-modal" id="cancelModal">
+
+        <button class="cm-close" onclick="closeCancelModal()">
+            <i class="bi bi-x-lg"></i>
+        </button>
+
+        <!-- ── STEP 1: Credentials ── -->
+        <div id="cmStep1">
+            <div style="text-align:center; margin-bottom:24px;">
+                <div class="cm-icon-wrap" style="background:#fef2f2; margin:0 auto;">
+                    <i class="bi bi-calendar-x-fill" style="font-size:1.8rem; color:#ef4444;"></i>
+                </div>
+                <h4>Cancel a Booking</h4>
+                <p class="cm-sub">Enter your credentials to view your active bookings.</p>
+            </div>
+
+            <div class="cm-field">
+                <label class="cm-label">College Email</label>
+                <input type="email" id="cmEmail" class="cm-input"
+                       placeholder="faculty@sfscollege.in"
+                       oninput="cmClearAlert('cmAlert1')">
+            </div>
+
+            <div class="cm-field">
+                <label class="cm-label">Booking Password</label>
+                <div class="cm-input-wrap">
+                    <input type="password" id="cmPassword" class="cm-input"
+                           placeholder="Your booking password" style="padding-right:44px;"
+                           oninput="cmClearAlert('cmAlert1')">
+                    <button type="button" class="cm-eye-btn" onclick="cmTogglePwd()">
+                        <i class="bi bi-eye" id="cmEyeIcon"></i>
+                    </button>
+                </div>
+            </div>
+
+            <div class="cm-alert error" id="cmAlert1"></div>
+
+            <button class="cm-btn-primary" id="cmFetchBtn" onclick="cmFetchBookings()">
+                <i class="bi bi-search me-2"></i>Find My Bookings
+            </button>
+        </div>
+
+        <!-- ── STEP 2: Pick booking + reason ── -->
+        <div id="cmStep2" style="display:none;">
+            <div style="margin-bottom:22px;">
+                <h4 style="margin-bottom:4px;">Select Booking</h4>
+                <p class="cm-sub" style="margin:0;">Choose the booking you want to cancel and give a reason.</p>
+            </div>
+
+            <div class="cm-field">
+                <label class="cm-label">Your Active Bookings</label>
+                <select id="cmBookingSelect" class="cm-input"
+                        onchange="cmClearAlert('cmAlert2')">
+                    <option value="">— Select a booking —</option>
+                </select>
+            </div>
+
+            <div class="cm-field">
+                <label class="cm-label">Reason for Cancellation</label>
+                <textarea id="cmReason" class="cm-input" rows="3"
+                          placeholder="Please explain why you need to cancel this booking..."
+                          style="resize:vertical;"
+                          oninput="cmClearAlert('cmAlert2')"></textarea>
+            </div>
+
+            <div class="cm-alert error" id="cmAlert2"></div>
+
+            <div style="display:flex; gap:12px;">
+                <button class="cm-btn-back" onclick="cmGoStep(1)">
+                    <i class="bi bi-arrow-left me-1"></i> Back
+                </button>
+                <button class="cm-btn-submit" id="cmSubmitBtn" onclick="cmSubmitCancellation()">
+                    <i class="bi bi-send-fill me-2"></i>Submit Cancellation Request
+                </button>
+            </div>
+        </div>
+
+        <!-- ── STEP 3: Success ── -->
+        <div id="cmStep3" style="display:none; text-align:center;">
+            <div class="cm-icon-wrap" style="background:#f0fdf4; margin:0 auto 16px;">
+                <i class="bi bi-check-circle-fill" style="font-size:2rem; color:#10b981;"></i>
+            </div>
+            <h4>Request Submitted!</h4>
+            <p class="cm-sub" style="margin-bottom:0;">Your cancellation request has been submitted and is awaiting admin approval. You will be notified once a decision is made.</p>
+            <br>
+            <button class="cm-btn-done" onclick="closeCancelModal()">Done</button>
+        </div>
+
+    </div><!-- /cancel-modal -->
+</div><!-- /cancel-overlay -->
+
+<script>
+// ── Cancellation modal helpers ─────────────────────────────────
+function openCancelModal()  { document.getElementById('cancelOverlay').classList.add('open'); }
+function closeCancelModal() {
+    document.getElementById('cancelOverlay').classList.remove('open');
+    // Reset to step 1
+    cmGoStep(1);
+    document.getElementById('cmEmail').value    = '';
+    document.getElementById('cmPassword').value = '';
+    document.getElementById('cmReason').value   = '';
+    document.getElementById('cmBookingSelect').innerHTML = '<option value="">— Select a booking —</option>';
+    cmClearAlert('cmAlert1');
+    cmClearAlert('cmAlert2');
+}
+function overlayClickClose(e) {
+    if (e.target === document.getElementById('cancelOverlay')) closeCancelModal();
+}
+function cmGoStep(n) {
+    [1, 2, 3].forEach(i => {
+        const el = document.getElementById('cmStep' + i);
+        if (el) el.style.display = i === n ? 'block' : 'none';
+    });
+}
+function cmTogglePwd() {
+    const inp  = document.getElementById('cmPassword');
+    const icon = document.getElementById('cmEyeIcon');
+    if (inp.type === 'password') { inp.type = 'text';     icon.className = 'bi bi-eye-slash'; }
+    else                         { inp.type = 'password'; icon.className = 'bi bi-eye'; }
+}
+function cmShowAlert(id, msg) {
+    const el = document.getElementById(id);
+    el.textContent = msg;
+    el.style.display = 'block';
+}
+function cmClearAlert(id) {
+    const el = document.getElementById(id);
+    if (el) { el.textContent = ''; el.style.display = 'none'; }
+}
+function cmSetLoading(btnId, loading, label) {
+    const btn = document.getElementById(btnId);
+    if (!btn) return;
+    btn.disabled = loading;
+    btn.innerHTML = loading
+        ? '<span class="spinner-border spinner-border-sm me-2" style="width:14px;height:14px;border-width:2px;"></span>Loading...'
+        : label;
+}
+
+// Step 1 → 2: Validate credentials and load bookings
+function cmFetchBookings() {
+    const email    = document.getElementById('cmEmail').value.trim().toLowerCase();
+    const password = document.getElementById('cmPassword').value.trim();
+
+    cmClearAlert('cmAlert1');
+
+    if (!email)    { cmShowAlert('cmAlert1', 'Please enter your college email address.'); return; }
+    if (!password) { cmShowAlert('cmAlert1', 'Please enter your booking password.');      return; }
+    if (!email.endsWith('@sfscollege.in')) {
+        cmShowAlert('cmAlert1', 'Only @sfscollege.in email addresses are accepted.');
+        return;
+    }
+
+    cmSetLoading('cmFetchBtn', true, '');
+
+    const url = `{% url "core:get_bookings_by_email" %}?email=${encodeURIComponent(email)}&password=${encodeURIComponent(password)}`;
+    fetch(url)
+        .then(res => res.json())
+        .then(data => {
+            if (data.error) {
+                cmShowAlert('cmAlert1', data.error);
+                return;
+            }
+            if (!data.bookings || data.bookings.length === 0) {
+                cmShowAlert('cmAlert1', 'No upcoming bookings found for this email.');
+                return;
+            }
+
+            const sel = document.getElementById('cmBookingSelect');
+            sel.innerHTML = '<option value="">— Select a booking —</option>';
+            data.bookings.forEach(b => {
+                const opt = document.createElement('option');
+                opt.value = b.id;
+                const suffix = b.has_pending_cancel ? ' ⚠ Cancellation Pending' : '';
+                opt.textContent = `${b.room_name}  •  ${b.start} → ${b.end}${suffix}`;
+                if (b.has_pending_cancel) opt.disabled = true;
+                sel.appendChild(opt);
+            });
+
+            cmGoStep(2);
+        })
+        .catch(() => cmShowAlert('cmAlert1', 'Network error. Please try again.'))
+        .finally(() => cmSetLoading('cmFetchBtn', false, '<i class="bi bi-search me-2"></i>Find My Bookings'));
+}
+
+// Step 2: Submit cancellation
+function cmSubmitCancellation() {
+    const email     = document.getElementById('cmEmail').value.trim().toLowerCase();
+    const password  = document.getElementById('cmPassword').value.trim();
+    const bookingId = document.getElementById('cmBookingSelect').value;
+    const reason    = document.getElementById('cmReason').value.trim();
+
+    cmClearAlert('cmAlert2');
+
+    if (!bookingId)      { cmShowAlert('cmAlert2', 'Please select a booking to cancel.'); return; }
+    if (reason.length < 10) { cmShowAlert('cmAlert2', 'Please provide a more detailed reason (at least 10 characters).'); return; }
+
+    cmSetLoading('cmSubmitBtn', true, '');
+
+    const fd = new FormData();
+    fd.append('email',      email);
+    fd.append('password',   password);
+    fd.append('booking_id', bookingId);
+    fd.append('reason',     reason);
+
+    // Get CSRF token from the booking form on this page
+    const csrf = document.querySelector('[name=csrfmiddlewaretoken]');
+    if (csrf) fd.append('csrfmiddlewaretoken', csrf.value);
+
+    fetch('{% url "core:submit_cancellation_request" %}', { method: 'POST', body: fd })
+        .then(res => res.json())
+        .then(data => {
+            if (data.status === 'success') {
+                cmGoStep(3);
+            } else {
+                cmShowAlert('cmAlert2', data.error || 'Submission failed. Please try again.');
+            }
+        })
+        .catch(() => cmShowAlert('cmAlert2', 'Network error. Please try again.'))
+        .finally(() => cmSetLoading('cmSubmitBtn', false, '<i class="bi bi-send-fill me-2"></i>Submit Cancellation Request'));
+}
+
+// ── Track Request Modal ──────────────────────────────────
+function openTrackModal()  { document.getElementById('trackOverlay').classList.add('open'); }
+function closeTrackModal() {
+    document.getElementById('trackOverlay').classList.remove('open');
+    trGoStep(1);
+    document.getElementById('trEmail').value = '';
+    document.getElementById('trPassword').value = '';
+    cmClearAlert('trAlert1');
+}
+function trackOverlayClose(e) { if (e.target === document.getElementById('trackOverlay')) closeTrackModal(); }
+function trGoStep(n) {
+    [1,2].forEach(function(i) {
+        var el = document.getElementById('trStep' + i);
+        if (el) el.style.display = (i === n ? 'block' : 'none');
+    });
+}
+function trTogglePwd() {
+    var inp = document.getElementById('trPassword');
+    var icon = document.getElementById('trEyeIcon');
+    if (inp.type === 'password') { inp.type = 'text'; icon.className = 'bi bi-eye-slash'; }
+    else { inp.type = 'password'; icon.className = 'bi bi-eye'; }
+}
+function trFetchStatus() {
+    var email    = document.getElementById('trEmail').value.trim().toLowerCase();
+    var password = document.getElementById('trPassword').value.trim();
+    cmClearAlert('trAlert1');
+
+    if (!email)    { cmShowAlert('trAlert1', 'Please enter your college email.'); return; }
+    if (!password) { cmShowAlert('trAlert1', 'Please enter your booking password.'); return; }
+
+    cmSetLoading('trFetchBtn', true, '');
+
+    var url = `{% url 'core:get_booking_status' %}?email=` + encodeURIComponent(email) + '&password=' + encodeURIComponent(password);
+    fetch(url)
+        .then(function(res) { return res.json(); })
+        .then(function(data) {
+            if (data.error) { cmShowAlert('trAlert1', data.error); return; }
+            if (!data.requests || data.requests.length === 0) {
+                cmShowAlert('trAlert1', 'No booking or cancellation requests found for this email.');
+                return;
+            }
+            trRenderResults(data.requests);
+            trGoStep(2);
+        })
+        .catch(function() { cmShowAlert('trAlert1', 'Network error. Please try again.'); })
+        .finally(function() { cmSetLoading('trFetchBtn', false, '<i class="bi bi-search me-2"></i>View My Requests'); });
+}
+function trRenderResults(requests) {
+    var container = document.getElementById('trResultsContainer');
+    container.innerHTML = '';
+    requests.forEach(function(r) {
+        var statusClass = 'status-' + r.status;
+        var badgeClass  = 'badge-' + r.status;
+        var icon = r.status === 'approved' ? 'bi-check-circle-fill' : r.status === 'rejected' ? 'bi-x-circle-fill' : 'bi-clock-fill';
+        var noteHtml = '';
+        if (r.review_note) noteHtml = '<div class="tr-note"><i class="bi bi-chat-left-text me-1"></i>' + escapeHtml(r.review_note) + '</div>';
+        var purposeHtml = '';
+        if (r.purpose && r.purpose !== '—') purposeHtml = '<div class="tr-meta" style="margin-top:4px;"><i class="bi bi-chat-left-text me-1"></i>' + escapeHtml(r.purpose) + '</div>';
+
+        container.innerHTML += '<div class="tr-req-card ' + statusClass + '">' +
+            '<div class="tr-type-label">' + escapeHtml(r.type) + '</div>' +
+            '<div class="tr-room">' + escapeHtml(r.room) + '</div>' +
+            '<div class="tr-meta"><i class="bi bi-calendar3 me-1"></i>' + r.from + ' → ' + r.to + ' &nbsp;|&nbsp; Submitted: ' + r.submitted + '</div>' +
+            purposeHtml +
+            '<span class="tr-status-badge ' + badgeClass + '"><i class="bi ' + icon + '"></i>' + r.status.charAt(0).toUpperCase() + r.status.slice(1) + '</span>' +
+            noteHtml +
+        '</div>';
+    });
+}
+function escapeHtml(str) {
+    return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+</script>
 </body>
 </html>

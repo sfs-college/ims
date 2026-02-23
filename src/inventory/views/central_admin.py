@@ -1,8 +1,9 @@
-from django.shortcuts import redirect, get_object_or_404
+from django.shortcuts import redirect, get_object_or_404, render
+from django.http import JsonResponse
 from django.urls import reverse, reverse_lazy
 from django.views.generic import TemplateView, ListView, CreateView, UpdateView, DeleteView, View
 from core.models import User, UserProfile
-from inventory.models import Room, Vendor, Purchase, Issue, Department, Item, EditRequest, IssueTimeExtensionRequest
+from inventory.models import Room, Vendor, Purchase, Issue, Department, Item, StockRequest, IssueTimeExtensionRequest, RoomBooking, RoomBookingRequest, RoomCancellationRequest
 from django.contrib.auth.tokens import PasswordResetTokenGenerator
 from django.utils.http import urlsafe_base64_encode
 from django.utils.encoding import force_bytes
@@ -132,22 +133,61 @@ class RoomListView(LoginRequiredMixin, ListView):
 
     def get_queryset(self):
         qs = Room.objects.filter(organisation=self.request.user.profile.org)
-
         category = self.request.GET.get('category')
-        search = self.request.GET.get('search')
-
+        search   = self.request.GET.get('search')
         if category:
             qs = qs.filter(room_category=category)
-
         if search:
             qs = qs.filter(room_name__icontains=search)
-
         return qs
-        # CHANGE: Added category filtering and search support for rooms
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context['categories'] = Room.ROOM_CATEGORIES
+        context['view_mode']  = self.request.GET.get('view', 'list')
+
+        # ── Booking-status data for the booking view ───────────────────
+        now       = timezone.now()
+        all_rooms = self.get_queryset()
+
+        # Currently active (confirmed) bookings
+        active_bookings = RoomBooking.objects.filter(
+            room__in=all_rooms,
+            start_datetime__lte=now,
+            end_datetime__gte=now,
+        ).select_related('room')
+
+        booked_room_ids = {b.room_id for b in active_bookings}
+
+        # Pending booking requests
+        pending_reqs = RoomBookingRequest.objects.filter(
+            room__in=all_rooms,
+            status='pending',
+        ).select_related('room')
+
+        pending_room_ids = {r.room_id for r in pending_reqs}
+
+        # One entry per room for booked section
+        booked_map = {}
+        for b in active_bookings:
+            booked_map[b.room_id] = b
+        booked_entries = [{'room': b.room, 'booking': b} for b in booked_map.values()]
+
+        # One entry per room for pending section
+        pending_map = {}
+        for r in pending_reqs:
+            pending_map[r.room_id] = r
+        pending_entries = [{'room': r.room, 'request': r} for r in pending_map.values()]
+
+        # Available = not booked right now AND no pending request
+        available_rooms = [
+            r for r in all_rooms
+            if r.id not in booked_room_ids and r.id not in pending_room_ids
+        ]
+
+        context['booked_rooms']          = booked_entries
+        context['pending_booking_rooms'] = pending_entries
+        context['available_rooms']       = available_rooms
         return context
     
     
@@ -164,12 +204,32 @@ class RoomCreateView(LoginRequiredMixin, CreateView):
         return redirect(self.success_url)
     
     
-class RoomDeleteView(LoginRequiredMixin, DeleteView):
-    model = Room
-    template_name = 'central_admin/room_delete_confirm.html'
-    slug_field = 'slug'
-    slug_url_kwarg = 'room_slug'
-    success_url = reverse_lazy('central_admin:room_list')
+class RoomDeleteView(LoginRequiredMixin, View):
+    """Central Admin only — sub-admins are not allowed to delete rooms."""
+
+    def dispatch(self, request, *args, **kwargs):
+        profile = getattr(request.user, 'profile', None)
+        if not profile or profile.is_sub_admin:
+            messages.error(request, "Sub-admins are not permitted to delete rooms.")
+            return redirect('central_admin:room_list')
+        return super().dispatch(request, *args, **kwargs)
+
+    def get(self, request, *args, **kwargs):
+        room = get_object_or_404(
+            Room, slug=kwargs['room_slug'],
+            organisation=request.user.profile.org
+        )
+        return render(request, 'central_admin/room_delete_confirm.html', {'object': room})
+
+    def post(self, request, *args, **kwargs):
+        room = get_object_or_404(
+            Room, slug=kwargs['room_slug'],
+            organisation=request.user.profile.org
+        )
+        room_name = room.room_name
+        room.delete()
+        messages.success(request, f"Room '{room_name}' deleted successfully.")
+        return redirect('central_admin:room_list')
 
 
 class RoomUpdateView(LoginRequiredMixin, UpdateView):
@@ -179,6 +239,13 @@ class RoomUpdateView(LoginRequiredMixin, UpdateView):
     success_url = reverse_lazy('central_admin:room_list')
     slug_field = 'slug'
     slug_url_kwarg = 'room_slug'
+
+    def dispatch(self, request, *args, **kwargs):
+        profile = getattr(request.user, 'profile', None)
+        if not profile or profile.is_sub_admin:
+            messages.error(request, "Sub-admins are not permitted to edit rooms.")
+            return redirect('central_admin:room_list')
+        return super().dispatch(request, *args, **kwargs)
 
     def form_valid(self, form):
         room = form.save(commit=False)
@@ -232,6 +299,88 @@ class VendorDeleteView(LoginRequiredMixin, DeleteView):
     success_url = reverse_lazy('central_admin:vendor_list')
 
 
+class PurchaseCreateView(LoginRequiredMixin, View):
+    """
+    Sub Admin raises a purchase request for an item (existing or new name).
+    They do NOT select a vendor — central admin handles that on approval.
+    """
+    template_name = 'central_admin/purchase_create.html'
+
+    def get(self, request, *args, **kwargs):
+        profile = getattr(request.user, 'profile', None)
+        if not profile or not profile.is_sub_admin:
+            return redirect('central_admin:dashboard')
+        # Fetch master inventory items for the org to allow selection
+        try:
+            master_items = Item.objects.filter(organisation=profile.org).order_by('item_name')
+        except Exception:
+            master_items = []
+        rooms = Room.objects.filter(organisation=profile.org)
+        return render(request, self.template_name, {
+            'master_items': master_items,
+            'rooms': rooms,
+        })
+
+    def post(self, request, *args, **kwargs):
+        profile = getattr(request.user, 'profile', None)
+        if not profile or not profile.is_sub_admin:
+            return redirect('central_admin:dashboard')
+
+        item_name = request.POST.get('item_name', '').strip()
+        quantity = request.POST.get('quantity', '').strip()
+        unit_of_measure = request.POST.get('unit_of_measure', 'units')
+        room_id = request.POST.get('room_id', '')
+        reason = request.POST.get('reason', '').strip()
+
+        if not item_name or not quantity:
+            messages.error(request, 'Item name and quantity are required.')
+            return redirect('central_admin:purchase_create')
+
+        org = profile.org
+
+        # Get or create a placeholder item for this purchase request
+        from inventory.models import Category, Brand, Item as InvItem
+        placeholder_cat, _ = Category.objects.get_or_create(
+            organisation=org, category_name='Purchase Requests',
+            defaults={'room': None}
+        )
+        placeholder_brand, _ = Brand.objects.get_or_create(
+            organisation=org, brand_name='To Be Determined',
+            defaults={'room': None}
+        )
+        item_obj, _ = InvItem.objects.get_or_create(
+            organisation=org,
+            item_name=item_name,
+            defaults={
+                'category': placeholder_cat,
+                'brand': placeholder_brand,
+                'total_count': 0,
+                'is_listed': False,
+            }
+        )
+
+        room = None
+        if room_id:
+            try:
+                room = Room.objects.get(id=room_id, organisation=org)
+            except Room.DoesNotExist:
+                pass
+
+        Purchase.objects.create(
+            organisation=org,
+            item=item_obj,
+            quantity=float(quantity),
+            unit_of_measure=unit_of_measure,
+            room=room,
+            reason=reason,
+            status='requested',
+            requested_by=profile,
+        )
+
+        messages.success(request, f'Purchase request for "{item_name}" submitted successfully.')
+        return redirect('central_admin:purchase_list')
+
+
 class PurchaseListView(LoginRequiredMixin, ListView):
     template_name = 'central_admin/purchase_list.html'
     model = Purchase
@@ -240,21 +389,32 @@ class PurchaseListView(LoginRequiredMixin, ListView):
     def get_queryset(self):
         profile = self.request.user.profile
 
-        # Central Admin & Sub Admin
-        if profile.is_central_admin or profile.is_sub_admin:
+        if profile.is_central_admin and not profile.is_sub_admin:
+            # Central Admin sees ALL purchase requests from sub-admins
             return (
                 Purchase.objects
-                .filter(room__organisation=profile.org)  # ✅ correct org resolution
-                .select_related(
-                    "room",
-                    "item",
-                    "vendor",
-                    "receipt",
-                )
+                .filter(organisation=profile.org)
+                .select_related("room", "item", "vendor", "receipt", "requested_by__user")
+                .order_by("-created_on")
+            )
+
+        if profile.is_sub_admin:
+            # Sub Admin sees only their OWN requests
+            return (
+                Purchase.objects
+                .filter(organisation=profile.org, requested_by=profile)
+                .select_related("room", "item", "vendor", "receipt", "requested_by__user")
                 .order_by("-created_on")
             )
 
         return Purchase.objects.none()
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        profile = self.request.user.profile
+        context['is_central_admin'] = profile.is_central_admin and not profile.is_sub_admin
+        context['is_sub_admin'] = profile.is_sub_admin
+        return context
 
 
 class IssueListView(LoginRequiredMixin, ListView):
@@ -376,29 +536,15 @@ class ItemListView(LoginRequiredMixin, ListView):
 
 class EditRequestListView(LoginRequiredMixin, ListView):
     """
-    Central Admin – Unified Edit Requests page
-    Handles:
-    - Item Edit Requests
-    - Issue Time Extension Requests
+    Legacy list view — now shows StockRequests.
+    The main approval hub is ApprovalRequestListView.
     """
-
     template_name = "central_admin/edit_request_list.html"
-    context_object_name = "requests"
+    context_object_name = "stock_requests"
 
     def get_queryset(self):
-        request_type = self.request.GET.get("type", "item")
-
-        if request_type == "issue":
-            return (
-                IssueTimeExtensionRequest.objects
-                .filter(status="pending")
-                .select_related("issue", "requested_by")
-                .order_by("-created_on")
-            )
-
-        # Default: Item edit requests
         return (
-            EditRequest.objects
+            StockRequest.objects
             .filter(status="pending")
             .select_related("item", "room", "requested_by")
             .order_by("-created_on")
@@ -406,48 +552,46 @@ class EditRequestListView(LoginRequiredMixin, ListView):
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        context["request_type"] = self.request.GET.get("type", "item")
+        context["request_type"] = "item_edit"
         return context
 
 
-class ApproveEditRequestView(LoginRequiredMixin, View):
+class ApproveStockRequestView(LoginRequiredMixin, View):
+    """
+    Approving a StockRequest increases the item's total_count and available_count
+    by the requested_count, then marks the request as approved.
+    """
     def post(self, request, pk, *args, **kwargs):
-        edit_request = get_object_or_404(EditRequest, pk=pk)
-        item = edit_request.item
+        stock_req = get_object_or_404(StockRequest, pk=pk, status="pending")
+        item = stock_req.item
 
-        # Apply proposed changes to the item (approved edit request)
-        for field, value in edit_request.proposed_data.items():
-            setattr(item, field, value)
+        # Increase stock
+        item.total_count     += stock_req.requested_count
+        item.available_count += stock_req.requested_count
+        item.save(update_fields=["total_count", "available_count"])
 
-        item.is_edit_lock = False
-        item.save()
-
-        edit_request.status = "approved"
-        edit_request.reviewed_by = request.user.profile
-        edit_request.save(update_fields=["status", "reviewed_by"])
+        stock_req.status      = "approved"
+        stock_req.reviewed_by = request.user.profile
+        stock_req.save(update_fields=["status", "reviewed_by"])
 
         messages.success(
             request,
-            "Edit request approved and item updated successfully."
+            f"Stock request approved — {stock_req.requested_count} units added to '{item.item_name}'."
         )
-        return redirect("central_admin:edit_request_list")
+        next_type = request.POST.get("next_type", "item_edit")
+        return redirect(f"{reverse('central_admin:approval_requests')}?type={next_type}")
 
 
-class RejectEditRequestView(LoginRequiredMixin, View):
+class RejectStockRequestView(LoginRequiredMixin, View):
     def post(self, request, pk, *args, **kwargs):
-        edit_request = get_object_or_404(EditRequest, pk=pk)
-        item = edit_request.item
+        stock_req = get_object_or_404(StockRequest, pk=pk, status="pending")
+        stock_req.status      = "rejected"
+        stock_req.reviewed_by = request.user.profile
+        stock_req.save(update_fields=["status", "reviewed_by"])
 
-        # Unlock item without applying requested changes
-        item.is_edit_lock = False
-        item.save(update_fields=["is_edit_lock"])
-
-        edit_request.status = "rejected"
-        edit_request.reviewed_by = request.user.profile
-        edit_request.save(update_fields=["status", "reviewed_by"])
-
-        messages.info(request, "Edit request rejected.")
-        return redirect("central_admin:edit_request_list")
+        messages.info(request, "Stock request rejected.")
+        next_type = request.POST.get("next_type", "item_edit")
+        return redirect(f"{reverse('central_admin:approval_requests')}?type={next_type}")
 
 
 # added this for admin issue actions
@@ -498,37 +642,63 @@ def admin_deescalate_issue(request, pk):
 
 class ApprovalRequestListView(LoginRequiredMixin, ListView):
     """
-    Central Admin unified approval page
-    Handles:
-    - Item Edit Requests
-    - Issue Time Extension Requests
-    """
+    Central Admin unified approval hub.
 
-    template_name = "central_admin/approval_requests.html"
-    context_object_name = "requests"
+    All four request types are fetched in one page-load and rendered into
+    four separate HTML panels. The tab switcher is pure client-side JS —
+    no page reload when switching tabs.
+    """
+    template_name       = "central_admin/edit_request_list.html"
+    model               = StockRequest 
+    context_object_name = "requests"            
 
     def get_queryset(self):
-        request_type = self.request.GET.get("type", "item_edit")
-
-        if request_type == "issue_tat":
-            return (
-                IssueTimeExtensionRequest.objects
-                .filter(status="pending")
-                .select_related("issue", "requested_by")
-                .order_by("-created_on")
-            )
-
-        # Default: Item edit requests
-        return (
-            EditRequest.objects
-            .filter(status="pending")
-            .select_related("item", "room", "requested_by")
-            .order_by("-created_on")
-        )
+        return StockRequest.objects.none()
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        context["request_type"] = self.request.GET.get("type", "item_edit")
+        VALID_TABS = {'item_edit', 'issue_tat', 'booking_req', 'cancel_req'}
+        raw = self.request.GET.get('type', 'item_edit')
+        context['active_tab'] = raw if raw in VALID_TABS else 'item_edit'
+
+        # ── Panel 1: Item Stock Requests ──────────────────────────────────
+        context['stock_requests'] = (
+            StockRequest.objects
+            .filter(status='pending')
+            .select_related('item', 'room', 'requested_by')
+            .order_by('-created_on')
+        )
+
+        # ── Panel 2: Issue Time Extension Requests ────────────────────────
+        context['tat_requests'] = (
+            IssueTimeExtensionRequest.objects
+            .filter(status='pending')
+            .select_related('issue', 'requested_by')
+            .order_by('-created_on')
+        )
+
+        # ── Panel 3: Room Booking Requests ────────────────────────────────
+        context['booking_requests'] = (
+            RoomBookingRequest.objects
+            .filter(status='pending')
+            .select_related('room')
+            .order_by('-created_on')
+        )
+
+        # ── Panel 4: Room Cancellation Requests ───────────────────────────
+        context['cancel_requests'] = (
+            RoomCancellationRequest.objects
+            .filter(status='pending')
+            .select_related('booking', 'booking__room')
+            .order_by('-created_on')
+        )
+
+        # ── Badge counts shown on the tab pills ───────────────────────────
+        context['item_edit_count']   = context['stock_requests'].count()
+        context['issue_tat_count']   = context['tat_requests'].count()
+        context['booking_req_count'] = context['booking_requests'].count()
+        context['cancel_req_count']  = context['cancel_requests'].count()
+
         return context
 
 
@@ -562,12 +732,9 @@ class ApproveIssueTimeExtensionView(LoginRequiredMixin, View):
         req.reviewed_by = request.user.profile
         req.save(update_fields=["status", "reviewed_by"])
 
-        messages.success(
-            request,
-            "Issue time extension approved successfully."
-        )
-
-        return redirect("central_admin:approval_requests")
+        messages.success(request, "Issue time extension approved successfully.")
+        next_type = request.POST.get("next_type", "issue_tat")
+        return redirect(f"{reverse('central_admin:approval_requests')}?type={next_type}")
 
 
 class RejectIssueTimeExtensionView(LoginRequiredMixin, View):
@@ -582,9 +749,277 @@ class RejectIssueTimeExtensionView(LoginRequiredMixin, View):
         req.reviewed_by = request.user.profile
         req.save(update_fields=["status", "reviewed_by"])
 
+        messages.info(request, "Issue time extension request rejected.")
+        next_type = request.POST.get("next_type", "issue_tat")
+        return redirect(f"{reverse('central_admin:approval_requests')}?type={next_type}")
+
+# ═══════════════════════════════════════════════════════════════
+# ROOM BOOKING REQUEST — APPROVE / REJECT
+# ═══════════════════════════════════════════════════════════════
+
+class ApproveRoomBookingRequestView(LoginRequiredMixin, View):
+    """
+    Approving a RoomBookingRequest converts it into a confirmed RoomBooking.
+    The duplicate-booking check inside RoomBooking.clean() is still enforced.
+    """
+    def post(self, request, pk):
+        booking_req = get_object_or_404(RoomBookingRequest, pk=pk, status="pending")
+
+        try:
+            booking = RoomBooking(
+                room           = booking_req.room,
+                department     = booking_req.department,
+                faculty_name   = booking_req.faculty_name,
+                faculty_email  = booking_req.faculty_email,
+                start_datetime = booking_req.start_datetime,
+                end_datetime   = booking_req.end_datetime,
+                purpose        = booking_req.purpose,
+                requirements_doc = booking_req.requirements_doc,
+            )
+            booking.full_clean()  # runs conflict detection
+            booking.save()
+
+            booking_req.status      = "approved"
+            booking_req.reviewed_by = request.user.profile
+            booking_req.save(update_fields=["status", "reviewed_by"])
+
+            messages.success(
+                request,
+                f"Booking approved — {booking_req.room} confirmed for {booking_req.faculty_name}."
+            )
+        except Exception as e:
+            messages.error(request, f"Could not approve booking: {e}")
+
+        next_type = request.POST.get("next_type", "booking_req")
+        return redirect(f"{reverse('central_admin:approval_requests')}?type={next_type}")
+
+
+class RejectRoomBookingRequestView(LoginRequiredMixin, View):
+    def post(self, request, pk):
+        booking_req = get_object_or_404(RoomBookingRequest, pk=pk, status="pending")
+        booking_req.status      = "rejected"
+        booking_req.review_note = request.POST.get("review_note", "")
+        booking_req.reviewed_by = request.user.profile
+        booking_req.save(update_fields=["status", "review_note", "reviewed_by"])
+
+        messages.info(request, "Booking request rejected.")
+        next_type = request.POST.get("next_type", "booking_req")
+        return redirect(f"{reverse('central_admin:approval_requests')}?type={next_type}")
+
+
+# ═══════════════════════════════════════════════════════════════
+# ROOM CANCELLATION REQUEST — APPROVE / REJECT
+# ═══════════════════════════════════════════════════════════════
+
+class ApproveCancellationRequestView(LoginRequiredMixin, View):
+    """
+    Approving cancellation deletes the confirmed RoomBooking so the
+    room becomes available again in the booking manager.
+    """
+    def post(self, request, pk):
+        cancel_req = get_object_or_404(RoomCancellationRequest, pk=pk, status="pending")
+        booking    = cancel_req.booking
+
+        # Delete the confirmed booking — room is freed
+        booking.delete()
+
+        cancel_req.status      = "approved"
+        cancel_req.reviewed_by = request.user.profile
+        # booking FK is now null (CASCADE deleted), save only safe fields
+        cancel_req.save(update_fields=["status", "reviewed_by"])
+
+        messages.success(
+            request,
+            "Cancellation approved — booking removed and room is now available."
+        )
+        next_type = request.POST.get("next_type", "cancel_req")
+        return redirect(f"{reverse('central_admin:approval_requests')}?type={next_type}")
+
+
+class RejectCancellationRequestView(LoginRequiredMixin, View):
+    def post(self, request, pk):
+        cancel_req = get_object_or_404(RoomCancellationRequest, pk=pk, status="pending")
+        cancel_req.status      = "rejected"
+        cancel_req.reviewed_by = request.user.profile
+        cancel_req.save(update_fields=["status", "reviewed_by"])
+
         messages.info(
             request,
-            "Issue time extension request rejected."
+            "Cancellation request rejected — booking remains active."
+        )
+        next_type = request.POST.get("next_type", "cancel_req")
+        return redirect(f"{reverse('central_admin:approval_requests')}?type={next_type}")
+
+
+# ═══════════════════════════════════════════════════════════════
+# ROOM INCHARGE — NOTIFICATIONS VIEW
+# Used by room_incharge/notifications/ to show stock & issue alerts.
+# ═══════════════════════════════════════════════════════════════
+
+class RoomInchargeNotificationsView(LoginRequiredMixin, TemplateView):
+    """
+    Shows the room incharge their personalised notification feed:
+      - Stock requests they raised: approved / rejected
+      - Issues assigned to their room: new / escalated
+    """
+    template_name = "room_incharge/notifications.html"
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        room_slug = self.kwargs["room_slug"]
+        from inventory.models import Room, RoomSettings
+        room         = get_object_or_404(Room, slug=room_slug, incharge=self.request.user.profile)
+        room_settings = RoomSettings.objects.get_or_create(room=room)[0]
+
+        # Stock request notifications (approved / rejected only — skip pending)
+        # NOTE: StockRequest has no updated_on — order by created_on
+        stock_notifications = (
+            StockRequest.objects
+            .filter(room=room, status__in=["approved", "rejected"])
+            .select_related("item", "reviewed_by")
+            .order_by("-created_on")[:50]
         )
 
-        return redirect("central_admin:approval_requests")
+        # Issue notifications for this room
+        issue_notifications = (
+            Issue.objects
+            .filter(room=room)
+            .order_by("-updated_on")[:50]
+        )
+
+        context["room"]               = room
+        context["room_slug"]          = room_slug
+        context["room_settings"]      = room_settings
+        context["stock_notifications"] = stock_notifications
+        context["issue_notifications"] = issue_notifications
+        return context
+
+
+# ═══════════════════════════════════════════════════════════════
+# ADMIN NOTIFICATION COUNTS  (AJAX — navbar bell badge)
+# ═══════════════════════════════════════════════════════════════
+
+def admin_notification_counts(request):
+    """
+    Returns pending/active counts for every notification type relevant to
+    the logged-in admin role. Called every 60 s by the navbar bell badge.
+    """
+    if not request.user.is_authenticated:
+        return JsonResponse({'error': 'Unauthorized'}, status=403)
+    profile = getattr(request.user, 'profile', None)
+    if not profile or not (profile.is_central_admin or profile.is_sub_admin):
+        return JsonResponse({'error': 'Unauthorized'}, status=403)
+
+    is_central = profile.is_central_admin and not profile.is_sub_admin
+    org        = profile.org
+
+    counts = {
+        'booking_requests': RoomBookingRequest.objects.filter(status='pending').count(),
+        'cancel_requests':  RoomCancellationRequest.objects.filter(status='pending').count(),
+        'stock_requests':   StockRequest.objects.filter(status='pending').count(),
+        'tat_requests':     IssueTimeExtensionRequest.objects.filter(status='pending').count(),
+        'escalated_issues': Issue.objects.filter(status='escalated', organisation=org).count(),
+    }
+
+    if is_central:
+        counts['purchase_requests'] = Purchase.objects.filter(
+            status='requested', room__organisation=org
+        ).count()
+    else:
+        counts['purchase_approvals'] = Purchase.objects.filter(
+            status='approved', room__organisation=org
+        ).count()
+
+    counts['total'] = sum(counts.values())
+    return JsonResponse(counts)
+
+
+# ═══════════════════════════════════════════════════════════════
+# ADMIN NOTIFICATIONS PAGE
+# ═══════════════════════════════════════════════════════════════
+
+class AdminNotificationsView(LoginRequiredMixin, View):
+    """
+    Standalone admin notification feed — works for both central admin and sub-admin.
+
+    Central Admin sees:
+      room booking requests, cancellation requests, stock requests,
+      issue time extension requests, purchase requests, escalated issues.
+
+    Sub Admin sees:
+      room booking requests, cancellation requests, stock requests,
+      issue time extension requests, purchase approvals (from central admin),
+      escalated issues.
+    """
+    template_name = "central_admin/admin_notifications.html"
+
+    def get(self, request, *args, **kwargs):
+        profile = getattr(request.user, 'profile', None)
+        if not profile or not (profile.is_central_admin or profile.is_sub_admin):
+            return redirect('central_admin:dashboard')
+
+        is_central = profile.is_central_admin and not profile.is_sub_admin
+        org        = profile.org
+
+        # ── Shared for both roles ──────────────────────────────────────
+        booking_requests = (
+            RoomBookingRequest.objects
+            .filter(status='pending')
+            .select_related('room')
+            .order_by('-created_on')[:40]
+        )
+        cancel_requests = (
+            RoomCancellationRequest.objects
+            .filter(status='pending')
+            .select_related('booking', 'booking__room')
+            .order_by('-created_on')[:40]
+        )
+        stock_requests = (
+            StockRequest.objects
+            .filter(status='pending')
+            .select_related('item', 'room', 'requested_by')
+            .order_by('-created_on')[:40]
+        )
+        tat_requests = (
+            IssueTimeExtensionRequest.objects
+            .filter(status='pending')
+            .select_related('issue', 'requested_by')
+            .order_by('-created_on')[:40]
+        )
+        escalated_issues = (
+            Issue.objects
+            .filter(status='escalated', organisation=org)
+            .select_related('room', 'assigned_to')
+            .order_by('-updated_on')[:40]
+        )
+
+        # ── Role-specific ──────────────────────────────────────────────
+        purchase_requests  = None   # central admin: pending purchase requests
+        purchase_approvals = None   # sub-admin: recently approved purchases
+
+        if is_central:
+            purchase_requests = (
+                Purchase.objects
+                .filter(status='requested', room__organisation=org)
+                .select_related('room', 'item', 'vendor')
+                .order_by('-created_on')[:40]
+            )
+        else:
+            purchase_approvals = (
+                Purchase.objects
+                .filter(status='approved', room__organisation=org)
+                .select_related('room', 'item', 'vendor')
+                .order_by('-created_on')[:40]
+            )
+
+        context = {
+            'is_central':          is_central,
+            'booking_requests':    booking_requests,
+            'cancel_requests':     cancel_requests,
+            'stock_requests':      stock_requests,
+            'tat_requests':        tat_requests,
+            'escalated_issues':    escalated_issues,
+            'purchase_requests':   purchase_requests,
+            'purchase_approvals':  purchase_approvals,
+        }
+        return render(request, self.template_name, context)

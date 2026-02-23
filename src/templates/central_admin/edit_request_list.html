@@ -1,23 +1,21 @@
 {% extends 'sidebar_base.html' %}
 {% load static %}
 
-{% block content %}
+{% block title %} | Approval Hub{% endblock %}
 
+{% block style %}
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
 <style>
     :root {
         --primary-grad: linear-gradient(135deg, #6366f1 0%, #a855f7 100%);
         --warning-grad: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
         --success-grad: linear-gradient(135deg, #10b981 0%, #059669 100%);
-        --glass: rgba(255, 255, 255, 0.95);
+        --glass: rgba(255,255,255,0.95);
     }
 
-    .admin-container {
-        padding: 30px;
-        background: #f8fafc;
-        min-height: 100vh;
-    }
+    .admin-container { padding: 30px; background: #f8fafc; min-height: 100vh; }
 
-    /* ---------- Header Section ---------- */
+    /* ── Glass header ─────────────────────────────────────── */
     .glass-header {
         background: var(--glass);
         backdrop-filter: blur(10px);
@@ -32,7 +30,6 @@
         flex-wrap: wrap;
         gap: 20px;
     }
-
     .header-title h2 {
         background: var(--primary-grad);
         -webkit-background-clip: text;
@@ -42,285 +39,612 @@
         margin: 0;
     }
 
-    /* ---------- Request Grid ---------- */
+    /* ── Animated pill tab strip ──────────────────────────── */
+    .type-toggle {
+        display: flex;
+        background: #f1f5f9;
+        border-radius: 14px;
+        padding: 5px;
+        position: relative;   /* slider is absolutely positioned inside */
+    }
+    /*
+     * Sliding pill — JS drives left + width.
+     * Transition is added by JS after first paint so the initial
+     * snap-to-active-tab has no animation (avoids flash).
+     */
+    .toggle-slider {
+        position: absolute;
+        top: 5px;
+        height: calc(100% - 10px);
+        background: #fff;
+        border-radius: 10px;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.10);
+        z-index: 0;
+        pointer-events: none;
+    }
+    .type-toggle .tab-btn {
+        position: relative;
+        z-index: 1;
+        padding: 9px 18px;
+        border-radius: 10px;
+        font-weight: 600;
+        font-size: 0.88rem;
+        text-decoration: none;
+        color: #64748b;
+        transition: color 0.22s ease;
+        white-space: nowrap;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        cursor: pointer;
+        user-select: none;
+    }
+    .type-toggle .tab-btn.active { color: #6366f1; }
+    .type-toggle .tab-btn:hover:not(.active) { color: #1e293b; }
+    .tab-count {
+        display: inline-flex; align-items: center; justify-content: center;
+        min-width: 20px; height: 20px; padding: 0 6px;
+        border-radius: 10px; font-size: 0.72rem; font-weight: 700;
+        background: #e0e7ff; color: #4f46e5;
+        transition: background 0.22s, color 0.22s;
+    }
+    .type-toggle .tab-btn.active .tab-count { background: #6366f1; color: #fff; }
+
+    /* ── Tab panels — JS toggles .active ─────────────────── */
+    .tab-panel        { display: none; }
+    .tab-panel.active { display: block; }
+
+    /* ── Request cards grid ───────────────────────────────── */
     .request-grid {
         display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
+        grid-template-columns: repeat(auto-fill, minmax(360px,1fr));
         gap: 25px;
     }
-
-    /* ---------- Request Card ---------- */
     .request-card {
-        background: #ffffff;
-        border-radius: 18px;
-        padding: 24px;
-        border: 1px solid rgba(0, 0, 0, 0.05);
-        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-        position: relative;
-        overflow: hidden;
-        display: flex;
-        flex-direction: column;
+        background: #fff; border-radius: 18px; padding: 24px;
+        border: 1px solid rgba(0,0,0,0.05);
+        transition: all 0.3s cubic-bezier(0.4,0,0.2,1);
+        position: relative; overflow: hidden;
+        display: flex; flex-direction: column;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.04);
     }
-
-    .request-card:hover {
-        transform: translateY(-8px);
-        box-shadow: 0 20px 40px rgba(0, 0, 0, 0.08);
-    }
-
+    .request-card:hover { transform: translateY(-5px); box-shadow: 0 18px 38px rgba(0,0,0,0.08); }
     .request-card::before {
-        content: '';
-        position: absolute;
-        top: 0; left: 0; width: 100%; height: 5px;
+        content:''; position:absolute; top:0; left:0; width:100%; height:4px;
         background: var(--primary-grad);
     }
+    .request-card.type-issue::before   { background: var(--warning-grad); }
+    .request-card.type-booking::before { background: linear-gradient(135deg,#3b82f6,#06b6d4); }
+    .request-card.type-cancel::before  { background: linear-gradient(135deg,#ef4444,#f97316); }
 
-    .request-card.type-issue::before {
-        background: var(--warning-grad);
-    }
-
-    /* ---------- Content Styling ---------- */
     .req-type {
-        font-size: 0.7rem;
-        text-transform: uppercase;
-        letter-spacing: 1.2px;
-        font-weight: 700;
-        color: #94a3b8;
-        margin-bottom: 8px;
-        display: block;
+        font-size: 0.68rem; text-transform: uppercase;
+        letter-spacing: 1.2px; font-weight: 700; color: #94a3b8;
+        margin-bottom: 6px; display: block;
     }
-
-    .req-title {
-        font-weight: 700;
-        color: #1e293b;
-        font-size: 1.25rem;
-        margin-bottom: 12px;
-    }
-
-    .meta-pills {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 8px;
-        margin-bottom: 15px;
-    }
-
+    .req-title { font-weight: 700; color: #1e293b; font-size: 1.15rem; margin-bottom: 12px; }
+    .meta-pills { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 15px; }
     .pill {
-        background: #f1f5f9;
-        padding: 4px 12px;
-        border-radius: 8px;
-        font-size: 0.8rem;
-        color: #475569;
-        border: 1px solid #e2e8f0;
-        font-weight: 500;
+        background: #f1f5f9; padding: 4px 12px; border-radius: 8px;
+        font-size: 0.78rem; color: #475569; border: 1px solid #e2e8f0; font-weight: 500;
     }
-
+    .pill-warn { background:#fff7ed!important; color:#c2410c!important; border-color:#fed7aa!important; }
     .detail-zone {
-        background: #f8fafc;
-        border-radius: 12px;
-        padding: 15px;
-        font-size: 0.85rem;
-        color: #475569;
-        margin-bottom: 20px;
-        border: 1px solid #edf2f7;
+        background: #f8fafc; border-radius: 12px; padding: 14px;
+        font-size: 0.84rem; color: #475569; margin-bottom: 14px; border: 1px solid #edf2f7;
     }
-
     .change-item {
-        display: flex;
-        justify-content: space-between;
-        padding: 4px 0;
-        border-bottom: 1px solid #edf2f7;
+        display: flex; justify-content: space-between;
+        padding: 4px 0; border-bottom: 1px solid #edf2f7;
     }
-
     .change-item:last-child { border-bottom: none; }
-
-    /* ---------- Action Buttons ---------- */
-    .action-group {
-        display: flex;
-        gap: 12px;
-        margin-top: auto;
-    }
-
+    .action-group { display: flex; gap: 10px; margin-top: auto; padding-top: 6px; }
     .btn-approve-grad {
-        flex: 2;
-        background: var(--success-grad);
-        color: white;
-        border: none;
-        padding: 10px;
-        border-radius: 10px;
-        font-weight: 600;
-        transition: transform 0.2s;
+        flex: 2; background: var(--success-grad); color: #fff; border: none;
+        padding: 10px; border-radius: 10px; font-weight: 600; font-size: 0.88rem;
+        transition: all 0.2s; cursor: pointer;
     }
-
     .btn-reject-outline {
-        flex: 1;
-        background: #fff;
-        color: #ef4444;
-        border: 1px solid #fee2e2;
-        padding: 10px;
-        border-radius: 10px;
-        font-weight: 600;
+        flex: 1; background: #fff; color: #ef4444;
+        border: 1.5px solid #fee2e2; padding: 10px; border-radius: 10px;
+        font-weight: 600; font-size: 0.88rem; cursor: pointer; transition: background 0.2s;
     }
-
-    .btn-approve-grad:hover { transform: scale(1.02); color: white; opacity: 0.9; }
+    .btn-approve-grad:hover { opacity: 0.88; transform: scale(1.01); color: #fff; }
     .btn-reject-outline:hover { background: #fef2f2; }
+    .empty-state { grid-column:1/-1; text-align:center; padding:80px 20px; color:#94a3b8; }
+    .empty-icon  { font-size:4rem; margin-bottom:16px; opacity:0.2; display:block; }
 
-    .empty-state {
-        grid-column: 1 / -1;
-        text-align: center;
-        padding: 80px 0;
-        color: #94a3b8;
+    /* ── Toast ────────────────────────────────────────────── */
+    #toastContainer {
+        position:fixed; top:24px; right:24px; z-index:99999;
+        display:flex; flex-direction:column; gap:12px; pointer-events:none;
     }
-    /* ---------- Modern Dropdown Styling ---------- */
-    .form-select.shadow-sm {
-        appearance: none; /* Removes default arrow */
-        background-color: var(--glass) !important;
-        backdrop-filter: blur(10px);
-        border: 1px solid rgba(99, 102, 241, 0.2) !important;
-        border-radius: 12px !important;
-        padding: 10px 40px 10px 15px !important;
-        font-weight: 600;
-        color: #4a5568;
-        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='%236366f1' class='bi bi-chevron-down' viewBox='0 0 16 16'%3E%3Cpath fill-rule='evenodd' d='M1.646 4.646a.5.5 0 0 1 .708 0L8 10.293l5.646-5.647a.5.5 0 0 1 .708.708l-6 6a.5.5 0 0 1-.708 0l-6-6a.5.5 0 0 1 0-.708z'/%3E%3C/svg%3E") !important;
-        background-repeat: no-repeat !important;
-        background-position: right 15px center !important;
-        background-size: 14px !important;
-        transition: all 0.3s ease;
-        cursor: pointer;
+    .bx-toast {
+        display:flex; align-items:flex-start; gap:14px;
+        background:#fff; border-radius:14px; padding:16px 20px;
+        min-width:320px; max-width:420px;
+        box-shadow:0 4px 24px rgba(0,0,0,0.13);
+        border-left:4px solid #10b981;
+        pointer-events:auto; opacity:0; transform:translateX(52px);
+        animation: toastIn .38s cubic-bezier(.22,1,.36,1) forwards,
+                   toastOut .32s ease 4.6s forwards;
     }
-
-    /* Hover & Focus Effects */
-    .form-select.shadow-sm:hover {
-        border-color: #6366f1 !important;
-        box-shadow: 0 5px 15px rgba(99, 102, 241, 0.1) !important;
-        transform: translateY(-1px);
+    .bx-toast.toast-reject { border-left-color:#f59e0b; }
+    .bx-toast.toast-error  { border-left-color:#ef4444; }
+    @keyframes toastIn  { to { opacity:1; transform:translateX(0); } }
+    @keyframes toastOut { to { opacity:0; transform:translateX(52px); } }
+    .bx-toast-icon {
+        width:38px; height:38px; border-radius:50%;
+        display:flex; align-items:center; justify-content:center;
+        flex-shrink:0; font-size:1.1rem; font-weight:700;
     }
-
-    .form-select.shadow-sm:focus {
-        outline: none !important;
-        border-color: #a855f7 !important;
-        box-shadow: 0 0 0 4px rgba(168, 85, 247, 0.1) !important;
+    .ti-s { background:rgba(16,185,129,.12); color:#059669; }
+    .ti-r { background:rgba(245,158,11,.12);  color:#d97706; }
+    .ti-e { background:rgba(239,68,68,.12);   color:#dc2626; }
+    .bx-toast-body { flex:1; }
+    .bx-toast-title { font-weight:700; font-size:.9rem; color:#1a1a1a; margin-bottom:3px; }
+    .bx-toast-msg   { font-size:.82rem; color:#555; line-height:1.4; margin:0; }
+    .bx-toast-close {
+        background:none; border:none; font-size:1rem; color:#aaa;
+        cursor:pointer; padding:0; flex-shrink:0; transition:color .2s;
     }
-
-    /* Styling the Dropdown List (the Options) */
-    /* Note: Browsers have limited support for styling <option> tags, 
-    but this will work for background and text colors in most modern browsers */
-    .form-select.shadow-sm option {
-        background-color: #ffffff;
-        color: #1e293b;
-        padding: 12px;
-        font-weight: 500;
-    }
-
-    /* For better mobile/tablet touch targets */
-    @media (max-width: 768px) {
-        .form-select.shadow-sm {
-            width: 100% !important;
-            margin-top: 10px;
-        }
-    }
+    .bx-toast-close:hover { color:#333; }
 </style>
+{% endblock style %}
+
+{% block content %}
+<div id="toastContainer"></div>
+
+{% if messages %}
+<div id="djangoMessages" style="display:none">
+    {% for message in messages %}
+    <span data-tags="{{ message.tags }}" data-text="{{ message|escapejs }}"></span>
+    {% endfor %}
+</div>
+{% endif %}
+
+<!--
+  active_tab is injected by the view into context so the correct panel
+  is shown on first load AND after a POST redirect (approve/reject).
+  JS then takes over for all subsequent tab clicks without any reload.
+-->
+<div id="initialTab" data-tab="{{ active_tab }}" style="display:none"></div>
 
 <div class="admin-container">
+
     <div class="glass-header">
         <div class="header-title">
-            <a href="{% url 'central_admin:dashboard' %}" class="btn btn-sm btn-outline-secondary mb-2 rounded-pill px-3">
+            <a href="{% url 'central_admin:dashboard' %}"
+               class="btn btn-sm btn-outline-secondary mb-2 rounded-pill px-3">
                 <i class="bi bi-arrow-left me-1"></i> Dashboard
             </a>
             <h2>Approval Hub</h2>
             <p class="text-muted mb-0 small">Review and authorize administrative modifications.</p>
         </div>
 
-        <form method="get" class="ms-md-auto">
-            <select name="type" class="form-select shadow-sm border-0" style="width: 260px; border-radius: 12px;" onchange="this.form.submit()">
-                <option value="item" {% if request_type == "item" %}selected{% endif %}>Item Edit Requests</option>
-                <option value="issue" {% if request_type == "issue" %}selected{% endif %}>Issue Time Extensions</option>
-            </select>
-        </form>
+        <div class="type-toggle" id="typeToggle">
+            <div class="toggle-slider" id="toggleSlider"></div>
+            <a class="tab-btn" data-target="panel-item-edit">
+                <i class="bi bi-box-seam"></i>Item Stock Requests
+                <span class="tab-count">{{ item_edit_count }}</span>
+            </a>
+            <a class="tab-btn" data-target="panel-issue-tat">
+                <i class="bi bi-clock-history"></i>Time Extensions
+                <span class="tab-count">{{ issue_tat_count }}</span>
+            </a>
+            <a class="tab-btn" data-target="panel-booking-req">
+                <i class="bi bi-calendar-check"></i>Booking Requests
+                <span class="tab-count">{{ booking_req_count }}</span>
+            </a>
+            <a class="tab-btn" data-target="panel-cancel-req">
+                <i class="bi bi-calendar-x"></i>Cancellations
+                <span class="tab-count">{{ cancel_req_count }}</span>
+            </a>
+        </div>
     </div>
 
-    <div class="request-grid">
-        {% for r in requests %}
-            {% if request_type == "item" %}
-                <div class="request-card">
-                    <span class="req-type">Item Modification</span>
-                    <h5 class="req-title">{{ r.item.item_name }}</h5>
-                    
-                    <div class="meta-pills">
-                        <span class="pill"><i class="bi bi-geo-alt me-1"></i>{{ r.room.room_name }}</span>
-                        <span class="pill"><i class="bi bi-person me-1"></i>{{ r.requested_by }}</span>
+    <!-- ═══════════════════════════════════════════════════
+         PANEL 1  ·  ITEM STOCK REQUESTS
+    ═══════════════════════════════════════════════════ -->
+    <div class="tab-panel" id="panel-item-edit">
+        <div class="request-grid">
+            {% for r in stock_requests %}
+            <div class="request-card">
+                <span class="req-type">Item Stock Request</span>
+                <h5 class="req-title">{{ r.item.item_name }}</h5>
+                <div class="meta-pills">
+                    <span class="pill"><i class="bi bi-geo-alt me-1"></i>{{ r.room.room_name }}</span>
+                    <span class="pill"><i class="bi bi-person me-1"></i>{{ r.requested_by }}</span>
+                </div>
+                <div class="detail-zone">
+                    <div class="change-item">
+                        <span class="text-muted">Units Requested</span>
+                        <span class="fw-bold text-primary" style="font-size:1.05rem;">+{{ r.requested_count }}</span>
                     </div>
-
-                    <div class="detail-zone">
-                        <h6 class="fw-bold small text-primary mb-2">Proposed Changes:</h6>
-                        {% for key, value in r.proposed_data.items %}
-                            <div class="change-item">
-                                <span class="text-muted">{{ key|capfirst }}</span>
-                                <span class="fw-bold">{{ value }}</span>
-                            </div>
-                        {% empty %}
-                            <p class="text-muted italic mb-0">No specific data changes provided.</p>
-                        {% endfor %}
+                    <div class="change-item">
+                        <span class="text-muted">Current Total Stock</span>
+                        <span class="fw-bold">{{ r.item.total_count }}</span>
                     </div>
-
-                    <div class="detail-zone border-start border-primary border-4">
-                        <h6 class="fw-bold small mb-1">Reason:</h6>
-                        {{ r.reason|default:"No justification provided." }}
+                    <div class="change-item">
+                        <span class="text-muted">Available Now</span>
+                        <span class="fw-bold">{{ r.item.available_count }}</span>
                     </div>
-
-                    <div class="action-group">
-                        <form method="post" action="{% url 'central_admin:approve_edit_request' r.pk %}" class="flex-grow-1">
-                            {% csrf_token %}
-                            <button class="btn-approve-grad w-100">Approve</button>
-                        </form>
-                        <form method="post" action="{% url 'central_admin:reject_edit_request' r.pk %}" class="flex-grow-1">
-                            {% csrf_token %}
-                            <button class="btn-reject-outline w-100">Reject</button>
-                        </form>
+                    <div class="change-item">
+                        <span class="text-muted">Currently In Use</span>
+                        <span class="fw-bold">{{ r.item.in_use }}</span>
+                    </div>
+                    <div class="change-item" style="border-bottom:none;">
+                        <span class="text-muted">Stock After Approval</span>
+                        <span class="fw-bold text-success">{{ r.item.total_count|add:r.requested_count }}</span>
                     </div>
                 </div>
-
-            {% else %}
-                <div class="request-card type-issue">
-                    <span class="req-type">Time Extension Request</span>
-                    <h5 class="req-title">Ticket #{{ r.issue.ticket_id }}</h5>
-                    
-                    <div class="meta-pills">
-                        <span class="pill"><i class="bi bi-person me-1"></i>{{ r.requested_by }}</span>
-                        <span class="pill text-danger fw-bold">+{{ r.requested_extra_hours }} Hours Requested</span>
-                    </div>
-
-                    <div class="detail-zone">
-                        <div class="d-flex justify-content-between mb-1">
-                            <span>Current SLA Balance:</span>
-                            <span class="fw-bold">{{ r.current_tat_hours }} hrs</span>
-                        </div>
-                    </div>
-
-                    <div class="detail-zone border-start border-warning border-4">
-                        <h6 class="fw-bold small mb-1">Justification:</h6>
-                        {{ r.reason }}
-                    </div>
-
-                    <div class="action-group">
-                        <form method="post" action="{% url 'central_admin:approve_issue_time_extension' r.pk %}" class="flex-grow-1">
-                            {% csrf_token %}
-                            <button class="btn-approve-grad w-100">Extend Time</button>
-                        </form>
-                        <form method="post" action="{% url 'central_admin:reject_issue_time_extension' r.pk %}" class="flex-grow-1">
-                            {% csrf_token %}
-                            <button class="btn-reject-outline w-100">Reject</button>
-                        </form>
-                    </div>
+                <div class="detail-zone border-start border-primary border-3">
+                    <h6 class="fw-bold small mb-1">Reason</h6>
+                    <p class="mb-0">{{ r.reason|default:"No justification provided." }}</p>
                 </div>
-            {% endif %}
-
-        {% empty %}
-            <div class="empty-state">
-                <i class="bi bi-clipboard-check display-1 d-block mb-3 opacity-25"></i>
-                <h4 class="fw-bold">All Caught Up!</h4>
-                <p>No pending requests currently require your attention.</p>
+                <div class="action-group">
+                    <form method="post" action="{% url 'central_admin:approve_stock_request' r.pk %}" class="flex-grow-1">
+                        {% csrf_token %}
+                        <input type="hidden" name="next_type" value="item_edit">
+                        <button type="submit" class="btn-approve-grad w-100">
+                            <i class="bi bi-check-lg me-1"></i> Approve +{{ r.requested_count }}
+                        </button>
+                    </form>
+                    <form method="post" action="{% url 'central_admin:reject_stock_request' r.pk %}" class="flex-grow-1">
+                        {% csrf_token %}
+                        <input type="hidden" name="next_type" value="item_edit">
+                        <button type="submit" class="btn-reject-outline w-100">
+                            <i class="bi bi-x-lg me-1"></i> Reject
+                        </button>
+                    </form>
+                </div>
             </div>
-        {% endfor %}
+            {% empty %}
+            <div class="empty-state">
+                <i class="bi bi-box-seam empty-icon"></i>
+                <h4 class="fw-bold text-dark">No Pending Stock Requests</h4>
+                <p>All stock requests have been reviewed.</p>
+            </div>
+            {% endfor %}
+        </div>
     </div>
-</div>
 
-{% endblock %}
+    <!-- ═══════════════════════════════════════════════════
+         PANEL 2  ·  TIME EXTENSION REQUESTS
+    ═══════════════════════════════════════════════════ -->
+    <div class="tab-panel" id="panel-issue-tat">
+        <div class="request-grid">
+            {% for r in tat_requests %}
+            <div class="request-card type-issue">
+                <span class="req-type">Time Extension Request</span>
+                <h5 class="req-title">Ticket #{{ r.issue.ticket_id }}</h5>
+                <div class="meta-pills">
+                    <span class="pill"><i class="bi bi-person me-1"></i>{{ r.requested_by }}</span>
+                    <span class="pill pill-warn">
+                        <i class="bi bi-plus-circle me-1"></i>+{{ r.requested_extra_hours }} hrs requested
+                    </span>
+                </div>
+                <div class="detail-zone">
+                    <div class="d-flex justify-content-between mb-1">
+                        <span class="text-muted">Current SLA Balance</span>
+                        <span class="fw-bold">{{ r.current_tat_hours }} hrs</span>
+                    </div>
+                    <div class="d-flex justify-content-between">
+                        <span class="text-muted">After Extension</span>
+                        <span class="fw-bold text-success">{{ r.current_tat_hours|add:r.requested_extra_hours }} hrs</span>
+                    </div>
+                </div>
+                <div class="detail-zone border-start border-warning border-3">
+                    <h6 class="fw-bold small mb-1">Justification</h6>
+                    <p class="mb-0">{{ r.reason }}</p>
+                </div>
+                <div class="action-group">
+                    <form method="post" action="{% url 'central_admin:approve_issue_time_extension' r.pk %}" class="flex-grow-1">
+                        {% csrf_token %}
+                        <input type="hidden" name="next_type" value="issue_tat">
+                        <button type="submit" class="btn-approve-grad w-100">
+                            <i class="bi bi-clock-history me-1"></i> Extend Time
+                        </button>
+                    </form>
+                    <form method="post" action="{% url 'central_admin:reject_issue_time_extension' r.pk %}" class="flex-grow-1">
+                        {% csrf_token %}
+                        <input type="hidden" name="next_type" value="issue_tat">
+                        <button type="submit" class="btn-reject-outline w-100">
+                            <i class="bi bi-x-lg me-1"></i> Reject
+                        </button>
+                    </form>
+                </div>
+            </div>
+            {% empty %}
+            <div class="empty-state">
+                <i class="bi bi-clock-history empty-icon"></i>
+                <h4 class="fw-bold text-dark">No Pending Extensions</h4>
+                <p>All time extension requests have been reviewed.</p>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════════
+         PANEL 3  ·  BOOKING REQUESTS
+    ═══════════════════════════════════════════════════ -->
+    <div class="tab-panel" id="panel-booking-req">
+        <div class="request-grid">
+            {% for r in booking_requests %}
+            <div class="request-card type-booking">
+                <span class="req-type">Room Booking Request</span>
+                <h5 class="req-title">{{ r.room.room_name }}</h5>
+                <div class="meta-pills">
+                    <span class="pill"><i class="bi bi-person me-1"></i>{{ r.faculty_name }}</span>
+                    <span class="pill"><i class="bi bi-envelope me-1"></i>{{ r.faculty_email }}</span>
+                    {% if r.department %}
+                    <span class="pill"><i class="bi bi-building me-1"></i>{{ r.department }}</span>
+                    {% endif %}
+                </div>
+                <div class="detail-zone">
+                    <div class="d-flex justify-content-between mb-1">
+                        <span class="text-muted">From</span>
+                        <span class="fw-bold">{{ r.start_datetime|date:"d M Y, H:i" }}</span>
+                    </div>
+                    <div class="d-flex justify-content-between mb-1">
+                        <span class="text-muted">To</span>
+                        <span class="fw-bold">{{ r.end_datetime|date:"d M Y, H:i" }}</span>
+                    </div>
+                    <div class="d-flex justify-content-between">
+                        <span class="text-muted">Submitted</span>
+                        <span class="fw-bold">{{ r.created_on|date:"d M Y" }}</span>
+                    </div>
+                </div>
+                {% if r.purpose %}
+                <div class="detail-zone border-start border-3" style="border-color:#3b82f6!important;">
+                    <h6 class="fw-bold small mb-1">Purpose</h6>
+                    <p class="mb-0">{{ r.purpose }}</p>
+                </div>
+                {% endif %}
+                {% if r.requirements_doc %}
+                <div class="mb-2">
+                    <a href="{{ r.requirements_doc.url }}" target="_blank"
+                       class="btn btn-sm btn-outline-secondary rounded-pill">
+                        <i class="bi bi-file-earmark-text me-1"></i> View Requirements Doc
+                    </a>
+                </div>
+                {% endif %}
+                <div class="action-group">
+                    <form method="post" action="{% url 'central_admin:approve_room_booking_request' r.pk %}" class="flex-grow-1">
+                        {% csrf_token %}
+                        <input type="hidden" name="next_type" value="booking_req">
+                        <button type="submit" class="btn-approve-grad w-100">
+                            <i class="bi bi-calendar-check me-1"></i> Approve Booking
+                        </button>
+                    </form>
+                    <form method="post" action="{% url 'central_admin:reject_room_booking_request' r.pk %}" class="flex-grow-1">
+                        {% csrf_token %}
+                        <input type="hidden" name="next_type" value="booking_req">
+                        <button type="submit" class="btn-reject-outline w-100">
+                            <i class="bi bi-x-lg me-1"></i> Reject
+                        </button>
+                    </form>
+                </div>
+            </div>
+            {% empty %}
+            <div class="empty-state">
+                <i class="bi bi-calendar-check empty-icon"></i>
+                <h4 class="fw-bold text-dark">No Pending Bookings</h4>
+                <p>All room booking requests have been reviewed.</p>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════════
+         PANEL 4  ·  CANCELLATION REQUESTS
+    ═══════════════════════════════════════════════════ -->
+    <div class="tab-panel" id="panel-cancel-req">
+        <div class="request-grid">
+            {% for r in cancel_requests %}
+            <div class="request-card type-cancel">
+                <span class="req-type">Cancellation Request</span>
+                <h5 class="req-title">{{ r.booking.room.room_name }}</h5>
+                <div class="meta-pills">
+                    <span class="pill"><i class="bi bi-person me-1"></i>{{ r.booking.faculty_name }}</span>
+                    <span class="pill"><i class="bi bi-envelope me-1"></i>{{ r.faculty_email }}</span>
+                    <span class="pill pill-warn"><i class="bi bi-x-circle me-1"></i>Cancel Requested</span>
+                </div>
+                <div class="detail-zone">
+                    <div class="d-flex justify-content-between mb-1">
+                        <span class="text-muted">Booked From</span>
+                        <span class="fw-bold">{{ r.booking.start_datetime|date:"d M Y, H:i" }}</span>
+                    </div>
+                    <div class="d-flex justify-content-between mb-1">
+                        <span class="text-muted">Booked Until</span>
+                        <span class="fw-bold">{{ r.booking.end_datetime|date:"d M Y, H:i" }}</span>
+                    </div>
+                    <div class="d-flex justify-content-between">
+                        <span class="text-muted">Requested On</span>
+                        <span class="fw-bold">{{ r.created_on|date:"d M Y" }}</span>
+                    </div>
+                </div>
+                <div class="detail-zone border-start border-danger border-3">
+                    <h6 class="fw-bold small mb-1">Reason for Cancellation</h6>
+                    <p class="mb-0">{{ r.reason }}</p>
+                </div>
+                <div class="action-group">
+                    <form method="post" action="{% url 'central_admin:approve_cancellation_request' r.pk %}" class="flex-grow-1">
+                        {% csrf_token %}
+                        <input type="hidden" name="next_type" value="cancel_req">
+                        <button type="submit" class="btn-approve-grad w-100">
+                            <i class="bi bi-check-lg me-1"></i> Approve & Remove
+                        </button>
+                    </form>
+                    <form method="post" action="{% url 'central_admin:reject_cancellation_request' r.pk %}" class="flex-grow-1">
+                        {% csrf_token %}
+                        <input type="hidden" name="next_type" value="cancel_req">
+                        <button type="submit" class="btn-reject-outline w-100">
+                            <i class="bi bi-calendar-check me-1"></i> Keep Booking
+                        </button>
+                    </form>
+                </div>
+            </div>
+            {% empty %}
+            <div class="empty-state">
+                <i class="bi bi-calendar-x empty-icon"></i>
+                <h4 class="fw-bold text-dark">No Pending Cancellations</h4>
+                <p>All cancellation requests have been reviewed.</p>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
+</div><!-- /admin-container -->
+
+<script>
+/* ════════════════════════════════════════════════════════════════
+   TOAST HELPER
+════════════════════════════════════════════════════════════════ */
+function showToast(title, message, type) {
+    var C = document.getElementById('toastContainer');
+    var cls     = type === 'reject' ? 'bx-toast toast-reject'
+                : type === 'error'  ? 'bx-toast toast-error'
+                : 'bx-toast';
+    var iconCls = type === 'success' ? 'ti-s' : type === 'reject' ? 'ti-r' : 'ti-e';
+    var icon    = type === 'success' ? '✓'    : type === 'reject'  ? '↩'   : '✕';
+    var t = document.createElement('div');
+    t.className = cls;
+    t.innerHTML =
+        '<div class="bx-toast-icon ' + iconCls + '">' + icon + '</div>' +
+        '<div class="bx-toast-body">' +
+            '<div class="bx-toast-title">' + title + '</div>' +
+            '<p class="bx-toast-msg">' + message + '</p>' +
+        '</div>' +
+        '<button class="bx-toast-close" onclick="this.closest(\'.bx-toast\').remove()">✕</button>';
+    C.appendChild(t);
+    setTimeout(function() { if (t.parentNode) t.remove(); }, 5200);
+}
+
+/* Consume Django messages as toasts */
+document.addEventListener('DOMContentLoaded', function() {
+    var box = document.getElementById('djangoMessages');
+    if (!box) return;
+    box.querySelectorAll('span[data-text]').forEach(function(el) {
+        var tags = el.dataset.tags || '';
+        var text = el.dataset.text || '';
+        var type = tags.indexOf('error')   !== -1 ? 'error'
+                 : tags.indexOf('warning') !== -1 ? 'reject'
+                 : tags.indexOf('info')    !== -1 ? 'reject'
+                 : 'success';
+        showToast(
+            type === 'success' ? '✅ Action Approved'
+          : type === 'reject'  ? '↩ Request Rejected'
+          : '⚠ Something went wrong',
+            text, type
+        );
+    });
+});
+
+/* ════════════════════════════════════════════════════════════════
+   TAB SWITCHER
+   ─────────────────────────────────────────────────────────────
+   Strategy: ALL four panels are already rendered in the HTML by
+   Django. JS shows exactly one panel at a time by toggling the
+   .active class. There is NO page reload on tab click — the URL
+   is updated silently with history.replaceState so bookmarks /
+   back-button still work.
+
+   On first load the correct panel is determined from the hidden
+   #initialTab div whose data-tab attribute is set by the view
+   (e.g. "item_edit", "issue_tat", "booking_req", "cancel_req").
+   This makes post-redirect landings land on the right tab too.
+════════════════════════════════════════════════════════════════ */
+(function() {
+    /* Map view ?type values → panel element IDs */
+    var TAB_MAP = {
+        'item_edit'   : 'panel-item-edit',
+        'issue_tat'   : 'panel-issue-tat',
+        'booking_req' : 'panel-booking-req',
+        'cancel_req'  : 'panel-cancel-req'
+    };
+    /* Reverse map */
+    var PANEL_MAP = {};
+    Object.keys(TAB_MAP).forEach(function(k) { PANEL_MAP[TAB_MAP[k]] = k; });
+
+    var toggle  = document.getElementById('typeToggle');
+    var slider  = document.getElementById('toggleSlider');
+    var tabs    = Array.from(toggle.querySelectorAll('.tab-btn'));
+    var panels  = Array.from(document.querySelectorAll('.tab-panel'));
+
+    /* ── Move the sliding pill to sit behind a given tab ── */
+    function moveSlider(tabEl) {
+        var tr = toggle.getBoundingClientRect();
+        var br = tabEl.getBoundingClientRect();
+        slider.style.left  = (br.left - tr.left) + 'px';
+        slider.style.width = br.width + 'px';
+    }
+
+    /* ── Activate a panel (no navigation, no reload) ─────── */
+    function showPanel(panelId) {
+        /* Panels */
+        panels.forEach(function(p) {
+            p.classList.toggle('active', p.id === panelId);
+        });
+        /* Tab buttons */
+        tabs.forEach(function(tb) {
+            tb.classList.toggle('active', tb.getAttribute('data-target') === panelId);
+        });
+        /* Slide the pill */
+        var activeTab = toggle.querySelector('.tab-btn.active');
+        if (activeTab) moveSlider(activeTab);
+        /* Silently update the URL so reload / bookmark lands here */
+        var typeVal = PANEL_MAP[panelId] || 'item_edit';
+        try {
+            var u = new URL(window.location.href);
+            u.searchParams.set('type', typeVal);
+            history.replaceState(null, '', u.toString());
+        } catch(e) {}
+    }
+
+    /* ── Determine which tab to open on first load ────────── */
+    function getInitialPanel() {
+        /* 1. Prefer the value the view injected via #initialTab  */
+        var hint = document.getElementById('initialTab');
+        if (hint) {
+            var t = hint.getAttribute('data-tab');
+            if (TAB_MAP[t]) return TAB_MAP[t];
+        }
+        /* 2. Fall back to ?type= URL param (covers manual navigation) */
+        try {
+            var param = new URL(window.location.href).searchParams.get('type');
+            if (TAB_MAP[param]) return TAB_MAP[param];
+        } catch(e) {}
+        /* 3. Default */
+        return 'panel-item-edit';
+    }
+
+    /* ── Initial render: snap slider without animation ────── */
+    slider.style.transition = 'none';
+    showPanel(getInitialPanel());
+
+    /* Enable smooth transition after first paint */
+    requestAnimationFrame(function() {
+        requestAnimationFrame(function() {
+            slider.style.transition =
+                'left 0.26s cubic-bezier(0.4,0,0.2,1),' +
+                'width 0.26s cubic-bezier(0.4,0,0.2,1)';
+        });
+    });
+
+    /* ── Click handlers ─────────────────────────────────────── */
+    tabs.forEach(function(tab) {
+        tab.addEventListener('click', function(e) {
+            e.preventDefault();
+            showPanel(tab.getAttribute('data-target'));
+        });
+    });
+
+    /* ── Re-position slider on window resize ────────────────── */
+    window.addEventListener('resize', function() {
+        var cur = toggle.querySelector('.tab-btn.active');
+        if (cur) moveSlider(cur);
+    });
+}());
+</script>
+{% endblock content %}

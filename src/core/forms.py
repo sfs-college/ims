@@ -5,7 +5,7 @@ from django.contrib.auth.forms import AuthenticationForm, UserCreationForm
 from django.core.exceptions import ValidationError
 from django.conf import settings
 from config.mixins import form_mixin
-from inventory.models import RoomBooking, Room, Department
+from inventory.models import RoomBooking, RoomBookingRequest, Room, Department, RoomBookingCredentials
 from django.utils import timezone
 
 User = get_user_model()
@@ -108,47 +108,87 @@ class UserRegisterForm(form_mixin.BootstrapFormMixin, UserCreationForm):
             user.save()
         return user
     
-ALLOWED_EMAILS = [
-    email.strip().lower()
-    for email in os.getenv("ALLOWED_FACULTY_EMAILS", "").split(",")
-    if email.strip()
-]
-
 class RoomBookingForm(forms.ModelForm):
-    category = forms.ChoiceField(choices=Room.ROOM_CATEGORIES)
+    """
+    Creates a RoomBookingRequest (pending admin approval) rather than
+    directly creating a confirmed RoomBooking.
+    The password field is used only for validation — never stored.
+    """
+    category = forms.ChoiceField(
+        choices=Room.ROOM_CATEGORIES,
+        widget=forms.Select(attrs={'class': 'form-control', 'id': 'id_category'}),
+    )
+    password = forms.CharField(
+        widget=forms.PasswordInput(attrs={
+            'class': 'form-control',
+            'placeholder': 'Enter your booking password',
+            'id': 'id_password',
+        })
+    )
 
     class Meta:
-        model = RoomBooking
-        fields = ['faculty_name', 'faculty_email', 'purpose', 'start_datetime', 'end_datetime', 'department', 'room']
+        model = RoomBookingRequest
+        fields = [
+            'faculty_name', 'faculty_email', 'purpose',
+            'start_datetime', 'end_datetime', 'department', 'room',
+            'requirements_doc',
+        ]
         widgets = {
-            'purpose': forms.Textarea(attrs={'rows': 3, 'placeholder': 'Enter the purpose of booking...', 'class': 'form-control rounded-4'}),
-            'start_datetime': forms.DateTimeInput(attrs={'type': 'datetime-local', 'class': 'form-control'}),
-            'end_datetime': forms.DateTimeInput(attrs={'type': 'datetime-local', 'class': 'form-control'}),
+            'faculty_name': forms.TextInput(attrs={
+                'class': 'form-control',
+                'placeholder': 'Full Name',
+                'id': 'id_faculty_name',
+            }),
+            'faculty_email': forms.EmailInput(attrs={
+                'class': 'form-control',
+                'placeholder': 'faculty@sfscollege.in',
+                'id': 'id_faculty_email',
+            }),
+            'purpose': forms.Textarea(attrs={
+                'rows': 3,
+                'placeholder': 'Enter the purpose of booking...',
+                'class': 'form-control rounded-4',
+            }),
+            'start_datetime': forms.DateTimeInput(attrs={
+                'type': 'datetime-local',
+                'class': 'form-control',
+                'id': 'id_start_datetime',
+            }),
+            'end_datetime': forms.DateTimeInput(attrs={
+                'type': 'datetime-local',
+                'class': 'form-control',
+                'id': 'id_end_datetime',
+            }),
+            'department': forms.Select(attrs={'class': 'form-control'}),
+            'room': forms.HiddenInput(attrs={'id': 'id_room'}),
+            'requirements_doc': forms.FileInput(attrs={'class': 'form-control'}),
         }
 
     def clean_faculty_email(self):
-        email = self.cleaned_data['faculty_email'].lower()
-
-        if not email.endswith("@sfscollege.in"):
-            raise ValidationError("Only @sfscollege.in emails are allowed.")
-
-        if email not in ALLOWED_EMAILS:
-            raise ValidationError("You are not authorized to book rooms.")
-
+        email = self.cleaned_data.get('faculty_email', '').strip().lower()
+        if not email.endswith('@sfscollege.in'):
+            raise ValidationError('Only @sfscollege.in email addresses are allowed.')
         return email
-    
+
     def clean(self):
         cleaned_data = super().clean()
+        email    = cleaned_data.get('faculty_email', '').strip().lower()
+        password = cleaned_data.get('password', '').strip()
 
-        start = cleaned_data.get("start_datetime")
-        end = cleaned_data.get("end_datetime")
-
+        # Timezone-aware datetimes
+        start = cleaned_data.get('start_datetime')
+        end   = cleaned_data.get('end_datetime')
         if start and timezone.is_naive(start):
-            cleaned_data["start_datetime"] = timezone.make_aware(start)
-
+            cleaned_data['start_datetime'] = timezone.make_aware(start)
         if end and timezone.is_naive(end):
-            cleaned_data["end_datetime"] = timezone.make_aware(end)
+            cleaned_data['end_datetime'] = timezone.make_aware(end)
 
+        # Validate credentials against RoomBookingCredentials table
+        if email and password:
+            try:
+                cred = RoomBookingCredentials.objects.get(email=email)
+                if cred.password != password:
+                    self.add_error('password', 'Incorrect password for this email.')
+            except RoomBookingCredentials.DoesNotExist:
+                self.add_error('faculty_email', 'This email is not authorised to book rooms.')
         return cleaned_data
-
-    # CHANGE: Faculty email validation using environment variable allowlist

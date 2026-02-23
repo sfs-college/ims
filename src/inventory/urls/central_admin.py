@@ -23,10 +23,6 @@ urlpatterns = [
     path('departments/', central_admin.DepartmentListView.as_view(), name='department_list'),
     path('departments/create/', central_admin.DepartmentCreateView.as_view(), name='department_create'),
     path('departments/<slug:department_slug>/delete/', central_admin.DepartmentDeleteView.as_view(), name='department_delete'),
-    # Item editing approvals request
-    path("edit-requests/", central_admin.EditRequestListView.as_view(), name="edit_request_list"),
-    path("edit-requests/<int:pk>/approve/", central_admin.ApproveEditRequestView.as_view(), name="approve_edit_request"),
-    path("edit-requests/<int:pk>/reject/", central_admin.RejectEditRequestView.as_view(), name="reject_edit_request"),
     #Issue Resolving by admin
     path("issues/<int:pk>/resolve/", central_admin.admin_resolve_issue, name="resolve_issue"),
     path("issues/<int:pk>/unresolve/", central_admin.admin_unresolve_issue, name="unresolve_issue"),
@@ -38,19 +34,7 @@ urlpatterns = [
         name="approval_requests",
     ),
 
-    # Issue Time Extension approvals
-    path(
-        "edit-requests/<int:pk>/approve/",
-        central_admin.ApproveEditRequestView.as_view(),
-        name="approve_edit_request",
-    ),
-    path(
-        "edit-requests/<int:pk>/reject/",
-        central_admin.RejectEditRequestView.as_view(),
-        name="reject_edit_request",
-    ),
-
-    # Issue time extension approvals (NEW, SAME PAGE)
+    # Issue time extension approvals
     path(
         "issue-time-extension/<int:pk>/approve/",
         central_admin.ApproveIssueTimeExtensionView.as_view(),
@@ -67,5 +51,31 @@ urlpatterns = [
     path('aura/api/delete/', aura.aura_delete_record, name='aura_api_delete'),
     path('aura/api/generate-pdf/', aura.aura_generate_report_pdf, name='aura_api_pdf'),
     path('aura/api/bulk-delete/', aura.aura_bulk_delete, name='aura_api_bulk_delete'),
+    
+    path('aura/api/generate-excel/', aura.aura_generate_report_excel, name='aura_api_excel'),
+    path('master-inventory/import/', aura.MasterInventoryImportView.as_view(), name='master_inventory_import'),
+    path('master-inventory/import/confirm/', aura.MasterInventoryImportConfirmView.as_view(), name='master_inventory_import_confirm'),
+    path('master-inventory/', aura.MasterInventoryListView.as_view(), name='master_inventory_list'),
+    path('api/rooms-by-category/', aura.get_rooms_by_category, name='get_rooms_by_category'),
+    path('api/assignment-details/', aura.get_assignment_details, name='get_assignment_details'),
+    path('master-inventory/assign/', aura.AssignInventoryView.as_view(), name='assign_inventory'),
+    path('api/assign-inventory/', aura.assign_inventory_api, name='assign_inventory_api'),
+    path('api/master-items/', aura.get_master_items_api, name='get_master_items_api'),
+    
+    path('aura/credentials/<int:pk>/delete/', aura.credential_delete, name='credential_delete'),
+    path('aura/credentials/<int:pk>/update/', aura.credential_update, name='credential_update'),
+    path('approvals/booking-request/<int:pk>/approve/', central_admin.ApproveRoomBookingRequestView.as_view(), name='approve_room_booking_request'),
+    path('approvals/booking-request/<int:pk>/reject/',  central_admin.RejectRoomBookingRequestView.as_view(),  name='reject_room_booking_request'),
+    path('approvals/cancel-request/<int:pk>/approve/',  central_admin.ApproveCancellationRequestView.as_view(), name='approve_cancellation_request'),
+    path('approvals/cancel-request/<int:pk>/reject/',   central_admin.RejectCancellationRequestView.as_view(),  name='reject_cancellation_request'),
+    path('aura/booking-status/', aura.get_booking_status, name='booking_status'),
+    path('aura/confirmed-booking-files/', aura.confirmed_booking_files, name='confirmed_booking_files'),
+    path('approve/stock/<int:pk>/', central_admin.ApproveStockRequestView.as_view(), name='approve_stock_request'),
+    path('reject/stock/<int:pk>/',  central_admin.RejectStockRequestView.as_view(),  name='reject_stock_request'),
+    path('notifications/', central_admin.AdminNotificationsView.as_view(), name='admin_notifications'),
+    path('notification-counts/', central_admin.admin_notification_counts, name='admin_notification_counts'),
+    path('booking-doc/<int:booking_id>/download/', aura.download_booking_doc, name='download_booking_doc'),
+    path('api/room-inventory/', aura.get_room_inventory, name='get_room_inventory'),
+    path('purchases/create/', central_admin.PurchaseCreateView.as_view(), name='purchase_create')
     
 ]

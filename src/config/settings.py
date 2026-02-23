@@ -1,6 +1,8 @@
 import os
 from pathlib import Path
 from environ import Env
+import firebase_admin
+from firebase_admin import auth, credentials
 
 env = Env()
 Env.read_env()
@@ -30,7 +32,6 @@ else:
 # SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = env('SECRET_KEY', default="secret_key")
 
-# settings.py
 ALLOWED_EMAIL_DOMAIN = "sfscollege.in"
 
 
@@ -51,7 +52,49 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'core.apps.CoreConfig',
     'inventory.apps.InventoryConfig',
+    'django.contrib.sites',
+    'allauth',
+    'allauth.account',
+    'allauth.socialaccount',
 ]
+
+SITE_ID = env.int('SITE_ID', default=1)
+SECURE_CROSS_ORIGIN_OPENER_POLICY = 'same-origin-allow-popups'
+
+
+AUTHENTICATION_BACKENDS = [
+    'django.contrib.auth.backends.ModelBackend',
+    'allauth.account.auth_backends.AuthenticationBackend',
+]
+
+# Google Login settings
+SOCIALACCOUNT_PROVIDERS = {
+    'google': {
+        'SCOPE': [
+            'profile',
+            'email',
+        ],
+        'AUTH_PARAMS': {
+            'access_type': 'online',
+        },
+        'OAUTH_PKCE_ENABLED': True,
+    }
+}
+
+
+SOCIALACCOUNT_AUTO_SIGNUP = True
+ACCOUNT_EMAIL_REQUIRED = True
+ACCOUNT_USERNAME_REQUIRED = False
+ACCOUNT_AUTHENTICATION_METHOD = 'email'
+ACCOUNT_USER_MODEL_USERNAME_FIELD = None
+
+ACCOUNT_ADAPTER = 'core.adapters.AccountAdapter'
+SOCIALACCOUNT_ADAPTER = 'core.adapters.SocialAccountAdapter'
+SOCIALACCOUNT_EMAIL_VERIFICATION = "none" 
+SOCIALACCOUNT_EMAIL_REQUIRED = True
+
+LOGIN_REDIRECT_URL = '/inventory/report_issue/'
+LOGOUT_REDIRECT_URL = '/'
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
@@ -265,3 +308,17 @@ CRON_SECRET = env(
     "CRON_SECRET",
     default="local-dev-cron-secret"
 )
+
+# Initialize Firebase Admin SDK
+FIREBASE_KEY_PATH = os.path.join(BASE_DIR,'core', 'firebase_key.json')
+if os.path.exists(FIREBASE_KEY_PATH):
+    try:
+        if not firebase_admin._apps:
+            cred = credentials.Certificate(FIREBASE_KEY_PATH)
+            firebase_admin.initialize_app(cred)
+    except Exception as e:
+        import logging
+        logger = logging.getLogger('django')
+        logger.error(f"Firebase Admin Initialization Error: {e}")
+else:
+    print(f"CRITICAL: Firebase key not found at {FIREBASE_KEY_PATH}")

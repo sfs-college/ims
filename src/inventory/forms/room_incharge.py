@@ -1,5 +1,5 @@
 from django import forms
-from inventory.models import Category, Brand, Item, System, SystemComponent, Archive, Room, Purchase, Vendor, Receipt, ItemGroup, ItemGroupItem, RoomSettings, EditRequest, Item  # Import RoomSettings
+from inventory.models import Category, Brand, Item, System, SystemComponent, Archive, Room, Purchase, Vendor, Receipt, ItemGroup, ItemGroupItem, RoomSettings, StockRequest  # Import RoomSettings
 from config.mixins import form_mixin
 from core.models import UserProfile
 
@@ -125,7 +125,6 @@ class RoomSettingsForm(form_mixin.BootstrapFormMixin, forms.ModelForm):
         model = RoomSettings
         fields = ['items_tab', 'item_groups_tab', 'systems_tab', 'categories_tab', 'brands_tab']
         
-# Add to inventory/forms/room_incharge.py (near other form classes)
 
 class ExcelUploadForm(forms.Form):
     """
@@ -136,67 +135,32 @@ class ExcelUploadForm(forms.Form):
         help_text="Upload an .xlsx file exported by the system (sheets: 'Items' and/or 'Purchases')."
     )
 
-class ItemEditRequestForm(form_mixin.BootstrapFormMixin, forms.Form):
+class StockRequestForm(form_mixin.BootstrapFormMixin, forms.Form):
     """
-    Room Incharge requests item edits.
-    Proposed changes are stored as JSON.
+    Room Incharge requests additional stock units for an item.
+    Only two fields: how many units are needed, and why.
     """
-
-    item_name = forms.CharField(required=False)
-    item_description = forms.CharField(
-        widget=forms.Textarea(attrs={"rows": 3}),
-        required=False,
+    requested_count = forms.IntegerField(
+        min_value=1,
+        label="Units Requested",
+        widget=forms.NumberInput(attrs={"class": "form-control", "placeholder": "e.g. 5"}),
     )
-    total_count = forms.IntegerField(required=False)
-    available_count = forms.IntegerField(required=False)
-    in_use = forms.IntegerField(required=False)
-
-    remarks = forms.CharField(
-        widget=forms.Textarea(attrs={"rows": 3}),
-        required=False,
-        label="Additional remarks (optional)",
-    )
-
     reason = forms.CharField(
-        widget=forms.Textarea(attrs={"rows": 3}),
+        widget=forms.Textarea(attrs={"rows": 3, "class": "form-control",
+                                     "placeholder": "Why do you need this stock?"}),
         required=True,
-        label="Why are you requesting this change?",
+        label="Reason for Request",
     )
 
     def save(self, *, item: Item, requested_by: UserProfile):
-        """
-        Create edit request without updating item.
-        """
-
-        cleaned = self.cleaned_data
-        proposed_data = {}
-
-        for field in [
-            "item_name",
-            "item_description",
-            "total_count",
-            "available_count",
-            "in_use",
-            "remarks",
-        ]:
-            value = cleaned.get(field)
-            if value not in [None, ""]:
-                proposed_data[field] = value
-
-        edit_request = EditRequest.objects.create(
+        return StockRequest.objects.create(
             item=item,
             room=item.room,
             requested_by=requested_by,
-            proposed_data=proposed_data,
-            reason=cleaned["reason"],
+            requested_count=self.cleaned_data["requested_count"],
+            reason=self.cleaned_data["reason"],
             status="pending",
         )
-
-        # Lock item until admin review
-        item.is_edit_lock = True
-        item.save(update_fields=["is_edit_lock"])
-
-        return edit_request
 
 class IssueTimeExtensionForm(forms.Form):
     """

@@ -1,0 +1,473 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Notifications | Blixtro</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: 'Plus Jakarta Sans', sans-serif; background: #f1f5f9; min-height: 100vh; color: #1e293b; }
+
+        /* ── Top bar ── */
+        .top-bar {
+            position: sticky; top: 0; z-index: 100; background: #fff;
+            border-bottom: 1px solid #e2e8f0; padding: 0 24px; height: 62px;
+            display: flex; align-items: center; justify-content: space-between;
+            box-shadow: 0 1px 8px rgba(0,0,0,0.06);
+        }
+        .top-bar-left { display: flex; align-items: center; gap: 14px; }
+        .back-btn {
+            display: inline-flex; align-items: center; gap: 7px;
+            background: #f8fafc; border: 1.5px solid #e2e8f0; border-radius: 10px;
+            padding: 8px 16px; font-weight: 700; font-size: 0.84rem; color: #475569;
+            text-decoration: none; transition: all 0.18s;
+        }
+        .back-btn:hover { background: #e2e8f0; color: #1e293b; }
+        .top-bar-title { font-weight: 800; font-size: 1.05rem; color: #1e293b; display: flex; align-items: center; gap: 8px; }
+        .role-chip { font-size: 0.75rem; font-weight: 600; color: #6366f1; background: rgba(99,102,241,0.1); border-radius: 999px; padding: 2px 12px; }
+        .clear-all-btn {
+            display: inline-flex; align-items: center; gap: 6px;
+            background: #fef2f2; border: 1.5px solid #fecaca; border-radius: 10px;
+            padding: 8px 16px; font-weight: 700; font-size: 0.82rem; color: #dc2626;
+            cursor: pointer; transition: all 0.18s; font-family: inherit;
+        }
+        .clear-all-btn:hover { background: #fee2e2; }
+        .clear-all-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+
+        /* ── Page body ── */
+        .page-body { max-width: 820px; margin: 0 auto; padding: 28px 20px 80px; }
+
+        /* ── Section ── */
+        .section-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; margin-top: 28px; }
+        .section-title { display: flex; align-items: center; gap: 8px; font-weight: 700; font-size: 0.80rem; color: #64748b; text-transform: uppercase; letter-spacing: 1px; }
+        .section-count { background: #f1f5f9; border: 1px solid #e2e8f0; border-radius: 999px; padding: 2px 9px; font-size: 0.70rem; font-weight: 700; color: #94a3b8; }
+
+        /* ── Notification item ── */
+        .notif-feed { display: flex; flex-direction: column; gap: 8px; }
+        .notif-item {
+            background: #fff; border-radius: 14px; padding: 15px 18px;
+            border: 1px solid #e5e7eb; display: flex; align-items: flex-start; gap: 14px;
+            box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+            transition: transform 0.18s, box-shadow 0.18s, opacity 0.28s;
+        }
+        .notif-item:hover { transform: translateY(-2px); box-shadow: 0 6px 18px rgba(0,0,0,0.07); }
+
+        /* ── Icon ── */
+        .notif-icon { width: 40px; height: 40px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 1.05rem; flex-shrink: 0; }
+        .ni-booking   { background: #dbeafe; color: #2563eb; }
+        .ni-cancel    { background: #fee2e2; color: #dc2626; }
+        .ni-stock     { background: #d1fae5; color: #059669; }
+        .ni-tat       { background: #fef3c7; color: #d97706; }
+        .ni-escalated { background: #fce7f3; color: #db2777; }
+        .ni-purchase  { background: #ede9fe; color: #7c3aed; }
+        .ni-approved  { background: #d1fae5; color: #059669; }
+
+        /* ── Body ── */
+        .notif-body { flex: 1; min-width: 0; }
+        .notif-title { font-weight: 700; font-size: 0.88rem; color: #1e293b; margin-bottom: 3px; line-height: 1.4; }
+        .notif-sub { font-size: 0.79rem; color: #64748b; margin: 0; line-height: 1.55; }
+
+        /* ── Meta ── */
+        .notif-meta { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; flex-shrink: 0; }
+        .notif-time { font-size: 0.72rem; color: #94a3b8; white-space: nowrap; }
+        .dismiss-btn { background: none; border: none; cursor: pointer; color: #cbd5e1; font-size: 1.1rem; padding: 0; line-height: 1; transition: color 0.15s; }
+        .dismiss-btn:hover { color: #ef4444; }
+
+        /* ── Badges ── */
+        .nbadge { display: inline-block; padding: 1px 8px; border-radius: 999px; font-size: 0.67rem; font-weight: 700; vertical-align: middle; margin-left: 4px; }
+        .nb-blue   { background:#dbeafe; color:#1e40af; }
+        .nb-red    { background:#fee2e2; color:#991b1b; }
+        .nb-green  { background:#d1fae5; color:#065f46; }
+        .nb-yellow { background:#fef3c7; color:#92400e; }
+        .nb-pink   { background:#fce7f3; color:#9d174d; }
+        .nb-purple { background:#ede9fe; color:#4c1d95; }
+
+        /* ── Review link ── */
+        .notif-action-link {
+            display: inline-flex; align-items: center; gap: 5px;
+            background: #f8fafc; border: 1.5px solid #e2e8f0; border-radius: 8px;
+            padding: 4px 12px; font-size: 0.76rem; font-weight: 700; color: #6366f1;
+            text-decoration: none; transition: all 0.15s; margin-top: 6px;
+        }
+        .notif-action-link:hover { background: #ede9fe; border-color: #c4b5fd; }
+
+        /* ── Empty state ── */
+        .empty-section { text-align: center; padding: 32px 20px; color: #94a3b8; background: #f8fafc; border-radius: 14px; border: 1.5px dashed #e2e8f0; }
+        .empty-section i { font-size: 2rem; opacity: 0.22; display: block; margin-bottom: 8px; }
+        .empty-section p { font-size: 0.83rem; margin: 0; }
+
+        /* ── All clear ── */
+        #allClearMsg { display: none; text-align: center; padding: 72px 20px 40px; color: #94a3b8; }
+        #allClearMsg i { font-size: 3.5rem; opacity: 0.18; display: block; margin-bottom: 14px; }
+        #allClearMsg p { font-size: 0.92rem; }
+
+        /* ── Toast ── */
+        #toastWrap { position: fixed; bottom: 28px; left: 50%; transform: translateX(-50%); z-index: 9999; pointer-events: none; }
+        .mini-toast { background: #1e293b; color: #fff; border-radius: 999px; padding: 10px 24px; font-size: 0.81rem; font-weight: 600; opacity: 0; transform: translateY(10px); transition: opacity 0.25s ease, transform 0.25s ease; white-space: nowrap; }
+        .mini-toast.show { opacity: 1; transform: translateY(0); }
+    </style>
+</head>
+<body>
+
+<!-- Top bar -->
+<div class="top-bar">
+    <div class="top-bar-left">
+        <a href="{% url 'central_admin:dashboard' %}" class="back-btn">
+            <i class="bi bi-arrow-left"></i> Back to Dashboard
+        </a>
+        <div class="top-bar-title">
+            <i class="bi bi-bell-fill" style="color:#6366f1;font-size:1rem;"></i>
+            Notifications
+            <span class="role-chip">{% if is_central %}Central Admin{% else %}Sub Admin{% endif %}</span>
+        </div>
+    </div>
+    <button class="clear-all-btn" id="clearAllBtn" onclick="clearAll()">
+        <i class="bi bi-trash3"></i> Clear All
+    </button>
+</div>
+
+<div class="page-body" id="pageBody">
+
+    <!-- ═══════════════════════════════ ROOM BOOKING REQUESTS ═══ -->
+    <div class="section-header">
+        <div class="section-title">
+            <i class="bi bi-calendar-plus" style="color:#2563eb;"></i>
+            Room Booking Requests
+            <span class="section-count">{{ booking_requests|length }}</span>
+        </div>
+    </div>
+    {% if booking_requests %}
+    <div class="notif-feed">
+        {% for req in booking_requests %}
+        <div class="notif-item" id="n-booking-{{ req.id }}">
+            <div class="notif-icon ni-booking"><i class="bi bi-calendar-plus-fill"></i></div>
+            <div class="notif-body">
+                <div class="notif-title">
+                    New Booking Request <span class="nbadge nb-yellow">Pending</span>
+                    &mdash; {{ req.room.room_name }}
+                </div>
+                <p class="notif-sub">
+                    {{ req.faculty_name }} &middot; {{ req.faculty_email }}<br>
+                    {{ req.start_datetime|date:"d M Y, H:i" }} &rarr; {{ req.end_datetime|date:"d M Y, H:i" }}
+                    {% if req.purpose %} &middot; {{ req.purpose|truncatechars:60 }}{% endif %}
+                </p>
+                <a href="{% url 'central_admin:approval_requests' %}?type=booking_req" class="notif-action-link">
+                    <i class="bi bi-arrow-right-circle"></i> Review Request
+                </a>
+            </div>
+            <div class="notif-meta">
+                <span class="notif-time">{{ req.created_on|date:"d M, H:i" }}</span>
+                <button class="dismiss-btn" onclick="dismissItem('n-booking-{{ req.id }}')" title="Dismiss"><i class="bi bi-x-lg"></i></button>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="empty-section"><i class="bi bi-calendar-check"></i><p>No pending booking requests.</p></div>
+    {% endif %}
+
+
+    <!-- ═══════════════════════════════ CANCELLATION REQUESTS ═══ -->
+    <div class="section-header">
+        <div class="section-title">
+            <i class="bi bi-calendar-x" style="color:#dc2626;"></i>
+            Cancellation Requests
+            <span class="section-count">{{ cancel_requests|length }}</span>
+        </div>
+    </div>
+    {% if cancel_requests %}
+    <div class="notif-feed">
+        {% for req in cancel_requests %}
+        <div class="notif-item" id="n-cancel-{{ req.id }}">
+            <div class="notif-icon ni-cancel"><i class="bi bi-calendar-x-fill"></i></div>
+            <div class="notif-body">
+                <div class="notif-title">
+                    Cancellation Request <span class="nbadge nb-red">Pending</span>
+                    {% if req.booking %}&mdash; {{ req.booking.room.room_name }}{% endif %}
+                </div>
+                <p class="notif-sub">
+                    {{ req.faculty_email }}
+                    {% if req.booking %} &middot; Booked: {{ req.booking.start_datetime|date:"d M Y, H:i" }}{% endif %}
+                    {% if req.reason %} &middot; {{ req.reason|truncatechars:60 }}{% endif %}
+                </p>
+                <a href="{% url 'central_admin:approval_requests' %}?type=cancel_req" class="notif-action-link">
+                    <i class="bi bi-arrow-right-circle"></i> Review Request
+                </a>
+            </div>
+            <div class="notif-meta">
+                <span class="notif-time">{{ req.created_on|date:"d M, H:i" }}</span>
+                <button class="dismiss-btn" onclick="dismissItem('n-cancel-{{ req.id }}')" title="Dismiss"><i class="bi bi-x-lg"></i></button>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="empty-section"><i class="bi bi-calendar-x"></i><p>No pending cancellation requests.</p></div>
+    {% endif %}
+
+
+    <!-- ═══════════════════════════════ STOCK REQUESTS ═══ -->
+    <div class="section-header">
+        <div class="section-title">
+            <i class="bi bi-box-seam" style="color:#059669;"></i>
+            Stock Requests
+            <span class="section-count">{{ stock_requests|length }}</span>
+        </div>
+    </div>
+    {% if stock_requests %}
+    <div class="notif-feed">
+        {% for req in stock_requests %}
+        <div class="notif-item" id="n-stock-{{ req.id }}">
+            <div class="notif-icon ni-stock"><i class="bi bi-box-seam-fill"></i></div>
+            <div class="notif-body">
+                <div class="notif-title">
+                    Stock Request <span class="nbadge nb-yellow">Pending</span>
+                    &mdash; {{ req.item.item_name }}
+                </div>
+                <p class="notif-sub">
+                    Room: {{ req.room.room_name }}
+                    {% if req.requested_by %} &middot; By {{ req.requested_by }}{% endif %}
+                    &middot; +{{ req.requested_count }} unit{{ req.requested_count|pluralize }}
+                    {% if req.reason %} &middot; {{ req.reason|truncatechars:55 }}{% endif %}
+                </p>
+                <a href="{% url 'central_admin:approval_requests' %}?type=item_edit" class="notif-action-link">
+                    <i class="bi bi-arrow-right-circle"></i> Review Request
+                </a>
+            </div>
+            <div class="notif-meta">
+                <span class="notif-time">{{ req.created_on|date:"d M, H:i" }}</span>
+                <button class="dismiss-btn" onclick="dismissItem('n-stock-{{ req.id }}')" title="Dismiss"><i class="bi bi-x-lg"></i></button>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="empty-section"><i class="bi bi-box-seam"></i><p>No pending stock requests.</p></div>
+    {% endif %}
+
+
+    <!-- ═══════════════════════════════ ISSUE TIME EXTENSION REQUESTS ═══ -->
+    <div class="section-header">
+        <div class="section-title">
+            <i class="bi bi-clock-history" style="color:#d97706;"></i>
+            Issue Time Extension Requests
+            <span class="section-count">{{ tat_requests|length }}</span>
+        </div>
+    </div>
+    {% if tat_requests %}
+    <div class="notif-feed">
+        {% for req in tat_requests %}
+        <div class="notif-item" id="n-tat-{{ req.id }}">
+            <div class="notif-icon ni-tat"><i class="bi bi-clock-history"></i></div>
+            <div class="notif-body">
+                <div class="notif-title">
+                    Time Extension Request <span class="nbadge nb-yellow">Pending</span>
+                    &mdash; Ticket #{{ req.issue.ticket_id }}
+                </div>
+                <p class="notif-sub">
+                    Issue: {{ req.issue.subject|truncatechars:60 }}
+                    {% if req.requested_by %} &middot; By {{ req.requested_by }}{% endif %}
+                    &middot; +{{ req.requested_extra_hours }} hour{{ req.requested_extra_hours|pluralize }}
+                    {% if req.reason %} &middot; {{ req.reason|truncatechars:50 }}{% endif %}
+                </p>
+                <a href="{% url 'central_admin:approval_requests' %}?type=issue_tat" class="notif-action-link">
+                    <i class="bi bi-arrow-right-circle"></i> Review Request
+                </a>
+            </div>
+            <div class="notif-meta">
+                <span class="notif-time">{{ req.created_on|date:"d M, H:i" }}</span>
+                <button class="dismiss-btn" onclick="dismissItem('n-tat-{{ req.id }}')" title="Dismiss"><i class="bi bi-x-lg"></i></button>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="empty-section"><i class="bi bi-clock-history"></i><p>No pending time extension requests.</p></div>
+    {% endif %}
+
+
+    <!-- ═══════════════════════════════ ESCALATED ISSUES ═══ -->
+    <div class="section-header">
+        <div class="section-title">
+            <i class="bi bi-arrow-up-circle" style="color:#db2777;"></i>
+            Escalated Issues
+            <span class="section-count">{{ escalated_issues|length }}</span>
+        </div>
+    </div>
+    {% if escalated_issues %}
+    <div class="notif-feed">
+        {% for issue in escalated_issues %}
+        <div class="notif-item" id="n-esc-{{ issue.id }}">
+            <div class="notif-icon ni-escalated"><i class="bi bi-arrow-up-circle-fill"></i></div>
+            <div class="notif-body">
+                <div class="notif-title">
+                    Issue Escalated <span class="nbadge nb-pink">Escalated</span>
+                    &mdash; {{ issue.subject }}
+                </div>
+                <p class="notif-sub">
+                    Ticket #{{ issue.ticket_id }}
+                    &middot; Room: {{ issue.room.room_name }}
+                    {% if issue.created_by %} &middot; Raised by {{ issue.created_by }}{% endif %}
+                    {% if issue.tat_deadline %} &middot; TAT: {{ issue.tat_deadline|date:"d M, H:i" }}{% endif %}
+                </p>
+                <a href="{% url 'central_admin:issue_list' %}?filter=escalated" class="notif-action-link">
+                    <i class="bi bi-arrow-right-circle"></i> View Issue
+                </a>
+            </div>
+            <div class="notif-meta">
+                <span class="notif-time">{{ issue.updated_on|date:"d M, H:i" }}</span>
+                <button class="dismiss-btn" onclick="dismissItem('n-esc-{{ issue.id }}')" title="Dismiss"><i class="bi bi-x-lg"></i></button>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="empty-section"><i class="bi bi-arrow-up-circle"></i><p>No escalated issues.</p></div>
+    {% endif %}
+
+
+    <!-- ═══════════════════════════════ PURCHASE REQUESTS (Central Admin only) ═══ -->
+    {% if is_central and purchase_requests is not None %}
+    <div class="section-header">
+        <div class="section-title">
+            <i class="bi bi-cart-plus" style="color:#7c3aed;"></i>
+            Purchase Requests
+            <span class="section-count">{{ purchase_requests|length }}</span>
+        </div>
+    </div>
+    {% if purchase_requests %}
+    <div class="notif-feed">
+        {% for p in purchase_requests %}
+        <div class="notif-item" id="n-pur-{{ p.id }}">
+            <div class="notif-icon ni-purchase"><i class="bi bi-cart-plus-fill"></i></div>
+            <div class="notif-body">
+                <div class="notif-title">
+                    Purchase Request <span class="nbadge nb-yellow">Pending</span>
+                    &mdash; {{ p.room.room_name }}
+                </div>
+                <p class="notif-sub">
+                    {% if p.item %}Item: {{ p.item.item_name }} &middot; {% endif %}
+                    {% if p.vendor %}Vendor: {{ p.vendor.vendor_name }} &middot; {% endif %}
+                    Qty: {{ p.quantity|default:"—" }}
+                    {% if p.remarks %} &middot; {{ p.remarks|truncatechars:50 }}{% endif %}
+                </p>
+                <a href="{% url 'central_admin:purchase_list' %}" class="notif-action-link">
+                    <i class="bi bi-arrow-right-circle"></i> Review Purchase
+                </a>
+            </div>
+            <div class="notif-meta">
+                <span class="notif-time">{{ p.created_on|date:"d M, H:i" }}</span>
+                <button class="dismiss-btn" onclick="dismissItem('n-pur-{{ p.id }}')" title="Dismiss"><i class="bi bi-x-lg"></i></button>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="empty-section"><i class="bi bi-cart-x"></i><p>No pending purchase requests.</p></div>
+    {% endif %}
+    {% endif %}
+
+
+    <!-- ═══════════════════════════════ PURCHASE APPROVALS (Sub-Admin only) ═══ -->
+    {% if not is_central and purchase_approvals is not None %}
+    <div class="section-header">
+        <div class="section-title">
+            <i class="bi bi-bag-check" style="color:#059669;"></i>
+            Purchase Approvals from Central Admin
+            <span class="section-count">{{ purchase_approvals|length }}</span>
+        </div>
+    </div>
+    {% if purchase_approvals %}
+    <div class="notif-feed">
+        {% for p in purchase_approvals %}
+        <div class="notif-item" id="n-papp-{{ p.id }}">
+            <div class="notif-icon ni-approved"><i class="bi bi-bag-check-fill"></i></div>
+            <div class="notif-body">
+                <div class="notif-title">
+                    Purchase Approved <span class="nbadge nb-green">Approved</span>
+                    &mdash; {{ p.room.room_name }}
+                </div>
+                <p class="notif-sub">
+                    {% if p.item %}Item: {{ p.item.item_name }} &middot; {% endif %}
+                    {% if p.vendor %}Vendor: {{ p.vendor.vendor_name }} &middot; {% endif %}
+                    Qty: {{ p.quantity|default:"—" }}
+                </p>
+                <a href="{% url 'central_admin:purchase_list' %}" class="notif-action-link">
+                    <i class="bi bi-arrow-right-circle"></i> View Purchases
+                </a>
+            </div>
+            <div class="notif-meta">
+                <span class="notif-time">{{ p.created_on|date:"d M, H:i" }}</span>
+                <button class="dismiss-btn" onclick="dismissItem('n-papp-{{ p.id }}')" title="Dismiss"><i class="bi bi-x-lg"></i></button>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="empty-section"><i class="bi bi-bag-check"></i><p>No recent purchase approvals from Central Admin.</p></div>
+    {% endif %}
+    {% endif %}
+
+    <!-- All-clear -->
+    <div id="allClearMsg">
+        <i class="bi bi-bell-slash"></i>
+        <p>You're all caught up — no notifications left.</p>
+    </div>
+
+</div><!-- /page-body -->
+
+<!-- Toast -->
+<div id="toastWrap"><div class="mini-toast" id="miniToast"></div></div>
+
+<script>
+function dismissItem(id) {
+    var el = document.getElementById(id);
+    if (!el) return;
+    el.style.transition = 'opacity 0.28s ease, transform 0.28s ease';
+    el.style.opacity = '0';
+    el.style.transform = 'translateX(36px)';
+    el.style.pointerEvents = 'none';
+    setTimeout(function() { el.remove(); checkAllGone(); }, 300);
+    showToast('Notification dismissed');
+}
+
+function clearAll() {
+    var items = document.querySelectorAll('.notif-item');
+    if (!items.length) return;
+    var delay = 0;
+    items.forEach(function(el) {
+        setTimeout(function() {
+            el.style.transition = 'opacity 0.25s ease, transform 0.25s ease';
+            el.style.opacity = '0';
+            el.style.transform = 'translateX(36px)';
+            el.style.pointerEvents = 'none';
+            setTimeout(function() { el.remove(); checkAllGone(); }, 280);
+        }, delay);
+        delay += 45;
+    });
+    showToast('All notifications cleared');
+}
+
+function checkAllGone() {
+    if (!document.querySelectorAll('.notif-item').length) {
+        document.getElementById('allClearMsg').style.display = 'block';
+        var btn = document.getElementById('clearAllBtn');
+        if (btn) btn.disabled = true;
+    }
+}
+
+function showToast(msg) {
+    var t = document.getElementById('miniToast');
+    t.textContent = msg;
+    t.classList.add('show');
+    clearTimeout(window.__tt);
+    window.__tt = setTimeout(function() { t.classList.remove('show'); }, 2200);
+}
+
+document.addEventListener('DOMContentLoaded', checkAllGone);
+</script>
+</body>
+</html>

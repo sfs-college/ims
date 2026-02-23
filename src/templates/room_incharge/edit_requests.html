@@ -3,7 +3,7 @@
 
 {% block content %}
 
-<h2 class="mb-4">Edit Requests Pending Approval</h2>
+<h2 class="mb-4">Stock Requests — Pending Approval</h2>
 
 <div class="table-responsive">
     <table class="table table-hover align-middle">
@@ -12,25 +12,27 @@
                 <th>Item</th>
                 <th>Room</th>
                 <th>Requested By</th>
+                <th>Units Requested</th>
                 <th>Status</th>
                 <th>Action</th>
             </tr>
         </thead>
-
         <tbody>
-        {% for r in edit_requests %}
+        {% for r in stock_requests %}
             <!-- SUMMARY ROW -->
             <tr>
                 <td class="fw-semibold">{{ r.item.item_name }}</td>
                 <td>{{ r.room.room_name }}</td>
                 <td>{{ r.requested_by }}</td>
                 <td>
+                    <span class="badge bg-primary rounded-pill">+{{ r.requested_count }}</span>
+                </td>
+                <td>
                     <span class="badge bg-warning text-dark">Pending</span>
                 </td>
                 <td>
-                    <button
-                        class="btn btn-outline-primary btn-sm"
-                        onclick="toggleDetails('{{ r.id }}')">
+                    <button class="btn btn-outline-primary btn-sm"
+                            onclick="toggleDetails('{{ r.id }}')">
                         View Details
                     </button>
                 </td>
@@ -38,23 +40,17 @@
 
             <!-- DETAILS PANEL -->
             <tr id="details-{{ r.id }}" class="d-none">
-                <td colspan="5">
+                <td colspan="6">
                     <div class="card shadow-sm border-0 mt-2">
                         <div class="card-body">
 
                             <div class="row g-4">
-
                                 <!-- CURRENT ITEM DATA -->
                                 <div class="col-md-6">
-                                    <h6 class="fw-bold text-secondary mb-2">
-                                        Current Item Details
-                                    </h6>
+                                    <h6 class="fw-bold text-secondary mb-2">Current Stock Levels</h6>
                                     <ul class="list-group list-group-flush">
                                         <li class="list-group-item">
-                                            <strong>Name:</strong> {{ r.item.item_name }}
-                                        </li>
-                                        <li class="list-group-item">
-                                            <strong>Description:</strong> {{ r.item.item_description }}
+                                            <strong>Item:</strong> {{ r.item.item_name }}
                                         </li>
                                         <li class="list-group-item">
                                             <strong>Total Count:</strong> {{ r.item.total_count }}
@@ -68,46 +64,42 @@
                                     </ul>
                                 </div>
 
-                                <!-- REQUESTED CHANGES -->
+                                <!-- REQUEST DETAILS -->
                                 <div class="col-md-6">
-                                    <h6 class="fw-bold text-warning mb-2">
-                                        Requested Changes
-                                    </h6>
+                                    <h6 class="fw-bold text-primary mb-2">Request Details</h6>
                                     <ul class="list-group list-group-flush">
-                                        {% for key, value in r.proposed_data.items %}
                                         <li class="list-group-item">
-                                            <strong>{{ key|capfirst }}:</strong> {{ value }}
+                                            <strong>Units Requested:</strong>
+                                            <span class="text-primary fw-bold">+{{ r.requested_count }}</span>
                                         </li>
-                                        {% empty %}
-                                        <li class="list-group-item text-muted">
-                                            No changes provided.
+                                        <li class="list-group-item">
+                                            <strong>New Total (if approved):</strong>
+                                            <span class="text-success fw-bold">{{ r.item.total_count|add:r.requested_count }}</span>
                                         </li>
-                                        {% endfor %}
+                                        <li class="list-group-item">
+                                            <strong>Submitted:</strong> {{ r.created_on|date:"d M Y, H:i" }}
+                                        </li>
                                     </ul>
                                 </div>
-
                             </div>
 
                             <!-- REASON -->
                             <div class="mt-4">
-                                <h6 class="fw-bold text-danger">Reason for Change</h6>
-                                <div class="p-3 bg-light rounded">
-                                    {{ r.reason }}
-                                </div>
+                                <h6 class="fw-bold text-danger">Reason</h6>
+                                <div class="p-3 bg-light rounded">{{ r.reason }}</div>
                             </div>
 
                             <!-- ACTION BUTTONS -->
                             <div class="d-flex gap-2 mt-4">
                                 <form method="post"
-                                      action="{% url 'central_admin:approve_edit_request' r.pk %}">
+                                      action="{% url 'central_admin:approve_stock_request' r.pk %}">
                                     {% csrf_token %}
                                     <button class="btn btn-success btn-sm px-4">
-                                        Approve
+                                        Approve +{{ r.requested_count }}
                                     </button>
                                 </form>
-
                                 <form method="post"
-                                      action="{% url 'central_admin:reject_edit_request' r.pk %}">
+                                      action="{% url 'central_admin:reject_stock_request' r.pk %}">
                                     {% csrf_token %}
                                     <button class="btn btn-outline-danger btn-sm px-4">
                                         Reject
@@ -119,11 +111,10 @@
                     </div>
                 </td>
             </tr>
-
         {% empty %}
             <tr>
-                <td colspan="5" class="text-center text-muted">
-                    No pending edit requests.
+                <td colspan="6" class="text-center text-muted py-4">
+                    No pending stock requests.
                 </td>
             </tr>
         {% endfor %}

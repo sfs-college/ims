@@ -1,0 +1,211 @@
+{% extends "sidebar_base.html" %}
+{% load static %}
+
+{% block title %} | Import Items Excel {% endblock title %}
+
+{% block style %}
+<link rel="stylesheet" href="{% static 'styles/inventory/room_incharge/purchase_list/style.css' %}">
+<style>
+    :root {
+        --primary-grad: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        --surface-grad: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
+        --glass: rgba(255, 255, 255, 0.9);
+    }
+
+    .import-container {
+        padding: 40px;
+        background: #f4f7f9;
+        min-height: 100vh;
+        display: flex;
+        justify-content: center;
+        align-items: flex-start;
+    }
+
+    .import-card {
+        background: var(--glass);
+        backdrop-filter: blur(15px);
+        padding: 45px;
+        border-radius: 24px;
+        border: 1px solid rgba(255, 255, 255, 0.6);
+        box-shadow: 0 20px 50px rgba(0,0,0,0.08);
+        max-width: 700px;
+        width: 100%;
+        text-align: center;
+    }
+
+    .icon-box {
+        width: 80px;
+        height: 80px;
+        background: var(--primary-grad);
+        color: white;
+        border-radius: 20px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 2.5rem;
+        margin: 0 auto 25px;
+        box-shadow: 0 10px 20px rgba(118, 75, 162, 0.3);
+    }
+
+    .import-card h3 {
+        background: var(--primary-grad);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        font-weight: 800;
+        font-size: 2.2rem;
+        margin-bottom: 15px;
+    }
+
+    .instruction-badge {
+        display: inline-block;
+        background: #fff;
+        border: 1px solid #e2e8f0;
+        padding: 15px 25px;
+        border-radius: 15px;
+        margin-bottom: 30px;
+        text-align: left;
+    }
+
+    .instruction-badge ul {
+        margin: 0;
+        padding-left: 20px;
+        font-size: 14px;
+        color: #4a5568;
+    }
+
+    .instruction-badge li {
+        margin-bottom: 5px;
+    }
+
+    .file-drop-area {
+        border: 2px dashed #cbd5e0;
+        border-radius: 15px;
+        padding: 40px 20px;
+        background: #fff;
+        transition: all 0.3s ease;
+        cursor: pointer;
+        position: relative;
+    }
+
+    .file-drop-area:hover {
+        border-color: #764ba2;
+        background: #fdfbff;
+    }
+
+    .form-control-file {
+        position: absolute;
+        width: 100%;
+        height: 100%;
+        top: 0; left: 0;
+        opacity: 0;
+        cursor: pointer;
+    }
+
+    .upload-text {
+        font-weight: 600;
+        color: #718096;
+    }
+
+    .upload-text b {
+        color: #764ba2;
+    }
+
+    .btn-upload {
+        background: var(--primary-grad);
+        color: white;
+        border: none;
+        padding: 14px 45px;
+        border-radius: 12px;
+        font-weight: 700;
+        font-size: 1.1rem;
+        margin-top: 30px;
+        box-shadow: 0 8px 25px rgba(102, 126, 234, 0.4);
+        transition: transform 0.2s;
+    }
+
+    .btn-upload:hover {
+        transform: translateY(-2px);
+        color: white;
+        opacity: 0.9;
+    }
+
+    .text-format {
+        font-size: 12px;
+        color: #a0aec0;
+        margin-top: 15px;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+    }
+</style>
+{% endblock style %}
+
+{% block navbar %}
+    {% include "central_admin/navbar.html" %}
+{% endblock navbar %}
+
+{% block sidebar %}
+    {% comment %} {% include "room_incharge/sidebar.html" %} {% endcomment %}
+{% endblock sidebar %}
+
+{% block content %}
+<div class="import-container">
+
+    <div class="import-card">
+        <div class="icon-box">
+            <i class="bi bi-file-earmark-excel">SFS</i>
+        </div>
+
+        <h3>Inventory Items Upload</h3>
+        <p class="text-muted mb-4">Integrate your offline records with the system database instantly.</p>
+
+        <div class="instruction-badge" style="background: #fff5f5; border: 2px solid #e53e3e; box-shadow: 0 4px 6px rgba(229, 62, 62, 0.2);">
+            <h6 class="fw-bold text-danger mb-2 small"><i class="bi bi-exclamation-triangle-fill me-2"></i>MANDATORY SPECIFICATIONS (READ CAREFULLY):</h6>
+            <ul class="mb-0" style="color: #c53030; font-weight: 600;">
+                <li>Sheet name must be exactly <span class="badge bg-danger">Items</span></li>
+                <li>Columns must be: <span class="text-dark">Item Name, Category, Brand, Total Count, Cost</span></li>
+                <li>System will auto-deduplicate Categories and Brands based on these names.</li>
+            </ul>
+        </div>
+
+        <form method="POST" enctype="multipart/form-data">
+            {% csrf_token %}
+
+            <div class="file-drop-area" id="drop-area">
+                <i class="bi bi-cloud-arrow-up-fill fs-1 text-muted mb-3 d-block"></i>
+                <span class="upload-text">Drag & drop source file or <b>browse</b></span>
+                {{ form.file }}
+            </div>
+
+            <div class="text-format">
+                ONLY .XLSX FILES SUPPORTED • ENCRYPTED DATA TRANSFER
+            </div>
+
+            <button type="submit" class="btn btn-upload">
+                Parse & Initialize Preview
+            </button>
+        </form>
+
+        <div class="mt-4">
+            <a href="{% url 'central_admin:aura_dashboard' %}" class="btn btn-link text-muted text-decoration-none small">
+                <i class="bi bi-arrow-left me-1"></i> Back to AURA
+            </a>
+        </div>
+    </div>
+
+</div>
+
+<script>
+    // Simple visual feedback for file selection
+    const fileInput = document.querySelector('input[type="file"]');
+    const dropArea = document.getElementById('drop-area');
+    const uploadText = document.querySelector('.upload-text');
+
+    fileInput.addEventListener('change', function() {
+        if (this.files.length > 0) {
+            uploadText.innerHTML = `Selected: <b style="color: #11998e;">${this.files[0].name}</b>`;
+            dropArea.style.borderColor = "#11998e";
+            dropArea.style.background = "#f0fff4";
+        }
+    });
+</script>
+{% endblock content %}
