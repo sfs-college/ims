@@ -18,6 +18,8 @@ from inventory.email import safe_send_mail
 from django.utils import timezone
 from django.views.decorators.http import require_POST
 from datetime import timedelta
+import requests
+from django.http import HttpResponse, Http404
 
 class DashboardView(LoginRequiredMixin, TemplateView):
     template_name = 'central_admin/dashboard.html'
@@ -416,6 +418,57 @@ class PurchaseListView(LoginRequiredMixin, ListView):
         context['is_sub_admin'] = profile.is_sub_admin
         return context
 
+class PurchaseUploadInvoiceView(LoginRequiredMixin, View):
+    def post(self, request, purchase_slug):
+        # Only central admin — not sub admin
+        profile = request.user.profile
+        if not (profile.is_central_admin and not profile.is_sub_admin):
+            return JsonResponse({'error': 'Unauthorized'}, status=403)
+
+        purchase = get_object_or_404(Purchase, slug=purchase_slug)
+        invoice_file = request.FILES.get('invoice')
+
+        if not invoice_file:
+            return JsonResponse({'error': 'No file uploaded.'}, status=400)
+
+        if not invoice_file.name.endswith('.pdf'):
+            return JsonResponse({'error': 'Only PDF files are allowed.'}, status=400)
+
+        if invoice_file.size > 10 * 1024 * 1024:  # 10MB limit
+            return JsonResponse({'error': 'File too large. Max 10MB.'}, status=400)
+
+        # Delete old invoice if exists
+        if purchase.invoice:
+            purchase.invoice.delete(save=False)
+
+        purchase.invoice = invoice_file
+        purchase.save()
+
+        return JsonResponse({
+            'success': True,
+            'message': 'Invoice uploaded successfully.',
+            'has_invoice': True
+        })
+
+class PurchaseInvoiceViewView(LoginRequiredMixin, View):
+    def get(self, request, purchase_slug):
+        # Only central admin
+        profile = request.user.profile
+        if not (profile.is_central_admin and not profile.is_sub_admin):
+            raise Http404
+
+        purchase = get_object_or_404(Purchase, slug=purchase_slug)
+        if not purchase.invoice:
+            raise Http404
+
+        # Read file and stream it back
+        try:
+            file = purchase.invoice
+            response = HttpResponse(file.read(), content_type='application/pdf')
+            response['Content-Disposition'] = f'inline; filename="invoice_{purchase.purchase_id}.pdf"'
+            return response
+        except Exception:
+            raise Http404
 
 class IssueListView(LoginRequiredMixin, ListView):
     """

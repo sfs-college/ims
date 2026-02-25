@@ -149,6 +149,13 @@ class Purchase(models.Model):
     updated_on = models.DateTimeField(auto_now=True)
     slug = models.SlugField(unique=True, max_length=255)
 
+    invoice = models.FileField(
+        upload_to='purchase_invoices/',
+        null=True,
+        blank=True,
+        validators=[FileExtensionValidator(allowed_extensions=['pdf'])]
+    )
+
     def save(self, *args, **kwargs):
         if not self.purchase_id:
             self.purchase_id = generate_unique_code(self, 8, 'purchase_id')
