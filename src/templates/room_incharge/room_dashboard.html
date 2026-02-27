@@ -4,8 +4,189 @@
 {% block title %} | Room Dashboard{% endblock title %}
 
 {% block style %}
-
 <link rel="stylesheet" href="{% static 'styles/inventory/room_incharge/room_dashboard/style.css' %}">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&display=swap');
+
+  :root {
+    --accent: #6c63ff;
+    --accent-lt: #a89dff;
+    --surface: #ffffff;
+    --surface-2: #f8f8fc;
+    --border: #ebebf5;
+    --text: #1a1a2e;
+    --text-muted: #7c7c9a;
+  }
+
+  body { background: #f4f4fb; font-family: 'DM Sans', sans-serif; }
+
+  /* ── Header ── */
+  .dash-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin: 28px 0 24px;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+
+  .dash-title {
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--text);
+    letter-spacing: -0.4px;
+    margin: 0;
+  }
+
+  .dash-header-right {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  /* Bell button */
+  .bell-btn {
+    width: 42px; height: 42px;
+    background: var(--surface);
+    border: 1.5px solid var(--border);
+    border-radius: 12px;
+    display: flex; align-items: center; justify-content: center;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+    transition: all 0.16s ease;
+    position: relative;
+    text-decoration: none;
+    color: var(--accent);
+    flex-shrink: 0;
+  }
+  .bell-btn:hover { background: var(--surface-2); border-color: #d0ceff; color: var(--accent); }
+  .bell-btn i { font-size: 1.05rem; }
+
+  .report-form {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .report-select {
+    padding: 8px 12px;
+    border: 1px solid var(--border);
+    border-radius: 9px;
+    font-size: 13px;
+    font-family: 'DM Sans', sans-serif;
+    font-weight: 500;
+    color: var(--text);
+    background: var(--surface);
+    outline: none;
+    cursor: pointer;
+    transition: border-color 0.14s;
+    appearance: none;
+    -webkit-appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%237c7c9a' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 10px center;
+    padding-right: 30px;
+  }
+  .report-select:focus { border-color: var(--accent); }
+
+  .btn-report {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 16px;
+    background: var(--surface);
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: 9px;
+    font-size: 13px;
+    font-weight: 600;
+    font-family: 'DM Sans', sans-serif;
+    cursor: pointer;
+    transition: all 0.14s;
+    text-decoration: none;
+  }
+  .btn-report:hover {
+    background: var(--surface-2);
+    border-color: #d0ceff;
+    color: var(--accent);
+  }
+
+  /* ── Nav Cards Grid — strict 2 columns ── */
+  .nav-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 14px;
+  }
+
+  @media (max-width: 480px) {
+    .nav-grid { grid-template-columns: 1fr; }
+  }
+
+  .nav-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 20px;
+    text-decoration: none;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    transition: all 0.18s ease;
+    box-shadow: 0 1px 6px rgba(0,0,0,0.04);
+    position: relative;
+    overflow: hidden;
+  }
+
+  .nav-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 3px;
+    background: linear-gradient(90deg, var(--card-color, var(--accent)), var(--card-color-lt, var(--accent-lt)));
+    opacity: 0;
+    transition: opacity 0.18s;
+  }
+
+  .nav-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 6px 20px rgba(0,0,0,0.08);
+    border-color: #d8d4ff;
+  }
+  .nav-card:hover::before { opacity: 1; }
+
+  .nav-card-icon {
+    width: 38px; height: 38px;
+    border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    background: var(--card-icon-bg, rgba(108,99,255,0.1));
+    flex-shrink: 0;
+  }
+  .nav-card-icon .material-symbols-outlined {
+    font-size: 20px;
+    color: var(--card-color, var(--accent));
+  }
+
+  .nav-card-label {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--text);
+  }
+
+  .nav-card-desc {
+    font-size: 12.5px;
+    color: var(--text-muted);
+    line-height: 1.4;
+    margin: 0;
+  }
+
+  /* Color themes */
+  .card-purple { --card-color: #6c63ff; --card-color-lt: #a89dff; --card-icon-bg: rgba(108,99,255,0.1); }
+  .card-teal   { --card-color: #0d9488; --card-color-lt: #2dd4bf; --card-icon-bg: rgba(13,148,136,0.1); }
+  .card-blue   { --card-color: #2563eb; --card-color-lt: #60a5fa; --card-icon-bg: rgba(37,99,235,0.1); }
+  .card-amber  { --card-color: #d97706; --card-color-lt: #fbbf24; --card-icon-bg: rgba(217,119,6,0.1); }
+  .card-rose   { --card-color: #e11d48; --card-color-lt: #fb7185; --card-icon-bg: rgba(225,29,72,0.1); }
+  .card-indigo { --card-color: #4338ca; --card-color-lt: #818cf8; --card-icon-bg: rgba(67,56,202,0.1); }
+</style>
 {% endblock style %}
 
 {% block navbar %}
@@ -17,101 +198,70 @@
 {% endblock sidebar %}
 
 {% block content %}
-
 <section>
-    <div class="d-flex justify-content-between align-items-center mb-4">
-        <h3 class="fw-bold">{{ room.room_name }} Dashboard</h3>
-        <div class="d-flex align-items-center">
+  <div class="dash-header">
+    <h3 class="dash-title">{{ room.room_name }} Dashboard</h3>
+    <div class="dash-header-right">
 
+      <!-- Notifications Bell Icon -->
+      <a href="{% url 'room_incharge:notifications' room_slug=room_slug %}"
+         class="bell-btn" title="Notifications">
+        <i class="bi bi-bell-fill"></i>
+      </a>
 
-        <!-- NEW: Dropdown and Form for Report Generation -->
-        <form action="{% url 'room_incharge:room_report' room_slug=room_slug %}" method="get" class="d-flex align-items-center">
-            <select name="format" class="form-select me-2" style="width:auto;">
-                <option value="pdf" selected>PDF Report</option>
-                <option value="excel">Excel Report</option>
-            </select>
-            <button type="submit" class="btn btn-secondary">Generate Report</button>
-        </form>
+      <!-- Report Generator -->
+      <form action="{% url 'room_incharge:room_report' room_slug=room_slug %}" method="get" class="report-form">
+        <select name="format" class="report-select">
+          <option value="pdf" selected>PDF Report</option>
+          <option value="excel">Excel Report</option>
+        </select>
+        <button type="submit" class="btn-report">
+          <span class="material-symbols-outlined" style="font-size:16px">download</span>
+          Generate Report
+        </button>
+      </form>
 
     </div>
-</div>
+  </div>
 
-<!-- Rest of your dashboard cards remain unchanged -->
-<div class="row">
-    <div class="col-md-6 mb-4">
-        <div class="card">
-            <div class="card-body">
-                <h5 class="card-title">Categories</h5>
-                <p class="card-text">Manage categories of items in this room.</p>
-                <a href="{% url 'room_incharge:category_list' room_slug=room_slug %}" class="btn btn-outline-primary">View Categories</a>
-            </div>
-        </div>
-    </div>
-    <div class="col-md-6 mb-4">
-        <div class="card">
-            <div class="card-body">
-                <h5 class="card-title">Brands</h5>
-                <p class="card-text">Manage brands of items in this room.</p>
-                <a href="{% url 'room_incharge:brand_list' room_slug=room_slug %}" class="btn btn-outline-primary">View Brands</a>
-            </div>
-        </div>
-    </div>
-    <div class="col-md-6 mb-4">
-        <div class="card">
-            <div class="card-body">
-                <h5 class="card-title">Items</h5>
-                <p class="card-text">Manage items in this room.</p>
-                <a href="{% url 'room_incharge:item_list' room_slug=room_slug %}" class="btn btn-outline-primary">View Items</a>
-            </div>
-        </div>
-    </div>
-    <div class="col-md-6 mb-4">
-        <div class="card">
-            <div class="card-body">
-                <h5 class="card-title">Systems</h5>
-                <p class="card-text">Manage systems in this room.</p>
-                <a href="{% url 'room_incharge:system_list' room_slug=room_slug %}" class="btn btn-outline-primary">View Systems</a>
-            </div>
-        </div>
-    </div>
-    <div class="col-md-6 mb-4">
-        <div class="card">
-            <div class="card-body">
-                <h5 class="card-title">Item Groups</h5>
-                <p class="card-text">Manage item groups in this room.</p>
-                <a href="{% url 'room_incharge:item_group_list' room_slug=room_slug %}" class="btn btn-outline-primary">View Item Groups</a>
-            </div>
-        </div>
-    </div>
+  <div class="nav-grid">
 
-    <div class="col-md-6 mb-4">
-        <div class="card">
-            <div class="card-body">
-                <h5 class="card-title">Archives</h5>
-                <p class="card-text">View archived items in this room.</p>
-                <a href="{% url 'room_incharge:archive_list' room_slug=room_slug %}" class="btn btn-outline-primary">View Archives</a>
-            </div>
-        </div>
-    </div>
-    <div class="col-md-6 mb-4">
-        <div class="card">
-            <div class="card-body">
-                <h5 class="card-title">Issues</h5>
-                <p class="card-text">Manage issues reported in this room.</p>
-                <a href="{% url 'room_incharge:issue_list' room_slug=room_slug %}" class="btn btn-outline-primary">View Issues</a>
-            </div>
-        </div>
-    </div>
-    <div class="col-md-6 mb-4">
-        <div class="card">
-            <div class="card-body">
-                <h5 class="card-title">Notifications</h5>
-                <p class="card-text">Manage Notifications related to stock Requests and Issues.</p>
-                <a href="{% url 'room_incharge:notifications' room_slug=room_slug %}" class="btn btn-outline-primary">View Notifications</a>
-            </div>
-        </div>
-    </div>
-</div>
+    <a href="{% url 'room_incharge:category_list' room_slug=room_slug %}" class="nav-card card-purple">
+      <span class="nav-card-icon"><span class="material-symbols-outlined">category</span></span>
+      <span class="nav-card-label">Categories</span>
+      <p class="nav-card-desc">Manage item categories in this room.</p>
+    </a>
 
+    <a href="{% url 'room_incharge:brand_list' room_slug=room_slug %}" class="nav-card card-teal">
+      <span class="nav-card-icon"><span class="material-symbols-outlined">branding_watermark</span></span>
+      <span class="nav-card-label">Brands</span>
+      <p class="nav-card-desc">Manage brands of items in this room.</p>
+    </a>
+
+    <a href="{% url 'room_incharge:item_list' room_slug=room_slug %}" class="nav-card card-blue">
+      <span class="nav-card-icon"><span class="material-symbols-outlined">inventory_2</span></span>
+      <span class="nav-card-label">Items</span>
+      <p class="nav-card-desc">Manage items and stock in this room.</p>
+    </a>
+
+    <a href="{% url 'room_incharge:system_list' room_slug=room_slug %}" class="nav-card card-indigo">
+      <span class="nav-card-icon"><span class="material-symbols-outlined">devices</span></span>
+      <span class="nav-card-label">Systems</span>
+      <p class="nav-card-desc">Manage systems in this room.</p>
+    </a>
+
+    <a href="{% url 'room_incharge:item_group_list' room_slug=room_slug %}" class="nav-card card-amber">
+      <span class="nav-card-icon"><span class="material-symbols-outlined">communities</span></span>
+      <span class="nav-card-label">Item Groups</span>
+      <p class="nav-card-desc">Manage item groups in this room.</p>
+    </a>
+
+    <a href="{% url 'room_incharge:issue_list' room_slug=room_slug %}" class="nav-card card-rose">
+      <span class="nav-card-icon"><span class="material-symbols-outlined">report</span></span>
+      <span class="nav-card-label">Issues</span>
+      <p class="nav-card-desc">Manage issues reported in this room.</p>
+    </a>
+
+  </div>
 </section>
 {% endblock content %}
