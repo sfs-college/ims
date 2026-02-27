@@ -5,6 +5,178 @@
 
 {% block style %}
 <link rel="stylesheet" href="{% static 'styles/inventory/central_admin/rooms/style.css' %}">
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600&display=swap');
+
+  :root {
+    --accent: #6c63ff;
+    --accent-lt: #a89dff;
+    --surface: #ffffff;
+    --surface-2: #f8f8fc;
+    --border: #ebebf5;
+    --text: #1a1a2e;
+    --text-muted: #7c7c9a;
+    --danger: #ef4444;
+  }
+
+  body { background: #f4f4fb; font-family: 'DM Sans', sans-serif; }
+
+  .page-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin: 28px 0 20px;
+  }
+
+  .page-title {
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--text);
+    letter-spacing: -0.3px;
+    margin: 0;
+  }
+
+  .btn-create {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 9px 18px;
+    background: linear-gradient(135deg, var(--accent), #8b7cf8);
+    color: white;
+    border: none;
+    border-radius: 9px;
+    font-size: 13.5px;
+    font-weight: 600;
+    text-decoration: none;
+    transition: all 0.18s ease;
+    box-shadow: 0 2px 12px rgba(108,99,255,0.3);
+  }
+  .btn-create:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 18px rgba(108,99,255,0.4);
+    color: white;
+  }
+
+  .data-card {
+    background: var(--surface);
+    border-radius: 14px;
+    border: 1px solid var(--border);
+    overflow: hidden;
+    box-shadow: 0 1px 8px rgba(0,0,0,0.04);
+  }
+
+  .data-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-family: 'DM Sans', sans-serif;
+  }
+
+  .data-table thead tr {
+    background: var(--surface-2);
+    border-bottom: 1px solid var(--border);
+  }
+
+  .data-table thead th {
+    padding: 12px 18px;
+    font-size: 11.5px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    color: var(--text-muted);
+    white-space: nowrap;
+  }
+
+  .data-table tbody tr {
+    border-bottom: 1px solid var(--border);
+    transition: background 0.14s;
+  }
+  .data-table tbody tr:last-child { border-bottom: none; }
+  .data-table tbody tr:hover { background: #f9f8ff; }
+
+  .data-table tbody td {
+    padding: 13px 18px;
+    font-size: 14px;
+    color: var(--text);
+    vertical-align: middle;
+  }
+
+  .vendor-name {
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 9px;
+  }
+
+  .vendor-icon {
+    width: 30px; height: 30px;
+    border-radius: 8px;
+    background: linear-gradient(135deg, #f0f0ff, #e8e6ff);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+  .vendor-icon .material-symbols-outlined {
+    font-size: 15px;
+    color: var(--accent);
+  }
+
+  .contact-cell { color: var(--text-muted); font-size: 13px; }
+
+  .actions-cell { display: flex; gap: 7px; align-items: center; }
+
+  .btn-action-edit {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 6px 12px;
+    background: #f0f0ff;
+    color: var(--accent);
+    border: 1px solid #ddd8ff;
+    border-radius: 7px;
+    font-size: 12.5px;
+    font-weight: 600;
+    text-decoration: none;
+    transition: all 0.14s;
+  }
+  .btn-action-edit:hover {
+    background: var(--accent);
+    color: white;
+    border-color: var(--accent);
+  }
+
+  .btn-action-delete {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 6px 12px;
+    background: #fef2f2;
+    color: #ef4444;
+    border: 1px solid #fecaca;
+    border-radius: 7px;
+    font-size: 12.5px;
+    font-weight: 600;
+    text-decoration: none;
+    transition: all 0.14s;
+  }
+  .btn-action-delete:hover {
+    background: #ef4444;
+    color: white;
+    border-color: #ef4444;
+  }
+
+  .empty-state {
+    text-align: center;
+    padding: 60px 24px;
+    color: var(--text-muted);
+  }
+  .empty-state .material-symbols-outlined {
+    font-size: 48px;
+    opacity: 0.25;
+    display: block;
+    margin-bottom: 12px;
+  }
+</style>
 {% endblock style %}
 
 {% block navbar %}
@@ -16,37 +188,59 @@
 {% endblock sidebar %}
 
 {% block content %}
-<div class="table-responsive">
-    
-    <div class="d-flex justify-content-between align-items-center my-3">
-        <h4>Vendors</h4>
-        <div>
-            <a href="{% url 'central_admin:vendor_create' %}" class="btn btn-primary">Add Vendor</a>
-        </div>
-    </div>
+<div class="page-header">
+  <h4 class="page-title">Vendors</h4>
+  <a href="{% url 'central_admin:vendor_create' %}" class="btn-create">
+    <span class="material-symbols-outlined" style="font-size:16px">add</span>
+    Add Vendor
+  </a>
+</div>
 
-    <table class="table">
-      <thead>
-        <tr>
-          <th>Vendor Name</th>
-          <th>Email</th>
-          <th>Contact Number</th>
-          <th>Action</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for vendor in vendors %}
-        <tr>
-          <td>{{ vendor.vendor_name }}</td>
-          <td>{{ vendor.email }}</td>
-          <td>{{ vendor.contact_number }}</td>
-          <td>
-            <a href="{% url 'central_admin:vendor_update' vendor_slug=vendor.slug %}" class="btn btn-dark btn-sm">Edit</a>
-            <a href="{% url 'central_admin:vendor_delete' vendor_slug=vendor.slug %}" class="btn btn-danger btn-sm">Delete</a>
-          </td>
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table>
+<div class="data-card">
+  {% if vendors %}
+  <table class="data-table">
+    <thead>
+      <tr>
+        <th>Vendor Name</th>
+        <th>Email</th>
+        <th>Contact Number</th>
+        <th>Action</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for vendor in vendors %}
+      <tr>
+        <td>
+          <span class="vendor-name">
+            <span class="vendor-icon">
+              <span class="material-symbols-outlined">storefront</span>
+            </span>
+            {{ vendor.vendor_name }}
+          </span>
+        </td>
+        <td class="contact-cell">{{ vendor.email }}</td>
+        <td class="contact-cell">{{ vendor.contact_number }}</td>
+        <td>
+          <div class="actions-cell">
+            <a href="{% url 'central_admin:vendor_update' vendor_slug=vendor.slug %}" class="btn-action-edit">
+              <span class="material-symbols-outlined" style="font-size:14px">edit</span>
+              Edit
+            </a>
+            <a href="{% url 'central_admin:vendor_delete' vendor_slug=vendor.slug %}" class="btn-action-delete">
+              <span class="material-symbols-outlined" style="font-size:14px">delete</span>
+              Delete
+            </a>
+          </div>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <div class="empty-state">
+    <span class="material-symbols-outlined">storefront</span>
+    <p>No vendors found. Add your first vendor.</p>
+  </div>
+  {% endif %}
 </div>
 {% endblock content %}

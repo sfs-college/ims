@@ -8,20 +8,21 @@
   {% load static %}
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet"
     integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
   <style>
     body {
       background: #f8fafc;
-      font-family: 'Segoe UI', Arial, sans-serif;
+      font-family: 'Plus Jakarta Sans', 'Segoe UI', Arial, sans-serif;
     }
 
+    /* ── NAVBAR ── */
     header {
       background: linear-gradient(90deg, #fafdff 60%, #e9f2fb 100%);
       border-radius: 10px;
       padding: 14px 0 14px 0;
       margin-top: 32px;
       margin-bottom: 24px;
-      border: 1.5px solid #e3e8ee;
-      transition: box-shadow 0.2s;
       border: none;
     }
 
@@ -51,7 +52,7 @@
     }
 
     .navbar-nav .nav-link {
-      font-weight: 500;
+      font-weight: 600;
       color: #1a237e !important;
       margin-left: 14px;
       margin-right: 4px;
@@ -60,6 +61,11 @@
       font-size: 1.05rem;
       letter-spacing: 0.2px;
       box-shadow: none;
+      transition: background 0.18s;
+    }
+
+    .navbar-nav .nav-link:hover {
+      background: rgba(26, 35, 126, 0.07);
     }
 
     .navbar-toggler {
@@ -72,10 +78,9 @@
       transition: background 0.18s;
     }
 
-    .navbar-toggler:focus {
-      background: #e3e8ee;
-    }
+    .navbar-toggler:focus { background: #e3e8ee; }
 
+    /* ── HERO ── */
     .hero {
       position: relative;
       background: url('https://images.unsplash.com/photo-1721937718756-3bfec49f42a2?q=80&w=3137&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D') no-repeat center center;
@@ -90,19 +95,13 @@
     .hero::before {
       content: '';
       position: absolute;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
+      top: 0; left: 0; width: 100%; height: 100%;
       background: rgba(0, 0, 0, 0.75);
       border-radius: 8px;
       z-index: 0;
     }
 
-    .hero .content {
-      position: relative;
-      z-index: 1;
-    }
+    .hero .content { position: relative; z-index: 1; }
 
     .hero h1 {
       font-size: 2.5rem;
@@ -111,61 +110,56 @@
       letter-spacing: 1px;
     }
 
-    .hero p {
-      font-size: 1.15rem;
-      margin-bottom: 32px;
-    }
+    .hero p { font-size: 1.15rem; margin-bottom: 32px; }
 
     .btn-custom {
       background-color: #007bff;
       border-color: #007bff;
       color: white;
-      font-weight: 500;
+      font-weight: 600;
       padding: 12px 32px;
       border-radius: 30px;
-      transition: background 0.2s, border 0.2s;
+      transition: background 0.2s, border 0.2s, transform 0.15s, box-shadow 0.15s;
+      box-shadow: 0 4px 14px rgba(0, 123, 255, 0.25);
     }
 
     .btn-custom:hover {
       background-color: #0056b3;
       border-color: #0056b3;
+      transform: translateY(-2px);
+      box-shadow: 0 8px 20px rgba(0, 86, 179, 0.3);
     }
 
-    .features-section {
-      margin: 60px 0 40px 0;
-    }
+    /* ── FEATURES ── */
+    .features-section { margin: 60px 0 40px 0; }
 
     .feature-card {
       background: white;
-      border-radius: 6px;
+      border-radius: 16px;
       padding: 32px 20px;
       text-align: center;
-      transition: transform 0.2s;
+      transition: transform 0.22s, box-shadow 0.22s;
       height: 100%;
+      border: 1px solid rgba(0,0,0,0.05);
+      box-shadow: 0 2px 8px rgba(0,0,0,0.04);
     }
 
     .feature-card:hover {
       transform: translateY(-6px) scale(1.03);
-      box-shadow: 0 6px 24px rgba(0, 0, 0, 0.13);
+      box-shadow: 0 12px 32px rgba(0, 0, 0, 0.1);
     }
 
-    .feature-icon {
-      font-size: 2.5rem;
-      color: #007bff;
-      margin-bottom: 18px;
-    }
+    .feature-icon { font-size: 2.5rem; color: #007bff; margin-bottom: 18px; }
 
+    /* ── HOW IT WORKS ── */
     .how-section {
       background: #e9f2fb;
-      border-radius: 6px;
+      border-radius: 16px;
       padding: 48px 0;
       margin-bottom: 48px;
     }
 
-    .how-step {
-      text-align: center;
-      padding: 18px 12px;
-    }
+    .how-step { text-align: center; padding: 18px 12px; }
 
     .how-step .step-number {
       background: #007bff;
@@ -179,17 +173,54 @@
       font-size: 1.3rem;
       font-weight: bold;
       margin-bottom: 10px;
+      box-shadow: 0 4px 12px rgba(0, 123, 255, 0.3);
+    }
+
+    /* ── ROOM BOOKING SECTION ── */
+    .room-booking-wrap {
+      background: #fff;
+      border-radius: 20px;
+      padding: 48px 32px;
+      border: 1px solid rgba(0,0,0,0.06);
+      box-shadow: 0 4px 24px rgba(0,0,0,0.06);
+      margin-bottom: 48px;
+    }
+
+    .room-booking-wrap .card.h-100 {
+      border: none;
+      border-radius: 14px;
+      transition: transform 0.2s, box-shadow 0.2s;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.05) !important;
+    }
+
+    .room-booking-wrap .card.h-100:hover {
+      transform: translateY(-4px);
+      box-shadow: 0 12px 28px rgba(0,0,0,0.1) !important;
+    }
+
+    .btn-book-room {
+      background: linear-gradient(135deg, #007bff, #0056b3);
+      border: none;
+      color: white;
+      font-weight: 700;
+      padding: 14px 40px;
+      border-radius: 30px;
+      font-size: 1.05rem;
+      transition: all 0.2s;
+      box-shadow: 0 4px 14px rgba(0, 123, 255, 0.3);
+    }
+
+    .btn-book-room:hover {
+      background: linear-gradient(135deg, #0056b3, #003d82);
+      color: white;
+      transform: translateY(-2px);
+      box-shadow: 0 8px 22px rgba(0, 86, 179, 0.4);
     }
 
     @media (max-width: 768px) {
-      .hero {
-        padding: 60px 0 40px 0;
-      }
-
-      .features-section,
-      .testimonials-section {
-        margin: 32px 0 24px 0;
-      }
+      .hero { padding: 60px 0 40px 0; }
+      .features-section { margin: 32px 0 24px 0; }
+      .room-booking-wrap { padding: 32px 16px; }
     }
   </style>
 </head>
@@ -286,78 +317,73 @@
         </div>
       </div>
     </section>
-<!-- =========================
-     ROOM BOOKING INFO SECTION
-========================= -->
-<section class="py-5 bg-light">
-    <div class="container">
-        <div class="row justify-content-center text-center mb-4">
-            <div class="col-lg-8">
-                <h3 class="fw-bold" style="color:#007bff;">Room & Venue Booking</h3>
-                <p class="text-muted mt-2">
-                    Faculty members can reserve classrooms, labs, halls, and other venues
-                    in advance using the official booking system.
-                </p>
+
+    <!-- Room Booking Info Section -->
+    <div class="room-booking-wrap">
+      <div class="row justify-content-center text-center mb-4">
+        <div class="col-lg-8">
+          <h3 class="fw-bold" style="color:#007bff;">Room & Venue Booking</h3>
+          <p class="text-muted mt-2">
+            Faculty members can reserve classrooms, labs, halls, and other venues
+            in advance using the official booking system.
+          </p>
+        </div>
+      </div>
+
+      <div class="row g-4">
+        <div class="col-md-4">
+          <div class="card h-100 shadow-sm border-0">
+            <div class="card-body text-center">
+              <i class="bi bi-envelope-check fs-2 text-primary"></i>
+              <h6 class="mt-3">Authorized Access</h6>
+              <p class="text-muted small">
+                Only faculty members with official
+                <strong>@sfscollege.in</strong> email IDs can book rooms.
+              </p>
             </div>
+          </div>
         </div>
 
-        <div class="row g-4">
-            <div class="col-md-4">
-                <div class="card h-100 shadow-sm border-0">
-                    <div class="card-body text-center">
-                        <i class="bi bi-envelope-check fs-2 text-primary"></i>
-                        <h6 class="mt-3">Authorized Access</h6>
-                        <p class="text-muted small">
-                            Only faculty members with official
-                            <strong>@sfscollege.in</strong> email IDs can book rooms.
-                        </p>
-                    </div>
-                </div>
+        <div class="col-md-4">
+          <div class="card h-100 shadow-sm border-0">
+            <div class="card-body text-center">
+              <i class="bi bi-calendar2-check fs-2 text-primary"></i>
+              <h6 class="mt-3">Smart Scheduling</h6>
+              <p class="text-muted small">
+                Rooms cannot be double-booked. Time conflicts
+                are automatically prevented.
+              </p>
             </div>
-
-            <div class="col-md-4">
-                <div class="card h-100 shadow-sm border-0">
-                    <div class="card-body text-center">
-                        <i class="bi bi-calendar2-check fs-2 text-primary"></i>
-                        <h6 class="mt-3">Smart Scheduling</h6>
-                        <p class="text-muted small">
-                            Rooms cannot be double-booked. Time conflicts
-                            are automatically prevented.
-                        </p>
-                    </div>
-                </div>
-            </div>
-
-            <div class="col-md-4">
-                <div class="card h-100 shadow-sm border-0">
-                    <div class="card-body text-center">
-                        <i class="bi bi-building fs-2 text-primary"></i>
-                        <h6 class="mt-3">Category-based Rooms</h6>
-                        <p class="text-muted small">
-                            Filter rooms by category such as classrooms,
-                            labs, halls, and more.
-                        </p>
-                    </div>
-                </div>
-            </div>
+          </div>
         </div>
 
-        <div class="text-center mt-4">
-            <a href="{% url 'core:room_booking' %}" class="btn btn-primary btn-lg px-5">
-                Book a Room
-            </a>
+        <div class="col-md-4">
+          <div class="card h-100 shadow-sm border-0">
+            <div class="card-body text-center">
+              <i class="bi bi-building fs-2 text-primary"></i>
+              <h6 class="mt-3">Category-based Rooms</h6>
+              <p class="text-muted small">
+                Filter rooms by category such as classrooms,
+                labs, halls, and more.
+              </p>
+            </div>
+          </div>
         </div>
+      </div>
+
+      <div class="text-center mt-4">
+        <a href="{% url 'core:room_booking' %}" class="btn btn-book-room btn-lg px-5">
+          Book a Room
+        </a>
+      </div>
     </div>
-</section>
 
-<!-- CHANGE: Added room booking information section on landing page -->
   </div>
 
   <!-- Bootstrap JS and Bootstrap Icons -->
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"
     integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz"
     crossorigin="anonymous"></script>
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
 </body>
 
 </html>

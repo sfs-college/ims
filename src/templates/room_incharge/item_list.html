@@ -6,82 +6,233 @@
 {% block style %}
 <link rel="stylesheet" href="{% static 'styles/inventory/room_incharge/item_list/style.css' %}">
 <style>
-/* ── Stock Request Modal ─────────────────────────── */
-.sr-overlay {
+  @import url('https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600&display=swap');
+
+  :root {
+    --accent: #6c63ff;
+    --accent-lt: #a89dff;
+    --surface: #ffffff;
+    --surface-2: #f8f8fc;
+    --border: #ebebf5;
+    --text: #1a1a2e;
+    --text-muted: #7c7c9a;
+  }
+
+  body { background: #f4f4fb; font-family: 'DM Sans', sans-serif; }
+
+  /* ── Page Header ── */
+  .page-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin: 28px 0 20px;
+  }
+
+  .page-title {
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--text);
+    letter-spacing: -0.3px;
+    margin: 0;
+  }
+
+  /* ── Data Card + Table ── */
+  .data-card {
+    background: var(--surface);
+    border-radius: 14px;
+    border: 1px solid var(--border);
+    overflow: hidden;
+    box-shadow: 0 1px 8px rgba(0,0,0,0.04);
+  }
+
+  .data-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-family: 'DM Sans', sans-serif;
+  }
+
+  .data-table thead tr {
+    background: var(--surface-2);
+    border-bottom: 1px solid var(--border);
+  }
+
+  .data-table thead th {
+    padding: 12px 18px;
+    font-size: 11.5px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    color: var(--text-muted);
+    white-space: nowrap;
+  }
+
+  .data-table tbody tr {
+    border-bottom: 1px solid var(--border);
+    transition: background 0.14s;
+  }
+  .data-table tbody tr:last-child { border-bottom: none; }
+  .data-table tbody tr:hover { background: #f9f8ff; }
+
+  .data-table tbody td {
+    padding: 13px 18px;
+    font-size: 14px;
+    color: var(--text);
+    vertical-align: middle;
+  }
+
+  .item-name-cell {
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 9px;
+  }
+
+  .item-icon {
+    width: 30px; height: 30px;
+    border-radius: 8px;
+    background: linear-gradient(135deg, rgba(108,99,255,0.12), rgba(108,99,255,0.05));
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+  }
+  .item-icon .material-symbols-outlined { font-size: 15px; color: var(--accent); }
+
+  /* Stock count pills */
+  .stock-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 10px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 700;
+  }
+
+  .stock-total   { background: #f0f0ff; color: var(--accent); border: 1px solid #ddd8ff; }
+  .stock-avail   { background: #f0fdf4; color: #16a34a; border: 1px solid #bbf7d0; }
+  .stock-in-use  { background: #fff7ed; color: #c2410c; border: 1px solid #fed7aa; }
+
+  /* Actions */
+  .actions-wrap { display: flex; gap: 7px; align-items: center; flex-wrap: wrap; }
+
+  .btn-stock-request {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 6px 12px;
+    background: linear-gradient(135deg, #f59e0b, #f97316);
+    color: white;
+    border: none;
+    border-radius: 7px;
+    font-size: 12.5px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.14s;
+    font-family: 'DM Sans', sans-serif;
+    box-shadow: 0 2px 8px rgba(245,158,11,0.25);
+  }
+  .btn-stock-request:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 14px rgba(245,158,11,0.35);
+  }
+
+  .badge-stock-pending {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    background: #fff7ed;
+    color: #c2410c;
+    border: 1px solid #fed7aa;
+    border-radius: 7px;
+    padding: 5px 10px;
+    font-size: 12px;
+    font-weight: 700;
+  }
+
+  /* Empty state */
+  .empty-state {
+    text-align: center;
+    padding: 60px 24px;
+    color: var(--text-muted);
+  }
+  .empty-state .material-symbols-outlined {
+    font-size: 48px;
+    opacity: 0.22;
+    display: block;
+    margin-bottom: 12px;
+  }
+  .empty-state p { margin: 0; font-size: 14px; }
+
+  /* ── Stock Request Modal ── */
+  .sr-overlay {
     display: none; position: fixed; inset: 0; z-index: 1050;
     background: rgba(15, 23, 42, 0.55); backdrop-filter: blur(6px);
     align-items: center; justify-content: center; padding: 20px;
-}
-.sr-overlay.open { display: flex; }
+  }
+  .sr-overlay.open { display: flex; }
 
-.sr-modal {
+  .sr-modal {
     background: #fff; border-radius: 24px; padding: 38px;
     max-width: 460px; width: 100%; position: relative;
     box-shadow: 0 25px 50px -10px rgba(0,0,0,0.25);
     animation: srSlideUp 0.25s ease;
-}
-@keyframes srSlideUp {
+  }
+  @keyframes srSlideUp {
     from { transform: translateY(28px); opacity: 0; }
     to   { transform: translateY(0);    opacity: 1; }
-}
-.sr-close {
+  }
+  .sr-close {
     position: absolute; top: 16px; right: 18px;
     background: none; border: none; font-size: 1.3rem;
     cursor: pointer; color: #94a3b8; line-height: 1;
-}
-.sr-close:hover { color: #475569; }
-.sr-item-badge {
+  }
+  .sr-close:hover { color: #475569; }
+  .sr-item-badge {
     display: inline-block; background: #f1f5f9; border-radius: 10px;
     padding: 6px 14px; font-size: 0.82rem; font-weight: 700;
     color: #475569; margin-bottom: 20px;
-}
-.sr-label {
+  }
+  .sr-label {
     display: block; font-weight: 700; font-size: 0.8rem;
     color: #64748b; text-transform: uppercase; letter-spacing: 0.5px;
     margin-bottom: 6px;
-}
-.sr-input {
+  }
+  .sr-input {
     width: 100%; padding: 12px 15px; box-sizing: border-box;
     border: 2px solid #e2e8f0; border-radius: 12px;
     font-size: 0.92rem; font-weight: 500; color: #1e293b;
     outline: none; transition: border-color 0.2s; font-family: inherit;
     background: #fff;
-}
-.sr-input:focus { border-color: #6366f1; box-shadow: 0 0 0 3px rgba(99,102,241,0.1); }
-.sr-field { margin-bottom: 18px; }
-.sr-meta {
+  }
+  .sr-input:focus { border-color: #6366f1; box-shadow: 0 0 0 3px rgba(99,102,241,0.1); }
+  .sr-field { margin-bottom: 18px; }
+  .sr-meta {
     background: #f8fafc; border-radius: 12px; padding: 14px 16px;
     margin-bottom: 20px; border: 1px solid #e2e8f0;
-}
-.sr-meta-row { display: flex; justify-content: space-between; font-size: 0.85rem; }
-.sr-meta-row + .sr-meta-row { margin-top: 6px; }
-.sr-meta-row span:first-child { color: #64748b; font-weight: 500; }
-.sr-meta-row span:last-child  { font-weight: 700; color: #1e293b; }
-.sr-alert {
+  }
+  .sr-meta-row { display: flex; justify-content: space-between; font-size: 0.85rem; }
+  .sr-meta-row + .sr-meta-row { margin-top: 6px; }
+  .sr-meta-row span:first-child { color: #64748b; font-weight: 500; }
+  .sr-meta-row span:last-child  { font-weight: 700; color: #1e293b; }
+  .sr-alert {
     border-radius: 10px; padding: 10px 14px; font-size: 0.83rem;
     font-weight: 600; margin-bottom: 14px; display: none;
-}
-.sr-alert.error   { background: #fef2f2; border:1px solid #fecaca; color: #dc2626; }
-.sr-alert.success { background: #f0fdf4; border:1px solid #bbf7d0; color: #166534; }
-.sr-btn-submit {
+  }
+  .sr-alert.error   { background: #fef2f2; border:1px solid #fecaca; color: #dc2626; }
+  .sr-alert.success { background: #f0fdf4; border:1px solid #bbf7d0; color: #166534; }
+  .sr-btn-submit {
     width: 100%; background: linear-gradient(135deg, #6366f1, #9333ea);
     color: #fff; border: none; border-radius: 13px; padding: 13px;
     font-weight: 800; font-size: 0.92rem; cursor: pointer;
     transition: opacity 0.2s; font-family: inherit;
-}
-.sr-btn-submit:hover    { opacity: 0.88; }
-.sr-btn-submit:disabled { opacity: 0.55; cursor: not-allowed; }
-.sr-btn-cancel {
+  }
+  .sr-btn-submit:hover    { opacity: 0.88; }
+  .sr-btn-submit:disabled { opacity: 0.55; cursor: not-allowed; }
+  .sr-btn-cancel {
     width: 100%; background: #f1f5f9; color: #475569;
     border: none; border-radius: 13px; padding: 12px;
     font-weight: 700; font-size: 0.88rem; cursor: pointer;
     margin-top: 10px; font-family: inherit;
-}
-.badge-stock-pending {
-    display: inline-flex; align-items: center; gap: 5px;
-    background: #fff7ed; color: #c2410c; border: 1px solid #fed7aa;
-    border-radius: 8px; padding: 4px 10px; font-size: 0.75rem; font-weight: 700;
-}
+  }
 </style>
 {% endblock style %}
 
@@ -94,208 +245,208 @@
 {% endblock sidebar %}
 
 {% block content %}
-
 <section>
-    <div class="d-flex justify-content-between align-items-center my-3">
-        <h3>Items</h3>
-        <div>
-            <a href="{% url 'room_incharge:item_create' room_slug=room_slug %}"
-               class="btn btn-primary">Add Item</a>
-        </div>
-    </div>
+  <div class="page-header">
+    <h4 class="page-title">Items</h4>
+  </div>
 
+  <div class="data-card">
+    {% if items %}
     <div class="table-responsive">
-        <table class="table align-middle">
-            <thead>
-                <tr>
-                    <th>Item Name</th>
-                    <th>Total Stock</th>
-                    <th>Available</th>
-                    <th>In Use</th>
-                    <th>Archived</th>
-                    <th>Actions</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for item in items %}
-                <tr>
-                    <td class="fw-semibold">{{ item.item_name }}</td>
-                    <td>{{ item.total_count }}</td>
-                    <td>{{ item.available_count }}</td>
-                    <td>{{ item.in_use }}</td>
-                    <td>{{ item.archived_count }}</td>
-                    <td class="d-flex gap-2 align-items-center flex-wrap">
-
-                        <a class="btn btn-sm btn-outline-dark"
-                           href="{% url 'room_incharge:item_archive' room_slug=room_slug item_slug=item.slug %}">
-                            Archive
-                        </a>
-
-                        {% if item.id in pending_items %}
-                            <span class="badge-stock-pending">
-                                <i class="bi bi-hourglass-split"></i>
-                                Request Pending
-                            </span>
-                        {% else %}
-                            <button class="btn btn-warning btn-sm"
-                                    onclick="openStockModal(
-                                        '{{ item.id }}',
-                                        '{{ item.item_name|escapejs }}',
-                                        {{ item.total_count }},
-                                        {{ item.available_count }},
-                                        {{ item.in_use }}
-                                    )">
-                                <i class="bi bi-box-seam me-1"></i>Request Stock
-                            </button>
-                        {% endif %}
-
-                    </td>
-                </tr>
-                {% empty %}
-                <tr>
-                    <td colspan="6" class="text-center text-muted py-4">No items found.</td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Item Name</th>
+            <th>Total Stock</th>
+            <th>Available</th>
+            <th>In Use</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for item in items %}
+          <tr>
+            <td>
+              <span class="item-name-cell">
+                <span class="item-icon">
+                  <span class="material-symbols-outlined">inventory_2</span>
+                </span>
+                {{ item.item_name }}
+              </span>
+            </td>
+            <td><span class="stock-pill stock-total">{{ item.total_count }}</span></td>
+            <td><span class="stock-pill stock-avail">{{ item.available_count }}</span></td>
+            <td><span class="stock-pill stock-in-use">{{ item.in_use }}</span></td>
+            <td>
+              <div class="actions-wrap">
+                {% if item.id in pending_items %}
+                  <span class="badge-stock-pending">
+                    <i class="bi bi-hourglass-split"></i>
+                    Request Pending
+                  </span>
+                {% else %}
+                  <button class="btn-stock-request"
+                    onclick="openStockModal(
+                      '{{ item.id }}',
+                      '{{ item.item_name|escapejs }}',
+                      {{ item.total_count }},
+                      {{ item.available_count }},
+                      {{ item.in_use }}
+                    )">
+                    <i class="bi bi-box-seam"></i>
+                    Request Stock
+                  </button>
+                {% endif %}
+              </div>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
     </div>
+    {% else %}
+    <div class="empty-state">
+      <span class="material-symbols-outlined">inventory_2</span>
+      <p>No items found in this room.</p>
+    </div>
+    {% endif %}
+  </div>
 </section>
 
 <!-- ══════════════════════════════════════════════
-     STOCK REQUEST MODAL
+     STOCK REQUEST MODAL  (logic fully preserved)
 ══════════════════════════════════════════════ -->
 <div class="sr-overlay" id="srOverlay" onclick="srOverlayClose(event)">
-    <div class="sr-modal" id="srModal">
+  <div class="sr-modal" id="srModal">
 
-        <button class="sr-close" onclick="closeSrModal()">
-            <i class="bi bi-x-lg"></i>
-        </button>
+    <button class="sr-close" onclick="closeSrModal()">
+      <i class="bi bi-x-lg"></i>
+    </button>
 
-        <div style="margin-bottom:6px;">
-            <span class="sr-item-badge" id="srItemName">—</span>
-        </div>
-        <h5 style="font-weight:800; color:#1e293b; margin:0 0 4px;">Request Additional Stock</h5>
-        <p style="font-size:0.85rem; color:#64748b; margin:0 0 18px;">
-            Enter how many units you need and explain why.
-        </p>
-
-        <!-- Current stock snapshot -->
-        <div class="sr-meta">
-            <div class="sr-meta-row">
-                <span>Current Total</span>
-                <span id="srCurrentTotal">—</span>
-            </div>
-            <div class="sr-meta-row">
-                <span>Available Now</span>
-                <span id="srAvailable">—</span>
-            </div>
-            <div class="sr-meta-row">
-                <span>Currently In Use</span>
-                <span id="srInUse">—</span>
-            </div>
-        </div>
-
-        <form id="srForm" onsubmit="submitStockRequest(event)">
-            {% csrf_token %}
-            <input type="hidden" id="srItemId" name="item_id">
-
-            <div class="sr-field">
-                <label class="sr-label">Units Requested <span style="color:#ef4444;">*</span></label>
-                <input type="number" id="srCount" name="requested_count"
-                       class="sr-input" min="1" placeholder="e.g. 5" required>
-            </div>
-
-            <div class="sr-field">
-                <label class="sr-label">Reason for Request <span style="color:#ef4444;">*</span></label>
-                <textarea id="srReason" name="reason" class="sr-input"
-                          rows="3" placeholder="Explain why this stock is needed..."
-                          required style="resize:vertical;"></textarea>
-            </div>
-
-            <div class="sr-alert" id="srAlert"></div>
-
-            <button type="submit" class="sr-btn-submit" id="srSubmitBtn">
-                <i class="bi bi-send-fill me-2"></i>Submit Stock Request
-            </button>
-            <button type="button" class="sr-btn-cancel" onclick="closeSrModal()">
-                Cancel
-            </button>
-        </form>
-
+    <div style="margin-bottom:6px;">
+      <span class="sr-item-badge" id="srItemName">—</span>
     </div>
+    <h5 style="font-weight:800; color:#1e293b; margin:0 0 4px;">Request Additional Stock</h5>
+    <p style="font-size:0.85rem; color:#64748b; margin:0 0 18px;">
+      Enter how many units you need and explain why.
+    </p>
+
+    <div class="sr-meta">
+      <div class="sr-meta-row">
+        <span>Current Total</span>
+        <span id="srCurrentTotal">—</span>
+      </div>
+      <div class="sr-meta-row">
+        <span>Available Now</span>
+        <span id="srAvailable">—</span>
+      </div>
+      <div class="sr-meta-row">
+        <span>Currently In Use</span>
+        <span id="srInUse">—</span>
+      </div>
+    </div>
+
+    <form id="srForm" onsubmit="submitStockRequest(event)">
+      {% csrf_token %}
+      <input type="hidden" id="srItemId" name="item_id">
+
+      <div class="sr-field">
+        <label class="sr-label">Units Requested <span style="color:#ef4444;">*</span></label>
+        <input type="number" id="srCount" name="requested_count"
+               class="sr-input" min="1" placeholder="e.g. 5" required>
+      </div>
+
+      <div class="sr-field">
+        <label class="sr-label">Reason for Request <span style="color:#ef4444;">*</span></label>
+        <textarea id="srReason" name="reason" class="sr-input"
+                  rows="3" placeholder="Explain why this stock is needed..."
+                  required style="resize:vertical;"></textarea>
+      </div>
+
+      <div class="sr-alert" id="srAlert"></div>
+
+      <button type="submit" class="sr-btn-submit" id="srSubmitBtn">
+        <i class="bi bi-send-fill me-2"></i>Submit Stock Request
+      </button>
+      <button type="button" class="sr-btn-cancel" onclick="closeSrModal()">
+        Cancel
+      </button>
+    </form>
+
+  </div>
 </div>
 
 <script>
 function openStockModal(itemId, itemName, total, available, inUse) {
-    document.getElementById('srItemId').value               = itemId;
-    document.getElementById('srItemName').textContent       = itemName;
-    document.getElementById('srCurrentTotal').textContent   = total;
-    document.getElementById('srAvailable').textContent      = available;
-    document.getElementById('srInUse').textContent          = inUse;
-    document.getElementById('srCount').value  = '';
-    document.getElementById('srReason').value = '';
-    srHideAlert();
-    document.getElementById('srOverlay').classList.add('open');
+  document.getElementById('srItemId').value             = itemId;
+  document.getElementById('srItemName').textContent     = itemName;
+  document.getElementById('srCurrentTotal').textContent = total;
+  document.getElementById('srAvailable').textContent    = available;
+  document.getElementById('srInUse').textContent        = inUse;
+  document.getElementById('srCount').value  = '';
+  document.getElementById('srReason').value = '';
+  srHideAlert();
+  document.getElementById('srOverlay').classList.add('open');
 }
 
 function closeSrModal() {
-    document.getElementById('srOverlay').classList.remove('open');
+  document.getElementById('srOverlay').classList.remove('open');
 }
 
 function srOverlayClose(e) {
-    if (e.target === document.getElementById('srOverlay')) closeSrModal();
+  if (e.target === document.getElementById('srOverlay')) closeSrModal();
 }
 
 function srShowAlert(type, msg) {
-    const el = document.getElementById('srAlert');
-    el.className = 'sr-alert ' + type;
-    el.textContent = msg;
-    el.style.display = 'block';
+  const el = document.getElementById('srAlert');
+  el.className = 'sr-alert ' + type;
+  el.textContent = msg;
+  el.style.display = 'block';
 }
 function srHideAlert() {
-    const el = document.getElementById('srAlert');
-    el.style.display = 'none';
-    el.textContent = '';
+  const el = document.getElementById('srAlert');
+  el.style.display = 'none';
+  el.textContent = '';
 }
 
 function submitStockRequest(e) {
-    e.preventDefault();
-    srHideAlert();
+  e.preventDefault();
+  srHideAlert();
 
-    const count  = parseInt(document.getElementById('srCount').value, 10);
-    const reason = document.getElementById('srReason').value.trim();
+  const count  = parseInt(document.getElementById('srCount').value, 10);
+  const reason = document.getElementById('srReason').value.trim();
 
-    if (!count || count < 1)  { srShowAlert('error', 'Please enter a valid unit count (minimum 1).'); return; }
-    if (reason.length < 5)    { srShowAlert('error', 'Please provide a reason (at least 5 characters).'); return; }
+  if (!count || count < 1)  { srShowAlert('error', 'Please enter a valid unit count (minimum 1).'); return; }
+  if (reason.length < 5)    { srShowAlert('error', 'Please provide a reason (at least 5 characters).'); return; }
 
-    const btn = document.getElementById('srSubmitBtn');
-    btn.disabled = true;
-    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2" style="width:14px;height:14px;border-width:2px;"></span>Submitting...';
+  const btn = document.getElementById('srSubmitBtn');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2" style="width:14px;height:14px;border-width:2px;"></span>Submitting...';
 
-    const fd = new FormData(document.getElementById('srForm'));
+  const fd = new FormData(document.getElementById('srForm'));
 
-    fetch('{% url "room_incharge:submit_stock_request" room_slug=room_slug %}', {
-        method: 'POST',
-        body: fd,
-        headers: { 'X-Requested-With': 'XMLHttpRequest' },
-    })
-    .then(res => res.json())
-    .then(data => {
-        if (data.status === 'success') {
-            srShowAlert('success', 'Stock request submitted! Awaiting admin approval.');
-            btn.innerHTML = '<i class="bi bi-check-lg me-2"></i>Submitted';
-            setTimeout(() => { closeSrModal(); location.reload(); }, 1200);
-        } else {
-            srShowAlert('error', data.error || 'Submission failed. Please try again.');
-            btn.disabled = false;
-            btn.innerHTML = '<i class="bi bi-send-fill me-2"></i>Submit Stock Request';
-        }
-    })
-    .catch(() => {
-        srShowAlert('error', 'Network error. Please try again.');
-        btn.disabled = false;
-        btn.innerHTML = '<i class="bi bi-send-fill me-2"></i>Submit Stock Request';
-    });
+  fetch('{% url "room_incharge:submit_stock_request" room_slug=room_slug %}', {
+    method: 'POST',
+    body: fd,
+    headers: { 'X-Requested-With': 'XMLHttpRequest' },
+  })
+  .then(res => res.json())
+  .then(data => {
+    if (data.status === 'success') {
+      srShowAlert('success', 'Stock request submitted! Awaiting admin approval.');
+      btn.innerHTML = '<i class="bi bi-check-lg me-2"></i>Submitted';
+      setTimeout(() => { closeSrModal(); location.reload(); }, 1200);
+    } else {
+      srShowAlert('error', data.error || 'Submission failed. Please try again.');
+      btn.disabled = false;
+      btn.innerHTML = '<i class="bi bi-send-fill me-2"></i>Submit Stock Request';
+    }
+  })
+  .catch(() => {
+    srShowAlert('error', 'Network error. Please try again.');
+    btn.disabled = false;
+    btn.innerHTML = '<i class="bi bi-send-fill me-2"></i>Submit Stock Request';
+  });
 }
 </script>
 

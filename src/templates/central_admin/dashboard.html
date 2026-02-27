@@ -5,8 +5,211 @@
 
 {% block style %}
 <link rel="stylesheet" href="{% static 'styles/inventory/central_admin/dashboard/style.css' %}">
-<link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&display=swap');
+
+  :root {
+    --accent: #6c63ff;
+    --accent-lt: #a89dff;
+    --surface: #ffffff;
+    --surface-2: #f8f8fc;
+    --border: #ebebf5;
+    --text: #1a1a2e;
+    --text-muted: #7c7c9a;
+  }
+
+  body { background: #f4f4fb; font-family: 'DM Sans', sans-serif; }
+
+  /* ── Header ── */
+  .dash-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin: 28px 0 24px;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+
+  .dash-title {
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--text);
+    letter-spacing: -0.4px;
+    margin: 0;
+  }
+
+  /* Bell button */
+  .bell-btn {
+    width: 42px; height: 42px;
+    background: var(--surface);
+    border: 1.5px solid var(--border);
+    border-radius: 12px;
+    display: flex; align-items: center; justify-content: center;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+    transition: all 0.16s ease;
+    position: relative;
+    text-decoration: none;
+    color: var(--accent);
+    flex-shrink: 0;
+  }
+  .bell-btn:hover { background: var(--surface-2); border-color: #d0ceff; color: var(--accent); }
+  .bell-btn i { font-size: 1.05rem; }
+
+  /* ── AURA Banner ── */
+  .aura-entry-card-link { text-decoration: none !important; display: block; margin-bottom: 20px; }
+
+  .aura-entry-card {
+    background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+    border-radius: 18px;
+    padding: 32px 36px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 20px;
+    position: relative;
+    overflow: hidden;
+    color: white;
+    box-shadow: 0 12px 30px rgba(0,0,0,0.15);
+    transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  }
+  .aura-entry-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 20px 40px rgba(59,130,246,0.2);
+  }
+  .aura-orb {
+    position: absolute;
+    width: 220px; height: 220px;
+    background: radial-gradient(circle, #3b82f6 0%, transparent 70%);
+    filter: blur(40px);
+    top: -60px; left: -60px;
+    opacity: 0.45;
+    pointer-events: none;
+  }
+  .aura-text { position: relative; }
+  .aura-text h2 { font-size: 22px; font-weight: 800; margin: 0 0 4px; letter-spacing: -0.3px; }
+  .aura-text p  { font-size: 13px; margin: 0; opacity: 0.65; }
+  .aura-action {
+    background: rgba(255,255,255,0.1);
+    padding: 11px 22px;
+    border-radius: 50px;
+    font-weight: 600;
+    font-size: 13px;
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255,255,255,0.18);
+    display: flex; align-items: center; gap: 8px;
+    white-space: nowrap;
+    position: relative;
+    transition: background 0.16s;
+  }
+  .aura-entry-card:hover .aura-action { background: rgba(255,255,255,0.18); }
+
+  /* ── Nav Cards Grid — strict 2 columns ── */
+  .nav-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 14px;
+  }
+
+  @media (max-width: 480px) {
+    .nav-grid { grid-template-columns: 1fr; }
+  }
+
+  .nav-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 20px;
+    text-decoration: none;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    transition: all 0.18s ease;
+    box-shadow: 0 1px 6px rgba(0,0,0,0.04);
+    position: relative;
+    overflow: hidden;
+  }
+
+  .nav-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 3px;
+    background: linear-gradient(90deg, var(--card-color, var(--accent)), var(--card-color-lt, var(--accent-lt)));
+    opacity: 0;
+    transition: opacity 0.18s;
+  }
+  .nav-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 6px 20px rgba(0,0,0,0.08);
+    border-color: #d8d4ff;
+  }
+  .nav-card:hover::before { opacity: 1; }
+
+  .nav-card-icon {
+    width: 38px; height: 38px;
+    border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    background: var(--card-icon-bg, rgba(108,99,255,0.1));
+    flex-shrink: 0;
+  }
+  .nav-card-icon i {
+    font-size: 17px;
+    color: var(--card-color, var(--accent));
+  }
+
+  .nav-card-label {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--text);
+  }
+
+  .nav-card-desc {
+    font-size: 12.5px;
+    color: var(--text-muted);
+    line-height: 1.4;
+    margin: 0;
+  }
+
+  .nav-card-actions { display: flex; gap: 7px; flex-wrap: wrap; margin-top: 2px; }
+
+  .btn-card-action {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 6px 12px;
+    background: var(--surface-2);
+    color: var(--card-color, var(--accent));
+    border: 1px solid var(--border);
+    border-radius: 7px;
+    font-size: 12px;
+    font-weight: 600;
+    text-decoration: none;
+    transition: all 0.13s;
+    white-space: nowrap;
+  }
+  .btn-card-action:hover {
+    background: var(--card-color, var(--accent));
+    color: white;
+    border-color: var(--card-color, var(--accent));
+  }
+
+  .btn-card-primary {
+    background: var(--card-color, var(--accent));
+    color: white;
+    border-color: var(--card-color, var(--accent));
+  }
+  .btn-card-primary:hover { opacity: 0.88; color: white; }
+
+  /* Color themes */
+  .card-purple { --card-color: #6c63ff; --card-color-lt: #a89dff; --card-icon-bg: rgba(108,99,255,0.1); }
+  .card-teal   { --card-color: #0d9488; --card-color-lt: #2dd4bf; --card-icon-bg: rgba(13,148,136,0.1); }
+  .card-blue   { --card-color: #2563eb; --card-color-lt: #60a5fa; --card-icon-bg: rgba(37,99,235,0.1); }
+  .card-amber  { --card-color: #d97706; --card-color-lt: #fbbf24; --card-icon-bg: rgba(217,119,6,0.1); }
+  .card-rose   { --card-color: #e11d48; --card-color-lt: #fb7185; --card-icon-bg: rgba(225,29,72,0.1); }
+  .card-indigo { --card-color: #4338ca; --card-color-lt: #818cf8; --card-icon-bg: rgba(67,56,202,0.1); }
+  .card-slate  { --card-color: #475569; --card-color-lt: #94a3b8; --card-icon-bg: rgba(71,85,105,0.1); }
+</style>
 {% endblock style %}
 
 {% block navbar %}
@@ -19,172 +222,117 @@
 
 {% block content %}
 <section>
-    <div class="d-flex justify-content-between align-items-center mb-4">
-        <h3 class="fw-bold">Admin Dashboard</h3>
-        <!-- Admin Notification Bell -->
-        <a href="{% url 'central_admin:admin_notifications' %}"
-           class="position-relative text-decoration-none" id="dashBellLink" title="Notifications"
-           style="display:inline-flex;align-items:center;gap:10px;">
-            <div style="width:42px;height:42px;background:#fff;border:1.5px solid #e2e8f0;
-                        border-radius:12px;display:flex;align-items:center;justify-content:center;
-                        box-shadow:0 2px 6px rgba(0,0,0,0.06);transition:background 0.18s;"
-                 onmouseover="this.style.background='#f1f5f9'"
-                 onmouseout="this.style.background='#fff'">
-                <i class="bi bi-bell-fill" style="font-size:1.1rem;color:#6366f1;"></i>
-            </div>
-            <span id="dashBellBadge"
-                  style="display:none;position:absolute;top:-7px;right:-7px;
-                         background:#ef4444;color:#fff;border-radius:999px;
-                         font-size:0.62rem;font-weight:800;padding:2px 5px;
-                         min-width:18px;text-align:center;line-height:1.5;
-                         border:2px solid #fff;pointer-events:none;">0</span>
-        </a>
+  <div class="dash-header">
+    <h3 class="dash-title">Admin Dashboard</h3>
+    <a href="{% url 'central_admin:admin_notifications' %}"
+       class="bell-btn position-relative" id="dashBellLink" title="Notifications">
+      <i class="bi bi-bell-fill"></i>
+      <span id="dashBellBadge"
+            style="display:none;position:absolute;top:-7px;right:-7px;
+                   background:#ef4444;color:#fff;border-radius:999px;
+                   font-size:0.62rem;font-weight:800;padding:2px 5px;
+                   min-width:18px;text-align:center;line-height:1.5;
+                   border:2px solid #fff;pointer-events:none;">0</span>
+    </a>
+  </div>
+
+  <!-- AURA Banner -->
+  <a href="{% url 'central_admin:aura_dashboard' %}" class="aura-entry-card-link">
+    <div class="aura-entry-card">
+      <div class="aura-orb"></div>
+      <div class="aura-text">
+        <h2>AURA Dashboard</h2>
+        <p>Admin Unified Report &amp; Analysis &bull; Command Center</p>
+      </div>
+      <div class="aura-action">
+        <span>Enter System Brain</span>
+        <i class="bi bi-arrow-right-circle-fill"></i>
+      </div>
     </div>
-    <div class="row mb-5">
-        <div class="col-12">
-            <a href="{% url 'central_admin:aura_dashboard' %}" class="aura-entry-card-link">
-                <div class="aura-entry-card">
-                    <div class="aura-orb"></div>
-                    <div class="aura-text">
-                        <h2 class="display-5 fw-bold mb-0">AURA Dashboard</h2>
-                        <p class="lead mb-0">Admin Unified Report & Analysis • Command Center</p>
-                    </div>
-                    <div class="aura-action">
-                        <span>Enter System Brain</span>
-                        <i class="bi bi-arrow-right-circle-fill"></i>
-                    </div>
-                </div>
-            </a>
+  </a>
+
+  <!-- Quick-nav cards — 2 per row -->
+  <div class="nav-grid">
+
+    <a href="{% url 'central_admin:people_list' %}" class="nav-card card-purple">
+      <span class="nav-card-icon"><i class="bi bi-people-fill"></i></span>
+      <span class="nav-card-label">People</span>
+      <p class="nav-card-desc">Manage people in the system.</p>
+    </a>
+
+    <a href="{% url 'central_admin:room_list' %}" class="nav-card card-teal">
+      <span class="nav-card-icon"><i class="bi bi-door-open-fill"></i></span>
+      <span class="nav-card-label">Rooms</span>
+      <p class="nav-card-desc">Manage rooms in the system.</p>
+    </a>
+
+    <a href="{% url 'central_admin:vendor_list' %}" class="nav-card card-blue">
+      <span class="nav-card-icon"><i class="bi bi-shop"></i></span>
+      <span class="nav-card-label">Vendors</span>
+      <p class="nav-card-desc">Manage vendors in the system.</p>
+    </a>
+
+    <div class="nav-card card-amber" style="cursor:default;">
+      <span class="nav-card-icon"><i class="bi bi-cart-fill"></i></span>
+      {% if request.user.profile.is_central_admin and not request.user.profile.is_sub_admin %}
+        <span class="nav-card-label">Purchase Requests</span>
+        <p class="nav-card-desc">Review and approve requests from sub-admins.</p>
+        <div class="nav-card-actions">
+          <a href="{% url 'central_admin:purchase_list' %}" class="btn-card-action">View Requests</a>
         </div>
+      {% elif request.user.profile.is_sub_admin %}
+        <span class="nav-card-label">My Purchase Requests</span>
+        <p class="nav-card-desc">Raise or track your purchase requests.</p>
+        <div class="nav-card-actions">
+          <a href="{% url 'central_admin:purchase_list' %}" class="btn-card-action">My Requests</a>
+          <a href="{% url 'central_admin:purchase_create' %}" class="btn-card-action btn-card-primary">+ New</a>
+        </div>
+      {% else %}
+        <span class="nav-card-label">Purchases</span>
+        <p class="nav-card-desc">Manage purchases in the system.</p>
+        <div class="nav-card-actions">
+          <a href="{% url 'central_admin:purchase_list' %}" class="btn-card-action">View Purchases</a>
+        </div>
+      {% endif %}
     </div>
 
-    <style>
-    .aura-entry-card-link { text-decoration: none !important; }
-    .aura-entry-card {
-        background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
-        border-radius: 20px;
-        padding: 40px;
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        position: relative;
-        overflow: hidden;
-        color: white;
-        box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.2);
-        transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-    }
-    .aura-entry-card:hover {
-        transform: translateY(-10px);
-        box-shadow: 0 25px 50px -12px rgba(59, 130, 246, 0.3);
-    }
-    .aura-orb {
-        position: absolute;
-        width: 200px; height: 200px;
-        background: radial-gradient(circle, #3b82f6 0%, transparent 70%);
-        filter: blur(40px);
-        top: -50px; left: -50px;
-        opacity: 0.5;
-    }
-    .aura-action {
-        background: rgba(255,255,255,0.1);
-        padding: 15px 25px;
-        border-radius: 50px;
-        font-weight: 600;
-        backdrop-filter: blur(10px);
-        border: 1px solid rgba(255,255,255,0.2);
-    }
-    </style>
-    <div class="row">
-        <div class="col-md-6 mb-4">
-            <div class="card">
-                <div class="card-body">
-                    <h5 class="card-title">People</h5>
-                    <p class="card-text">Manage people in the system.</p>
-                    <a href="{% url 'central_admin:people_list' %}" class="btn btn-outline-primary">View People</a>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-6 mb-4">
-            <div class="card">
-                <div class="card-body">
-                    <h5 class="card-title">Rooms</h5>
-                    <p class="card-text">Manage rooms in the system.</p>
-                    <a href="{% url 'central_admin:room_list' %}" class="btn btn-outline-primary">View Rooms</a>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-6 mb-4">
-            <div class="card">
-                <div class="card-body">
-                    <h5 class="card-title">Vendors</h5>
-                    <p class="card-text">Manage vendors in the system.</p>
-                    <a href="{% url 'central_admin:vendor_list' %}" class="btn btn-outline-primary">View Vendors</a>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-6 mb-4">
-            <div class="card">
-                <div class="card-body">
-                    {% if request.user.profile.is_central_admin and not request.user.profile.is_sub_admin %}
-                        <h5 class="card-title">Purchase Requests</h5>
-                        <p class="card-text">Review and approve purchase requests from sub-admins.</p>
-                        <a href="{% url 'central_admin:purchase_list' %}" class="btn btn-outline-primary">View Requests</a>
-                    {% elif request.user.profile.is_sub_admin %}
-                        <h5 class="card-title">My Purchase Requests</h5>
-                        <p class="card-text">Raise new purchase requests or track existing ones.</p>
-                        <a href="{% url 'central_admin:purchase_list' %}" class="btn btn-outline-primary me-2">My Requests</a>
-                        <a href="{% url 'central_admin:purchase_create' %}" class="btn btn-primary">+ New Request</a>
-                    {% else %}
-                        <h5 class="card-title">Purchases</h5>
-                        <p class="card-text">Manage purchases in the system.</p>
-                        <a href="{% url 'central_admin:purchase_list' %}" class="btn btn-outline-primary">View Purchases</a>
-                    {% endif %}
-                </div>
-            </div>
-        </div>
-        <div class="col-md-6 mb-4">
-            <div class="card">
-                <div class="card-body">
-                    <h5 class="card-title">Issues</h5>
-                    <p class="card-text">Manage issues reported in the system.</p>
-                    <a href="{% url 'central_admin:issue_list' %}" class="btn btn-outline-primary">View Issues</a>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-6 mb-4">
-            <div class="card">
-                <div class="card-body">
-                    <h5 class="card-title">Departments</h5>
-                    <p class="card-text">Manage departments in the system.</p>
-                    <a href="{% url 'central_admin:department_list' %}" class="btn btn-outline-primary">View Departments</a>
-                </div>
-            </div>
-        </div>
-    </div>
+    <a href="{% url 'central_admin:issue_list' %}" class="nav-card card-rose">
+      <span class="nav-card-icon"><i class="bi bi-exclamation-triangle-fill"></i></span>
+      <span class="nav-card-label">Issues</span>
+      <p class="nav-card-desc">Manage issues reported in the system.</p>
+    </a>
+
+    <a href="{% url 'central_admin:department_list' %}" class="nav-card card-indigo">
+      <span class="nav-card-icon"><i class="bi bi-grid-fill"></i></span>
+      <span class="nav-card-label">Departments</span>
+      <p class="nav-card-desc">Manage departments in the system.</p>
+    </a>
+
+  </div>
 </section>
 {% endblock content %}
 
 {% block extra_js %}
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    function refreshDashBell() {
-        fetch('{% url "central_admin:admin_notification_counts" %}')
-            .then(function(r) { return r.ok ? r.json() : null; })
-            .then(function(data) {
-                if (!data) return;
-                var badge = document.getElementById('dashBellBadge');
-                if (!badge) return;
-                if (data.total > 0) {
-                    badge.textContent = data.total > 99 ? '99+' : data.total;
-                    badge.style.display = 'block';
-                } else {
-                    badge.style.display = 'none';
-                }
-            })
-            .catch(function() {});
-    }
-    refreshDashBell();
-    setInterval(refreshDashBell, 60000);
+  function refreshDashBell() {
+    fetch('{% url "central_admin:admin_notification_counts" %}')
+      .then(function(r) { return r.ok ? r.json() : null; })
+      .then(function(data) {
+        if (!data) return;
+        var badge = document.getElementById('dashBellBadge');
+        if (!badge) return;
+        if (data.total > 0) {
+          badge.textContent = data.total > 99 ? '99+' : data.total;
+          badge.style.display = 'block';
+        } else {
+          badge.style.display = 'none';
+        }
+      })
+      .catch(function() {});
+  }
+  refreshDashBell();
+  setInterval(refreshDashBell, 60000);
 });
 </script>
 {% endblock extra_js %}

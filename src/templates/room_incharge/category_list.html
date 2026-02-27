@@ -1,10 +1,130 @@
 {% extends "sidebar_base.html" %}
 {% load static %}
 
-{% block title %} | Create Room{% endblock title %}
+{% block title %} | Category List{% endblock title %}
 
 {% block style %}
 <link rel="stylesheet" href="{% static 'styles/inventory/room_incharge/category_list/style.css' %}">
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600&display=swap');
+
+  :root {
+    --accent: #6c63ff;
+    --accent-lt: #a89dff;
+    --surface: #ffffff;
+    --surface-2: #f8f8fc;
+    --border: #ebebf5;
+    --text: #1a1a2e;
+    --text-muted: #7c7c9a;
+  }
+
+  body { background: #f4f4fb; font-family: 'DM Sans', sans-serif; }
+
+  .page-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin: 28px 0 20px;
+  }
+
+  .page-title {
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--text);
+    letter-spacing: -0.3px;
+    margin: 0;
+  }
+
+  .data-card {
+    background: var(--surface);
+    border-radius: 14px;
+    border: 1px solid var(--border);
+    overflow: hidden;
+    box-shadow: 0 1px 8px rgba(0,0,0,0.04);
+  }
+
+  .data-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-family: 'DM Sans', sans-serif;
+  }
+
+  .data-table thead tr {
+    background: var(--surface-2);
+    border-bottom: 1px solid var(--border);
+  }
+
+  .data-table thead th {
+    padding: 12px 18px;
+    font-size: 11.5px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    color: var(--text-muted);
+  }
+
+  .data-table tbody tr {
+    border-bottom: 1px solid var(--border);
+    transition: background 0.14s;
+  }
+  .data-table tbody tr:last-child { border-bottom: none; }
+  .data-table tbody tr:hover { background: #f9f8ff; }
+
+  .data-table tbody td {
+    padding: 13px 18px;
+    font-size: 14px;
+    color: var(--text);
+    vertical-align: middle;
+  }
+
+  .cat-name {
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 9px;
+  }
+
+  .cat-chip {
+    display: inline-block;
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--accent), var(--accent-lt));
+    flex-shrink: 0;
+  }
+
+  .btn-action-edit {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 6px 12px;
+    background: #f0f0ff;
+    color: var(--accent);
+    border: 1px solid #ddd8ff;
+    border-radius: 7px;
+    font-size: 12.5px;
+    font-weight: 600;
+    text-decoration: none;
+    transition: all 0.14s;
+  }
+  .btn-action-edit:hover {
+    background: var(--accent);
+    color: white;
+    border-color: var(--accent);
+  }
+
+  .empty-state {
+    text-align: center;
+    padding: 60px 24px;
+    color: var(--text-muted);
+  }
+  .empty-state .material-symbols-outlined {
+    font-size: 48px;
+    opacity: 0.25;
+    display: block;
+    margin-bottom: 12px;
+  }
+  .empty-state p { margin: 0; font-size: 14px; }
+</style>
 {% endblock style %}
 
 {% block navbar %}
@@ -16,32 +136,43 @@
 {% endblock sidebar %}
 
 {% block content %}
-<div class="d-flex justify-content-between align-items-center my-3">
-    <h3>Category List</h3>
-    <div>
-        <a href="{% url 'room_incharge:category_create' room_slug=room_slug %}" class="btn btn-primary">Create
-            Category</a>
-    </div>
+<div class="page-header">
+  <h4 class="page-title">Categories</h4>
 </div>
-<div class="table-responsive">
-    <table class="table">
-        <thead>
-            <tr>
-                <th>Category</th>
-                <th>Action</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for category in categories %}
-            <tr>
-                <td>{{ category.category_name }}</td>
-                <td>
-                    <a href="{% url 'room_incharge:category_update' room_slug=category.room.slug category_slug=category.slug %}" class="btn btn-outline-dark btn-sm">Edit</a>
-                    {% comment %} <a href="{% url 'room_incharge:category_delete' room_slug=category.room.slug category_slug=category.slug %}" class="btn btn-danger btn-sm">Delete</a> {% endcomment %}
-                </td>
-            </tr>
-            {% endfor %}
-        </tbody>
-    </table>
+
+<div class="data-card">
+  {% if categories %}
+  <table class="data-table">
+    <thead>
+      <tr>
+        <th>Category</th>
+        <!--<th>Action</th>-->
+      </tr>
+    </thead>
+    <tbody>
+      {% for category in categories %}
+      <tr>
+        <td>
+          <span class="cat-name">
+            <span class="cat-chip"></span>
+            {{ category.category_name }}
+          </span>
+        </td>
+        {% comment %} <td>
+          <a href="{% url 'room_incharge:category_update' room_slug=category.room.slug category_slug=category.slug %}" class="btn-action-edit">
+            <span class="material-symbols-outlined" style="font-size:14px">edit</span>
+            Edit
+          </a>
+        </td> {% endcomment %}
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <div class="empty-state">
+    <span class="material-symbols-outlined">category</span>
+    <p>No categories found.</p>
+  </div>
+  {% endif %}
 </div>
 {% endblock content %}
