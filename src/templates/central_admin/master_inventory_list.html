@@ -19,14 +19,13 @@
         --shadow: 0 2px 8px rgba(0,0,0,0.05);
     }
 
-    /* ── INTERNAL NAVBAR ── */
     .internal-nav {
         position: sticky;
         top: 0;
         z-index: 500;
         background: #fff;
         border-bottom: 1px solid var(--border);
-        box-shadow: 0 2px 12px rgba(118, 75, 162, 0.08);
+        box-shadow: 0 2px 12px rgba(118,75,162,0.08);
         display: flex;
         align-items: center;
         padding: 0 28px;
@@ -57,32 +56,10 @@
         flex-shrink: 0;
     }
 
-    .nav-brand-text {
-        display: flex;
-        flex-direction: column;
-        line-height: 1.1;
-    }
-
-    .nav-brand-title {
-        font-size: 0.95rem;
-        font-weight: 800;
-        color: var(--text-dark);
-    }
-
-    .nav-brand-sub {
-        font-size: 0.68rem;
-        font-weight: 600;
-        color: var(--text-muted);
-        text-transform: uppercase;
-        letter-spacing: 0.8px;
-    }
-
-    .nav-divider {
-        width: 1px;
-        height: 28px;
-        background: var(--border);
-        flex-shrink: 0;
-    }
+    .nav-brand-text { display: flex; flex-direction: column; line-height: 1.1; }
+    .nav-brand-title { font-size: 0.95rem; font-weight: 800; color: var(--text-dark); }
+    .nav-brand-sub { font-size: 0.68rem; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.8px; }
+    .nav-divider { width: 1px; height: 28px; background: var(--border); flex-shrink: 0; }
 
     .nav-breadcrumb {
         display: flex;
@@ -92,19 +69,9 @@
         color: var(--text-muted);
     }
 
-    .nav-breadcrumb a {
-        color: var(--text-muted);
-        text-decoration: none;
-        transition: color 0.2s;
-    }
-
+    .nav-breadcrumb a { color: var(--text-muted); text-decoration: none; transition: color 0.2s; }
     .nav-breadcrumb a:hover { color: var(--purple); }
-
-    .nav-breadcrumb .crumb-active {
-        color: var(--text-dark);
-        font-weight: 600;
-    }
-
+    .nav-breadcrumb .crumb-active { color: var(--text-dark); font-weight: 600; }
     .nav-breadcrumb i { font-size: 0.65rem; }
 
     .nav-actions {
@@ -132,11 +99,7 @@
         white-space: nowrap;
     }
 
-    .nav-btn-ghost:hover {
-        border-color: var(--purple);
-        color: var(--purple);
-        background: var(--purple-light);
-    }
+    .nav-btn-ghost:hover { border-color: var(--purple); color: var(--purple); background: var(--purple-light); }
 
     .nav-btn-primary {
         display: inline-flex;
@@ -156,12 +119,7 @@
         box-shadow: 0 2px 8px rgba(118,75,162,0.25);
     }
 
-    .nav-btn-primary:hover {
-        opacity: 0.9;
-        color: white;
-        transform: translateY(-1px);
-        box-shadow: 0 4px 14px rgba(118,75,162,0.35);
-    }
+    .nav-btn-primary:hover { opacity: 0.9; color: white; transform: translateY(-1px); }
 
     .nav-stat {
         display: inline-flex;
@@ -175,19 +133,14 @@
         font-weight: 700;
     }
 
-    /* ── PAGE ── */
-    .inventory-container {
-        padding: 32px;
-        background: #f8fafc;
-        min-height: 100vh;
-    }
+    .inventory-container { padding: 32px; background: #f8fafc; min-height: 100vh; }
 
     .page-header {
         background: white;
         padding: 24px 30px;
         border-radius: 16px;
         box-shadow: var(--shadow);
-        margin-bottom: 28px;
+        margin-bottom: 20px;
         display: flex;
         justify-content: space-between;
         align-items: center;
@@ -205,12 +158,7 @@
         line-height: 1.2;
     }
 
-    .header-actions {
-        display: flex;
-        gap: 10px;
-        align-items: center;
-        flex-wrap: wrap;
-    }
+    .header-actions { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
 
     .btn-assign {
         background: var(--purple);
@@ -226,26 +174,92 @@
         align-items: center;
     }
 
-    .btn-assign:hover {
-        background: var(--purple-dark);
-        color: white;
-        transform: translateY(-2px);
-        box-shadow: 0 5px 15px rgba(147, 51, 234, 0.3);
-    }
+    .btn-assign:hover { background: var(--purple-dark); color: white; transform: translateY(-2px); box-shadow: 0 5px 15px rgba(147,51,234,0.3); }
 
-    .inventory-table {
+    /* FIELD SELECTOR PANEL */
+    .field-selector-panel {
         background: white;
-        border-radius: 16px;
+        border-radius: 14px;
         box-shadow: var(--shadow);
-        overflow: hidden;
+        padding: 18px 24px;
+        margin-bottom: 20px;
+        display: flex;
+        align-items: center;
+        gap: 20px;
+        flex-wrap: wrap;
     }
 
+    .field-selector-label {
+        font-size: 0.78rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: var(--text-mid);
+        flex-shrink: 0;
+    }
+
+    .field-checkboxes {
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+        flex: 1;
+    }
+
+    .field-check-item {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 6px 13px;
+        border-radius: 20px;
+        border: 1.5px solid var(--border);
+        cursor: pointer;
+        font-size: 0.8rem;
+        font-weight: 600;
+        color: var(--text-mid);
+        transition: all 0.18s;
+        user-select: none;
+    }
+
+    .field-check-item:hover { border-color: var(--purple); color: var(--purple); background: var(--purple-light); }
+
+    .field-check-item input[type="checkbox"] { display: none; }
+
+    .field-check-item.selected {
+        background: var(--purple-darker);
+        border-color: var(--purple-dark);
+        color: var(--purple-dark);
+    }
+
+    {% comment %} .field-check-item.selected:hover { 
+        background: var(--purple-darker);
+        color: var(--purple-light);
+        border-color: var(--purple-dark);
+    } {% endcomment %}
+
+    .export-btns { display: flex; gap: 8px; flex-shrink: 0; }
+
+    .btn-export {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 7px 16px;
+        border-radius: 8px;
+        font-size: 0.8rem;
+        font-weight: 700;
+        cursor: pointer;
+        border: none;
+        transition: all 0.2s;
+        text-decoration: none;
+    }
+
+    .btn-export-pdf { background: #fee2e2; color: #dc2626; }
+    .btn-export-pdf:hover { background: #dc2626; color: white; }
+    .btn-export-excel { background: #d1fae5; color: #059669; }
+    .btn-export-excel:hover { background: #059669; color: white; }
+
+    .inventory-table { background: white; border-radius: 16px; box-shadow: var(--shadow); overflow: hidden; }
     .table { margin: 0; }
-
-    .table thead {
-        background: #f8fafc;
-    }
-
+    .table thead { background: #f8fafc; }
     .table thead th {
         border: none;
         padding: 18px 20px;
@@ -255,62 +269,16 @@
         font-size: 0.72rem;
         letter-spacing: 0.5px;
     }
-
-    .table tbody td {
-        padding: 18px 20px;
-        border-top: 1px solid #f1f5f9;
-        vertical-align: middle;
-    }
-
-    .item-name {
-        font-weight: 600;
-        color: #1e293b;
-        font-size: 1rem;
-    }
-
-    .badge-count {
-        display: inline-block;
-        min-width: 36px;
-        text-align: center;
-        background: #f1f5f9;
-        color: #475569;
-        padding: 6px 12px;
-        border-radius: 8px;
-        font-weight: 700;
-        font-size: 0.9rem;
-    }
-
-    .badge-available {
-        background: #d1fae5;
-        color: #065f46;
-    }
-
-    .stat-badge {
-        display: inline-block;
-        background: #f1f5f9;
-        padding: 6px 14px;
-        border-radius: 8px;
-        font-size: 0.85rem;
-        color: #64748b;
-        margin-left: 12px;
-        font-weight: 500;
-    }
-
-    .empty-state {
-        text-align: center;
-        padding: 80px 20px;
-    }
-
-    .empty-state i {
-        font-size: 4rem;
-        color: #cbd5e0;
-        margin-bottom: 20px;
-        display: block;
-    }
+    .table tbody td { padding: 18px 20px; border-top: 1px solid #f1f5f9; vertical-align: middle; }
+    .item-name { font-weight: 600; color: #1e293b; font-size: 1rem; }
+    .badge-count { display: inline-block; min-width: 36px; text-align: center; background: #f1f5f9; color: #475569; padding: 6px 12px; border-radius: 8px; font-weight: 700; font-size: 0.9rem; }
+    .badge-available { background: #d1fae5; color: #065f46; }
+    .empty-state { text-align: center; padding: 80px 20px; }
+    .empty-state i { font-size: 4rem; color: #cbd5e0; margin-bottom: 20px; display: block; }
 
     @media (max-width: 768px) {
         .inventory-container { padding: 16px; }
-        .internal-nav { padding: 0 16px; }
+        .internal-nav { padding-bottom: 0 16px; }
         .nav-breadcrumb { display: none; }
         .nav-stat { display: none; }
     }
@@ -318,7 +286,6 @@
 {% endblock style %}
 
 {% block navbar %}
-<!-- Internal Navbar for Master Inventory -->
 <nav class="internal-nav">
     <a class="nav-brand" href="{% url 'central_admin:aura_dashboard' %}">
         <div class="nav-logo">SFS</div>
@@ -327,9 +294,7 @@
             <span class="nav-brand-sub">Inventory System</span>
         </div>
     </a>
-
     <div class="nav-divider"></div>
-
     <nav class="nav-breadcrumb">
         <a href="{% url 'central_admin:dashboard' %}">Dashboard</a>
         <i class="bi bi-chevron-right"></i>
@@ -337,12 +302,8 @@
         <i class="bi bi-chevron-right"></i>
         <span class="crumb-active">Master Inventory</span>
     </nav>
-
     <div class="nav-actions">
-        <span class="nav-stat">
-            <i class="bi bi-box-seam"></i>
-            {{ total_items }} Items
-        </span>
+        <span class="nav-stat"><i class="bi bi-box-seam"></i> {{ total_items }} Items</span>
         <a href="{% url 'central_admin:master_inventory_import' %}" class="nav-btn-ghost">
             <i class="bi bi-file-earmark-spreadsheet"></i> Import Excel
         </a>
@@ -363,9 +324,7 @@
     <div class="page-header">
         <div>
             <h1 class="page-title">Master Inventory</h1>
-            <p class="text-muted mb-0" style="font-size: 0.95rem;">
-                College-wide unassigned stock
-            </p>
+            <p class="text-muted mb-0" style="font-size:0.95rem;">College-wide unassigned stock</p>
         </div>
         <div class="header-actions">
             <a href="{% url 'central_admin:assign_inventory' %}" class="btn-assign">
@@ -374,40 +333,80 @@
         </div>
     </div>
 
+    <!-- Field Selector + Export -->
+    <div class="field-selector-panel">
+        <span class="field-selector-label"><i class="bi bi-sliders me-1"></i>Columns</span>
+        <div class="field-checkboxes" id="fieldCheckboxes">
+            <label class="field-check-item selected" data-field="name">
+                <input type="checkbox" checked> <i class="bi bi-tag"></i> Item Name
+            </label>
+            <label class="field-check-item selected" data-field="category">
+                <input type="checkbox" checked> <i class="bi bi-grid"></i> Category
+            </label>
+            <label class="field-check-item selected" data-field="brand">
+                <input type="checkbox" checked> <i class="bi bi-bookmark"></i> Brand
+            </label>
+            <label class="field-check-item selected" data-field="assigned">
+                <input type="checkbox" checked> <i class="bi bi-building"></i> Assigned to Rooms
+            </label>
+            <label class="field-check-item selected" data-field="stock">
+                <input type="checkbox" checked> <i class="bi bi-box-seam"></i> Available Stock
+            </label>
+            <label class="field-check-item selected" data-field="cost">
+                <input type="checkbox" checked> <i class="bi bi-currency-rupee"></i> Cost
+            </label>
+        </div>
+        <div class="export-btns">
+            <button class="btn-export btn-export-pdf" onclick="exportPDF()">
+                <i class="bi bi-file-earmark-pdf"></i> PDF
+            </button>
+            <button class="btn-export btn-export-excel" onclick="exportExcel()">
+                <i class="bi bi-file-earmark-excel"></i> Excel
+            </button>
+        </div>
+    </div>
+
     <!-- Table -->
     <div class="inventory-table">
         {% if items_data %}
-        <table class="table table-hover">
+        <table class="table table-hover" id="inventoryTable">
             <thead>
-                <tr>
-                    <th>Item Name</th>
-                    <th>Category</th>
-                    <th>Brand</th>
-                    <th class="text-center">Assigned to Rooms</th>
-                    <th class="text-center">Available in Stock</th>
+                <tr id="tableHeader">
+                    <th data-col="name">Item Name</th>
+                    <th data-col="category">Category</th>
+                    <th data-col="brand">Brand</th>
+                    <th data-col="assigned" class="text-center">Assigned to Rooms</th>
+                    <th data-col="stock" class="text-center">Available Stock</th>
+                    <th data-col="cost" class="text-center">Cost</th>
                 </tr>
             </thead>
             <tbody>
                 {% for data in items_data %}
                 <tr>
-                    <td>
+                    <td data-col="name">
                         <div class="item-name">{{ data.item.item_name }}</div>
-                        <small class="text-muted">{{ data.item.item_description|truncatewords:10 }}</small>
                     </td>
-                    <td>
+                    <td data-col="category">
                         <span class="badge bg-light text-dark border">{{ data.item.category.category_name }}</span>
                     </td>
-                    <td>
+                    <td data-col="brand">
                         <span class="badge bg-light text-dark border">{{ data.item.brand.brand_name }}</span>
                     </td>
-                    <td class="text-center">
+                    <td data-col="assigned" class="text-center">
                         <button class="btn btn-sm btn-outline-primary"
                             onclick="viewAssignments({{ data.item.id }}, '{{ data.item.item_name|escapejs }}')">
                             <i class="bi bi-eye me-1"></i>View Details
                         </button>
                     </td>
-                    <td class="text-center">
+                    <td data-col="stock" class="text-center">
                         <span class="badge-count badge-available">{{ data.available_stock }}</span>
+                    </td>
+                    <td data-col="cost" class="text-center">
+                        {% if data.item.cost %}
+                            <span class="badge-count">₹{{ data.item.cost }}</span>
+                        {% else %}
+                            <span class="text-muted">—</span>
+                        {% endif %}
                     </td>
                 </tr>
                 {% endfor %}
@@ -429,18 +428,13 @@
 <!-- View Assignments Modal -->
 <div class="modal fade" id="viewAssignmentsModal" tabindex="-1">
     <div class="modal-dialog modal-lg">
-        <div class="modal-content" style="border-radius: 16px; border: none;">
-            <div class="modal-header" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border-radius: 16px 16px 0 0;">
-                <h5 class="modal-title fw-bold">
-                    <i class="bi bi-clipboard-data me-2"></i>Assignment Details
-                </h5>
+        <div class="modal-content" style="border-radius:16px; border:none;">
+            <div class="modal-header" style="background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);color:white;border-radius:16px 16px 0 0;">
+                <h5 class="modal-title fw-bold"><i class="bi bi-clipboard-data me-2"></i>Assignment Details</h5>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body p-4">
-                <h6 class="fw-bold text-muted mb-4">
-                    Item: <span id="modalItemName" class="text-dark"></span>
-                </h6>
-
+                <h6 class="fw-bold text-muted mb-4">Item: <span id="modalItemName" class="text-dark"></span></h6>
                 <div class="row g-3 mb-4">
                     <div class="col-md-6">
                         <label class="form-label small fw-bold text-muted text-uppercase">Room Category</label>
@@ -462,7 +456,6 @@
                         </select>
                     </div>
                 </div>
-
                 <div id="assignmentResults">
                     <div class="text-center text-muted py-5">
                         <i class="bi bi-search fs-1 d-block mb-3 opacity-50"></i>
@@ -475,13 +468,58 @@
 </div>
 
 <script>
+// ── FIELD SELECTOR ──
+function getSelectedFields() {
+    return [...document.querySelectorAll('#fieldCheckboxes .field-check-item.selected')]
+        .map(el => el.dataset.field);
+}
+
+function applyFieldVisibility() {
+    const selected = getSelectedFields();
+    const allCols = ['name','category','brand','assigned','stock','cost'];
+    allCols.forEach(col => {
+        const show = selected.includes(col);
+        document.querySelectorAll(`[data-col="${col}"]`).forEach(el => {
+            el.style.display = show ? '' : 'none';
+        });
+    });
+}
+
+document.querySelectorAll('.field-check-item').forEach(label => {
+    label.addEventListener('click', function(e) {
+        e.preventDefault();
+        this.classList.toggle('selected');
+        const cb = this.querySelector('input[type="checkbox"]');
+        cb.checked = this.classList.contains('selected');
+        applyFieldVisibility();
+    });
+});
+
+// Apply on load — description hidden by default
+applyFieldVisibility();
+
+// ── EXPORT ──
+function exportPDF() {
+    const fields = getSelectedFields();
+    if (fields.length === 0) { alert('Select at least one column to export.'); return; }
+    const params = fields.map(f => `fields=${f}`).join('&');
+    window.open(`{% url 'central_admin:master_inventory_export_pdf' %}?${params}`, '_blank');
+}
+
+function exportExcel() {
+    const fields = getSelectedFields();
+    if (fields.length === 0) { alert('Select at least one column to export.'); return; }
+    const params = fields.map(f => `fields=${f}`).join('&');
+    window.location.href = `{% url 'central_admin:master_inventory_export_excel' %}?${params}`;
+}
+
+// ── ASSIGNMENTS MODAL ──
 let currentItemId = null;
 let currentItemName = null;
 
 function viewAssignments(itemId, itemName) {
     currentItemId = itemId;
     currentItemName = itemName;
-
     document.getElementById('modalItemName').textContent = itemName;
     document.getElementById('filterCategory').value = '';
     document.getElementById('filterRoom').innerHTML = '<option value="">-- Select Room --</option>';
@@ -489,66 +527,39 @@ function viewAssignments(itemId, itemName) {
         <div class="text-center text-muted py-5">
             <i class="bi bi-search fs-1 d-block mb-3 opacity-50"></i>
             <p>Select a category and room to view assignment details</p>
-        </div>
-    `;
-
-    const modal = new bootstrap.Modal(document.getElementById('viewAssignmentsModal'));
-    modal.show();
+        </div>`;
+    new bootstrap.Modal(document.getElementById('viewAssignmentsModal')).show();
 }
 
 function loadRoomsByCategory() {
     const category = document.getElementById('filterCategory').value;
     const roomSelect = document.getElementById('filterRoom');
-
     if (!category) {
         roomSelect.innerHTML = '<option value="">-- Select Room --</option>';
-        document.getElementById('assignmentResults').innerHTML = `
-            <div class="text-center text-muted py-5">
-                <i class="bi bi-search fs-1 d-block mb-3 opacity-50"></i>
-                <p>Select a room to view assignment details</p>
-            </div>
-        `;
         return;
     }
-
     roomSelect.innerHTML = '<option value="">Loading rooms…</option>';
-
     fetch(`{% url 'central_admin:get_rooms_by_category' %}?category=${category}`)
-        .then(res => { if (!res.ok) throw new Error('HTTP ' + res.status); return res.json(); })
+        .then(r => r.json())
         .then(data => {
             roomSelect.innerHTML = '<option value="">-- Select Room --</option>';
-            (data.rooms || []).forEach(room => {
-                roomSelect.innerHTML += `<option value="${room.id}">${room.name}</option>`;
+            (data.rooms || []).forEach(r => {
+                roomSelect.innerHTML += `<option value="${r.id}">${r.name}</option>`;
             });
         })
-        .catch(() => {
-            roomSelect.innerHTML = '<option value="">Error loading rooms</option>';
-        });
+        .catch(() => { roomSelect.innerHTML = '<option value="">Error loading</option>'; });
 }
 
 function loadAssignmentDetails() {
     const roomId = document.getElementById('filterRoom').value;
     const resultsDiv = document.getElementById('assignmentResults');
-
     if (!roomId) {
-        resultsDiv.innerHTML = `
-            <div class="text-center text-muted py-5">
-                <i class="bi bi-search fs-1 d-block mb-3 opacity-50"></i>
-                <p>Select a room to view assignment details</p>
-            </div>
-        `;
+        resultsDiv.innerHTML = `<div class="text-center text-muted py-5"><i class="bi bi-search fs-1 d-block mb-3 opacity-50"></i><p>Select a room to view assignment details</p></div>`;
         return;
     }
-
-    resultsDiv.innerHTML = `
-        <div class="text-center py-5">
-            <div class="spinner-border text-primary" role="status"></div>
-            <p class="mt-3 text-muted">Loading assignment details…</p>
-        </div>
-    `;
-
+    resultsDiv.innerHTML = `<div class="text-center py-5"><div class="spinner-border text-primary"></div><p class="mt-3 text-muted">Loading…</p></div>`;
     fetch(`{% url 'central_admin:get_assignment_details' %}?item_id=${currentItemId}&room_id=${roomId}`)
-        .then(res => { if (!res.ok) throw new Error('HTTP ' + res.status); return res.json(); })
+        .then(r => r.json())
         .then(data => {
             if (data.assigned_quantity > 0) {
                 resultsDiv.innerHTML = `
@@ -557,14 +568,10 @@ function loadAssignmentDetails() {
                             <i class="bi bi-check-circle-fill fs-3 me-3"></i>
                             <div>
                                 <h6 class="mb-1 fw-bold">${currentItemName}</h6>
-                                <p class="mb-0">
-                                    Assigned to <strong>${data.room_name}</strong>:
-                                    <span class="badge bg-success">${data.assigned_quantity} units</span>
-                                </p>
+                                <p class="mb-0">Assigned to <strong>${data.room_name}</strong>: <span class="badge bg-success">${data.assigned_quantity} units</span></p>
                             </div>
                         </div>
-                    </div>
-                `;
+                    </div>`;
             } else {
                 resultsDiv.innerHTML = `
                     <div class="alert alert-warning border-0 shadow-sm rounded-3">
@@ -575,17 +582,11 @@ function loadAssignmentDetails() {
                                 <p class="mb-0">${currentItemName} is not assigned to <strong>${data.room_name}</strong></p>
                             </div>
                         </div>
-                    </div>
-                `;
+                    </div>`;
             }
         })
         .catch(() => {
-            resultsDiv.innerHTML = `
-                <div class="alert alert-danger border-0 shadow-sm rounded-3">
-                    <i class="bi bi-exclamation-triangle-fill me-2"></i>
-                    Error loading assignment details. Please try again.
-                </div>
-            `;
+            resultsDiv.innerHTML = `<div class="alert alert-danger border-0 shadow-sm rounded-3"><i class="bi bi-exclamation-triangle-fill me-2"></i>Error loading. Please try again.</div>`;
         });
 }
 </script>

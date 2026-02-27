@@ -550,10 +550,57 @@ class DepartmentDeleteView(LoginRequiredMixin, DeleteView):
 
 class PurchaseApproveView(LoginRequiredMixin, View):
     def get(self, request, *args, **kwargs):
+        profile = request.user.profile
         purchase = get_object_or_404(Purchase, slug=self.kwargs['purchase_slug'])
+        
         if purchase.status == 'requested':
             purchase.status = 'approved'
             purchase.save()
+
+            # Auto-add to master inventory
+            from inventory.models import Category, Brand
+            from decimal import Decimal
+
+            org = profile.org
+
+            master_category, _ = Category.objects.get_or_create(
+                organisation=org,
+                room=None,
+                category_name=purchase.item.category.category_name
+                if purchase.item.category else 'General'
+            )
+
+            master_brand, _ = Brand.objects.get_or_create(
+                organisation=org,
+                room=None,
+                brand_name=purchase.item.brand.brand_name
+                if purchase.item.brand else 'General'
+            )
+
+            # Check if master item already exists
+            master_item = Item.objects.filter(
+                organisation=org,
+                room=None,
+                item_name=purchase.item.item_name,
+            ).first()
+
+            if master_item:
+                master_item.total_count += int(purchase.quantity)
+                master_item.save()
+            else:
+                Item.objects.create(
+                    organisation=org,
+                    room=None,
+                    item_name=purchase.item.item_name,
+                    category=master_category,
+                    brand=master_brand,
+                    total_count=int(purchase.quantity),
+                    cost=purchase.cost_per_unit or purchase.cost or Decimal('0.00'),
+                    is_listed=True,
+                    item_description=purchase.item_description or purchase.item.item_name,
+                    created_by=profile,
+                )
+
         return redirect('central_admin:purchase_list')
 
 class PurchaseDeclineView(LoginRequiredMixin, View):
