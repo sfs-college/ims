@@ -1515,7 +1515,8 @@ class MasterInventoryListView(LoginRequiredMixin, CentralAdminRequiredMixin, Tem
 
         master_items = Item.objects.filter(
             organisation=org,
-            room__isnull=True
+            room__isnull=True,
+            is_listed=True
         ).select_related('category', 'brand').order_by('-created_on')
 
         items_data = []
@@ -1537,6 +1538,167 @@ class MasterInventoryListView(LoginRequiredMixin, CentralAdminRequiredMixin, Tem
         context['items_data'] = items_data
         context['total_items'] = len(items_data)
         return context
+
+def master_inventory_export_pdf(request):
+    profile = request.user.profile
+    if not (profile.is_central_admin or profile.is_sub_admin):
+        return HttpResponse("Unauthorized", status=403)
+
+    org = profile.org
+    fields = request.GET.getlist('fields')  # e.g. ['name','category','brand','stock','cost']
+
+    if not fields:
+        fields = ['name', 'category', 'brand', 'assigned', 'stock']
+
+    master_items = Item.objects.filter(
+        organisation=org,
+        room__isnull=True
+    ).select_related('category', 'brand').order_by('item_name')
+
+    # Build data
+    rows = []
+    for item in master_items:
+        assigned = Item.objects.filter(
+            organisation=org,
+            item_name=item.item_name,
+            room__isnull=False
+        ).aggregate(total=models.Sum('total_count'))['total'] or 0
+
+        row = {}
+        if 'name' in fields:     row['Item Name'] = item.item_name
+        if 'category' in fields: row['Category'] = item.category.category_name
+        if 'brand' in fields:    row['Brand'] = item.brand.brand_name
+        if 'assigned' in fields: row['Assigned to Rooms'] = assigned
+        if 'stock' in fields:    row['Available Stock'] = item.total_count
+        if 'cost' in fields:     row['Cost'] = f"₹{item.cost}" if item.cost else '—'
+        if 'description' in fields: row['Description'] = item.item_description or '—'
+        rows.append(row)
+
+    # Build PDF
+    buffer = io.BytesIO()
+    doc = SimpleDocTemplate(buffer, pagesize=landscape(A4),
+                            rightMargin=30, leftMargin=30,
+                            topMargin=30, bottomMargin=30)
+    elements = []
+    styles = getSampleStyleSheet()
+
+    elements.append(Paragraph("Master Inventory Report", styles['Title']))
+    elements.append(Spacer(1, 12))
+
+    if not rows:
+        elements.append(Paragraph("No items found.", styles['Normal']))
+    else:
+        headers = list(rows[0].keys())
+        col_width = (landscape(A4)[0] - 60) / len(headers)
+
+        table_data = [headers]
+        for row in rows:
+            table_data.append([Paragraph(str(v), styles['Normal']) for v in row.values()])
+
+        table = Table(table_data, repeatRows=1,
+                      colWidths=[col_width] * len(headers))
+        table.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#0f172a')),
+            ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 0), (-1, -1), 9),
+            ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+            ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
+            ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+            ('BOTTOMPADDING', (0, 0), (-1, 0), 10),
+            ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#f8fafc')]),
+        ]))
+        elements.append(table)
+
+    doc.build(elements)
+    buffer.seek(0)
+    response = HttpResponse(buffer, content_type='application/pdf')
+    response['Content-Disposition'] = 'attachment; filename="Master_Inventory.pdf"'
+    return response
+
+
+def master_inventory_export_excel(request):
+    profile = request.user.profile
+    if not (profile.is_central_admin or profile.is_sub_admin):
+        return HttpResponse("Unauthorized", status=403)
+
+    org = profile.org
+    fields = request.GET.getlist('fields')
+
+    if not fields:
+        fields = ['name', 'category', 'brand', 'assigned', 'stock']
+
+    master_items = Item.objects.filter(
+        organisation=org,
+        room__isnull=True
+    ).select_related('category', 'brand').order_by('item_name')
+
+    import openpyxl
+    from openpyxl.styles import Font, PatternFill, Alignment
+
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "Master Inventory"
+
+    # Build headers
+    header_map = {
+        'name':        'Item Name',
+        'category':    'Category',
+        'brand':       'Brand',
+        'assigned':    'Assigned to Rooms',
+        'stock':       'Available Stock',
+        'cost':        'Cost',
+        'description': 'Description',
+    }
+    headers = [header_map[f] for f in fields if f in header_map]
+    ws.append(headers)
+
+    # Style header
+    for cell in ws[1]:
+        cell.font = Font(bold=True, color="FFFFFF", size=11)
+        cell.fill = PatternFill(start_color="0F172A", end_color="0F172A", fill_type="solid")
+        cell.alignment = Alignment(horizontal="center", vertical="center")
+
+    # Add rows
+    for item in master_items:
+        assigned = Item.objects.filter(
+            organisation=org,
+            item_name=item.item_name,
+            room__isnull=False
+        ).aggregate(total=models.Sum('total_count'))['total'] or 0
+
+        row = []
+        if 'name' in fields:        row.append(item.item_name)
+        if 'category' in fields:    row.append(item.category.category_name)
+        if 'brand' in fields:       row.append(item.brand.brand_name)
+        if 'assigned' in fields:    row.append(assigned)
+        if 'stock' in fields:       row.append(item.total_count)
+        if 'cost' in fields:        row.append(float(item.cost) if item.cost else 0)
+        if 'description' in fields: row.append(item.item_description or '')
+        ws.append(row)
+
+    # Style rows
+    for row in ws.iter_rows(min_row=2, max_row=ws.max_row):
+        for cell in row:
+            cell.alignment = Alignment(vertical="top", wrap_text=True)
+
+    # Column widths
+    col_widths = {
+        'name': 35, 'category': 20, 'brand': 20,
+        'assigned': 18, 'stock': 16, 'cost': 14, 'description': 40
+    }
+    for i, f in enumerate([f for f in fields if f in header_map], start=1):
+        ws.column_dimensions[ws.cell(row=1, column=i).column_letter].width = col_widths.get(f, 18)
+
+    output = io.BytesIO()
+    wb.save(output)
+    output.seek(0)
+    response = HttpResponse(
+        output.read(),
+        content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    )
+    response['Content-Disposition'] = 'attachment; filename="Master_Inventory.xlsx"'
+    return response
 
 class AssignInventoryView(LoginRequiredMixin, CentralAdminRequiredMixin, TemplateView):
     template_name = 'central_admin/assign_inventory.html'

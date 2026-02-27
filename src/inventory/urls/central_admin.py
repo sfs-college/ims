@@ -58,6 +58,9 @@ urlpatterns = [
     path('master-inventory/import/', aura.MasterInventoryImportView.as_view(), name='master_inventory_import'),
     path('master-inventory/import/confirm/', aura.MasterInventoryImportConfirmView.as_view(), name='master_inventory_import_confirm'),
     path('master-inventory/', aura.MasterInventoryListView.as_view(), name='master_inventory_list'),
+    path('master-inventory/export/pdf/', aura.master_inventory_export_pdf, name='master_inventory_export_pdf'),
+    path('master-inventory/export/excel/', aura.master_inventory_export_excel, name='master_inventory_export_excel'),
+
     path('api/rooms-by-category/', aura.get_rooms_by_category, name='get_rooms_by_category'),
     path('api/assignment-details/', aura.get_assignment_details, name='get_assignment_details'),
     path('master-inventory/assign/', aura.AssignInventoryView.as_view(), name='assign_inventory'),
