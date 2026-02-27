@@ -885,9 +885,50 @@ class ApproveRoomBookingRequestView(LoginRequiredMixin, View):
             booking_req.reviewed_by = request.user.profile
             booking_req.save(update_fields=["status", "reviewed_by"])
 
+            # ── Send confirmation email to faculty ──────────────────────────
+            try:
+                from inventory.email import safe_send_mail as _safe_mail
+                from django.utils import timezone as _tz
+                _start_local = _tz.localtime(booking.start_datetime)
+                _end_local   = _tz.localtime(booking.end_datetime)
+                _date_str  = _start_local.strftime("%A, %d %B %Y")
+                _start_str = _start_local.strftime("%I:%M %p")
+                _end_str   = _end_local.strftime("%I:%M %p")
+                _safe_mail(
+                    subject=f"[Blixtro] Booking Confirmed — {booking_req.purpose or booking_req.room.room_name}",
+                    message=(
+                        f"Dear {booking_req.faculty_name},"
+                        
+                        f"Your room booking request has been approved."
+                        
+                        f"━━━━━━━━━━━━━━━━━━━━━━━━━"
+                        
+                        f"  Room      : {booking.room.room_name}"
+                        
+                        f"  Date      : {_date_str}"
+                        
+                        f"  Time      : {_start_str} – {_end_str}"
+                        
+                        f"  Purpose   : {booking_req.purpose or '—'}"
+                        
+                        f"  Booking ID: {booking.id}"
+                        
+                        f"━━━━━━━━━━━━━━━━━━━━━━━━━"
+                        
+                        f"Please ensure the room is vacated by the end time."
+                        
+                        f"Best regards, Blixtro — SFS College Inventory & Booking System"
+                    ),
+                    recipient_list=[booking_req.faculty_email],
+                    fail_silently=True,
+                )
+                print(f"[ApproveBooking] Confirmation email sent to {booking_req.faculty_email}", flush=True)
+            except Exception as _mail_err:
+                print(f"[ApproveBooking] Email send failed (non-fatal): {_mail_err}", flush=True)
+
             messages.success(
                 request,
-                f"Booking approved — {booking_req.room} confirmed for {booking_req.faculty_name}."
+                f"Booking approved — {booking_req.room} confirmed for {booking_req.faculty_name}. A confirmation email has been sent."
             )
         except Exception as e:
             messages.error(request, f"Could not approve booking: {e}")

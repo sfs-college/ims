@@ -6,138 +6,330 @@
 {% block style %}
 <link rel="stylesheet" href="{% static 'styles/inventory/central_admin/purchase_list/style.css' %}">
 <style>
-    .status-badge { padding: 5px 12px; border-radius: 20px; font-size: 0.8rem; font-weight: 600; }
-    .status-requested  { background: #fef3c7; color: #92400e; }
-    .status-approved   { background: #d1fae5; color: #065f46; }
-    .status-rejected   { background: #fee2e2; color: #991b1b; }
-    .status-completed  { background: #dbeafe; color: #1e40af; }
-    .invoice-modal-bg {
-        position: fixed;
-        inset: 0;
-        background: rgba(15,23,42,0.7);
-        z-index: 99999;
-        display: none;
-        align-items: center;
-        justify-content: center;
-        backdrop-filter: blur(2px);
-    }
-    .invoice-modal-bg.show { display: flex; }
-    .invoice-modal-box {
-        background: white;
-        border-radius: 16px;
-        width: 90vw;
-        max-width: 860px;
-        height: 90vh;
-        display: flex;
-        flex-direction: column;
-        box-shadow: 0 20px 60px rgba(0,0,0,0.3);
-        overflow: hidden;
-    }
-    .invoice-modal-header {
-        padding: 16px 22px;
-        background: #0f172a;
-        color: white;
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        flex-shrink: 0;
-    }
-    .invoice-modal-header h5 { margin: 0; font-weight: 700; font-size: 1rem; }
-    .invoice-modal-close {
-        background: none;
-        border: none;
-        color: white;
-        font-size: 1.4rem;
-        cursor: pointer;
-        line-height: 1;
-        padding: 0;
-        opacity: 0.8;
-    }
-    .invoice-modal-close:hover { opacity: 1; }
-    .invoice-pdf-frame { flex: 1; width: 100%; border: none; }
-    .upload-modal-bg {
-        position: fixed;
-        inset: 0;
-        background: rgba(15,23,42,0.6);
-        z-index: 99999;
-        display: none;
-        align-items: center;
-        justify-content: center;
-        backdrop-filter: blur(2px);
-    }
-    .upload-modal-bg.show { display: flex; }
-    .upload-modal-box {
-        background: white;
-        border-radius: 16px;
-        width: 440px;
-        max-width: 95vw;
-        box-shadow: 0 20px 60px rgba(0,0,0,0.25);
-        overflow: hidden;
-    }
-    .upload-modal-header {
-        padding: 18px 22px;
-        background: #0f172a;
-        color: white;
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-    }
-    .upload-modal-header h5 { margin: 0; font-weight: 700; font-size: 1rem; }
-    .upload-modal-body { padding: 24px; }
-    .upload-drop-zone {
-        border: 2px dashed #e2e8f0;
-        border-radius: 12px;
-        padding: 32px;
-        text-align: center;
-        cursor: pointer;
-        transition: all 0.2s;
-        background: #f8fafc;
-        position: relative;
-    }
-    .upload-drop-zone:hover, .upload-drop-zone.over { border-color: #7c3aed; background: #f3e8ff; }
-    .upload-drop-zone input[type="file"] {
-        position: absolute;
-        inset: 0;
-        opacity: 0;
-        cursor: pointer;
-        width: 100%;
-        height: 100%;
-    }
-    .upload-drop-zone i { font-size: 2rem; color: #94a3b8; display: block; margin-bottom: 10px; }
-    .upload-drop-zone p { margin: 0; font-weight: 600; color: #475569; font-size: 0.9rem; }
-    .upload-drop-zone small { color: #94a3b8; font-size: 0.78rem; }
-    .selected-file-info {
-        display: none;
-        align-items: center;
-        gap: 10px;
-        padding: 10px 14px;
-        background: #f0fdf4;
-        border: 1px solid #bbf7d0;
-        border-radius: 9px;
-        margin-top: 12px;
-        font-size: 0.85rem;
-        color: #065f46;
-        font-weight: 600;
-    }
-    .upload-actions { display: flex; gap: 10px; margin-top: 18px; }
-    .btn-upload-confirm {
-        flex: 2; padding: 11px;
-        background: linear-gradient(135deg, #667eea, #764ba2);
-        color: white; border: none; border-radius: 10px;
-        font-weight: 700; font-size: 0.88rem; cursor: pointer;
-        display: flex; align-items: center; justify-content: center; gap: 7px;
-    }
-    .btn-upload-confirm:disabled { opacity: 0.5; cursor: not-allowed; }
-    .btn-upload-cancel {
-        flex: 1; padding: 11px; background: white; color: #475569;
-        border: 1.5px solid #e2e8f0; border-radius: 10px;
-        font-weight: 600; font-size: 0.88rem; cursor: pointer;
-    }
-    .invoice-indicator {
-        display: inline-flex; align-items: center; gap: 4px;
-        font-size: 0.7rem; font-weight: 700; padding: 2px 8px;
-        border-radius: 20px; background: #dbeafe; color: #1e40af;
-    }
+  @import url('https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600&display=swap');
+
+  :root {
+    --accent: #6c63ff;
+    --accent-lt: #a89dff;
+    --surface: #ffffff;
+    --surface-2: #f8f8fc;
+    --border: #ebebf5;
+    --text: #1a1a2e;
+    --text-muted: #7c7c9a;
+  }
+
+  body { background: #f4f4fb; font-family: 'DM Sans', sans-serif; }
+
+  /* ── Page Header ── */
+  .page-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin: 28px 0 20px;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+
+  .page-title { font-size: 20px; font-weight: 700; color: var(--text); letter-spacing: -0.3px; margin: 0; }
+  .page-subtitle { font-size: 13px; color: var(--text-muted); margin: 2px 0 0; }
+
+  .btn-create {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 9px 18px;
+    background: linear-gradient(135deg, var(--accent), #8b7cf8);
+    color: white;
+    border: none;
+    border-radius: 9px;
+    font-size: 13.5px;
+    font-weight: 600;
+    text-decoration: none;
+    transition: all 0.18s ease;
+    box-shadow: 0 2px 12px rgba(108,99,255,0.3);
+    white-space: nowrap;
+  }
+  .btn-create:hover { transform: translateY(-1px); box-shadow: 0 4px 18px rgba(108,99,255,0.4); color: white; }
+
+  /* ── Data Card + Table ── */
+  .data-card {
+    background: var(--surface);
+    border-radius: 14px;
+    border: 1px solid var(--border);
+    overflow: hidden;
+    box-shadow: 0 1px 8px rgba(0,0,0,0.04);
+  }
+
+  .data-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-family: 'DM Sans', sans-serif;
+  }
+
+  .data-table thead tr {
+    background: var(--surface-2);
+    border-bottom: 1px solid var(--border);
+  }
+
+  .data-table thead th {
+    padding: 11px 16px;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    color: var(--text-muted);
+    white-space: nowrap;
+  }
+
+  .data-table tbody tr {
+    border-bottom: 1px solid var(--border);
+    transition: background 0.12s;
+  }
+  .data-table tbody tr:last-child { border-bottom: none; }
+  .data-table tbody tr:hover { background: #f9f8ff; }
+
+  .data-table tbody td {
+    padding: 12px 16px;
+    font-size: 13.5px;
+    color: var(--text);
+    vertical-align: middle;
+  }
+
+  /* ── Purchase ID ── */
+  .purchase-id-cell { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+
+  .pid-code {
+    font-family: 'Courier New', monospace;
+    font-size: 11.5px;
+    font-weight: 700;
+    color: var(--accent);
+    background: rgba(108,99,255,0.08);
+    padding: 2px 7px;
+    border-radius: 5px;
+    letter-spacing: 0.03em;
+  }
+
+  .invoice-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    font-size: 10px;
+    font-weight: 700;
+    padding: 2px 7px;
+    border-radius: 20px;
+    background: #dbeafe;
+    color: #1e40af;
+    border: 1px solid #bfdbfe;
+    white-space: nowrap;
+  }
+
+  /* ── Item Name ── */
+  .item-name { font-weight: 600; color: var(--text); }
+
+  /* ── Raised By ── */
+  .raised-by-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 3px 9px;
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--text);
+    white-space: nowrap;
+  }
+
+  /* ── Status Badges ── */
+  .status-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 10px;
+    border-radius: 20px;
+    font-size: 11.5px;
+    font-weight: 700;
+    white-space: nowrap;
+  }
+  .status-badge::before {
+    content: '';
+    width: 5px; height: 5px;
+    border-radius: 50%;
+    background: currentColor;
+    flex-shrink: 0;
+  }
+
+  .status-requested  { background: #fef3c7; color: #92400e; border: 1px solid #fde68a; }
+  .status-approved   { background: #d1fae5; color: #065f46; border: 1px solid #a7f3d0; }
+  .status-rejected   { background: #fee2e2; color: #991b1b; border: 1px solid #fecaca; }
+  .status-completed  { background: #dbeafe; color: #1e40af; border: 1px solid #bfdbfe; }
+
+  .date-cell { color: var(--text-muted); font-size: 12.5px; white-space: nowrap; }
+  .text-dim { color: var(--text-muted); font-size: 12.5px; }
+
+  /* ── Action Buttons ── */
+  .actions-wrap { display: flex; gap: 6px; justify-content: center; flex-wrap: wrap; }
+
+  .btn-details {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 5px 11px;
+    background: var(--surface-2);
+    color: var(--text-muted);
+    border: 1px solid var(--border);
+    border-radius: 7px;
+    font-size: 12px;
+    font-weight: 600;
+    text-decoration: none;
+    cursor: pointer;
+    transition: all 0.13s;
+  }
+  .btn-details:hover { background: var(--border); color: var(--text); }
+
+  .btn-upload {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 5px 11px;
+    background: #f0f0ff;
+    color: var(--accent);
+    border: 1px solid #ddd8ff;
+    border-radius: 7px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.13s;
+  }
+  .btn-upload:hover { background: var(--accent); color: white; border-color: var(--accent); }
+
+  .btn-reupload {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 5px 11px;
+    background: #eff6ff;
+    color: #2563eb;
+    border: 1px solid #bfdbfe;
+    border-radius: 7px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.13s;
+  }
+  .btn-reupload:hover { background: #2563eb; color: white; border-color: #2563eb; }
+
+  /* ── Empty State ── */
+  .empty-state {
+    text-align: center;
+    padding: 70px 24px;
+    color: var(--text-muted);
+  }
+  .empty-state-icon {
+    font-size: 52px;
+    opacity: 0.2;
+    display: block;
+    margin-bottom: 14px;
+  }
+  .empty-state h5 { font-size: 16px; font-weight: 700; color: var(--text); margin-bottom: 6px; }
+  .empty-state p { font-size: 13.5px; margin-bottom: 18px; }
+
+  /* ── Invoice Viewer Modal ── */
+  .invoice-modal-bg {
+    position: fixed; inset: 0;
+    background: rgba(15,23,42,0.7);
+    z-index: 99999;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    backdrop-filter: blur(3px);
+  }
+  .invoice-modal-bg.show { display: flex; }
+  .invoice-modal-box {
+    background: white;
+    border-radius: 16px;
+    width: 90vw; max-width: 860px;
+    height: 90vh;
+    display: flex; flex-direction: column;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+    overflow: hidden;
+  }
+  .invoice-modal-header {
+    padding: 16px 22px;
+    background: #0f172a;
+    color: white;
+    display: flex; align-items: center; justify-content: space-between;
+    flex-shrink: 0;
+  }
+  .invoice-modal-header h5 { margin: 0; font-weight: 700; font-size: 1rem; }
+  .invoice-modal-close {
+    background: none; border: none; color: white;
+    font-size: 1.4rem; cursor: pointer; line-height: 1; padding: 0; opacity: 0.7;
+  }
+  .invoice-modal-close:hover { opacity: 1; }
+  .invoice-pdf-frame { flex: 1; width: 100%; border: none; }
+
+  /* ── Upload Modal ── */
+  .upload-modal-bg {
+    position: fixed; inset: 0;
+    background: rgba(15,23,42,0.6);
+    z-index: 99999;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    backdrop-filter: blur(3px);
+  }
+  .upload-modal-bg.show { display: flex; }
+  .upload-modal-box {
+    background: white;
+    border-radius: 16px;
+    width: 440px; max-width: 95vw;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.25);
+    overflow: hidden;
+  }
+  .upload-modal-header {
+    padding: 18px 22px;
+    background: #0f172a; color: white;
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .upload-modal-header h5 { margin: 0; font-weight: 700; font-size: 1rem; }
+  .upload-modal-body { padding: 24px; }
+  .upload-drop-zone {
+    border: 2px dashed #e2e8f0;
+    border-radius: 12px; padding: 32px;
+    text-align: center; cursor: pointer;
+    transition: all 0.2s; background: #f8fafc;
+    position: relative;
+  }
+  .upload-drop-zone:hover, .upload-drop-zone.over { border-color: #6c63ff; background: #f3f0ff; }
+  .upload-drop-zone input[type="file"] {
+    position: absolute; inset: 0; opacity: 0; cursor: pointer;
+    width: 100%; height: 100%;
+  }
+  .upload-drop-zone i { font-size: 2rem; color: #94a3b8; display: block; margin-bottom: 10px; }
+  .upload-drop-zone p { margin: 0; font-weight: 600; color: #475569; font-size: 0.9rem; }
+  .upload-drop-zone small { color: #94a3b8; font-size: 0.78rem; }
+  .selected-file-info {
+    display: none; align-items: center; gap: 10px;
+    padding: 10px 14px; background: #f0fdf4;
+    border: 1px solid #bbf7d0; border-radius: 9px;
+    margin-top: 12px; font-size: 0.85rem; color: #065f46; font-weight: 600;
+  }
+  .upload-actions { display: flex; gap: 10px; margin-top: 18px; }
+  .btn-upload-confirm {
+    flex: 2; padding: 11px;
+    background: linear-gradient(135deg, var(--accent), #8b7cf8);
+    color: white; border: none; border-radius: 10px;
+    font-weight: 700; font-size: 0.88rem; cursor: pointer;
+    display: flex; align-items: center; justify-content: center; gap: 7px;
+  }
+  .btn-upload-confirm:disabled { opacity: 0.5; cursor: not-allowed; }
+  .btn-upload-cancel {
+    flex: 1; padding: 11px; background: white; color: #475569;
+    border: 1.5px solid #e2e8f0; border-radius: 10px;
+    font-weight: 600; font-size: 0.88rem; cursor: pointer;
+  }
 </style>
 {% endblock style %}
 
@@ -151,364 +343,354 @@
 
 {% block content %}
 <section>
-    <div class="d-flex justify-content-between align-items-center my-3">
-        {% if is_sub_admin %}
-            <div>
-                <h4 class="mb-0">My Purchase Requests</h4>
-                <small class="text-muted">Requests you have raised — track their approval status here</small>
-            </div>
-            <a href="{% url 'central_admin:purchase_create' %}" class="btn btn-primary">
-                <i class="bi bi-plus-circle me-1"></i> New Request
-            </a>
-        {% else %}
-            <div>
-                <h4 class="mb-0">Purchase Requests</h4>
-                <small class="text-muted">Requests raised by sub-admins — review and approve them here</small>
-            </div>
-        {% endif %}
-    </div>
-
-    {% if messages %}
-    <div class="mb-3">
-        {% for message in messages %}
-        <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
-            {{ message }}
-            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-        </div>
-        {% endfor %}
-    </div>
-    {% endif %}
-
-    {% if purchases %}
-    <div class="table-responsive">
-        <table class="table table-hover align-middle">
-            <thead class="table-light">
-                <tr>
-                    <th>Request ID</th>
-                    <th>Item Name</th>
-                    <th>Qty</th>
-                    <th>Room</th>
-                    {% if is_central_admin %}<th>Raised By</th>{% endif %}
-                    <th>Reason</th>
-                    <th>Status</th>
-                    <th>Date</th>
-                    <th class="text-center">Action</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for purchase in purchases %}
-                <tr>
-                    <td>
-                        <code class="small">{{ purchase.purchase_id }}</code>
-                        {% if is_central_admin and purchase.invoice %}
-                            <span class="invoice-indicator ms-1">
-                                <i class="bi bi-file-earmark-pdf-fill"></i> Invoice
-                            </span>
-                        {% endif %}
-                    </td>
-                    <td class="fw-semibold">{{ purchase.item.item_name }}</td>
-                    <td>{{ purchase.quantity }} {{ purchase.unit_of_measure }}</td>
-                    <td>{{ purchase.room.room_name|default:"—" }}</td>
-                    {% if is_central_admin %}
-                    <td>
-                        {% if purchase.requested_by %}
-                            <span class="badge bg-light text-dark border">
-                                <i class="bi bi-person me-1"></i>{{ purchase.requested_by.user.get_full_name|default:purchase.requested_by.user.username }}
-                            </span>
-                        {% else %}
-                            <span class="text-muted small">—</span>
-                        {% endif %}
-                    </td>
-                    {% endif %}
-                    <td>
-                        {% if purchase.reason %}
-                            <span class="small text-muted" title="{{ purchase.reason }}">{{ purchase.reason|truncatechars:40 }}</span>
-                        {% else %}
-                            <span class="text-muted small">—</span>
-                        {% endif %}
-                    </td>
-                    <td>
-                        {% if purchase.status == 'requested' %}
-                            <span class="status-badge status-requested">Requested</span>
-                        {% elif purchase.status == 'approved' %}
-                            <span class="status-badge status-approved">Approved</span>
-                        {% elif purchase.status == 'rejected' %}
-                            <span class="status-badge status-rejected">Rejected</span>
-                        {% elif purchase.status == 'completed' %}
-                            <span class="status-badge status-completed">
-                                {% if not purchase.added_to_stock %}Purchased{% else %}Added to Stock{% endif %}
-                            </span>
-                        {% endif %}
-                    </td>
-                    <td><small class="text-muted">{{ purchase.created_on|date:"d M Y" }}</small></td>
-                    <td class="text-center">
-                        <div class="d-flex gap-2 justify-content-center flex-wrap">
-                            <button type="button" class="btn btn-sm btn-outline-secondary"
-                                data-bs-toggle="modal" data-bs-target="#purchaseModal{{ purchase.id }}">
-                                <i class="bi bi-eye me-1"></i>Details
-                            </button>
-                            {% if is_central_admin %}
-                            <button type="button" class="btn btn-sm {% if purchase.invoice %}btn-outline-primary{% else %}btn-outline-success{% endif %}"
-                                onclick="openUploadModal('{{ purchase.slug }}', '{{ purchase.purchase_id }}')">
-                                <i class="bi bi-{% if purchase.invoice %}arrow-repeat{% else %}upload{% endif %} me-1"></i>
-                                {% if purchase.invoice %}Re-upload{% else %}Upload Invoice{% endif %}
-                            </button>
-                            {% endif %}
-                        </div>
-                    </td>
-                </tr>
-
-                <!-- Details Modal -->
-                <div class="modal fade" id="purchaseModal{{ purchase.id }}" tabindex="-1" aria-hidden="true">
-                    <div class="modal-dialog">
-                        <div class="modal-content">
-                            <div class="modal-header" style="background: #0f172a; color: white;">
-                                <h5 class="modal-title fw-bold">
-                                    <i class="bi bi-bag-check me-2"></i>Purchase Request Details
-                                </h5>
-                                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
-                            </div>
-                            <div class="modal-body">
-                                <p><strong>Request ID:</strong> <code>{{ purchase.purchase_id }}</code></p>
-                                <p><strong>Item:</strong> {{ purchase.item.item_name }}</p>
-                                <p><strong>Quantity:</strong> {{ purchase.quantity }} {{ purchase.unit_of_measure }}</p>
-                                <p><strong>Room:</strong> {{ purchase.room.room_name|default:"Not specified" }}</p>
-                                {% if purchase.reason %}
-                                <p><strong>Reason:</strong> {{ purchase.reason }}</p>
-                                {% endif %}
-                                {% if is_central_admin and purchase.requested_by %}
-                                <p><strong>Raised By:</strong> {{ purchase.requested_by.user.get_full_name|default:purchase.requested_by.user.username }}</p>
-                                {% endif %}
-                                {% if purchase.vendor %}
-                                <p><strong>Vendor:</strong> {{ purchase.vendor.vendor_name }}</p>
-                                {% endif %}
-                                <p><strong>Status:</strong>
-                                    {% if purchase.status == 'requested' %}
-                                        <span class="badge bg-warning text-dark">Pending Review</span>
-                                    {% elif purchase.status == 'approved' %}
-                                        <span class="badge bg-success">Approved</span>
-                                    {% elif purchase.status == 'rejected' %}
-                                        <span class="badge bg-danger">Rejected</span>
-                                    {% elif purchase.status == 'completed' %}
-                                        <span class="badge bg-primary">Completed</span>
-                                    {% endif %}
-                                </p>
-                                <p><strong>Date Raised:</strong> {{ purchase.created_on|date:"d M Y, H:i" }}</p>
-                                {% if purchase.receipt %}
-                                <p><strong>Receipt:</strong> <a href="{{ purchase.receipt.receipt.url }}" target="_blank">View Receipt</a></p>
-                                {% endif %}
-                            </div>
-                            <div class="modal-footer">
-                            {% if is_central_admin and purchase.invoice %}
-                            <button type="button" class="btn btn-primary fw-semibold"
-                                onclick="openInvoiceViewer('{% url 'central_admin:purchase_view_invoice' purchase_slug=purchase.slug %}', '{{ purchase.purchase_id }}')"
-                                data-bs-dismiss="modal">
-                                <i class="bi bi-file-earmark-pdf me-1"></i>View Invoice
-                            </button>
-                            {% elif is_central_admin %}
-                            <span class="text-muted small"><i class="bi bi-file-earmark-x me-1"></i>No invoice uploaded yet</span>
-                            {% endif %}
-                            {% if is_central_admin and purchase.status == 'requested' %}
-                                <a class="btn btn-success fw-semibold"
-                                    href="{% url 'central_admin:purchase_approve' purchase_slug=purchase.slug %}">
-                                    <i class="bi bi-check-circle me-1"></i>Approve
-                                </a>
-                                <a class="btn btn-danger fw-semibold"
-                                    href="{% url 'central_admin:purchase_decline' purchase_slug=purchase.slug %}">
-                                    <i class="bi bi-x-circle me-1"></i>Reject
-                                </a>
-                            {% elif purchase.status == 'approved' %}
-                                <span class="fw-semibold text-success"><i class="bi bi-check-circle-fill me-1"></i>Approved</span>
-                            {% elif purchase.status == 'rejected' %}
-                                <span class="fw-semibold text-danger"><i class="bi bi-x-circle-fill me-1"></i>Rejected</span>
-                            {% elif purchase.status == 'completed' %}
-                                <span class="fw-semibold text-primary"><i class="bi bi-bag-check-fill me-1"></i>
-                                    {% if not purchase.added_to_stock %}Purchase Completed{% else %}Added to Stock{% endif %}
-                                </span>
-                            {% else %}
-                                <button class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-                            {% endif %}
-                        </div>
-                    </div>
-                </div>
-                {% endfor %}
-            </tbody>
-        </table>
-    </div>
+  <div class="page-header">
+    {% if is_sub_admin %}
+      <div>
+        <h4 class="page-title">My Purchase Requests</h4>
+        <p class="page-subtitle">Requests you have raised — track their approval status here</p>
+      </div>
+      <a href="{% url 'central_admin:purchase_create' %}" class="btn-create">
+        <i class="bi bi-plus-circle"></i> New Request
+      </a>
     {% else %}
-    <div class="text-center py-5">
-        <i class="bi bi-bag-x" style="font-size: 4rem; color: #cbd5e0;"></i>
-        {% if is_sub_admin %}
-            <h5 class="text-muted mt-3">No Purchase Requests Yet</h5>
-            <p class="text-muted">Raise a new purchase request when you need items.</p>
-            <a href="{% url 'central_admin:purchase_create' %}" class="btn btn-primary mt-2">
-                <i class="bi bi-plus-circle me-1"></i>Raise Purchase Request
-            </a>
-        {% else %}
-            <h5 class="text-muted mt-3">No Purchase Requests</h5>
-            <p class="text-muted">No purchase requests have been raised by sub-admins yet.</p>
-        {% endif %}
-    </div>
+      <div>
+        <h4 class="page-title">Purchase Requests</h4>
+        <p class="page-subtitle">Requests raised by sub-admins — review and approve them here</p>
+      </div>
     {% endif %}
+  </div>
+
+  {% if messages %}
+  <div class="mb-3">
+    {% for message in messages %}
+    <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+      {{ message }}
+      <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  {% if purchases %}
+  <div class="data-card">
+    <div class="table-responsive">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Request ID</th>
+            <th>Item Name</th>
+            <th>Qty</th>
+            <th>Room</th>
+            {% if is_central_admin %}<th>Raised By</th>{% endif %}
+            <th>Reason</th>
+            <th>Status</th>
+            <th>Date</th>
+            <th style="text-align:center">Action</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for purchase in purchases %}
+          <tr>
+            <td>
+              <div class="purchase-id-cell">
+                <span class="pid-code">{{ purchase.purchase_id }}</span>
+                {% if is_central_admin and purchase.invoice %}
+                  <span class="invoice-chip"><i class="bi bi-file-earmark-pdf-fill"></i> Invoice</span>
+                {% endif %}
+              </div>
+            </td>
+            <td><span class="item-name">{{ purchase.item.item_name }}</span></td>
+            <td class="text-dim">{{ purchase.quantity }} {{ purchase.unit_of_measure }}</td>
+            <td class="text-dim">{{ purchase.room.room_name|default:"—" }}</td>
+            {% if is_central_admin %}
+            <td>
+              {% if purchase.requested_by %}
+                <span class="raised-by-badge">
+                  <i class="bi bi-person"></i>
+                  {{ purchase.requested_by.user.get_full_name|default:purchase.requested_by.user.username }}
+                </span>
+              {% else %}
+                <span class="text-dim">—</span>
+              {% endif %}
+            </td>
+            {% endif %}
+            <td>
+              {% if purchase.reason %}
+                <span class="text-dim" title="{{ purchase.reason }}">{{ purchase.reason|truncatechars:40 }}</span>
+              {% else %}
+                <span class="text-dim">—</span>
+              {% endif %}
+            </td>
+            <td>
+              {% if purchase.status == 'requested' %}
+                <span class="status-badge status-requested">Requested</span>
+              {% elif purchase.status == 'approved' %}
+                <span class="status-badge status-approved">Approved</span>
+              {% elif purchase.status == 'rejected' %}
+                <span class="status-badge status-rejected">Rejected</span>
+              {% elif purchase.status == 'completed' %}
+                <span class="status-badge status-completed">
+                  {% if not purchase.added_to_stock %}Purchased{% else %}Added to Stock{% endif %}
+                </span>
+              {% endif %}
+            </td>
+            <td class="date-cell">{{ purchase.created_on|date:"d M Y" }}</td>
+            <td>
+              <div class="actions-wrap">
+                <button type="button" class="btn-details"
+                  data-bs-toggle="modal" data-bs-target="#purchaseModal{{ purchase.id }}">
+                  <i class="bi bi-eye"></i> Details
+                </button>
+                {% if is_central_admin %}
+                <button type="button"
+                  class="{% if purchase.invoice %}btn-reupload{% else %}btn-upload{% endif %}"
+                  onclick="openUploadModal('{{ purchase.slug }}', '{{ purchase.purchase_id }}')">
+                  <i class="bi bi-{% if purchase.invoice %}arrow-repeat{% else %}upload{% endif %}"></i>
+                  {% if purchase.invoice %}Re-upload{% else %}Upload Invoice{% endif %}
+                </button>
+                {% endif %}
+              </div>
+            </td>
+          </tr>
+
+          <!-- Details Modal (unchanged logic) -->
+          <div class="modal fade" id="purchaseModal{{ purchase.id }}" tabindex="-1" aria-hidden="true">
+            <div class="modal-dialog">
+              <div class="modal-content">
+                <div class="modal-header" style="background: #0f172a; color: white;">
+                  <h5 class="modal-title fw-bold">
+                    <i class="bi bi-bag-check me-2"></i>Purchase Request Details
+                  </h5>
+                  <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                  <p><strong>Request ID:</strong> <code>{{ purchase.purchase_id }}</code></p>
+                  <p><strong>Item:</strong> {{ purchase.item.item_name }}</p>
+                  <p><strong>Quantity:</strong> {{ purchase.quantity }} {{ purchase.unit_of_measure }}</p>
+                  <p><strong>Room:</strong> {{ purchase.room.room_name|default:"Not specified" }}</p>
+                  {% if purchase.reason %}<p><strong>Reason:</strong> {{ purchase.reason }}</p>{% endif %}
+                  {% if is_central_admin and purchase.requested_by %}
+                  <p><strong>Raised By:</strong> {{ purchase.requested_by.user.get_full_name|default:purchase.requested_by.user.username }}</p>
+                  {% endif %}
+                  {% if purchase.vendor %}<p><strong>Vendor:</strong> {{ purchase.vendor.vendor_name }}</p>{% endif %}
+                  <p><strong>Status:</strong>
+                    {% if purchase.status == 'requested' %}
+                      <span class="badge bg-warning text-dark">Pending Review</span>
+                    {% elif purchase.status == 'approved' %}
+                      <span class="badge bg-success">Approved</span>
+                    {% elif purchase.status == 'rejected' %}
+                      <span class="badge bg-danger">Rejected</span>
+                    {% elif purchase.status == 'completed' %}
+                      <span class="badge bg-primary">Completed</span>
+                    {% endif %}
+                  </p>
+                  <p><strong>Date Raised:</strong> {{ purchase.created_on|date:"d M Y, H:i" }}</p>
+                  {% if purchase.receipt %}
+                  <p><strong>Receipt:</strong> <a href="{{ purchase.receipt.receipt.url }}" target="_blank">View Receipt</a></p>
+                  {% endif %}
+                </div>
+                <div class="modal-footer">
+                  {% if is_central_admin and purchase.invoice %}
+                  <button type="button" class="btn btn-primary fw-semibold"
+                    onclick="openInvoiceViewer('{% url 'central_admin:purchase_view_invoice' purchase_slug=purchase.slug %}', '{{ purchase.purchase_id }}')"
+                    data-bs-dismiss="modal">
+                    <i class="bi bi-file-earmark-pdf me-1"></i>View Invoice
+                  </button>
+                  {% elif is_central_admin %}
+                  <span class="text-muted small"><i class="bi bi-file-earmark-x me-1"></i>No invoice uploaded yet</span>
+                  {% endif %}
+                  {% if is_central_admin and purchase.status == 'requested' %}
+                    <a class="btn btn-success fw-semibold" href="{% url 'central_admin:purchase_approve' purchase_slug=purchase.slug %}">
+                      <i class="bi bi-check-circle me-1"></i>Approve
+                    </a>
+                    <a class="btn btn-danger fw-semibold" href="{% url 'central_admin:purchase_decline' purchase_slug=purchase.slug %}">
+                      <i class="bi bi-x-circle me-1"></i>Reject
+                    </a>
+                  {% elif purchase.status == 'approved' %}
+                    <span class="fw-semibold text-success"><i class="bi bi-check-circle-fill me-1"></i>Approved</span>
+                  {% elif purchase.status == 'rejected' %}
+                    <span class="fw-semibold text-danger"><i class="bi bi-x-circle-fill me-1"></i>Rejected</span>
+                  {% elif purchase.status == 'completed' %}
+                    <span class="fw-semibold text-primary"><i class="bi bi-bag-check-fill me-1"></i>
+                      {% if not purchase.added_to_stock %}Purchase Completed{% else %}Added to Stock{% endif %}
+                    </span>
+                  {% else %}
+                    <button class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                  {% endif %}
+                </div>
+              </div>
+            </div>
+          </div>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  {% else %}
+  <div class="data-card">
+    <div class="empty-state">
+      <i class="bi bi-bag-x empty-state-icon"></i>
+      {% if is_sub_admin %}
+        <h5>No Purchase Requests Yet</h5>
+        <p>Raise a new purchase request when you need items.</p>
+        <a href="{% url 'central_admin:purchase_create' %}" class="btn-create">
+          <i class="bi bi-plus-circle"></i> Raise Purchase Request
+        </a>
+      {% else %}
+        <h5>No Purchase Requests</h5>
+        <p>No purchase requests have been raised by sub-admins yet.</p>
+      {% endif %}
+    </div>
+  </div>
+  {% endif %}
 </section>
 
 <!-- Invoice Viewer Modal -->
 <div class="invoice-modal-bg" id="invoiceViewerBg">
-    <div class="invoice-modal-box">
-        <div class="invoice-modal-header">
-            <h5><i class="bi bi-file-earmark-pdf-fill me-2"></i>Invoice — <span id="invoiceModalTitle"></span></h5>
-            <button class="invoice-modal-close" onclick="closeInvoiceViewer()">×</button>
-        </div>
-        {% comment %} <iframe class="invoice-pdf-frame" id="invoicePdfFrame" src=""></iframe> {% endcomment %}
-        <object class="invoice-pdf-frame" id="invoicePdfFrame" data="" type="application/pdf">
-            <div style="display:flex;align-items:center;justify-content:center;height:100%;flex-direction:column;gap:12px;color:#475569;">
-                <i class="bi bi-file-earmark-pdf" style="font-size:3rem;color:#94a3b8;"></i>
-                <p style="font-weight:600;">Can't display PDF in browser.</p>
-                <a id="invoiceDownloadLink" href="" target="_blank" class="btn btn-primary btn-sm">
-                    <i class="bi bi-download me-1"></i>Open PDF
-                </a>
-            </div>
-        </object>
+  <div class="invoice-modal-box">
+    <div class="invoice-modal-header">
+      <h5><i class="bi bi-file-earmark-pdf-fill me-2"></i>Invoice — <span id="invoiceModalTitle"></span></h5>
+      <button class="invoice-modal-close" onclick="closeInvoiceViewer()">×</button>
     </div>
+    <object class="invoice-pdf-frame" id="invoicePdfFrame" data="" type="application/pdf">
+      <div style="display:flex;align-items:center;justify-content:center;height:100%;flex-direction:column;gap:12px;color:#475569;">
+        <i class="bi bi-file-earmark-pdf" style="font-size:3rem;color:#94a3b8;"></i>
+        <p style="font-weight:600;">Can't display PDF in browser.</p>
+        <a id="invoiceDownloadLink" href="" target="_blank" class="btn btn-primary btn-sm">
+          <i class="bi bi-download me-1"></i>Open PDF
+        </a>
+      </div>
+    </object>
+  </div>
 </div>
 
 <!-- Upload Invoice Modal -->
 <div class="upload-modal-bg" id="uploadModalBg">
-    <div class="upload-modal-box">
-        <div class="upload-modal-header">
-            <h5><i class="bi bi-upload me-2"></i>Upload Invoice</h5>
-            <button class="invoice-modal-close" onclick="closeUploadModal()">×</button>
-        </div>
-        <div class="upload-modal-body">
-            <p style="font-size:0.85rem; color:#475569; margin-bottom:16px;">
-                Uploading invoice for <strong id="uploadModalPurchaseId"></strong>
-            </p>
-            <div class="upload-drop-zone" id="uploadDropZone">
-                <input type="file" id="invoiceFileInput" accept=".pdf" onchange="onFileSelected(this)">
-                <i class="bi bi-file-earmark-arrow-up"></i>
-                <p>Click or drag PDF here</p>
-                <small>PDF only · Max 10MB</small>
-            </div>
-            <div class="selected-file-info" id="selectedFileInfo">
-                <i class="bi bi-file-earmark-pdf-fill"></i>
-                <span id="selectedFileName"></span>
-            </div>
-            <div class="upload-actions">
-                <button class="btn-upload-cancel" onclick="closeUploadModal()">Cancel</button>
-                <button class="btn-upload-confirm" id="uploadConfirmBtn" onclick="doUpload()" disabled>
-                    <i class="bi bi-cloud-upload"></i> Upload Invoice
-                </button>
-            </div>
-            <div id="uploadMsg" style="margin-top:12px; font-size:0.83rem; display:none;"></div>
-        </div>
+  <div class="upload-modal-box">
+    <div class="upload-modal-header">
+      <h5><i class="bi bi-upload me-2"></i>Upload Invoice</h5>
+      <button class="invoice-modal-close" onclick="closeUploadModal()">×</button>
     </div>
+    <div class="upload-modal-body">
+      <p style="font-size:0.85rem; color:#475569; margin-bottom:16px;">
+        Uploading invoice for <strong id="uploadModalPurchaseId"></strong>
+      </p>
+      <div class="upload-drop-zone" id="uploadDropZone">
+        <input type="file" id="invoiceFileInput" accept=".pdf" onchange="onFileSelected(this)">
+        <i class="bi bi-file-earmark-arrow-up"></i>
+        <p>Click or drag PDF here</p>
+        <small>PDF only · Max 10MB</small>
+      </div>
+      <div class="selected-file-info" id="selectedFileInfo">
+        <i class="bi bi-file-earmark-pdf-fill"></i>
+        <span id="selectedFileName"></span>
+      </div>
+      <div class="upload-actions">
+        <button class="btn-upload-cancel" onclick="closeUploadModal()">Cancel</button>
+        <button class="btn-upload-confirm" id="uploadConfirmBtn" onclick="doUpload()" disabled>
+          <i class="bi bi-cloud-upload"></i> Upload Invoice
+        </button>
+      </div>
+      <div id="uploadMsg" style="margin-top:12px; font-size:0.83rem; display:none;"></div>
+    </div>
+  </div>
 </div>
 
 <script>
 let currentUploadSlug = null;
 
 function openInvoiceViewer(url, purchaseId) {
-    document.getElementById('invoiceModalTitle').textContent = purchaseId;
-    document.getElementById('invoicePdfFrame').setAttribute('data', url);
-    document.getElementById('invoiceDownloadLink').href = url;
-    document.getElementById('invoiceViewerBg').classList.add('show');
+  document.getElementById('invoiceModalTitle').textContent = purchaseId;
+  document.getElementById('invoicePdfFrame').setAttribute('data', url);
+  document.getElementById('invoiceDownloadLink').href = url;
+  document.getElementById('invoiceViewerBg').classList.add('show');
 }
 
 function closeInvoiceViewer() {
-    document.getElementById('invoiceViewerBg').classList.remove('show');
-    document.getElementById('invoicePdfFrame').setAttribute('data', '');
+  document.getElementById('invoiceViewerBg').classList.remove('show');
+  document.getElementById('invoicePdfFrame').setAttribute('data', '');
 }
 
 function openUploadModal(slug, purchaseId) {
-    currentUploadSlug = slug;
-    document.getElementById('uploadModalPurchaseId').textContent = purchaseId;
-    document.getElementById('invoiceFileInput').value = '';
-    document.getElementById('selectedFileInfo').style.display = 'none';
-    document.getElementById('uploadConfirmBtn').disabled = true;
-    document.getElementById('uploadMsg').style.display = 'none';
-    document.getElementById('uploadModalBg').classList.add('show');
+  currentUploadSlug = slug;
+  document.getElementById('uploadModalPurchaseId').textContent = purchaseId;
+  document.getElementById('invoiceFileInput').value = '';
+  document.getElementById('selectedFileInfo').style.display = 'none';
+  document.getElementById('uploadConfirmBtn').disabled = true;
+  document.getElementById('uploadMsg').style.display = 'none';
+  document.getElementById('uploadModalBg').classList.add('show');
 }
 
 function closeUploadModal() {
-    document.getElementById('uploadModalBg').classList.remove('show');
-    currentUploadSlug = null;
+  document.getElementById('uploadModalBg').classList.remove('show');
+  currentUploadSlug = null;
 }
 
 function onFileSelected(input) {
-    const file = input.files[0];
-    if (!file) return;
-    if (!file.name.toLowerCase().endsWith('.pdf')) {
-        showUploadMsg('Only PDF files are allowed.', 'error');
-        input.value = '';
-        return;
-    }
-    if (file.size > 10 * 1024 * 1024) {
-        showUploadMsg('File too large. Max 10MB allowed.', 'error');
-        input.value = '';
-        return;
-    }
-    document.getElementById('selectedFileName').textContent = file.name;
-    document.getElementById('selectedFileInfo').style.display = 'flex';
-    document.getElementById('uploadConfirmBtn').disabled = false;
-    document.getElementById('uploadMsg').style.display = 'none';
+  const file = input.files[0];
+  if (!file) return;
+  if (!file.name.toLowerCase().endsWith('.pdf')) {
+    showUploadMsg('Only PDF files are allowed.', 'error');
+    input.value = ''; return;
+  }
+  if (file.size > 10 * 1024 * 1024) {
+    showUploadMsg('File too large. Max 10MB allowed.', 'error');
+    input.value = ''; return;
+  }
+  document.getElementById('selectedFileName').textContent = file.name;
+  document.getElementById('selectedFileInfo').style.display = 'flex';
+  document.getElementById('uploadConfirmBtn').disabled = false;
+  document.getElementById('uploadMsg').style.display = 'none';
 }
 
 function doUpload() {
-    const fileInput = document.getElementById('invoiceFileInput');
-    const file = fileInput.files[0];
-    if (!file || !currentUploadSlug) return;
-
-    const btn = document.getElementById('uploadConfirmBtn');
-    btn.disabled = true;
-    btn.innerHTML = '<i class="bi bi-hourglass-split"></i> Uploading...';
-
-    const formData = new FormData();
-    formData.append('invoice', file);
-
-    fetch(`/central_admin/purchases/${currentUploadSlug}/upload-invoice/`, {
-        method: 'POST',
-        headers: { 'X-CSRFToken': getCsrf() },
-        body: formData
-    })
-    .then(r => r.json())
-    .then(data => {
-        btn.innerHTML = '<i class="bi bi-cloud-upload"></i> Upload Invoice';
-        if (data.success) {
-            showUploadMsg('Invoice uploaded successfully!', 'success');
-            setTimeout(() => { closeUploadModal(); location.reload(); }, 1200);
-        } else {
-            btn.disabled = false;
-            showUploadMsg(data.error || 'Upload failed.', 'error');
-        }
-    })
-    .catch(() => {
-        btn.disabled = false;
-        btn.innerHTML = '<i class="bi bi-cloud-upload"></i> Upload Invoice';
-        showUploadMsg('Network error. Try again.', 'error');
-    });
+  const fileInput = document.getElementById('invoiceFileInput');
+  const file = fileInput.files[0];
+  if (!file || !currentUploadSlug) return;
+  const btn = document.getElementById('uploadConfirmBtn');
+  btn.disabled = true;
+  btn.innerHTML = '<i class="bi bi-hourglass-split"></i> Uploading...';
+  const formData = new FormData();
+  formData.append('invoice', file);
+  fetch(`/central_admin/purchases/${currentUploadSlug}/upload-invoice/`, {
+    method: 'POST',
+    headers: { 'X-CSRFToken': getCsrf() },
+    body: formData
+  })
+  .then(r => r.json())
+  .then(data => {
+    btn.innerHTML = '<i class="bi bi-cloud-upload"></i> Upload Invoice';
+    if (data.success) {
+      showUploadMsg('Invoice uploaded successfully!', 'success');
+      setTimeout(() => { closeUploadModal(); location.reload(); }, 1200);
+    } else {
+      btn.disabled = false;
+      showUploadMsg(data.error || 'Upload failed.', 'error');
+    }
+  })
+  .catch(() => {
+    btn.disabled = false;
+    btn.innerHTML = '<i class="bi bi-cloud-upload"></i> Upload Invoice';
+    showUploadMsg('Network error. Try again.', 'error');
+  });
 }
 
 function showUploadMsg(msg, type) {
-    const el = document.getElementById('uploadMsg');
-    el.style.display = 'block';
-    el.style.color = type === 'success' ? '#059669' : '#dc2626';
-    el.innerHTML = `<i class="bi bi-${type === 'success' ? 'check-circle-fill' : 'exclamation-circle-fill'} me-1"></i>${msg}`;
+  const el = document.getElementById('uploadMsg');
+  el.style.display = 'block';
+  el.style.color = type === 'success' ? '#059669' : '#dc2626';
+  el.innerHTML = `<i class="bi bi-${type === 'success' ? 'check-circle-fill' : 'exclamation-circle-fill'} me-1"></i>${msg}`;
 }
 
 function getCsrf() {
-    const c = document.cookie.split(';').find(x => x.trim().startsWith('csrftoken='));
-    return c ? decodeURIComponent(c.trim().split('=')[1]) : '';
+  const c = document.cookie.split(';').find(x => x.trim().startsWith('csrftoken='));
+  return c ? decodeURIComponent(c.trim().split('=')[1]) : '';
 }
 
-document.getElementById('invoiceViewerBg').addEventListener('click', function(e) {
-    if (e.target === this) closeInvoiceViewer();
-});
-document.getElementById('uploadModalBg').addEventListener('click', function(e) {
-    if (e.target === this) closeUploadModal();
-});
-document.addEventListener('keydown', function(e) {
-    if (e.key === 'Escape') { closeInvoiceViewer(); closeUploadModal(); }
-});
+document.getElementById('invoiceViewerBg').addEventListener('click', function(e) { if (e.target === this) closeInvoiceViewer(); });
+document.getElementById('uploadModalBg').addEventListener('click', function(e) { if (e.target === this) closeUploadModal(); });
+document.addEventListener('keydown', function(e) { if (e.key === 'Escape') { closeInvoiceViewer(); closeUploadModal(); } });
 </script>
 
 {% endblock content %}

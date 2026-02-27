@@ -5,11 +5,22 @@
 
 {% block content %}
 <style>
-    /* Premium Visual Enhancements */
     body {
         background: radial-gradient(circle at top right, #f8f9fa, #e9ecef);
         min-height: 100vh;
     }
+
+    /* ── Mobile-first header bar ── */
+    .portal-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        gap: 12px;
+        margin-bottom: 24px;
+        flex-wrap: wrap;
+    }
+    .portal-header-left { flex: 1; min-width: 0; }
+    .portal-header-right { flex-shrink: 0; }
 
     .main-portal-card {
         border: none;
@@ -17,17 +28,6 @@
         background: rgba(255, 255, 255, 0.9);
         backdrop-filter: blur(10px);
         box-shadow: 0 20px 40px rgba(0,0,0,0.08);
-        transition: transform 0.3s ease;
-    }
-
-    .google-auth-box {
-        background: linear-gradient(135deg, #ffffff 0%, #f1f3f5 100%);
-        border-radius: 20px;
-        border: 1px solid rgba(0,0,0,0.05);
-    }
-
-    .bi-google {
-        filter: drop-shadow(0 4px 6px rgba(220, 53, 69, 0.2));
     }
 
     .form-label {
@@ -79,17 +79,9 @@
         border-radius: 12px;
     }
 
-    .table {
-        border-radius: 12px;
-        overflow: hidden;
-    }
+    .table { border-radius: 12px; overflow: hidden; }
+    .table thead { background-color: #212529; color: white; }
 
-    .table thead {
-        background-color: #212529;
-        color: white;
-    }
-
-    /* Animated background elements */
     .bg-blob {
         position: fixed;
         width: 400px;
@@ -111,6 +103,18 @@
         font-size: 0.85rem;
         color: #0d6efd;
         font-weight: 600;
+        max-width: 100%;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    /* Mobile responsive adjustments */
+    @media (max-width: 576px) {
+        .main-portal-card .card-body { padding: 1.25rem !important; }
+        .portal-header { flex-direction: column; align-items: flex-start; }
+        .portal-header-right { align-self: flex-end; margin-top: -8px; }
+        .email-badge { font-size: 0.78rem; }
     }
 </style>
 
@@ -132,10 +136,11 @@
         <div class="col-md-10">
             <div class="card main-portal-card mb-5">
                 <div class="card-body p-4 p-md-5">
-                    <div class="d-flex justify-content-between align-items-center mb-4">
-                        <div>
+                    <!-- Header: title+email on left, logout on right, no overlap on mobile -->
+                    <div class="portal-header">
+                        <div class="portal-header-left">
                             <h2 class="fw-black mb-1">Submit Issue</h2>
-                            <p class="text-muted mb-0">
+                            <p class="text-muted mb-0" style="font-size:0.9rem;">
                                 Logged in as:&nbsp;
                                 {% if student_email %}
                                     <span class="email-badge">
@@ -150,7 +155,11 @@
                                 {% endif %}
                             </p>
                         </div>
-                        <a href="{% url 'core:logout' %}" class="btn btn-outline-danger btn-sm rounded-pill">Logout</a>
+                        <div class="portal-header-right">
+                            <a href="{% url 'core:logout' %}" class="btn btn-outline-danger btn-sm rounded-pill px-3 text-nowrap">
+                                <i class="bi bi-box-arrow-right me-1"></i>Logout
+                            </a>
+                        </div>
                     </div>
 
                     <form method="post" id="issueForm">

@@ -24,5 +24,5 @@ urlpatterns = [
      path('booking/get-bookings/', views.get_bookings_by_email, name='get_bookings_by_email'),
      path('booking/cancel/', views.submit_cancellation_request, name='submit_cancellation_request'),
      path('booking-status/', views.get_booking_status, name='get_booking_status'),
-
+     path('check-document-name/', views.check_document_name, name='check_document_name'),
 ]

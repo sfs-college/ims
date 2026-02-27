@@ -5,6 +5,189 @@
 
 {% block style %}
 <link rel="stylesheet" href="{% static 'styles/inventory/central_admin/rooms/style.css' %}">
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600&display=swap');
+
+  :root {
+    --accent: #6c63ff;
+    --accent-lt: #a89dff;
+    --surface: #ffffff;
+    --surface-2: #f8f8fc;
+    --border: #ebebf5;
+    --text: #1a1a2e;
+    --text-muted: #7c7c9a;
+    --danger: #ef4444;
+    --danger-lt: #fef2f2;
+  }
+
+  body { background: #f4f4fb; font-family: 'DM Sans', sans-serif; }
+
+  .page-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin: 28px 0 20px;
+  }
+
+  .page-title {
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--text);
+    letter-spacing: -0.3px;
+    margin: 0;
+  }
+
+  .btn-create {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 9px 18px;
+    background: linear-gradient(135deg, var(--accent), #8b7cf8);
+    color: white;
+    border: none;
+    border-radius: 9px;
+    font-size: 13.5px;
+    font-weight: 600;
+    text-decoration: none;
+    transition: all 0.18s ease;
+    box-shadow: 0 2px 12px rgba(108,99,255,0.3);
+  }
+  .btn-create:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 18px rgba(108,99,255,0.4);
+    color: white;
+  }
+
+  .data-card {
+    background: var(--surface);
+    border-radius: 14px;
+    border: 1px solid var(--border);
+    overflow: hidden;
+    box-shadow: 0 1px 8px rgba(0,0,0,0.04);
+  }
+
+  .data-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-family: 'DM Sans', sans-serif;
+  }
+
+  .data-table thead tr {
+    background: var(--surface-2);
+    border-bottom: 1px solid var(--border);
+  }
+
+  .data-table thead th {
+    padding: 12px 18px;
+    font-size: 11.5px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    color: var(--text-muted);
+    white-space: nowrap;
+  }
+
+  .data-table tbody tr {
+    border-bottom: 1px solid var(--border);
+    transition: background 0.14s;
+  }
+  .data-table tbody tr:last-child { border-bottom: none; }
+  .data-table tbody tr:hover { background: #f9f8ff; }
+
+  .data-table tbody td {
+    padding: 13px 18px;
+    font-size: 14px;
+    color: var(--text);
+    vertical-align: middle;
+  }
+
+  .person-name {
+    font-weight: 600;
+    color: var(--text);
+    display: flex;
+    align-items: center;
+    gap: 9px;
+  }
+
+  .avatar {
+    width: 30px; height: 30px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--accent), #8b7cf8);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    font-weight: 700;
+    color: white;
+    flex-shrink: 0;
+  }
+
+  .email-cell { color: var(--text-muted); font-size: 13px; }
+
+  .role-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 10px;
+    border-radius: 20px;
+    font-size: 11.5px;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+  }
+
+  .role-central {
+    background: linear-gradient(135deg, rgba(108,99,255,0.12), rgba(108,99,255,0.06));
+    color: var(--accent);
+    border: 1px solid rgba(108,99,255,0.2);
+  }
+  .role-sub {
+    background: rgba(16,185,129,0.1);
+    color: #059669;
+    border: 1px solid rgba(16,185,129,0.2);
+  }
+  .role-incharge {
+    background: rgba(245,158,11,0.1);
+    color: #d97706;
+    border: 1px solid rgba(245,158,11,0.2);
+  }
+  .role-unknown {
+    background: #f1f5f9;
+    color: #64748b;
+    border: 1px solid #e2e8f0;
+  }
+
+  .btn-action-delete {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 6px 12px;
+    background: #fef2f2;
+    color: #ef4444;
+    border: 1px solid #fecaca;
+    border-radius: 7px;
+    font-size: 12.5px;
+    font-weight: 600;
+    text-decoration: none;
+    transition: all 0.14s;
+  }
+  .btn-action-delete:hover {
+    background: #ef4444;
+    color: white;
+    border-color: #ef4444;
+  }
+
+  .empty-state {
+    text-align: center;
+    padding: 60px 24px;
+    color: var(--text-muted);
+  }
+  .empty-state .material-symbols-outlined {
+    font-size: 48px;
+    opacity: 0.25;
+    display: block;
+    margin-bottom: 12px;
+  }
+</style>
 {% endblock style %}
 
 {% block navbar %}
@@ -16,47 +199,61 @@
 {% endblock sidebar %}
 
 {% block content %}
-<div class="table-responsive">
-    
-    <div class="d-flex justify-content-between align-items-center my-3">
-        <h4>People</h4>
-        <div>
-            <a href="{% url 'central_admin:people_create' %}" class="btn btn-primary">Add Person</a>
-        </div>
-    </div>
+<div class="page-header">
+  <h4 class="page-title">People</h4>
+  <a href="{% url 'central_admin:people_create' %}" class="btn-create">
+    <span class="material-symbols-outlined" style="font-size:16px">person_add</span>
+    Add Person
+  </a>
+</div>
 
-    <table class="table">
-      <thead>
-        <tr>
-          <th>Full Name</th>
-          <th>Email</th>
-          <th>Role</th>
-          <th>Action</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for person in people %}
-        <tr>
-          <td>{{ person.user.get_full_name }}</td>
-          <td>{{ person.user.email }}</td>
-          <td>
-              {% if person.is_central_admin %}
-                  Central Admin
-              {% elif person.is_sub_admin %}
-                  Sub Admin
-              {% elif person.is_incharge %}
-                  Room Incharge
-              {% else %}
-                  Unknown
-              {% endif %}
-          </td>
-
-          <td>
-            <a href="{% url 'central_admin:people_delete' people_slug=person.slug %}" class="btn btn-danger btn-sm">Delete</a>
-          </td>
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table>
+<div class="data-card">
+  {% if people %}
+  <table class="data-table">
+    <thead>
+      <tr>
+        <th>Full Name</th>
+        <th>Email</th>
+        <th>Role</th>
+        <th>Action</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for person in people %}
+      <tr>
+        <td>
+          <span class="person-name">
+            <span class="avatar">{{ person.user.get_full_name|first|upper }}</span>
+            {{ person.user.get_full_name }}
+          </span>
+        </td>
+        <td class="email-cell">{{ person.user.email }}</td>
+        <td>
+          {% if person.is_central_admin %}
+            <span class="role-badge role-central">Central Admin</span>
+          {% elif person.is_sub_admin %}
+            <span class="role-badge role-sub">Sub Admin</span>
+          {% elif person.is_incharge %}
+            <span class="role-badge role-incharge">Room Incharge</span>
+          {% else %}
+            <span class="role-badge role-unknown">Unknown</span>
+          {% endif %}
+        </td>
+        <td>
+          <a href="{% url 'central_admin:people_delete' people_slug=person.slug %}" class="btn-action-delete">
+            <span class="material-symbols-outlined" style="font-size:14px">delete</span>
+            Delete
+          </a>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <div class="empty-state">
+    <span class="material-symbols-outlined">groups</span>
+    <p>No people found. Add your first person.</p>
+  </div>
+  {% endif %}
 </div>
 {% endblock content %}

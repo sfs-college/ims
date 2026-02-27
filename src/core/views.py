@@ -148,10 +148,18 @@ def room_booking_view(request):
     if request.method == "POST":
         form = RoomBookingForm(request.POST, request.FILES)
         if form.is_valid():
-            # Save as a PENDING RoomBookingRequest — admin must approve before
-            # it becomes a confirmed RoomBooking in the system.
+            import uuid as _uuid
+            import os as _os
             booking_req = form.save(commit=False)
             booking_req.status = 'pending'
+            # Ensure each uploaded document gets a unique storage name
+            if booking_req.requirements_doc:
+                orig_name = _os.path.basename(booking_req.requirements_doc.name)
+                name_root, ext = _os.path.splitext(orig_name)
+                unique_name = f"{name_root}_{_uuid.uuid4().hex[:8]}{ext}"
+                booking_req.requirements_doc.name = _os.path.join(
+                    _os.path.dirname(booking_req.requirements_doc.name), unique_name
+                )
             booking_req.save()
             return render(request, "booking/booking_success.html", {
                 "booking": booking_req,
@@ -529,3 +537,33 @@ def delete_booking_credential(request, pk):
         get_object_or_404(RoomBookingCredentials, pk=pk).delete()
         messages.success(request, "Credential deleted.")
     return redirect('central_admin:aura_dashboard')
+
+
+def check_document_name(request):
+    """
+    AJAX GET — checks whether the given filename already exists in
+    RoomBookingRequest or RoomBooking requirements_doc fields.
+    Returns {'is_unique': True/False}
+    """
+    filename = request.GET.get('filename', '').strip()
+    if not filename:
+        return JsonResponse({'is_unique': True})
+
+    # Normalise: just the basename, case-insensitive
+    import os as _os
+    basename = _os.path.basename(filename).lower()
+
+    # Check RoomBookingRequest (pending)
+    from inventory.models import RoomBookingRequest as _RBR
+    exists_in_requests = _RBR.objects.filter(
+        requirements_doc__iendswith=basename
+    ).exists()
+
+    # Check confirmed RoomBooking
+    from inventory.models import RoomBooking as _RB
+    exists_in_bookings = _RB.objects.filter(
+        requirements_doc__iendswith=basename
+    ).exists()
+
+    is_unique = not (exists_in_requests or exists_in_bookings)
+    return JsonResponse({'is_unique': is_unique})
