@@ -82,6 +82,7 @@ urlpatterns = [
     path('booking-doc/<int:booking_id>/download/', aura.download_booking_doc, name='download_booking_doc'),
     path('api/room-inventory/', aura.get_room_inventory, name='get_room_inventory'),
     path('purchases/create/', central_admin.PurchaseCreateView.as_view(), name='purchase_create'),
+    path('purchases/<slug:purchase_slug>/approve/', central_admin.PurchaseApproveView.as_view(), name='purchase_approve'),
     
     path('booking-doc-text/<int:booking_id>/', aura.get_booking_doc_text, name='get_booking_doc_text'),
     path('booking-doc-pdf/<int:booking_id>/',  aura.download_booking_doc_as_pdf, name='download_booking_doc_as_pdf'),
