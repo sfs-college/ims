@@ -1517,46 +1517,85 @@ class MasterInventoryListView(LoginRequiredMixin, CentralAdminRequiredMixin, Tem
             organisation=org,
             room__isnull=True,
             is_listed=True
-        ).select_related('category', 'brand').order_by('-created_on')
+        ).select_related('category', 'brand').order_by('item_name')
 
         items_data = []
         for item in master_items:
-            assigned_count = Item.objects.filter(
+            assigned = Item.objects.filter(
                 organisation=org,
                 item_name=item.item_name,
                 room__isnull=False
-            ).aggregate(
-                total_assigned=models.Sum('total_count')
-            )['total_assigned'] or 0
+            ).aggregate(total=models.Sum('total_count'))['total'] or 0
+
+            available = item.total_count
+            total_items = available + assigned
+            cpu = item.cost or 0
+            total_cost = float(cpu) * total_items if cpu else 0
 
             items_data.append({
                 'item': item,
-                'assigned_count': assigned_count,
-                'available_stock': item.total_count,
+                'available_stock': available,
+                'assigned_count': assigned,
+                'total_items': total_items,
+                'cpu': cpu,
+                'total_cost': round(total_cost, 2),
             })
 
         context['items_data'] = items_data
         context['total_items'] = len(items_data)
         return context
-
+    
 def master_inventory_export_pdf(request):
     profile = request.user.profile
     if not (profile.is_central_admin or profile.is_sub_admin):
         return HttpResponse("Unauthorized", status=403)
 
     org = profile.org
-    fields = request.GET.getlist('fields')  # e.g. ['name','category','brand','stock','cost']
-
+    fields = request.GET.getlist('fields')
     if not fields:
-        fields = ['name', 'category', 'brand', 'assigned', 'stock']
+        fields = ['name', 'category', 'brand', 'assigned', 'stock', 'cost']
 
     master_items = Item.objects.filter(
         organisation=org,
-        room__isnull=True
+        room__isnull=True,
+        is_listed=True                          # ← fix #1
     ).select_related('category', 'brand').order_by('item_name')
 
-    # Build data
-    rows = []
+    buffer = io.BytesIO()
+    doc = SimpleDocTemplate(buffer, pagesize=landscape(A4),
+                            rightMargin=20, leftMargin=20,
+                            topMargin=30, bottomMargin=30)
+    elements = []
+    styles = getSampleStyleSheet()
+    elements.append(Paragraph("Master Inventory Report", styles['Title']))
+    elements.append(Spacer(1, 10))
+
+    # ── Build header row ──
+    # Selected text fields first, then always include all stock+cost columns
+    text_col_map = {
+        'name':     ('Item Name',  80),
+        'category': ('Category',   70),
+        'brand':    ('Brand',      70),
+    }
+    # Always-present columns (5 of them)
+    fixed_cols = [
+        ('Assigned\nto Rooms', 55),
+        ('Available\nin Stock', 55),
+        ('Total\nItems',        55),
+        ('Cost /\nUnit (₹)',    60),
+        ('Total\nCost (₹)',     65),
+    ]
+
+    selected_text = [k for k in ['name', 'category', 'brand'] if k in fields]
+    headers = [Paragraph(text_col_map[k][0], styles['Normal']) for k in selected_text]
+    col_widths = [text_col_map[k][1] for k in selected_text]
+
+    for label, w in fixed_cols:
+        headers.append(Paragraph(label, styles['Normal']))
+        col_widths.append(w)
+
+    table_data = [headers]
+
     for item in master_items:
         assigned = Item.objects.filter(
             organisation=org,
@@ -1564,49 +1603,45 @@ def master_inventory_export_pdf(request):
             room__isnull=False
         ).aggregate(total=models.Sum('total_count'))['total'] or 0
 
-        row = {}
-        if 'name' in fields:     row['Item Name'] = item.item_name
-        if 'category' in fields: row['Category'] = item.category.category_name
-        if 'brand' in fields:    row['Brand'] = item.brand.brand_name
-        if 'assigned' in fields: row['Assigned to Rooms'] = assigned
-        if 'stock' in fields:    row['Available Stock'] = item.total_count
-        if 'cost' in fields:     row['Cost'] = f"₹{item.cost}" if item.cost else '—'
-        if 'description' in fields: row['Description'] = item.item_description or '—'
-        rows.append(row)
+        available = item.total_count
+        total_items = available + assigned
+        cpu = item.cost or 0
+        total_cost = (cpu * total_items) if cpu else 0
 
-    # Build PDF
-    buffer = io.BytesIO()
-    doc = SimpleDocTemplate(buffer, pagesize=landscape(A4),
-                            rightMargin=30, leftMargin=30,
-                            topMargin=30, bottomMargin=30)
-    elements = []
-    styles = getSampleStyleSheet()
+        row = []
+        if 'name' in selected_text:
+            row.append(Paragraph(item.item_name, styles['Normal']))
+        if 'category' in selected_text:
+            row.append(Paragraph(item.category.category_name, styles['Normal']))
+        if 'brand' in selected_text:
+            row.append(Paragraph(item.brand.brand_name, styles['Normal']))
 
-    elements.append(Paragraph("Master Inventory Report", styles['Title']))
-    elements.append(Spacer(1, 12))
+        row += [
+            Paragraph(str(assigned), styles['Normal']),
+            Paragraph(str(available), styles['Normal']),
+            Paragraph(str(total_items), styles['Normal']),
+            Paragraph(f"₹{cpu}", styles['Normal']),
+            Paragraph(f"₹{total_cost:.2f}", styles['Normal']),
+        ]
+        table_data.append(row)
 
-    if not rows:
+    if len(table_data) == 1:
         elements.append(Paragraph("No items found.", styles['Normal']))
     else:
-        headers = list(rows[0].keys())
-        col_width = (landscape(A4)[0] - 60) / len(headers)
-
-        table_data = [headers]
-        for row in rows:
-            table_data.append([Paragraph(str(v), styles['Normal']) for v in row.values()])
-
-        table = Table(table_data, repeatRows=1,
-                      colWidths=[col_width] * len(headers))
+        table = Table(table_data, repeatRows=1, colWidths=col_widths)
         table.setStyle(TableStyle([
             ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#0f172a')),
             ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
             ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-            ('FONTSIZE', (0, 0), (-1, -1), 9),
+            ('FONTSIZE', (0, 0), (-1, -1), 8),
             ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
-            ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
-            ('VALIGN', (0, 0), (-1, -1), 'TOP'),
-            ('BOTTOMPADDING', (0, 0), (-1, 0), 10),
-            ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#f8fafc')]),
+            ('ALIGN', (len(selected_text), 0), (-1, -1), 'CENTER'),
+            ('GRID', (0, 0), (-1, -1), 0.4, colors.grey),
+            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+            ('BOTTOMPADDING', (0, 0), (-1, 0), 8),
+            ('TOPPADDING', (0, 0), (-1, 0), 8),
+            ('ROWBACKGROUNDS', (0, 1), (-1, -1),
+             [colors.white, colors.HexColor('#f8fafc')]),
         ]))
         elements.append(table)
 
@@ -1624,42 +1659,52 @@ def master_inventory_export_excel(request):
 
     org = profile.org
     fields = request.GET.getlist('fields')
-
     if not fields:
-        fields = ['name', 'category', 'brand', 'assigned', 'stock']
+        fields = ['name', 'category', 'brand', 'stock', 'cost']
 
     master_items = Item.objects.filter(
         organisation=org,
-        room__isnull=True
+        room__isnull=True,
+        is_listed=True                          # ← fix #1
     ).select_related('category', 'brand').order_by('item_name')
 
     import openpyxl
-    from openpyxl.styles import Font, PatternFill, Alignment
+    from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 
     wb = openpyxl.Workbook()
     ws = wb.active
     ws.title = "Master Inventory"
 
-    # Build headers
-    header_map = {
-        'name':        'Item Name',
-        'category':    'Category',
-        'brand':       'Brand',
-        'assigned':    'Assigned to Rooms',
-        'stock':       'Available Stock',
-        'cost':        'Cost',
-        'description': 'Description',
+    # ── Headers ──
+    text_col_map = {
+        'name':     'Item Name',
+        'category': 'Category',
+        'brand':    'Brand',
     }
-    headers = [header_map[f] for f in fields if f in header_map]
+    selected_text = [k for k in ['name', 'category', 'brand'] if k in fields]
+    headers = [text_col_map[k] for k in selected_text]
+
+    # Always add all stock + cost columns
+    headers += [
+        'Assigned to Rooms',
+        'Available in Stock',
+        'Total Items',
+        'Cost per Unit (₹)',
+        'Total Cost (₹)',
+    ]
+
     ws.append(headers)
 
-    # Style header
+    # Style header row
+    dark = PatternFill(start_color="0F172A", end_color="0F172A", fill_type="solid")
     for cell in ws[1]:
-        cell.font = Font(bold=True, color="FFFFFF", size=11)
-        cell.fill = PatternFill(start_color="0F172A", end_color="0F172A", fill_type="solid")
-        cell.alignment = Alignment(horizontal="center", vertical="center")
+        cell.font = Font(bold=True, color="FFFFFF", size=10)
+        cell.fill = dark
+        cell.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
 
-    # Add rows
+    ws.row_dimensions[1].height = 30
+
+    # ── Data rows ──
     for item in master_items:
         assigned = Item.objects.filter(
             organisation=org,
@@ -1667,28 +1712,56 @@ def master_inventory_export_excel(request):
             room__isnull=False
         ).aggregate(total=models.Sum('total_count'))['total'] or 0
 
+        available = item.total_count
+        total_items = available + assigned
+        cpu = float(item.cost) if item.cost else 0
+        total_cost = round(cpu * total_items, 2)
+
         row = []
-        if 'name' in fields:        row.append(item.item_name)
-        if 'category' in fields:    row.append(item.category.category_name)
-        if 'brand' in fields:       row.append(item.brand.brand_name)
-        if 'assigned' in fields:    row.append(assigned)
-        if 'stock' in fields:       row.append(item.total_count)
-        if 'cost' in fields:        row.append(float(item.cost) if item.cost else 0)
-        if 'description' in fields: row.append(item.item_description or '')
+        if 'name' in selected_text:     row.append(item.item_name)
+        if 'category' in selected_text: row.append(item.category.category_name)
+        if 'brand' in selected_text:    row.append(item.brand.brand_name)
+
+        row += [assigned, available, total_items, cpu, total_cost]
         ws.append(row)
 
-    # Style rows
-    for row in ws.iter_rows(min_row=2, max_row=ws.max_row):
+    # Style data rows
+    thin = Border(
+        left=Side(style='thin', color='E2E8F0'),
+        right=Side(style='thin', color='E2E8F0'),
+        top=Side(style='thin', color='E2E8F0'),
+        bottom=Side(style='thin', color='E2E8F0'),
+    )
+    for i, row in enumerate(ws.iter_rows(min_row=2, max_row=ws.max_row), start=2):
+        fill = PatternFill(start_color="F8FAFC", end_color="F8FAFC", fill_type="solid") \
+               if i % 2 == 0 else None
         for cell in row:
-            cell.alignment = Alignment(vertical="top", wrap_text=True)
+            cell.alignment = Alignment(vertical="center", horizontal="center")
+            cell.border = thin
+            if fill:
+                cell.fill = fill
+
+    # Left-align text columns
+    for row in ws.iter_rows(min_row=2, max_row=ws.max_row,
+                             min_col=1, max_col=len(selected_text)):
+        for cell in row:
+            cell.alignment = Alignment(vertical="center", horizontal="left")
 
     # Column widths
-    col_widths = {
-        'name': 35, 'category': 20, 'brand': 20,
-        'assigned': 18, 'stock': 16, 'cost': 14, 'description': 40
-    }
-    for i, f in enumerate([f for f in fields if f in header_map], start=1):
-        ws.column_dimensions[ws.cell(row=1, column=i).column_letter].width = col_widths.get(f, 18)
+    text_widths = {'name': 32, 'category': 20, 'brand': 18}
+    fixed_widths = [18, 18, 14, 18, 16]
+
+    col = 1
+    for k in selected_text:
+        ws.column_dimensions[ws.cell(row=1, column=col).column_letter].width = text_widths[k]
+        col += 1
+    for w in fixed_widths:
+        ws.column_dimensions[ws.cell(row=1, column=col).column_letter].width = w
+        col += 1
+
+    # Row heights
+    for r in range(2, ws.max_row + 1):
+        ws.row_dimensions[r].height = 20
 
     output = io.BytesIO()
     wb.save(output)

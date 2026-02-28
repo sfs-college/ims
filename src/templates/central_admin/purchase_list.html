@@ -468,6 +468,8 @@
                   <p><strong>Item:</strong> {{ purchase.item.item_name }}</p>
                   <p><strong>Quantity:</strong> {{ purchase.quantity }} {{ purchase.unit_of_measure }}</p>
                   <p><strong>Room:</strong> {{ purchase.room.room_name|default:"Not specified" }}</p>
+                  {% if purchase.item_category %}<p><strong>Category:</strong> {{ purchase.item_category }}</p>{% endif %}
+                  {% if purchase.item_brand %}<p><strong>Brand:</strong> {{ purchase.item_brand }}</p>{% endif %}
                   {% if purchase.reason %}<p><strong>Reason:</strong> {{ purchase.reason }}</p>{% endif %}
                   {% if is_central_admin and purchase.requested_by %}
                   <p><strong>Raised By:</strong> {{ purchase.requested_by.user.get_full_name|default:purchase.requested_by.user.username }}</p>
@@ -500,12 +502,15 @@
                   <span class="text-muted small"><i class="bi bi-file-earmark-x me-1"></i>No invoice uploaded yet</span>
                   {% endif %}
                   {% if is_central_admin and purchase.status == 'requested' %}
-                    <a class="btn btn-success fw-semibold" href="{% url 'central_admin:purchase_approve' purchase_slug=purchase.slug %}">
+                  <button type="button" class="btn btn-success fw-semibold"
+                      onclick="openApproveModal('{{ purchase.slug }}', '{{ purchase.purchase_id }}', '{{ purchase.item.item_name|escapejs }}')"
+                      data-bs-dismiss="modal">
                       <i class="bi bi-check-circle me-1"></i>Approve
-                    </a>
-                    <a class="btn btn-danger fw-semibold" href="{% url 'central_admin:purchase_decline' purchase_slug=purchase.slug %}">
+                  </button>
+                  <a class="btn btn-danger fw-semibold"
+                      href="{% url 'central_admin:purchase_decline' purchase_slug=purchase.slug %}">
                       <i class="bi bi-x-circle me-1"></i>Reject
-                    </a>
+                  </a>
                   {% elif purchase.status == 'approved' %}
                     <span class="fw-semibold text-success"><i class="bi bi-check-circle-fill me-1"></i>Approved</span>
                   {% elif purchase.status == 'rejected' %}
@@ -545,6 +550,37 @@
   </div>
   {% endif %}
 </section>
+
+<!-- Approve Modal -->
+<div class="upload-modal-bg" id="approveModalBg">
+  <div class="upload-modal-box">
+    <div class="upload-modal-header">
+      <h5><i class="bi bi-check-circle me-2"></i>Approve Purchase Request</h5>
+      <button class="invoice-modal-close" onclick="closeApproveModal()">×</button>
+    </div>
+    <div class="upload-modal-body">
+      <p style="font-size:0.85rem;color:#475569;margin-bottom:4px;">
+        Approving <strong id="approveModalPurchaseId"></strong>
+      </p>
+      <p style="font-size:0.85rem;color:#475569;margin-bottom:16px;">
+        Item: <strong id="approveModalItemName"></strong>
+      </p>
+      <label style="font-size:0.78rem;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:0.05em;display:block;margin-bottom:6px;">
+        Cost per Unit <span style="font-weight:400;text-transform:none;">(optional)</span>
+      </label>
+      <input type="number" id="approveCostInput" step="0.01" min="0"
+        placeholder="e.g. 55000.00"
+        style="width:100%;padding:10px 14px;border-radius:10px;border:1.5px solid #e2e8f0;font-size:0.95rem;margin-bottom:18px;">
+      <div class="upload-actions">
+        <button class="btn-upload-cancel" onclick="closeApproveModal()">Cancel</button>
+        <button class="btn-upload-confirm" onclick="doApprove()">
+          <i class="bi bi-check-circle"></i> Confirm Approval
+        </button>
+      </div>
+      <div id="approveMsg" style="margin-top:12px;font-size:0.83rem;display:none;"></div>
+    </div>
+  </div>
+</div>
 
 <!-- Invoice Viewer Modal -->
 <div class="invoice-modal-bg" id="invoiceViewerBg">
@@ -690,7 +726,50 @@ function getCsrf() {
 
 document.getElementById('invoiceViewerBg').addEventListener('click', function(e) { if (e.target === this) closeInvoiceViewer(); });
 document.getElementById('uploadModalBg').addEventListener('click', function(e) { if (e.target === this) closeUploadModal(); });
-document.addEventListener('keydown', function(e) { if (e.key === 'Escape') { closeInvoiceViewer(); closeUploadModal(); } });
+document.addEventListener('keydown', function(e) { if (e.key === 'Escape') { closeInvoiceViewer(); closeUploadModal(); closeApproveModal();} });
+
+let currentApproveSlug = null;
+
+function openApproveModal(slug, purchaseId, itemName) {
+  currentApproveSlug = slug;
+  document.getElementById('approveModalPurchaseId').textContent = purchaseId;
+  document.getElementById('approveModalItemName').textContent = itemName;
+  document.getElementById('approveCostInput').value = '';
+  document.getElementById('approveMsg').style.display = 'none';
+  document.getElementById('approveModalBg').classList.add('show');
+}
+
+function closeApproveModal() {
+  document.getElementById('approveModalBg').classList.remove('show');
+  currentApproveSlug = null;
+}
+
+function doApprove() {
+  if (!currentApproveSlug) return;
+  const cost = document.getElementById('approveCostInput').value;
+  const formData = new FormData();
+  if (cost) formData.append('cost', cost);
+
+  fetch(`/central_admin/purchases/${currentApproveSlug}/approve/`, {
+    method: 'POST',
+    headers: { 'X-CSRFToken': getCsrf() },
+    body: formData
+  })
+  .then(r => {
+    closeApproveModal();
+    location.reload();
+  })
+  .catch(() => {
+    const el = document.getElementById('approveMsg');
+    el.style.display = 'block';
+    el.style.color = '#dc2626';
+    el.textContent = 'Approval failed. Please try again.';
+  });
+}
+
+document.getElementById('approveModalBg').addEventListener('click', function(e) {
+  if (e.target === this) closeApproveModal();
+});
 </script>
 
 {% endblock content %}

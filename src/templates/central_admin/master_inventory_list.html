@@ -15,272 +15,148 @@
         --text-dark: #1e293b;
         --text-mid: #475569;
         --text-muted: #94a3b8;
-        --surface: #f8fafc;
         --shadow: 0 2px 8px rgba(0,0,0,0.05);
     }
 
     .internal-nav {
-        position: sticky;
-        top: 0;
-        z-index: 500;
-        background: #fff;
-        border-bottom: 1px solid var(--border);
+        position: sticky; top: 0; z-index: 500;
+        background: #fff; border-bottom: 1px solid var(--border);
         box-shadow: 0 2px 12px rgba(118,75,162,0.08);
-        display: flex;
-        align-items: center;
-        padding: 0 28px;
-        height: 62px;
-        gap: 16px;
+        display: flex; align-items: center;
+        padding: 0 28px; height: 62px; gap: 16px;
     }
-
-    .nav-brand {
-        display: flex;
-        align-items: center;
-        gap: 12px;
-        text-decoration: none;
-        flex-shrink: 0;
-    }
-
+    .nav-brand { display:flex; align-items:center; gap:12px; text-decoration:none; flex-shrink:0; }
     .nav-logo {
-        width: 36px;
-        height: 36px;
-        background: var(--primary-grad);
-        border-radius: 10px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-size: 0.68rem;
-        font-weight: 900;
-        color: white;
-        letter-spacing: 0.5px;
-        flex-shrink: 0;
+        width:36px; height:36px; background:var(--primary-grad);
+        border-radius:10px; display:flex; align-items:center; justify-content:center;
+        font-size:0.68rem; font-weight:900; color:white; letter-spacing:0.5px; flex-shrink:0;
     }
-
-    .nav-brand-text { display: flex; flex-direction: column; line-height: 1.1; }
-    .nav-brand-title { font-size: 0.95rem; font-weight: 800; color: var(--text-dark); }
-    .nav-brand-sub { font-size: 0.68rem; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.8px; }
-    .nav-divider { width: 1px; height: 28px; background: var(--border); flex-shrink: 0; }
-
-    .nav-breadcrumb {
-        display: flex;
-        align-items: center;
-        gap: 6px;
-        font-size: 0.82rem;
-        color: var(--text-muted);
-    }
-
-    .nav-breadcrumb a { color: var(--text-muted); text-decoration: none; transition: color 0.2s; }
-    .nav-breadcrumb a:hover { color: var(--purple); }
-    .nav-breadcrumb .crumb-active { color: var(--text-dark); font-weight: 600; }
-    .nav-breadcrumb i { font-size: 0.65rem; }
-
-    .nav-actions {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        margin-left: auto;
-        flex-shrink: 0;
-    }
-
+    .nav-brand-text { display:flex; flex-direction:column; line-height:1.1; }
+    .nav-brand-title { font-size:0.95rem; font-weight:800; color:var(--text-dark); }
+    .nav-brand-sub { font-size:0.68rem; font-weight:600; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.8px; }
+    .nav-divider { width:1px; height:28px; background:var(--border); flex-shrink:0; }
+    .nav-breadcrumb { display:flex; align-items:center; gap:6px; font-size:0.82rem; color:var(--text-muted); }
+    .nav-breadcrumb a { color:var(--text-muted); text-decoration:none; transition:color 0.2s; }
+    .nav-breadcrumb a:hover { color:var(--purple); }
+    .nav-breadcrumb .crumb-active { color:var(--text-dark); font-weight:600; }
+    .nav-breadcrumb i { font-size:0.65rem; }
+    .nav-actions { display:flex; align-items:center; gap:8px; margin-left:auto; flex-shrink:0; }
     .nav-btn-ghost {
-        display: inline-flex;
-        align-items: center;
-        gap: 6px;
-        padding: 7px 14px;
-        border-radius: 8px;
-        border: 1.5px solid var(--border);
-        background: white;
-        color: var(--text-mid);
-        font-size: 0.8rem;
-        font-weight: 600;
-        text-decoration: none;
-        cursor: pointer;
-        transition: all 0.2s;
-        white-space: nowrap;
+        display:inline-flex; align-items:center; gap:6px; padding:7px 14px;
+        border-radius:8px; border:1.5px solid var(--border); background:white;
+        color:var(--text-mid); font-size:0.8rem; font-weight:600;
+        text-decoration:none; cursor:pointer; transition:all 0.2s; white-space:nowrap;
     }
-
-    .nav-btn-ghost:hover { border-color: var(--purple); color: var(--purple); background: var(--purple-light); }
-
+    .nav-btn-ghost:hover { border-color:var(--purple); color:var(--purple); background:var(--purple-light); }
     .nav-btn-primary {
-        display: inline-flex;
-        align-items: center;
-        gap: 6px;
-        padding: 8px 18px;
-        border-radius: 8px;
-        border: none;
-        background: var(--primary-grad);
-        color: white;
-        font-size: 0.8rem;
-        font-weight: 700;
-        text-decoration: none;
-        cursor: pointer;
-        transition: all 0.2s;
-        white-space: nowrap;
-        box-shadow: 0 2px 8px rgba(118,75,162,0.25);
+        display:inline-flex; align-items:center; gap:6px; padding:8px 18px;
+        border-radius:8px; border:none; background:var(--primary-grad); color:white;
+        font-size:0.8rem; font-weight:700; text-decoration:none; cursor:pointer;
+        transition:all 0.2s; white-space:nowrap; box-shadow:0 2px 8px rgba(118,75,162,0.25);
     }
-
-    .nav-btn-primary:hover { opacity: 0.9; color: white; transform: translateY(-1px); }
-
+    .nav-btn-primary:hover { opacity:0.9; color:white; transform:translateY(-1px); }
     .nav-stat {
-        display: inline-flex;
-        align-items: center;
-        gap: 6px;
-        padding: 6px 12px;
-        border-radius: 8px;
-        background: var(--purple-light);
-        color: var(--purple);
-        font-size: 0.78rem;
-        font-weight: 700;
+        display:inline-flex; align-items:center; gap:6px; padding:6px 12px;
+        border-radius:8px; background:var(--purple-light); color:var(--purple);
+        font-size:0.78rem; font-weight:700;
     }
 
-    .inventory-container { padding: 32px; background: #f8fafc; min-height: 100vh; }
+    .inventory-container { padding:32px; background:#f8fafc; min-height:100vh; }
 
     .page-header {
-        background: white;
-        padding: 24px 30px;
-        border-radius: 16px;
-        box-shadow: var(--shadow);
-        margin-bottom: 20px;
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        gap: 16px;
-        flex-wrap: wrap;
+        background:white; padding:24px 30px; border-radius:16px;
+        box-shadow:var(--shadow); margin-bottom:20px;
+        display:flex; justify-content:space-between; align-items:center;
+        gap:16px; flex-wrap:wrap;
     }
-
     .page-title {
-        background: var(--primary-grad);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-        font-weight: 800;
-        font-size: 2rem;
-        margin: 0;
-        line-height: 1.2;
+        background:var(--primary-grad); -webkit-background-clip:text;
+        -webkit-text-fill-color:transparent; font-weight:800; font-size:2rem; margin:0;
     }
-
-    .header-actions { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
-
     .btn-assign {
-        background: var(--purple);
-        color: white;
-        border: none;
-        padding: 11px 26px;
-        border-radius: 10px;
-        font-weight: 600;
-        font-size: 0.95rem;
-        text-decoration: none;
-        transition: all 0.2s;
-        display: inline-flex;
-        align-items: center;
+        background:var(--purple); color:white; border:none; padding:11px 26px;
+        border-radius:10px; font-weight:600; font-size:0.95rem; text-decoration:none;
+        transition:all 0.2s; display:inline-flex; align-items:center;
     }
+    .btn-assign:hover { background:var(--purple-dark); color:white; transform:translateY(-2px); }
 
-    .btn-assign:hover { background: var(--purple-dark); color: white; transform: translateY(-2px); box-shadow: 0 5px 15px rgba(147,51,234,0.3); }
-
-    /* FIELD SELECTOR PANEL */
+    /* ── FIELD SELECTOR ── */
     .field-selector-panel {
-        background: white;
-        border-radius: 14px;
-        box-shadow: var(--shadow);
-        padding: 18px 24px;
-        margin-bottom: 20px;
-        display: flex;
-        align-items: center;
-        gap: 20px;
-        flex-wrap: wrap;
+        background:white; border-radius:14px; box-shadow:var(--shadow);
+        padding:16px 22px; margin-bottom:20px;
+        display:flex; align-items:center; gap:16px; flex-wrap:wrap;
     }
-
     .field-selector-label {
-        font-size: 0.78rem;
-        font-weight: 700;
-        text-transform: uppercase;
-        letter-spacing: 0.05em;
-        color: var(--text-mid);
-        flex-shrink: 0;
+        font-size:0.75rem; font-weight:700; text-transform:uppercase;
+        letter-spacing:0.05em; color:var(--text-mid); flex-shrink:0;
     }
-
-    .field-checkboxes {
-        display: flex;
-        gap: 10px;
-        flex-wrap: wrap;
-        flex: 1;
-    }
-
+    .field-checkboxes { display:flex; gap:8px; flex-wrap:wrap; flex:1; }
     .field-check-item {
-        display: inline-flex;
-        align-items: center;
-        gap: 6px;
-        padding: 6px 13px;
-        border-radius: 20px;
-        border: 1.5px solid var(--border);
-        cursor: pointer;
-        font-size: 0.8rem;
-        font-weight: 600;
-        color: var(--text-mid);
-        transition: all 0.18s;
-        user-select: none;
+        display:inline-flex; align-items:center; gap:5px; padding:5px 12px;
+        border-radius:20px; border:1.5px solid var(--border); cursor:pointer;
+        font-size:0.78rem; font-weight:600; color:var(--text-mid);
+        transition:all 0.18s; user-select:none;
     }
+    .field-check-item:hover { border-color:var(--purple); color:var(--purple); background:var(--purple-light); }
+    .field-check-item input[type="checkbox"] { display:none; }
+    .field-check-item.selected { background:var(--purple); border-color:var(--purple); color:white; }
+    .field-check-item.selected:hover { background:var(--purple-dark); border-color:var(--purple-dark); color:white; }
 
-    .field-check-item:hover { border-color: var(--purple); color: var(--purple); background: var(--purple-light); }
-
-    .field-check-item input[type="checkbox"] { display: none; }
-
-    .field-check-item.selected {
-        background: var(--purple-darker);
-        border-color: var(--purple-dark);
-        color: var(--purple-dark);
-    }
-
-    {% comment %} .field-check-item.selected:hover { 
-        background: var(--purple-darker);
-        color: var(--purple-light);
-        border-color: var(--purple-dark);
-    } {% endcomment %}
-
-    .export-btns { display: flex; gap: 8px; flex-shrink: 0; }
-
+    .export-btns { display:flex; gap:8px; flex-shrink:0; }
     .btn-export {
-        display: inline-flex;
-        align-items: center;
-        gap: 6px;
-        padding: 7px 16px;
-        border-radius: 8px;
-        font-size: 0.8rem;
-        font-weight: 700;
-        cursor: pointer;
-        border: none;
-        transition: all 0.2s;
-        text-decoration: none;
+        display:inline-flex; align-items:center; gap:6px; padding:7px 16px;
+        border-radius:8px; font-size:0.8rem; font-weight:700; cursor:pointer;
+        border:none; transition:all 0.2s; text-decoration:none;
     }
+    .btn-export-pdf { background:#fee2e2; color:#dc2626; }
+    .btn-export-pdf:hover { background:#dc2626; color:white; }
+    .btn-export-excel { background:#d1fae5; color:#059669; }
+    .btn-export-excel:hover { background:#059669; color:white; }
 
-    .btn-export-pdf { background: #fee2e2; color: #dc2626; }
-    .btn-export-pdf:hover { background: #dc2626; color: white; }
-    .btn-export-excel { background: #d1fae5; color: #059669; }
-    .btn-export-excel:hover { background: #059669; color: white; }
-
-    .inventory-table { background: white; border-radius: 16px; box-shadow: var(--shadow); overflow: hidden; }
-    .table { margin: 0; }
-    .table thead { background: #f8fafc; }
+    /* ── TABLE ── */
+    .inventory-table { background:white; border-radius:16px; box-shadow:var(--shadow); overflow:hidden; }
+    .table { margin:0; }
+    .table thead { background:#f8fafc; }
     .table thead th {
-        border: none;
-        padding: 18px 20px;
-        font-weight: 700;
-        color: #475569;
-        text-transform: uppercase;
-        font-size: 0.72rem;
-        letter-spacing: 0.5px;
+        border:none; padding:14px 16px; font-weight:700; color:#475569;
+        text-transform:uppercase; font-size:0.7rem; letter-spacing:0.5px;
+        white-space:nowrap;
     }
-    .table tbody td { padding: 18px 20px; border-top: 1px solid #f1f5f9; vertical-align: middle; }
-    .item-name { font-weight: 600; color: #1e293b; font-size: 1rem; }
-    .badge-count { display: inline-block; min-width: 36px; text-align: center; background: #f1f5f9; color: #475569; padding: 6px 12px; border-radius: 8px; font-weight: 700; font-size: 0.9rem; }
-    .badge-available { background: #d1fae5; color: #065f46; }
-    .empty-state { text-align: center; padding: 80px 20px; }
-    .empty-state i { font-size: 4rem; color: #cbd5e0; margin-bottom: 20px; display: block; }
+    .table tbody td { padding:16px; border-top:1px solid #f1f5f9; vertical-align:middle; }
+    .item-name { font-weight:600; color:#1e293b; font-size:0.95rem; }
+    .badge-count {
+        display:inline-block; min-width:40px; text-align:center;
+        background:#f1f5f9; color:#475569; padding:5px 12px;
+        border-radius:8px; font-weight:700; font-size:0.88rem;
+    }
+    .badge-available { background:#d1fae5; color:#065f46; }
+    .badge-assigned  { background:#dbeafe; color:#1e40af; }
+    .badge-total     { background:#f3e8ff; color:#6b21a8; }
+
+    /* ── COLUMN TOGGLE HEADER ── */
+    .col-toggle-header {
+        display:flex; align-items:center; gap:6px; cursor:pointer;
+        user-select:none; white-space:nowrap;
+    }
+    .col-toggle-btn {
+        display:inline-flex; align-items:center; gap:3px;
+        padding:2px 8px; border-radius:12px; font-size:0.65rem; font-weight:700;
+        border:1.5px solid currentColor; transition:all 0.15s;
+        background:white; color:var(--purple);
+    }
+    .col-toggle-btn:hover { background:var(--purple); color:white; }
+
+    .empty-state { text-align:center; padding:80px 20px; }
+    .empty-state i { font-size:4rem; color:#cbd5e0; margin-bottom:20px; display:block; }
 
     @media (max-width: 768px) {
-        .inventory-container { padding: 16px; }
-        .internal-nav { padding-bottom: 0 16px; }
-        .nav-breadcrumb { display: none; }
-        .nav-stat { display: none; }
+        .inventory-container { padding:16px; }
+        .internal-nav { padding:0 16px; }
+        .nav-breadcrumb { display:none; }
+        .nav-stat { display:none; }
+    }
+    @media (max-width: 360px) {
+        .card-body { padding:16px !important; }
     }
 </style>
 {% endblock style %}
@@ -320,13 +196,12 @@
 {% block content %}
 <div class="inventory-container">
 
-    <!-- Page Header -->
     <div class="page-header">
         <div>
             <h1 class="page-title">Master Inventory</h1>
             <p class="text-muted mb-0" style="font-size:0.95rem;">College-wide unassigned stock</p>
         </div>
-        <div class="header-actions">
+        <div>
             <a href="{% url 'central_admin:assign_inventory' %}" class="btn-assign">
                 <i class="bi bi-arrow-right-circle me-2"></i>Assign Inventory
             </a>
@@ -346,14 +221,14 @@
             <label class="field-check-item selected" data-field="brand">
                 <input type="checkbox" checked> <i class="bi bi-bookmark"></i> Brand
             </label>
-            <label class="field-check-item selected" data-field="assigned">
-                <input type="checkbox" checked> <i class="bi bi-building"></i> Assigned to Rooms
-            </label>
             <label class="field-check-item selected" data-field="stock">
-                <input type="checkbox" checked> <i class="bi bi-box-seam"></i> Available Stock
+                <input type="checkbox" checked> <i class="bi bi-box-seam"></i> Stock
             </label>
             <label class="field-check-item selected" data-field="cost">
                 <input type="checkbox" checked> <i class="bi bi-currency-rupee"></i> Cost
+            </label>
+            <label class="field-check-item selected" data-field="assigned">
+                <input type="checkbox" checked> <i class="bi bi-building"></i> Assigned
             </label>
         </div>
         <div class="export-btns">
@@ -375,9 +250,23 @@
                     <th data-col="name">Item Name</th>
                     <th data-col="category">Category</th>
                     <th data-col="brand">Brand</th>
+                    <th data-col="stock">
+                        <div class="col-toggle-header">
+                            <span id="stockColLabel">Available Stock</span>
+                            <span class="col-toggle-btn" onclick="cycleStock(event)">
+                                <i class="bi bi-arrow-repeat"></i>
+                            </span>
+                        </div>
+                    </th>
+                    <th data-col="cost">
+                        <div class="col-toggle-header">
+                            <span id="costColLabel">Cost / Unit</span>
+                            <span class="col-toggle-btn" onclick="cycleCost(event)">
+                                <i class="bi bi-arrow-repeat"></i>
+                            </span>
+                        </div>
+                    </th>
                     <th data-col="assigned" class="text-center">Assigned to Rooms</th>
-                    <th data-col="stock" class="text-center">Available Stock</th>
-                    <th data-col="cost" class="text-center">Cost</th>
                 </tr>
             </thead>
             <tbody>
@@ -392,21 +281,24 @@
                     <td data-col="brand">
                         <span class="badge bg-light text-dark border">{{ data.item.brand.brand_name }}</span>
                     </td>
+                    <td data-col="stock" class="text-center"
+                        data-available="{{ data.available_stock }}"
+                        data-assigned="{{ data.assigned_count }}"
+                        data-total="{{ data.total_items }}">
+                        <span class="badge-count badge-available stock-display">{{ data.available_stock }}</span>
+                    </td>
+                    <td data-col="cost" class="text-center"
+                        data-cpu="{% if data.cpu %}{{ data.cpu }}{% else %}0{% endif %}"
+                        data-total-cost="{{ data.total_cost }}">
+                        <span class="badge-count cost-display">
+                            {% if data.cpu %}₹{{ data.cpu }}{% else %}—{% endif %}
+                        </span>
+                    </td>
                     <td data-col="assigned" class="text-center">
                         <button class="btn btn-sm btn-outline-primary"
                             onclick="viewAssignments({{ data.item.id }}, '{{ data.item.item_name|escapejs }}')">
                             <i class="bi bi-eye me-1"></i>View Details
                         </button>
-                    </td>
-                    <td data-col="stock" class="text-center">
-                        <span class="badge-count badge-available">{{ data.available_stock }}</span>
-                    </td>
-                    <td data-col="cost" class="text-center">
-                        {% if data.item.cost %}
-                            <span class="badge-count">₹{{ data.item.cost }}</span>
-                        {% else %}
-                            <span class="text-muted">—</span>
-                        {% endif %}
                     </td>
                 </tr>
                 {% endfor %}
@@ -468,7 +360,8 @@
 </div>
 
 <script>
-// ── FIELD SELECTOR ──
+
+// ── COLUMN VISIBILITY ──
 function getSelectedFields() {
     return [...document.querySelectorAll('#fieldCheckboxes .field-check-item.selected')]
         .map(el => el.dataset.field);
@@ -476,7 +369,7 @@ function getSelectedFields() {
 
 function applyFieldVisibility() {
     const selected = getSelectedFields();
-    const allCols = ['name','category','brand','assigned','stock','cost'];
+    const allCols = ['name','category','brand','stock','cost','assigned'];
     allCols.forEach(col => {
         const show = selected.includes(col);
         document.querySelectorAll(`[data-col="${col}"]`).forEach(el => {
@@ -489,26 +382,67 @@ document.querySelectorAll('.field-check-item').forEach(label => {
     label.addEventListener('click', function(e) {
         e.preventDefault();
         this.classList.toggle('selected');
-        const cb = this.querySelector('input[type="checkbox"]');
-        cb.checked = this.classList.contains('selected');
         applyFieldVisibility();
     });
 });
 
-// Apply on load — description hidden by default
 applyFieldVisibility();
 
+// ── STOCK COLUMN TOGGLE ──
+// States: 0=available, 1=assigned, 2=total
+let stockState = 0;
+const stockLabels = ['Available Stock', 'Assigned to Rooms', 'Total Items'];
+const stockAttrs  = ['data-available', 'data-assigned', 'data-total'];
+const stockClasses= ['badge-available', 'badge-assigned', 'badge-total'];
+
+function cycleStock(e) {
+    e.stopPropagation();
+    stockState = (stockState + 1) % 3;
+    document.getElementById('stockColLabel').textContent = stockLabels[stockState];
+    document.querySelectorAll('td[data-col="stock"]').forEach(td => {
+        const val = td.getAttribute(stockAttrs[stockState]);
+        const span = td.querySelector('.stock-display');
+        span.textContent = val;
+        span.className = 'badge-count stock-display ' + stockClasses[stockState];
+    });
+}
+
+// ── COST COLUMN TOGGLE ──
+// States: 0=cpu, 1=total cost
+let costState = 0;
+const costLabels = ['Cost / Unit', 'Total Cost'];
+
+function cycleCost(e) {
+    e.stopPropagation();
+    costState = (costState + 1) % 2;
+    document.getElementById('costColLabel').textContent = costLabels[costState];
+    document.querySelectorAll('td[data-col="cost"]').forEach(td => {
+        const span = td.querySelector('.cost-display');
+        if (costState === 0) {
+            const cpu = parseFloat(td.getAttribute('data-cpu'));
+            span.textContent = cpu > 0 ? '₹' + cpu.toLocaleString('en-IN') : '—';
+        } else {
+            const tc = parseFloat(td.getAttribute('data-total-cost'));
+            span.textContent = tc > 0 ? '₹' + tc.toLocaleString('en-IN', {minimumFractionDigits:2}) : '—';
+        }
+    });
+}
+
 // ── EXPORT ──
+function getExportFields() {
+    return getSelectedFields();
+}
+
 function exportPDF() {
-    const fields = getSelectedFields();
-    if (fields.length === 0) { alert('Select at least one column to export.'); return; }
+    const fields = getExportFields();
+    if (!fields.length) { alert('Select at least one column.'); return; }
     const params = fields.map(f => `fields=${f}`).join('&');
     window.open(`{% url 'central_admin:master_inventory_export_pdf' %}?${params}`, '_blank');
 }
 
 function exportExcel() {
-    const fields = getSelectedFields();
-    if (fields.length === 0) { alert('Select at least one column to export.'); return; }
+    const fields = getExportFields();
+    if (!fields.length) { alert('Select at least one column.'); return; }
     const params = fields.map(f => `fields=${f}`).join('&');
     window.location.href = `{% url 'central_admin:master_inventory_export_excel' %}?${params}`;
 }
@@ -534,11 +468,8 @@ function viewAssignments(itemId, itemName) {
 function loadRoomsByCategory() {
     const category = document.getElementById('filterCategory').value;
     const roomSelect = document.getElementById('filterRoom');
-    if (!category) {
-        roomSelect.innerHTML = '<option value="">-- Select Room --</option>';
-        return;
-    }
-    roomSelect.innerHTML = '<option value="">Loading rooms…</option>';
+    if (!category) { roomSelect.innerHTML = '<option value="">-- Select Room --</option>'; return; }
+    roomSelect.innerHTML = '<option value="">Loading…</option>';
     fetch(`{% url 'central_admin:get_rooms_by_category' %}?category=${category}`)
         .then(r => r.json())
         .then(data => {
@@ -547,7 +478,7 @@ function loadRoomsByCategory() {
                 roomSelect.innerHTML += `<option value="${r.id}">${r.name}</option>`;
             });
         })
-        .catch(() => { roomSelect.innerHTML = '<option value="">Error loading</option>'; });
+        .catch(() => { roomSelect.innerHTML = '<option value="">Error</option>'; });
 }
 
 function loadAssignmentDetails() {
@@ -586,9 +517,10 @@ function loadAssignmentDetails() {
             }
         })
         .catch(() => {
-            resultsDiv.innerHTML = `<div class="alert alert-danger border-0 shadow-sm rounded-3"><i class="bi bi-exclamation-triangle-fill me-2"></i>Error loading. Please try again.</div>`;
+            resultsDiv.innerHTML = `<div class="alert alert-danger border-0 shadow-sm rounded-3"><i class="bi bi-exclamation-triangle-fill me-2"></i>Error loading. Try again.</div>`;
         });
 }
+
 </script>
 
 {% endblock content %}

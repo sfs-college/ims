@@ -125,6 +125,8 @@ class Purchase(models.Model):
     vendor = models.ForeignKey(Vendor, on_delete=models.CASCADE, null=True, blank=True)
     requested_by = models.ForeignKey('core.UserProfile', on_delete=models.SET_NULL, null=True, blank=True, related_name='purchase_requests_made')
     reason = models.TextField(blank=True, help_text="Reason for purchase request")
+    item_category = models.CharField(max_length=100, blank=True, default='General')
+    item_brand = models.CharField(max_length=100, blank=True, default='General')
 
     # ✅ Excel fields
     cost = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)

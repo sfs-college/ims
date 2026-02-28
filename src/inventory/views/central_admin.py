@@ -333,6 +333,8 @@ class PurchaseCreateView(LoginRequiredMixin, View):
         unit_of_measure = request.POST.get('unit_of_measure', 'units')
         room_id = request.POST.get('room_id', '')
         reason = request.POST.get('reason', '').strip()
+        item_category = request.POST.get('item_category', '').strip() or 'General'
+        item_brand = request.POST.get('item_brand', '').strip() or 'General'
 
         if not item_name or not quantity:
             messages.error(request, 'Item name and quantity are required.')
@@ -340,7 +342,6 @@ class PurchaseCreateView(LoginRequiredMixin, View):
 
         org = profile.org
 
-        # Get or create a placeholder item for this purchase request
         from inventory.models import Category, Brand, Item as InvItem
         placeholder_cat, _ = Category.objects.get_or_create(
             organisation=org, category_name='Purchase Requests',
@@ -377,6 +378,8 @@ class PurchaseCreateView(LoginRequiredMixin, View):
             reason=reason,
             status='requested',
             requested_by=profile,
+            item_category=item_category,
+            item_brand=item_brand,
         )
 
         messages.success(request, f'Purchase request for "{item_name}" submitted successfully.')
@@ -549,57 +552,75 @@ class DepartmentDeleteView(LoginRequiredMixin, DeleteView):
 
 
 class PurchaseApproveView(LoginRequiredMixin, View):
-    def get(self, request, *args, **kwargs):
+    def post(self, request, *args, **kwargs):
         profile = request.user.profile
+        if not (profile.is_central_admin and not profile.is_sub_admin):
+            return redirect('central_admin:purchase_list')
+
         purchase = get_object_or_404(Purchase, slug=self.kwargs['purchase_slug'])
-        
-        if purchase.status == 'requested':
-            purchase.status = 'approved'
-            purchase.save()
 
-            # Auto-add to master inventory
-            from inventory.models import Category, Brand
-            from decimal import Decimal
+        if purchase.status != 'requested':
+            return redirect('central_admin:purchase_list')
 
-            org = profile.org
+        from decimal import Decimal, InvalidOperation
+        cost_input = request.POST.get('cost', '').strip()
+        cost_value = None
+        if cost_input:
+            try:
+                cost_value = Decimal(cost_input)
+            except InvalidOperation:
+                pass
 
-            master_category, _ = Category.objects.get_or_create(
-                organisation=org,
-                room=None,
-                category_name=purchase.item.category.category_name
-                if purchase.item.category else 'General'
-            )
+        purchase.status = 'approved'
+        if cost_value is not None:
+            purchase.cost = cost_value
+            purchase.cost_per_unit = cost_value
+        purchase.save()
 
-            master_brand, _ = Brand.objects.get_or_create(
-                organisation=org,
-                room=None,
-                brand_name=purchase.item.brand.brand_name
-                if purchase.item.brand else 'General'
-            )
+        # Auto-add to master inventory
+        org = profile.org
+        from inventory.models import Category, Brand
+        from decimal import Decimal
 
-            # Check if master item already exists
-            master_item = Item.objects.filter(
+        cat_name = purchase.item_category or 'General'
+        brand_name = purchase.item_brand or 'General'
+
+        master_category, _ = Category.objects.get_or_create(
+            organisation=org,
+            room=None,
+            category_name=cat_name
+        )
+        master_brand, _ = Brand.objects.get_or_create(
+            organisation=org,
+            room=None,
+            brand_name=brand_name
+        )
+
+        master_item = Item.objects.filter(
+            organisation=org,
+            room=None,
+            item_name=purchase.item.item_name,
+            is_listed=True,
+        ).first()
+
+        if master_item:
+            master_item.total_count += int(purchase.quantity)
+            if cost_value and not master_item.cost:
+                master_item.cost = cost_value
+            master_item.save()
+        else:
+            Item.objects.create(
                 organisation=org,
                 room=None,
                 item_name=purchase.item.item_name,
-            ).first()
-
-            if master_item:
-                master_item.total_count += int(purchase.quantity)
-                master_item.save()
-            else:
-                Item.objects.create(
-                    organisation=org,
-                    room=None,
-                    item_name=purchase.item.item_name,
-                    category=master_category,
-                    brand=master_brand,
-                    total_count=int(purchase.quantity),
-                    cost=purchase.cost_per_unit or purchase.cost or Decimal('0.00'),
-                    is_listed=True,
-                    item_description=purchase.item_description or purchase.item.item_name,
-                    created_by=profile,
-                )
+                category=master_category,
+                brand=master_brand,
+                total_count=int(purchase.quantity),
+                cost=cost_value or Decimal('0.00'),
+                is_listed=True,
+                item_description=purchase.item.item_name,
+                created_by=profile,
+            )
 
         return redirect('central_admin:purchase_list')
 
