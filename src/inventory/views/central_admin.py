@@ -351,15 +351,13 @@ class PurchaseCreateView(LoginRequiredMixin, View):
             organisation=org, brand_name='To Be Determined',
             defaults={'room': None}
         )
-        item_obj, _ = InvItem.objects.get_or_create(
+        item_obj = InvItem.objects.create(
             organisation=org,
             item_name=item_name,
-            defaults={
-                'category': placeholder_cat,
-                'brand': placeholder_brand,
-                'total_count': 0,
-                'is_listed': False,
-            }
+            category=placeholder_cat,
+            brand=placeholder_brand,
+            total_count=0,
+            is_listed=False,
         )
 
         room = None

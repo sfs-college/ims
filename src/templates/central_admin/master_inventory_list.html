@@ -201,7 +201,11 @@
             <h1 class="page-title">Master Inventory</h1>
             <p class="text-muted mb-0" style="font-size:0.95rem;">College-wide unassigned stock</p>
         </div>
-        <div>
+        <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+            <button class="btn-assign" style="background:white; color:var(--purple); border:2px solid var(--purple);"
+                onclick="openStockFilter()">
+                <i class="bi bi-funnel me-2"></i>Check Stock
+            </button>
             <a href="{% url 'central_admin:assign_inventory' %}" class="btn-assign">
                 <i class="bi bi-arrow-right-circle me-2"></i>Assign Inventory
             </a>
@@ -314,6 +318,54 @@
             </a>
         </div>
         {% endif %}
+    </div>
+</div>
+
+<!-- Stock Filter Modal -->
+<div class="modal fade" id="stockFilterModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content" style="border-radius:16px; border:none;">
+            <div class="modal-header" style="background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);color:white;border-radius:16px 16px 0 0;">
+                <h5 class="modal-title fw-bold"><i class="bi bi-funnel me-2"></i>Check Stock Count</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body p-4">
+                <p class="text-muted mb-4" style="font-size:0.9rem;">Filter by category, brand, or item name to see total stock counts.</p>
+
+                <div class="row g-3 mb-4">
+                    <div class="col-md-4">
+                        <label class="form-label small fw-bold text-muted text-uppercase">Category</label>
+                        <select class="form-select" id="sfCategory" onchange="applyStockFilter()">
+                            <option value="">All Categories</option>
+                            {% for data in items_data %}
+                            <option value="{{ data.item.category.category_name }}">{{ data.item.category.category_name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label small fw-bold text-muted text-uppercase">Brand</label>
+                        <select class="form-select" id="sfBrand" onchange="applyStockFilter()">
+                            <option value="">All Brands</option>
+                            {% for data in items_data %}
+                            <option value="{{ data.item.brand.brand_name }}">{{ data.item.brand.brand_name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label small fw-bold text-muted text-uppercase">Item Name</label>
+                        <input type="text" class="form-control" id="sfItemName"
+                            placeholder="Search item…" oninput="applyStockFilter()">
+                    </div>
+                </div>
+
+                <div id="stockFilterResults">
+                    <div class="text-center text-muted py-4">
+                        <i class="bi bi-search fs-1 d-block mb-2 opacity-40"></i>
+                        <p>Select filters above to see stock counts</p>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
 </div>
 
@@ -519,6 +571,118 @@ function loadAssignmentDetails() {
         .catch(() => {
             resultsDiv.innerHTML = `<div class="alert alert-danger border-0 shadow-sm rounded-3"><i class="bi bi-exclamation-triangle-fill me-2"></i>Error loading. Try again.</div>`;
         });
+}
+
+// ── STOCK FILTER DATA ──
+const allStockData = [
+    {% for data in items_data %}
+    {
+        name: "{{ data.item.item_name|escapejs }}",
+        category: "{{ data.item.category.category_name|escapejs }}",
+        brand: "{{ data.item.brand.brand_name|escapejs }}",
+        available: {{ data.available_stock }},
+        assigned: {{ data.assigned_count }},
+        total: {{ data.total_items }},
+        cpu: {{ data.cpu|default:0 }},
+        totalCost: {{ data.total_cost|default:0 }},
+    },
+    {% endfor %}
+];
+
+// Deduplicate category and brand dropdowns
+(function dedupeDropdowns() {
+    ['sfCategory','sfBrand'].forEach(id => {
+        const sel = document.getElementById(id);
+        const seen = new Set();
+        const opts = [...sel.options];
+        opts.forEach(opt => {
+            if (opt.value === '') return;
+            if (seen.has(opt.value)) opt.remove();
+            else seen.add(opt.value);
+        });
+    });
+})();
+
+function openStockFilter() {
+    document.getElementById('sfCategory').value = '';
+    document.getElementById('sfBrand').value = '';
+    document.getElementById('sfItemName').value = '';
+    applyStockFilter();
+    new bootstrap.Modal(document.getElementById('stockFilterModal')).show();
+}
+
+function applyStockFilter() {
+    const cat  = document.getElementById('sfCategory').value.toLowerCase();
+    const brand = document.getElementById('sfBrand').value.toLowerCase();
+    const name  = document.getElementById('sfItemName').value.toLowerCase().trim();
+
+    const filtered = allStockData.filter(d => {
+        return (!cat   || d.category.toLowerCase() === cat)
+            && (!brand || d.brand.toLowerCase() === brand)
+            && (!name  || d.name.toLowerCase().includes(name));
+    });
+
+    const resultsDiv = document.getElementById('stockFilterResults');
+
+    if (!filtered.length) {
+        resultsDiv.innerHTML = `
+            <div class="text-center text-muted py-4">
+                <i class="bi bi-inbox fs-1 d-block mb-2 opacity-40"></i>
+                <p>No items match your filters</p>
+            </div>`;
+        return;
+    }
+
+    // Aggregate totals
+    const totAvailable = filtered.reduce((s,d) => s + d.available, 0);
+    const totAssigned  = filtered.reduce((s,d) => s + d.assigned,  0);
+    const totTotal     = filtered.reduce((s,d) => s + d.total,     0);
+
+    let rows = filtered.map(d => `
+        <tr>
+            <td class="fw-semibold">${d.name}</td>
+            <td><span class="badge bg-light text-dark border">${d.category}</span></td>
+            <td><span class="badge bg-light text-dark border">${d.brand}</span></td>
+            <td class="text-center"><span class="badge-count badge-available">${d.available}</span></td>
+            <td class="text-center"><span class="badge-count badge-assigned">${d.assigned}</span></td>
+            <td class="text-center"><span class="badge-count badge-total">${d.total}</span></td>
+        </tr>
+    `).join('');
+
+    resultsDiv.innerHTML = `
+        <div class="row g-3 mb-4">
+            <div class="col-4">
+                <div style="background:#d1fae5;border-radius:12px;padding:16px;text-align:center;">
+                    <div style="font-size:1.6rem;font-weight:800;color:#065f46;">${totAvailable}</div>
+                    <div style="font-size:0.78rem;font-weight:600;color:#065f46;">Available</div>
+                </div>
+            </div>
+            <div class="col-4">
+                <div style="background:#dbeafe;border-radius:12px;padding:16px;text-align:center;">
+                    <div style="font-size:1.6rem;font-weight:800;color:#1e40af;">${totAssigned}</div>
+                    <div style="font-size:0.78rem;font-weight:600;color:#1e40af;">Assigned</div>
+                </div>
+            </div>
+            <div class="col-4">
+                <div style="background:#f3e8ff;border-radius:12px;padding:16px;text-align:center;">
+                    <div style="font-size:1.6rem;font-weight:800;color:#6b21a8;">${totTotal}</div>
+                    <div style="font-size:0.78rem;font-weight:600;color:#6b21a8;">Total</div>
+                </div>
+            </div>
+        </div>
+        <div class="table-responsive">
+            <table class="table table-hover" style="font-size:0.88rem;">
+                <thead style="background:#f8fafc;">
+                    <tr>
+                        <th>Item</th><th>Category</th><th>Brand</th>
+                        <th class="text-center">Available</th>
+                        <th class="text-center">Assigned</th>
+                        <th class="text-center">Total</th>
+                    </tr>
+                </thead>
+                <tbody>${rows}</tbody>
+            </table>
+        </div>`;
 }
 
 </script>
