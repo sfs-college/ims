@@ -1587,11 +1587,14 @@ def master_inventory_export_pdf(request):
     ]
 
     selected_text = [k for k in ['name', 'category', 'brand'] if k in fields]
-    headers = [Paragraph(text_col_map[k][0], styles['Normal']) for k in selected_text]
+    # headers = [Paragraph(text_col_map[k][0], styles['Normal']) for k in selected_text]
+    from reportlab.lib.styles import ParagraphStyle
+    header_style = ParagraphStyle('header', parent=styles['Normal'], textColor=colors.whitesmoke, fontName='Helvetica-Bold')
+    headers = [Paragraph(text_col_map[k][0], header_style) for k in selected_text]  
     col_widths = [text_col_map[k][1] for k in selected_text]
 
     for label, w in fixed_cols:
-        headers.append(Paragraph(label, styles['Normal']))
+        headers.append(Paragraph(label, header_style ))
         col_widths.append(w)
 
     table_data = [headers]
