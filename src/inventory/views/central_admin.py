@@ -417,6 +417,7 @@ class PurchaseListView(LoginRequiredMixin, ListView):
         profile = self.request.user.profile
         context['is_central_admin'] = profile.is_central_admin and not profile.is_sub_admin
         context['is_sub_admin'] = profile.is_sub_admin
+        context['vendors'] = Vendor.objects.filter(organisation=profile.org).order_by('vendor_name')
         return context
 
 class PurchaseUploadInvoiceView(LoginRequiredMixin, View):
@@ -569,10 +570,17 @@ class PurchaseApproveView(LoginRequiredMixin, View):
             except InvalidOperation:
                 pass
 
+        vendor_id = request.POST.get('vendor_id', '').strip()
         purchase.status = 'approved'
         if cost_value is not None:
             purchase.cost = cost_value
             purchase.cost_per_unit = cost_value
+        if vendor_id:
+            try:
+                from inventory.models import Vendor as VendorModel
+                purchase.vendor = VendorModel.objects.get(id=vendor_id, organisation=profile.org)
+            except VendorModel.DoesNotExist:
+                pass
         purchase.save()
 
         # Auto-add to master inventory

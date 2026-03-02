@@ -266,11 +266,13 @@
       <p class="nav-card-desc">Manage rooms in the system.</p>
     </a>
 
+    {% if not request.user.profile.is_sub_admin %}
     <a href="{% url 'central_admin:vendor_list' %}" class="nav-card card-blue">
       <span class="nav-card-icon"><i class="bi bi-shop"></i></span>
       <span class="nav-card-label">Vendors</span>
       <p class="nav-card-desc">Manage vendors in the system.</p>
     </a>
+    {% endif %}
 
     <div class="nav-card card-amber" style="cursor:default;">
       <span class="nav-card-icon"><i class="bi bi-cart-fill"></i></span>
@@ -302,11 +304,13 @@
       <p class="nav-card-desc">Manage issues reported in the system.</p>
     </a>
 
+    {% if not request.user.profile.is_sub_admin %}
     <a href="{% url 'central_admin:department_list' %}" class="nav-card card-indigo">
       <span class="nav-card-icon"><i class="bi bi-grid-fill"></i></span>
       <span class="nav-card-label">Departments</span>
       <p class="nav-card-desc">Manage departments in the system.</p>
     </a>
+    {% endif %}
 
   </div>
 </section>

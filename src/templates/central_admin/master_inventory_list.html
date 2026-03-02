@@ -158,6 +158,9 @@
     @media (max-width: 360px) {
         .card-body { padding:16px !important; }
     }
+    @keyframes spin {
+    to { transform: rotate(360deg); }
+    }
 </style>
 {% endblock style %}
 
@@ -546,7 +549,7 @@ function loadAssignmentDetails() {
         .then(data => {
             if (data.assigned_quantity > 0) {
                 resultsDiv.innerHTML = `
-                    <div class="alert alert-success border-0 shadow-sm rounded-3">
+                    <div class="alert alert-success border-0 shadow-sm rounded-3 mb-3">
                         <div class="d-flex align-items-center">
                             <i class="bi bi-check-circle-fill fs-3 me-3"></i>
                             <div>
@@ -554,6 +557,21 @@ function loadAssignmentDetails() {
                                 <p class="mb-0">Assigned to <strong>${data.room_name}</strong>: <span class="badge bg-success">${data.assigned_quantity} units</span></p>
                             </div>
                         </div>
+                    </div>
+                    <div>
+                        <label style="font-size:0.78rem;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:0.05em;display:block;margin-bottom:6px;">
+                            Units to Return to Master Stock
+                        </label>
+                        <div style="display:flex;gap:10px;align-items:center;">
+                            <input type="number" id="unassignQtyInput" min="1" max="${data.assigned_quantity}"
+                                placeholder="e.g. 10"
+                                style="flex:1;padding:10px 14px;border-radius:10px;border:1.5px solid #e2e8f0;font-size:0.95rem;">
+                            <button onclick="submitUnassign('${data.room_item_id}', ${data.assigned_quantity})"
+                                style="padding:10px 20px;background:linear-gradient(135deg,#ef4444,#dc2626);color:white;border:none;border-radius:10px;font-weight:700;font-size:0.88rem;cursor:pointer;white-space:nowrap;">
+                                <i class="bi bi-arrow-return-left me-1"></i>Return Stock
+                            </button>
+                        </div>
+                        <div id="unassignMsg" style="margin-top:10px;font-size:0.83rem;display:none;"></div>
                     </div>`;
             } else {
                 resultsDiv.innerHTML = `
@@ -573,6 +591,79 @@ function loadAssignmentDetails() {
         });
 }
 
+<<<<<<< HEAD
+function submitUnassign(roomItemId, maxQty) {
+    const qty = parseInt(document.getElementById('unassignQtyInput').value, 10);
+    const msgEl = document.getElementById('unassignMsg');
+    const btn = document.querySelector(`button[onclick^="submitUnassign"]`);
+    msgEl.style.display = 'none';
+
+    if (!qty || qty < 1) {
+        msgEl.style.display = 'block'; msgEl.style.color = '#dc2626';
+        msgEl.textContent = 'Enter a valid quantity.'; return;
+    }
+    if (qty > maxQty) {
+        msgEl.style.display = 'block'; msgEl.style.color = '#dc2626';
+        msgEl.textContent = `Cannot return more than ${maxQty} units.`; return;
+    }
+
+    // Disable button for minimum 10 seconds
+    btn.disabled = true;
+    btn.style.opacity = '0.5';
+    btn.style.cursor = 'not-allowed';
+    btn.innerHTML = '<span style="display:inline-block;width:12px;height:12px;border:2px solid white;border-top-color:transparent;border-radius:50%;animation:spin 0.7s linear infinite;margin-right:6px;vertical-align:middle;"></span>Processing...';
+
+    const minWaitTimer = setTimeout(() => {
+        // Only re-enable if fetch hasn't already resolved
+        if (btn.disabled) {
+            btn.disabled = false;
+            btn.style.opacity = '1';
+            btn.style.cursor = 'pointer';
+            btn.innerHTML = '<i class="bi bi-arrow-return-left me-1"></i>Return Stock';
+        }
+    }, 10000);
+
+    fetch('{% url "central_admin:unassign_inventory_api" %}', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCsrf() },
+        body: JSON.stringify({ room_item_id: roomItemId, quantity: qty }),
+    })
+    .then(r => r.json())
+    .then(data => {
+        clearTimeout(minWaitTimer);
+        if (data.success) {
+            btn.innerHTML = '<i class="bi bi-check-lg me-1"></i>Returned!';
+            msgEl.style.display = 'block'; msgEl.style.color = '#059669';
+            msgEl.textContent = data.message;
+            setTimeout(() => {
+                bootstrap.Modal.getInstance(document.getElementById('viewAssignmentsModal')).hide();
+                location.reload();
+            }, 1200);
+        } else {
+            btn.disabled = false;
+            btn.style.opacity = '1';
+            btn.style.cursor = 'pointer';
+            btn.innerHTML = '<i class="bi bi-arrow-return-left me-1"></i>Return Stock';
+            msgEl.style.display = 'block'; msgEl.style.color = '#dc2626';
+            msgEl.textContent = data.error || 'Failed. Try again.';
+        }
+    })
+    .catch(() => {
+        clearTimeout(minWaitTimer);
+        btn.disabled = false;
+        btn.style.opacity = '1';
+        btn.style.cursor = 'pointer';
+        btn.innerHTML = '<i class="bi bi-arrow-return-left me-1"></i>Return Stock';
+        msgEl.style.display = 'block'; msgEl.style.color = '#dc2626';
+        msgEl.textContent = 'Network error. Try again.';
+    });
+}
+
+function getCsrf() {
+    const c = document.cookie.split(';').find(x => x.trim().startsWith('csrftoken='));
+    return c ? decodeURIComponent(c.trim().split('=')[1]) : '';
+}
+=======
 // ── STOCK FILTER DATA ──
 const allStockData = [
     {% for data in items_data %}
@@ -685,6 +776,7 @@ function applyStockFilter() {
         </div>`;
 }
 
+>>>>>>> 720b4da0dc239203f180a9fda1dd525faa787c6e
 </script>
 
 {% endblock content %}

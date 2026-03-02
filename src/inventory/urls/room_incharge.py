@@ -95,6 +95,7 @@ urlpatterns = [
         name="issue_time_extension_request"),
     path('<slug:room_slug>/items/stock-request/', room_incharge.SubmitStockRequestView.as_view(), name='submit_stock_request'),
     path('rooms/<slug:room_slug>/notifications/', room_incharge.RoomInchargeNotificationsView.as_view(), name='notifications'),
+    path('<slug:room_slug>/issues/<int:pk>/close/', room_incharge.CloseIssueView.as_view(), name='close_issue'),
 
 
 ]

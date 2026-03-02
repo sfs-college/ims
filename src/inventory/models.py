@@ -213,6 +213,7 @@ class Issue(models.Model):
     room = models.ForeignKey(Room, on_delete=models.CASCADE)
 
     created_by = models.CharField(max_length=255, blank=True, null = True)
+    closure_reason = models.TextField(blank=True, null=True)
     reporter_email = models.EmailField(
         max_length=255,
         null=True,
