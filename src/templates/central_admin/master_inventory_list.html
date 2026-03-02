@@ -591,79 +591,6 @@ function loadAssignmentDetails() {
         });
 }
 
-<<<<<<< HEAD
-function submitUnassign(roomItemId, maxQty) {
-    const qty = parseInt(document.getElementById('unassignQtyInput').value, 10);
-    const msgEl = document.getElementById('unassignMsg');
-    const btn = document.querySelector(`button[onclick^="submitUnassign"]`);
-    msgEl.style.display = 'none';
-
-    if (!qty || qty < 1) {
-        msgEl.style.display = 'block'; msgEl.style.color = '#dc2626';
-        msgEl.textContent = 'Enter a valid quantity.'; return;
-    }
-    if (qty > maxQty) {
-        msgEl.style.display = 'block'; msgEl.style.color = '#dc2626';
-        msgEl.textContent = `Cannot return more than ${maxQty} units.`; return;
-    }
-
-    // Disable button for minimum 10 seconds
-    btn.disabled = true;
-    btn.style.opacity = '0.5';
-    btn.style.cursor = 'not-allowed';
-    btn.innerHTML = '<span style="display:inline-block;width:12px;height:12px;border:2px solid white;border-top-color:transparent;border-radius:50%;animation:spin 0.7s linear infinite;margin-right:6px;vertical-align:middle;"></span>Processing...';
-
-    const minWaitTimer = setTimeout(() => {
-        // Only re-enable if fetch hasn't already resolved
-        if (btn.disabled) {
-            btn.disabled = false;
-            btn.style.opacity = '1';
-            btn.style.cursor = 'pointer';
-            btn.innerHTML = '<i class="bi bi-arrow-return-left me-1"></i>Return Stock';
-        }
-    }, 10000);
-
-    fetch('{% url "central_admin:unassign_inventory_api" %}', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCsrf() },
-        body: JSON.stringify({ room_item_id: roomItemId, quantity: qty }),
-    })
-    .then(r => r.json())
-    .then(data => {
-        clearTimeout(minWaitTimer);
-        if (data.success) {
-            btn.innerHTML = '<i class="bi bi-check-lg me-1"></i>Returned!';
-            msgEl.style.display = 'block'; msgEl.style.color = '#059669';
-            msgEl.textContent = data.message;
-            setTimeout(() => {
-                bootstrap.Modal.getInstance(document.getElementById('viewAssignmentsModal')).hide();
-                location.reload();
-            }, 1200);
-        } else {
-            btn.disabled = false;
-            btn.style.opacity = '1';
-            btn.style.cursor = 'pointer';
-            btn.innerHTML = '<i class="bi bi-arrow-return-left me-1"></i>Return Stock';
-            msgEl.style.display = 'block'; msgEl.style.color = '#dc2626';
-            msgEl.textContent = data.error || 'Failed. Try again.';
-        }
-    })
-    .catch(() => {
-        clearTimeout(minWaitTimer);
-        btn.disabled = false;
-        btn.style.opacity = '1';
-        btn.style.cursor = 'pointer';
-        btn.innerHTML = '<i class="bi bi-arrow-return-left me-1"></i>Return Stock';
-        msgEl.style.display = 'block'; msgEl.style.color = '#dc2626';
-        msgEl.textContent = 'Network error. Try again.';
-    });
-}
-
-function getCsrf() {
-    const c = document.cookie.split(';').find(x => x.trim().startsWith('csrftoken='));
-    return c ? decodeURIComponent(c.trim().split('=')[1]) : '';
-}
-=======
 // ── STOCK FILTER DATA ──
 const allStockData = [
     {% for data in items_data %}
@@ -680,13 +607,11 @@ const allStockData = [
     {% endfor %}
 ];
 
-// Deduplicate category and brand dropdowns
 (function dedupeDropdowns() {
     ['sfCategory','sfBrand'].forEach(id => {
         const sel = document.getElementById(id);
         const seen = new Set();
-        const opts = [...sel.options];
-        opts.forEach(opt => {
+        [...sel.options].forEach(opt => {
             if (opt.value === '') return;
             if (seen.has(opt.value)) opt.remove();
             else seen.add(opt.value);
@@ -703,18 +628,17 @@ function openStockFilter() {
 }
 
 function applyStockFilter() {
-    const cat  = document.getElementById('sfCategory').value.toLowerCase();
+    const cat   = document.getElementById('sfCategory').value.toLowerCase();
     const brand = document.getElementById('sfBrand').value.toLowerCase();
     const name  = document.getElementById('sfItemName').value.toLowerCase().trim();
 
-    const filtered = allStockData.filter(d => {
-        return (!cat   || d.category.toLowerCase() === cat)
-            && (!brand || d.brand.toLowerCase() === brand)
-            && (!name  || d.name.toLowerCase().includes(name));
-    });
+    const filtered = allStockData.filter(d =>
+        (!cat   || d.category.toLowerCase() === cat) &&
+        (!brand || d.brand.toLowerCase() === brand) &&
+        (!name  || d.name.toLowerCase().includes(name))
+    );
 
     const resultsDiv = document.getElementById('stockFilterResults');
-
     if (!filtered.length) {
         resultsDiv.innerHTML = `
             <div class="text-center text-muted py-4">
@@ -724,12 +648,11 @@ function applyStockFilter() {
         return;
     }
 
-    // Aggregate totals
     const totAvailable = filtered.reduce((s,d) => s + d.available, 0);
     const totAssigned  = filtered.reduce((s,d) => s + d.assigned,  0);
     const totTotal     = filtered.reduce((s,d) => s + d.total,     0);
 
-    let rows = filtered.map(d => `
+    const rows = filtered.map(d => `
         <tr>
             <td class="fw-semibold">${d.name}</td>
             <td><span class="badge bg-light text-dark border">${d.category}</span></td>
@@ -737,8 +660,7 @@ function applyStockFilter() {
             <td class="text-center"><span class="badge-count badge-available">${d.available}</span></td>
             <td class="text-center"><span class="badge-count badge-assigned">${d.assigned}</span></td>
             <td class="text-center"><span class="badge-count badge-total">${d.total}</span></td>
-        </tr>
-    `).join('');
+        </tr>`).join('');
 
     resultsDiv.innerHTML = `
         <div class="row g-3 mb-4">
@@ -776,7 +698,69 @@ function applyStockFilter() {
         </div>`;
 }
 
->>>>>>> 720b4da0dc239203f180a9fda1dd525faa787c6e
+function getCsrf() {
+    const c = document.cookie.split(';').find(x => x.trim().startsWith('csrftoken='));
+    return c ? decodeURIComponent(c.trim().split('=')[1]) : '';
+}
+
+function submitUnassign(roomItemId, maxQty) {
+    const qty   = parseInt(document.getElementById('unassignQtyInput').value, 10);
+    const msgEl = document.getElementById('unassignMsg');
+    const btn   = document.querySelector('button[onclick^="submitUnassign"]');
+    msgEl.style.display = 'none';
+
+    if (!qty || qty < 1) {
+        msgEl.style.display = 'block'; msgEl.style.color = '#dc2626';
+        msgEl.textContent = 'Enter a valid quantity.'; return;
+    }
+    if (qty > maxQty) {
+        msgEl.style.display = 'block'; msgEl.style.color = '#dc2626';
+        msgEl.textContent = `Cannot return more than ${maxQty} units.`; return;
+    }
+
+    btn.disabled = true;
+    btn.style.opacity = '0.5';
+    btn.style.cursor = 'not-allowed';
+    btn.innerHTML = '<span style="display:inline-block;width:12px;height:12px;border:2px solid white;border-top-color:transparent;border-radius:50%;animation:spin 0.7s linear infinite;margin-right:6px;vertical-align:middle;"></span>Processing...';
+
+    const minWaitTimer = setTimeout(() => {
+        if (btn.disabled) {
+            btn.disabled = false; btn.style.opacity = '1'; btn.style.cursor = 'pointer';
+            btn.innerHTML = '<i class="bi bi-arrow-return-left me-1"></i>Return Stock';
+        }
+    }, 10000);
+
+    fetch('{% url "central_admin:unassign_inventory_api" %}', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCsrf() },
+        body: JSON.stringify({ room_item_id: roomItemId, quantity: qty }),
+    })
+    .then(r => r.json())
+    .then(data => {
+        clearTimeout(minWaitTimer);
+        if (data.success) {
+            btn.innerHTML = '<i class="bi bi-check-lg me-1"></i>Returned!';
+            msgEl.style.display = 'block'; msgEl.style.color = '#059669';
+            msgEl.textContent = data.message;
+            setTimeout(() => {
+                bootstrap.Modal.getInstance(document.getElementById('viewAssignmentsModal')).hide();
+                location.reload();
+            }, 1200);
+        } else {
+            btn.disabled = false; btn.style.opacity = '1'; btn.style.cursor = 'pointer';
+            btn.innerHTML = '<i class="bi bi-arrow-return-left me-1"></i>Return Stock';
+            msgEl.style.display = 'block'; msgEl.style.color = '#dc2626';
+            msgEl.textContent = data.error || 'Failed. Try again.';
+        }
+    })
+    .catch(() => {
+        clearTimeout(minWaitTimer);
+        btn.disabled = false; btn.style.opacity = '1'; btn.style.cursor = 'pointer';
+        btn.innerHTML = '<i class="bi bi-arrow-return-left me-1"></i>Return Stock';
+        msgEl.style.display = 'block'; msgEl.style.color = '#dc2626';
+        msgEl.textContent = 'Network error. Try again.';
+    });
+}
 </script>
 
 {% endblock content %}
