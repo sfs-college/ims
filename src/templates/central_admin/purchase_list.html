@@ -565,12 +565,23 @@
       <p style="font-size:0.85rem;color:#475569;margin-bottom:16px;">
         Item: <strong id="approveModalItemName"></strong>
       </p>
-      <label style="font-size:0.78rem;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:0.05em;display:block;margin-bottom:6px;">
-        Cost per Unit <span style="font-weight:400;text-transform:none;">(optional)</span>
+      <label style="font-size:0.78rem; font-weight:700; color:#475569; text-transform:uppercase; letter-spacing:0.05em; display:block; margin-bottom:6px;">
+        Cost per Unit <span style="font-weight:400; text-transform:none;">(optional)</span>
       </label>
       <input type="number" id="approveCostInput" step="0.01" min="0"
         placeholder="e.g. 55000.00"
-        style="width:100%;padding:10px 14px;border-radius:10px;border:1.5px solid #e2e8f0;font-size:0.95rem;margin-bottom:18px;">
+        style="width:100%; padding:10px 14px; border-radius:10px; border:1.5px solid #e2e8f0; font-size:0.95rem; margin-bottom:14px;">
+
+      <label style="font-size:0.78rem; font-weight:700; color:#475569; text-transform:uppercase; letter-spacing:0.05em; display:block; margin-bottom:6px;">
+        Vendor <span style="font-weight:400; text-transform:none;">(optional)</span>
+      </label>
+      <select id="approveVendorSelect"
+        style="width:100%; padding:10px 14px; border-radius:10px; border:1.5px solid #e2e8f0; font-size:0.95rem; margin-bottom:18px; background:white;">
+        <option value="">-- Select Vendor --</option>
+        {% for vendor in vendors %}
+        <option value="{{ vendor.id }}">{{ vendor.vendor_name }}</option>
+        {% endfor %}
+      </select>
       <div class="upload-actions">
         <button class="btn-upload-cancel" onclick="closeApproveModal()">Cancel</button>
         <button class="btn-upload-confirm" onclick="doApprove()">
@@ -735,6 +746,7 @@ function openApproveModal(slug, purchaseId, itemName) {
   document.getElementById('approveModalPurchaseId').textContent = purchaseId;
   document.getElementById('approveModalItemName').textContent = itemName;
   document.getElementById('approveCostInput').value = '';
+  document.getElementById('approveVendorSelect').value = '';
   document.getElementById('approveMsg').style.display = 'none';
   document.getElementById('approveModalBg').classList.add('show');
 }
@@ -747,8 +759,11 @@ function closeApproveModal() {
 function doApprove() {
   if (!currentApproveSlug) return;
   const cost = document.getElementById('approveCostInput').value;
+  const vendorId = document.getElementById('approveVendorSelect').value;
   const formData = new FormData();
   if (cost) formData.append('cost', cost);
+  if (vendorId) formData.append('vendor_id', vendorId);
+  formData.append('csrfmiddlewaretoken', getCsrf());
 
   fetch(`/central_admin/purchases/${currentApproveSlug}/approve/`, {
     method: 'POST',

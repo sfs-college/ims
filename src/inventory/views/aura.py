@@ -235,7 +235,7 @@ def aura_data_manager(request):
                 row['detail_head'] = "Metadata"
                 start_local = timezone.localtime(obj.start_datetime)
                 end_local = timezone.localtime(obj.end_datetime)
-                row['detail'] = f"Room: {obj.room.room_name}<br>Date: {start_local.strftime('%d %b, %Y')}<br>Time: {start_local.strftime('%H:%M')}"
+                row['detail'] = f"Room: {obj.room.room_name}<br>Date: {start_local.strftime('%d %b, %Y')}<br>Time: {start_local.strftime('%H:%M')} - {end_local.strftime('%H:%M')}"
                 
                 # SPECIFIC KEYS FOR ROOM BOOKING MANAGER MODAL
                 row['room_name'] = obj.room.room_name
@@ -255,9 +255,12 @@ def aura_data_manager(request):
                 row['detail'] = f"Room: {obj.room.room_name}<br>Qty: {obj.total_count}<br>Available: {obj.available_count}<br>In Use: {obj.in_use}"
             elif model_name == 'purchases':
                 row['label_head'] = "Purchase ID"
-                row['label'] = f"{obj.purchase_id or 'N/A'}<br>Room: {obj.room.room_name}"
+                room_name = obj.room.room_name if obj.room else 'No Room Assigned'
+                row['label'] = f"{obj.purchase_id or 'Pending ID'}<br>Room: {room_name}"
                 row['detail_head'] = "Metadata"
-                row['detail'] = f"Vendor: {obj.vendor.vendor_name if obj.vendor else 'N/A'}<br>Status: {obj.status}"
+                item_name = obj.item.item_name if obj.item else 'N/A'
+                vendor_name = obj.vendor.vendor_name if obj.vendor else 'No Vendor'
+                row['detail'] = f"Item: {item_name}<br>Vendor: {vendor_name}<br>Status: {obj.status.title()}"
             elif model_name == 'vendors':
                 row['label_head'] = "Vendors"
                 row['label'] = f"{obj.vendor_name}"
@@ -357,13 +360,15 @@ def get_assignment_details(request):
         return JsonResponse({
             'assigned_quantity': assigned_item.total_count,
             'room_name': room.room_name,
-            'item_name': master_item.item_name
+            'item_name': master_item.item_name,
+            'room_item_id': assigned_item.id,
         })
     else:
         return JsonResponse({
             'assigned_quantity': 0,
             'room_name': room.room_name,
-            'item_name': master_item.item_name
+            'item_name': master_item.item_name,
+            'room_item_id': None,
         })
 
 
@@ -486,8 +491,10 @@ def aura_generate_report_pdf(request):
                 label = f"{obj.item_name}"
                 detail = f"Room: {obj.room.room_name}<br/>Qty: {obj.total_count}<br/>Available: {obj.available_count}<br/>In Use: {obj.in_use}"
             elif model_name == 'purchases':
-                label = f"{obj.purchase_id or 'N/A'}<br/>Room: {obj.room.room_name}"
-                detail = f"Vendor: {obj.vendor.vendor_name if obj.vendor else 'N/A'}<br/>Status: {obj.status}"
+                label = f"{obj.purchase_id or 'Pending ID'}<br/>Room: {obj.room.room_name if obj.room else 'No Room'}"
+                item_name = obj.item.item_name if obj.item else 'N/A'
+                vendor_name = obj.vendor.vendor_name if obj.vendor else 'No Vendor'
+                detail = f"Item: {item_name}<br/>Vendor: {vendor_name}<br/>Status: {obj.status.title()}"
             elif model_name == 'vendors':
                 label = f"{obj.vendor_name}"
                 detail = f"Email: {obj.email}<br/>Contact: {obj.contact_number}"
@@ -1318,8 +1325,10 @@ def aura_generate_report_excel(request):
                 detail = f"Room: {obj.room.room_name}\nQty: {obj.total_count}\nAvailable: {obj.available_count}\nIn Use: {obj.in_use}"
                 
             elif model_name == 'purchases':
-                label = f"{obj.purchase_id or 'N/A'}\nRoom: {obj.room.room_name}"
-                detail = f"Vendor: {obj.vendor.vendor_name if obj.vendor else 'N/A'}\nStatus: {obj.status}"
+                label = f"{obj.purchase_id or 'Pending ID'}<br/>Room: {obj.room.room_name if obj.room else 'No Room'}"
+                item_name = obj.item.item_name if obj.item else 'N/A'
+                vendor_name = obj.vendor.vendor_name if obj.vendor else 'No Vendor'
+                detail = f"Item: {item_name}<br/>Vendor: {vendor_name}<br/>Status: {obj.status.title()}"
                 
             elif model_name == 'vendors':
                 label = obj.vendor_name
@@ -1895,6 +1904,85 @@ def assign_inventory_api(request):
         'success': True,
         'message': f'Assigned {quantity} unit(s) of "{master_item.item_name}" to {len(room_ids)} room(s). Total deducted: {total_needed}.',
         'master_remaining': master_item.total_count,
+    })
+
+def unassign_inventory_api(request):
+    if request.method != 'POST':
+        return JsonResponse({'error': 'Method not allowed'}, status=405)
+
+    profile = request.user.profile
+    if not (profile.is_central_admin or profile.is_sub_admin):
+        return JsonResponse({'error': 'Unauthorized'}, status=403)
+
+    import json
+    try:
+        data = json.loads(request.body)
+    except json.JSONDecodeError:
+        return JsonResponse({'error': 'Invalid JSON'}, status=400)
+
+    room_item_id = data.get('room_item_id')
+    quantity     = data.get('quantity')
+
+    if not room_item_id or not quantity:
+        return JsonResponse({'error': 'room_item_id and quantity are required.'}, status=400)
+
+    try:
+        quantity = int(quantity)
+        if quantity <= 0:
+            raise ValueError()
+    except (ValueError, TypeError):
+        return JsonResponse({'error': 'Quantity must be a positive integer.'}, status=400)
+
+    org = profile.org
+
+    try:
+        room_item = Item.objects.get(id=room_item_id, organisation=org, room__isnull=False)
+    except Item.DoesNotExist:
+        return JsonResponse({'error': 'Room item not found.'}, status=404)
+
+    if quantity > room_item.total_count:
+        return JsonResponse({
+            'error': f'Only {room_item.total_count} units assigned. Cannot return more.'
+        }, status=400)
+
+    from django.db import transaction
+    with transaction.atomic():
+        # Find master item
+        master_item = Item.objects.filter(
+            organisation=org,
+            room__isnull=True,
+            item_name=room_item.item_name,
+            is_listed=True,
+        ).first()
+
+        # Deduct from room
+        room_item.total_count -= quantity
+        if room_item.total_count == 0:
+            room_item.delete()
+        else:
+            room_item.save(update_fields=['total_count', 'updated_on'])
+
+        # Return to master
+        if master_item:
+            master_item.total_count += quantity
+            master_item.save(update_fields=['total_count', 'updated_on'])
+        else:
+            Item.objects.create(
+                organisation=org,
+                room=None,
+                item_name=room_item.item_name,
+                category=room_item.category,
+                brand=room_item.brand,
+                total_count=quantity,
+                cost=room_item.cost,
+                is_listed=True,
+                item_description=room_item.item_description or room_item.item_name,
+                created_by=profile,
+            )
+
+    return JsonResponse({
+        'success': True,
+        'message': f'{quantity} unit(s) of "{room_item.item_name}" returned to master stock.',
     })
 
 def get_master_items_api(request):

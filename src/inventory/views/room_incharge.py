@@ -281,6 +281,7 @@ class ItemListView(LoginRequiredMixin, ListView):
                 .values_list("item_id", flat=True)
             )
         context["pending_items"] = pending_items
+        profile = getattr(request.user, 'profile', None)
         return context
 
 
@@ -1078,6 +1079,29 @@ class MarkUnresolvedView(LoginRequiredMixin, View):
         issue.status = "open"
         issue.resolved = False
         issue.save(update_fields=["status", "resolved", "updated_on"])
+        return redirect('room_incharge:issue_list', room_slug=room.slug)
+    
+class CloseIssueView(LoginRequiredMixin, View):
+    def post(self, request, room_slug, pk):
+        profile = request.user.profile
+        room = get_object_or_404(Room, slug=room_slug, organisation=profile.org)
+
+        if not (room.incharge == profile or profile.is_sub_admin or profile.is_central_admin):
+            return HttpResponseForbidden("Not allowed.")
+
+        issue = get_object_or_404(Issue, pk=pk, room=room)
+        closure_reason = request.POST.get('closure_reason', '').strip()
+
+        if not closure_reason:
+            messages.error(request, 'A closure reason is required.')
+            return redirect('room_incharge:issue_list', room_slug=room.slug)
+
+        issue.status = 'closed'
+        issue.resolved = False
+        issue.closure_reason = closure_reason
+        issue.save(update_fields=['status', 'resolved', 'closure_reason', 'updated_on'])
+
+        messages.success(request, f'Issue {issue.ticket_id} closed.')
         return redirect('room_incharge:issue_list', room_slug=room.slug)
 
 class ItemGroupListView(LoginRequiredMixin, ListView):

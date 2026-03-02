@@ -65,6 +65,7 @@ urlpatterns = [
     path('api/assignment-details/', aura.get_assignment_details, name='get_assignment_details'),
     path('master-inventory/assign/', aura.AssignInventoryView.as_view(), name='assign_inventory'),
     path('api/assign-inventory/', aura.assign_inventory_api, name='assign_inventory_api'),
+    path('api/unassign-inventory/', aura.unassign_inventory_api, name='unassign_inventory_api'),
     path('api/master-items/', aura.get_master_items_api, name='get_master_items_api'),
     
     path('aura/credentials/<int:pk>/delete/', aura.credential_delete, name='credential_delete'),

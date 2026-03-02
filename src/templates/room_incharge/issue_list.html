@@ -112,7 +112,11 @@
                 {% elif issue.status == "escalated" %}
                     <span class="badge bg-danger">Escalated</span>
                 {% elif issue.status == "closed" %}
-                    <span class="badge bg-success">Resolved</span>
+                    {% if issue.closure_reason %}
+                        <span class="badge bg-secondary">Closed</span>
+                    {% else %}
+                        <span class="badge bg-success">Resolved</span>
+                    {% endif %}
                 {% endif %}
             </td>
 
@@ -152,6 +156,14 @@
                             {% csrf_token %}
                             <button class="btn btn-sm btn-outline-danger w-100">Unresolve</button>
                         </form>
+                        {% endif %}
+
+                        {# Close Issue — available for open and in_progress #}
+                        {% if issue.status == "open" or issue.status == "in_progress" %}
+                        <button class="btn btn-sm btn-outline-secondary w-100"
+                            onclick="openCloseIssueModal('{{ issue.id }}', '{{ issue.ticket_id|escapejs }}', '{{ room_slug }}')">
+                            <i class="bi bi-x-circle me-1"></i>Close Issue
+                        </button>
                         {% endif %}
 
                         {# Time Extension — only for non-closed, non-escalated issues #}
@@ -208,6 +220,15 @@
                         <p><strong>Reporter Email:</strong> {{ issue.reporter_email|default:"-" }}</p>
                         <p><strong>Status:</strong> {{ issue.get_status_display }}</p>
                         <p><strong>TAT Deadline:</strong> {{ issue.tat_deadline }}</p>
+
+                        {% if issue.closure_reason %}
+                        <div style="background:#fef2f2; border:1px solid #fecaca; border-left:4px solid #dc2626; border-radius:10px; padding:12px 16px; margin-top:8px;">
+                            <p class="fw-semibold mb-1" style="color:#991b1b; font-size:0.85rem;">
+                                <i class="bi bi-x-circle-fill me-1"></i>Closed — Admin Message
+                            </p>
+                            <p class="mb-0" style="font-size:0.88rem; color:#991b1b;">{{ issue.closure_reason }}</p>
+                        </div>
+                        {% endif %}
 
                         {% if issue.time_extension_requests.exists %}
                         <hr>
@@ -321,4 +342,50 @@ document.addEventListener('DOMContentLoaded', function () {
 });
 </script>
 
+<!-- Close Issue Modal -->
+<div class="modal fade" id="closeIssueModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content" style="border-radius:16px; border:none;">
+      <div class="modal-header" style="background:#0f172a; color:white; border-radius:16px 16px 0 0;">
+        <h5 class="modal-title fw-bold">
+          <i class="bi bi-x-circle me-2"></i>Close Issue
+        </h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <form id="closeIssueForm" method="POST">
+        {% csrf_token %}
+        <div class="modal-body p-4">
+          <p style="font-size:0.88rem; color:#475569; margin-bottom:4px;">
+            Closing ticket: <strong id="closeIssueTicketId"></strong>
+          </p>
+          <div style="background:#fef2f2; border:1px solid #fecaca; border-radius:10px; padding:10px 14px; margin-bottom:16px; font-size:0.82rem; color:#991b1b;">
+            <i class="bi bi-info-circle me-1"></i>
+            This is different from "Resolved". Use this when the issue cannot be acted upon. The student will see your reason.
+          </div>
+          <label style="font-size:0.78rem; font-weight:700; color:#475569; text-transform:uppercase; letter-spacing:0.05em; display:block; margin-bottom:6px;">
+            Reason for Closing <span class="text-danger">*</span>
+          </label>
+          <textarea name="closure_reason" class="form-control" rows="3" required
+              placeholder="e.g. Duplicate request, Outside scope, Already handled via another ticket…"
+              style="border-radius:10px; border:1.5px solid #e2e8f0; font-size:0.9rem;"></textarea>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn btn-danger fw-bold">
+            <i class="bi bi-x-circle me-1"></i>Close Issue
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<script>
+function openCloseIssueModal(issueId, ticketId, roomSlug) {
+  document.getElementById('closeIssueTicketId').textContent = ticketId;
+  document.getElementById('closeIssueForm').action =
+    `/room_incharge/${roomSlug}/issues/${issueId}/close/`;
+  new bootstrap.Modal(document.getElementById('closeIssueModal')).show();
+}
+</script>
 {% endblock content %}
