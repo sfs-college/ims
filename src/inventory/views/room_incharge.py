@@ -34,7 +34,6 @@ class CategoryListView(LoginRequiredMixin, ListView):
 
     def get_queryset(self):
         room_slug = self.kwargs['room_slug']
-        # Only allow access to rooms where the user is incharge
         room = get_object_or_404(Room, slug=room_slug, incharge=self.request.user.profile)
         return super().get_queryset().filter(room=room, organisation=self.request.user.profile.org)
 
@@ -91,7 +90,6 @@ class CategoryDeleteView(LoginRequiredMixin, DeleteView):
         return context
 
     def dispatch(self, request, *args, **kwargs):
-    # Room Incharge is permanently restricted from delete operations
         return HttpResponseForbidden("Delete operation is not allowed.")
 
 class CategoryCreateView(LoginRequiredMixin, CreateView):
@@ -250,14 +248,12 @@ class BrandDeleteView(LoginRequiredMixin, DeleteView):
         return context
 
     def dispatch(self, request, *args, **kwargs):
-    # Room Incharge is permanently restricted from delete operations
         return HttpResponseForbidden("Delete operation is not allowed.")
 
 class ItemListView(LoginRequiredMixin, ListView):
     model = Item
     template_name = 'room_incharge/item_list.html'
     context_object_name = 'items'
-    # probably have paginate_by, etc.
 
     def get_queryset(self):
         room = get_object_or_404(Room, slug=self.kwargs['room_slug'])
@@ -268,7 +264,6 @@ class ItemListView(LoginRequiredMixin, ListView):
         room = get_object_or_404(Room, slug=self.kwargs['room_slug'])
         context['room'] = room
         context['room_slug'] = self.kwargs['room_slug']
-        # ensure RoomSettings exists and is available to the template
         context['room_settings'] = RoomSettings.objects.get_or_create(room=room)[0]
 
         table_names = set(connection.introspection.table_names())
@@ -281,7 +276,9 @@ class ItemListView(LoginRequiredMixin, ListView):
                 .values_list("item_id", flat=True)
             )
         context["pending_items"] = pending_items
-        profile = getattr(request.user, 'profile', None)
+        profile = getattr(self.request.user, 'profile', None)
+        context['is_central_admin'] = bool(profile and profile.is_central_admin and not profile.is_sub_admin)
+        context['is_sub_admin'] = bool(profile and profile.is_sub_admin)
         return context
 
 
@@ -293,7 +290,7 @@ class ItemCreateView(LoginRequiredMixin, CreateView):
 
     def get_success_url(self):
         return reverse_lazy('room_incharge:item_list', kwargs={'room_slug': self.kwargs['room_slug']})
-    
+
     def get_form(self, form_class=None):
         form = super().get_form(form_class)
         room = Room.objects.get(slug=self.kwargs['room_slug'])
@@ -327,19 +324,12 @@ class ItemCreateView(LoginRequiredMixin, CreateView):
         return context
 
 class SubmitStockRequestView(LoginRequiredMixin, View):
-    """
-    AJAX POST only — Room Incharge submits a stock request for an item.
-    Called by the modal on item_list.html.
-    Returns JSON { status: 'success' } or { status: 'error', error: '...' }.
-    """
-
     def post(self, request, *args, **kwargs):
-        room  = get_object_or_404(Room, slug=kwargs["room_slug"])
+        room = get_object_or_404(Room, slug=kwargs["room_slug"])
         item_id         = request.POST.get("item_id", "").strip()
         requested_count = request.POST.get("requested_count", "").strip()
         reason          = request.POST.get("reason", "").strip()
 
-        # ── Basic validation ──────────────────────────────────────────
         if not item_id or not requested_count or not reason:
             return JsonResponse(
                 {"status": "error", "error": "All fields are required."},
@@ -358,17 +348,13 @@ class SubmitStockRequestView(LoginRequiredMixin, View):
 
         item = get_object_or_404(Item, id=item_id, room=room)
 
-        # ── Prevent duplicate pending requests for the same item ──────
         if StockRequest.objects.filter(item=item, status="pending").exists():
             return JsonResponse(
-                {
-                    "status": "error",
-                    "error": "A stock request for this item is already pending approval.",
-                },
+                {"status": "error", "error": "A stock request for this item is already pending approval."},
                 status=400,
             )
 
-        profile = getattr(request.user, "profile", None)
+        profile = getattr(self.request.user, "profile", None)
         if not profile:
             return JsonResponse(
                 {"status": "error", "error": "User profile not found."},
@@ -406,9 +392,8 @@ class ItemDeleteView(LoginRequiredMixin, DeleteView):
         context['room_slug'] = self.kwargs['room_slug']
         context['room_settings'] = RoomSettings.objects.get_or_create(room=room)[0]
         return context
-    
+
     def dispatch(self, request, *args, **kwargs):
-    # Room Incharge is not allowed to delete items (restricted permanently)
         return HttpResponseForbidden("Delete action is not permitted.")
 
 
@@ -444,7 +429,6 @@ class ItemArchiveView(LoginRequiredMixin, FormView):
             remark=form.cleaned_data["remark"]
         )
 
-        # FIXED — USE CORRECT FIELD
         item.available_count -= count
         item.archived_count += count
         item.save(update_fields=["available_count", "archived_count", "updated_on"])
@@ -493,7 +477,7 @@ class SystemCreateView(LoginRequiredMixin, CreateView):
         system = form.save(commit=False)
         system.organisation = self.request.user.profile.org
         system.room = Room.objects.get(slug=self.kwargs['room_slug'])
-        system.department = system.room.department  # Set the department field
+        system.department = system.room.department
         system.save()
         return redirect(self.get_success_url())
 
@@ -524,7 +508,7 @@ class SystemUpdateView(LoginRequiredMixin, UpdateView):
         system = form.save(commit=False)
         system.organisation = self.request.user.profile.org
         system.room = Room.objects.get(slug=self.kwargs['room_slug'])
-        system.department = system.room.department  # Set the department field
+        system.department = system.room.department
         system.save()
         return redirect(self.get_success_url())
 
@@ -554,9 +538,8 @@ class SystemDeleteView(LoginRequiredMixin, DeleteView):
         context['room_slug'] = self.kwargs['room_slug']
         context['room_settings'] = RoomSettings.objects.get_or_create(room=room)[0]
         return context
-    
+
     def dispatch(self, request, *args, **kwargs):
-    # Room Incharge is permanently restricted from delete operations
         return HttpResponseForbidden("Delete operation is not allowed.")
 
 class SystemComponentListView(LoginRequiredMixin, ListView):
@@ -585,7 +568,7 @@ class SystemComponentCreateView(LoginRequiredMixin, CreateView):
 
     def get_success_url(self):
         return reverse_lazy('room_incharge:system_component_list', kwargs={'room_slug': self.kwargs['room_slug'], 'system_slug': self.kwargs['system_slug']})
-    
+
     def get_form(self, form_class=None):
         form = super().get_form(form_class)
         room = Room.objects.get(slug=self.kwargs['room_slug'])
@@ -601,13 +584,12 @@ class SystemComponentCreateView(LoginRequiredMixin, CreateView):
             form.add_error(None, str(e))
             messages.error(self.request, str(e))
             return self.form_invalid(form)
-        
-        # Adjust the available_count and in_use count of the associated Item
+
         item = component.component_item
         item.available_count -= 1
         item.in_use += 1
         item.save()
-        
+
         return redirect(self.get_success_url())
 
     def get_form_kwargs(self):
@@ -637,29 +619,27 @@ class SystemComponentUpdateView(LoginRequiredMixin, UpdateView):
     def form_valid(self, form):
         component = form.save(commit=False)
         component.system = System.objects.get(slug=self.kwargs['system_slug'])
-        
-        # Get the old component item before saving the new one
+
         old_component = SystemComponent.objects.get(pk=component.pk)
         old_item = old_component.component_item
-        
+
         try:
             component.save()
         except ValueError as e:
             form.add_error(None, str(e))
             messages.error(self.request, str(e))
             return self.form_invalid(form)
-        
-        # Adjust the counts if the item has changed
+
         new_item = component.component_item
         if old_item != new_item:
             old_item.available_count += 1
             old_item.in_use -= 1
             old_item.save()
-            
+
             new_item.available_count -= 1
             new_item.in_use += 1
             new_item.save()
-        
+
         return redirect(self.get_success_url())
 
     def get_context_data(self, **kwargs):
@@ -692,7 +672,6 @@ class SystemComponentDeleteView(LoginRequiredMixin, DeleteView):
         return context
 
     def dispatch(self, request, *args, **kwargs):
-    # Room Incharge is permanently restricted from delete operations
         return HttpResponseForbidden("Delete operation is not allowed.")
 
 class SystemComponentArchiveView(LoginRequiredMixin, FormView):
@@ -719,7 +698,6 @@ class SystemComponentArchiveView(LoginRequiredMixin, FormView):
             remark=form.cleaned_data["remark"]
         )
 
-        # FIXED
         item.in_use -= 1
         if item.in_use < 0:
             item.in_use = 0
@@ -790,8 +768,6 @@ class PurchaseCreateView(LoginRequiredMixin, CreateView):
         org = self.request.user.profile.org
 
         purchase = form.save(commit=False)
-
-        # 🔒 HARD GUARANTEES
         purchase.organisation = org
         purchase.room = room
         purchase.status = "requested"
@@ -803,7 +779,6 @@ class PurchaseCreateView(LoginRequiredMixin, CreateView):
         if not purchase.purchase_date:
             purchase.purchase_date = timezone.now().date()
 
-        # Update stock
         if purchase.item:
             item = purchase.item
             item.total_count += int(purchase.quantity)
@@ -811,7 +786,6 @@ class PurchaseCreateView(LoginRequiredMixin, CreateView):
 
         purchase.save()
         return redirect(self.get_success_url())
-
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -834,7 +808,7 @@ class PurchaseUpdateView(LoginRequiredMixin, UpdateView):
     def form_valid(self, form):
         purchase = form.save(commit=False)
         if purchase.status != 'requested':
-            purchase.status = 'requested'  # Set status to requested if not already
+            purchase.status = 'requested'
         purchase.save()
         return redirect(self.get_success_url())
 
@@ -863,7 +837,6 @@ class PurchaseNewItemCreateView(LoginRequiredMixin, CreateView):
         qty = form.cleaned_data['quantity']
         unit = form.cleaned_data['unit_of_measure']
 
-        # 1️⃣ CREATE ITEM
         item = Item.objects.create(
             organisation=org,
             department=room.department,
@@ -881,10 +854,6 @@ class PurchaseNewItemCreateView(LoginRequiredMixin, CreateView):
             is_listed=True
         )
 
-        # 2️⃣ SAFE PURCHASE DATE (🔥 FIX)
-        purchase_date = form.cleaned_data.get('purchase_date') or timezone.now().date()
-
-        # 3️⃣ CREATE PURCHASE
         if not vendor:
             form.add_error("vendor", "Vendor is required")
             return self.form_invalid(form)
@@ -905,7 +874,6 @@ class PurchaseNewItemCreateView(LoginRequiredMixin, CreateView):
             status="requested",
         )
 
-        # 4️⃣ TOTAL COST CALC (SAFE DECIMAL)
         if purchase.cost_per_unit and purchase.quantity:
             purchase.total_cost = purchase.cost_per_unit * Decimal(str(purchase.quantity))
             purchase.save(update_fields=['total_cost'])
@@ -938,7 +906,6 @@ class PurchaseDeleteView(LoginRequiredMixin, DeleteView):
         return context
 
     def dispatch(self, request, *args, **kwargs):
-    # Room Incharge is permanently restricted from delete operations
         return HttpResponseForbidden("Delete operation is not allowed.")
 
 
@@ -988,16 +955,11 @@ class IssueListView(LoginRequiredMixin, ListView):
     template_name = 'room_incharge/issue_list.html'
     model = Issue
     context_object_name = 'issues'
-    # paginate_by = 50
 
     def get_room(self):
         room = get_object_or_404(Room, slug=self.kwargs["room_slug"])
         profile = self.request.user.profile
 
-        # Allow if:
-        # 1. Same organisation
-        # 2. User is the room incharge
-        # 3. User is sub admin / central admin
         if (
             room.organisation == profile.org
             or room.incharge == profile
@@ -1008,19 +970,14 @@ class IssueListView(LoginRequiredMixin, ListView):
 
         raise PermissionDenied("You do not have access to this room")
 
-
     def get_queryset(self):
         room = self.get_room()
-        return Issue.objects.filter(
-            room=room
-        ).order_by('-created_on')
+        return Issue.objects.filter(room=room).order_by('-created_on')
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         room = self.get_room()
-
         room_settings, _ = RoomSettings.objects.get_or_create(room=room)
-
         context.update({
             'room': room,
             'room_slug': room.slug,
@@ -1029,25 +986,18 @@ class IssueListView(LoginRequiredMixin, ListView):
         return context
 
 
-# ---- action views (POST-only) ----
 class MarkInProgressView(LoginRequiredMixin, View):
     def post(self, request, room_slug, pk):
         profile = request.user.profile
-
-        # Ensure room exists & user is incharge
         room = get_object_or_404(Room, slug=room_slug, organisation=profile.org)
         if room.incharge != profile:
             return HttpResponseForbidden("You are not allowed to update this issue.")
 
-        # Get issue belonging to this room
         issue = get_object_or_404(Issue, pk=pk, room=room)
-
-        # Update status
         issue.status = "in_progress"
         issue.resolved = False
         issue.escalation_level = 0
         issue.updated_on = timezone.now()
-
         issue.save(update_fields=["status", "resolved", "escalation_level", "updated_on"])
 
         messages.success(request, f"Issue {issue.ticket_id} marked as IN PROGRESS.")
@@ -1055,13 +1005,9 @@ class MarkInProgressView(LoginRequiredMixin, View):
 
 
 class MarkResolvedView(LoginRequiredMixin, View):
-    """
-    POST: mark issue as resolved/closed.
-    """
     def post(self, request, room_slug, pk):
         room = get_object_or_404(Room, slug=room_slug, organisation=request.user.profile.org)
         issue = get_object_or_404(Issue, pk=pk, room=room)
-
         issue.status = "closed"
         issue.resolved = True
         issue.save(update_fields=["status", "resolved", "updated_on"])
@@ -1069,18 +1015,15 @@ class MarkResolvedView(LoginRequiredMixin, View):
 
 
 class MarkUnresolvedView(LoginRequiredMixin, View):
-    """
-    POST: reopen the issue (set to open and unresolved).
-    """
     def post(self, request, room_slug, pk):
         room = get_object_or_404(Room, slug=room_slug, organisation=request.user.profile.org)
         issue = get_object_or_404(Issue, pk=pk, room=room)
-
         issue.status = "open"
         issue.resolved = False
         issue.save(update_fields=["status", "resolved", "updated_on"])
         return redirect('room_incharge:issue_list', room_slug=room.slug)
-    
+
+
 class CloseIssueView(LoginRequiredMixin, View):
     def post(self, request, room_slug, pk):
         profile = request.user.profile
@@ -1103,6 +1046,7 @@ class CloseIssueView(LoginRequiredMixin, View):
 
         messages.success(request, f'Issue {issue.ticket_id} closed.')
         return redirect('room_incharge:issue_list', room_slug=room.slug)
+
 
 class ItemGroupListView(LoginRequiredMixin, ListView):
     template_name = 'room_incharge/item_group_list.html'
@@ -1150,7 +1094,7 @@ class ItemGroupItemCreateView(LoginRequiredMixin, CreateView):
 
     def get_success_url(self):
         return reverse_lazy('room_incharge:item_group_item_list', kwargs={'room_slug': self.kwargs['room_slug'], 'item_group_slug': self.kwargs['item_group_slug']})
-    
+
     def get_form(self, form_class=None):
         form = super().get_form(form_class)
         room = Room.objects.get(slug=self.kwargs['room_slug'])
@@ -1162,7 +1106,6 @@ class ItemGroupItemCreateView(LoginRequiredMixin, CreateView):
         item_group_item.item_group = ItemGroup.objects.get(slug=self.kwargs['item_group_slug'])
         item = item_group_item.item
 
-        # Adjust the available_count and in_use count of the associated Item
         item.available_count -= item_group_item.qty
         item.in_use += item_group_item.qty
 
@@ -1247,7 +1190,6 @@ class ItemGroupDeleteView(LoginRequiredMixin, DeleteView):
         return context
 
     def dispatch(self, request, *args, **kwargs):
-    # Room Incharge is permanently restricted from delete operations
         return HttpResponseForbidden("Delete operation is not allowed.")
 
 class ItemGroupItemUpdateView(LoginRequiredMixin, UpdateView):
@@ -1265,7 +1207,6 @@ class ItemGroupItemUpdateView(LoginRequiredMixin, UpdateView):
         item = item_group_item.item
         old_qty = ItemGroupItem.objects.get(pk=item_group_item.pk).qty
 
-        # Adjust the available_count and in_use count of the associated Item
         item.available_count += old_qty - item_group_item.qty
         item.in_use -= old_qty - item_group_item.qty
         item.save()
@@ -1303,27 +1244,26 @@ class ItemGroupItemDeleteView(LoginRequiredMixin, DeleteView):
         return context
 
     def dispatch(self, request, *args, **kwargs):
-    # Room Incharge is permanently restricted from delete operations
         return HttpResponseForbidden("Delete operation is not allowed.")
 
 class RoomSettingsView(LoginRequiredMixin, UpdateView):
-    model = RoomSettings 
-    template_name = 'room_incharge/room_settings.html' 
-    form_class = RoomSettingsForm 
-    success_url = reverse_lazy('room_incharge:room_dashboard') 
-    
-    def get_object(self): 
-        room = get_object_or_404(Room, slug=self.kwargs['room_slug']) 
-        return RoomSettings.objects.get_or_create(room=room)[0] 
-    
-    def get_success_url(self): 
-        return reverse_lazy('room_incharge:room_settings', kwargs={'room_slug': self.kwargs['room_slug']}) 
-    
-    def get_context_data(self, **kwargs): 
-        context = super().get_context_data(**kwargs) 
-        context['room_slug'] = self.kwargs['room_slug'] 
-        room = Room.objects.get(slug=self.kwargs['room_slug']) 
-        context['room_settings'] = RoomSettings.objects.get_or_create(room=room)[0] 
+    model = RoomSettings
+    template_name = 'room_incharge/room_settings.html'
+    form_class = RoomSettingsForm
+    success_url = reverse_lazy('room_incharge:room_dashboard')
+
+    def get_object(self):
+        room = get_object_or_404(Room, slug=self.kwargs['room_slug'])
+        return RoomSettings.objects.get_or_create(room=room)[0]
+
+    def get_success_url(self):
+        return reverse_lazy('room_incharge:room_settings', kwargs={'room_slug': self.kwargs['room_slug']})
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['room_slug'] = self.kwargs['room_slug']
+        room = Room.objects.get(slug=self.kwargs['room_slug'])
+        context['room_settings'] = RoomSettings.objects.get_or_create(room=room)[0]
         return context
 
 class RoomReportView(LoginRequiredMixin, View):
@@ -1331,13 +1271,9 @@ class RoomReportView(LoginRequiredMixin, View):
         room_slug = self.kwargs['room_slug']
         room = get_object_or_404(Room, slug=room_slug)
         room_settings = RoomSettings.objects.get_or_create(room=room)[0]
-        format_type = request.GET.get('format', 'pdf')  # dropdown choice
+        format_type = request.GET.get('format', 'pdf')
 
-        # ---------------------------
-        # Helper functions
-        # ---------------------------
         def fmt_datetime(dt):
-            """Format datetime similar to PDF's visual style."""
             if not dt:
                 return ''
             if isinstance(dt, date) and not isinstance(dt, datetime):
@@ -1360,9 +1296,6 @@ class RoomReportView(LoginRequiredMixin, View):
             except Exception:
                 return ''
 
-        # ---------------------------
-        # Build context
-        # ---------------------------
         context = {
             'room': room,
             'room_settings': room_settings,
@@ -1376,14 +1309,10 @@ class RoomReportView(LoginRequiredMixin, View):
             'issues': Issue.objects.filter(room=room),
         }
 
-        # ---------------------------
-        # Excel Generation
-        # ---------------------------
         if format_type == 'excel':
             excel_buffer = io.BytesIO()
 
             with pd.ExcelWriter(excel_buffer, engine='openpyxl') as writer:
-                #  1) Summary Sheet
                 summary_rows = [{
                     'Room Name': room.room_name,
                     'Incharge': f"{room.incharge.first_name} {room.incharge.last_name}" if getattr(room, 'incharge', None) else '',
@@ -1393,7 +1322,6 @@ class RoomReportView(LoginRequiredMixin, View):
                 }]
                 pd.DataFrame(summary_rows).to_excel(writer, sheet_name='Summary', index=False)
 
-                #  2) Categories
                 if context['categories'] is not None and context['categories'].exists():
                     rows = [{
                         'Category Name': c.category_name,
@@ -1402,7 +1330,6 @@ class RoomReportView(LoginRequiredMixin, View):
                     } for c in context['categories']]
                     pd.DataFrame(rows).to_excel(writer, sheet_name='Categories', index=False)
 
-                #  3) Brands
                 if context['brands'] is not None and context['brands'].exists():
                     rows = [{
                         'Brand Name': b.brand_name,
@@ -1411,9 +1338,6 @@ class RoomReportView(LoginRequiredMixin, View):
                     } for b in context['brands']]
                     pd.DataFrame(rows).to_excel(writer, sheet_name='Brands', index=False)
 
-                # --------------------------------------------------------------
-                # 🧾 4) ITEMS SHEET  — matches stock register format exactly
-                # --------------------------------------------------------------
                 if context['items'] is not None and context['items'].exists():
                     item_rows = []
                     for i, item in enumerate(context['items'], start=1):
@@ -1437,7 +1361,6 @@ class RoomReportView(LoginRequiredMixin, View):
                         })
                     pd.DataFrame(item_rows).to_excel(writer, sheet_name='Items', index=False)
 
-                #  5) Systems
                 if context['systems'] is not None and context['systems'].exists():
                     rows = [{
                         'System Name': s.system_name,
@@ -1447,7 +1370,6 @@ class RoomReportView(LoginRequiredMixin, View):
                     } for s in context['systems']]
                     pd.DataFrame(rows).to_excel(writer, sheet_name='Systems', index=False)
 
-                #  6) System Components
                 if context['system_components'] is not None and context['system_components'].exists():
                     rows = [{
                         'System': safe_str(c.system),
@@ -1459,7 +1381,6 @@ class RoomReportView(LoginRequiredMixin, View):
                     } for c in context['system_components']]
                     pd.DataFrame(rows).to_excel(writer, sheet_name='System Components', index=False)
 
-                # 7) Item Groups
                 if context['item_groups'] is not None and context['item_groups'].exists():
                     rows = [{
                         'Item Group Name': g.item_group_name,
@@ -1468,9 +1389,6 @@ class RoomReportView(LoginRequiredMixin, View):
                     } for g in context['item_groups']]
                     pd.DataFrame(rows).to_excel(writer, sheet_name='Item Groups', index=False)
 
-                # --------------------------------------------------------------
-                # 💰 8) PURCHASES SHEET — matches purchase register format exactly
-                # --------------------------------------------------------------
                 if context['purchases'] is not None and context['purchases'].exists():
                     purchase_rows = []
                     for i, p in enumerate(context['purchases'], start=1):
@@ -1489,7 +1407,6 @@ class RoomReportView(LoginRequiredMixin, View):
                         })
                     pd.DataFrame(purchase_rows).to_excel(writer, sheet_name='Purchases', index=False)
 
-                # 9) Issues
                 if context['issues'] is not None and context['issues'].exists():
                     rows = [{
                         'Subject': iss.subject,
@@ -1508,9 +1425,6 @@ class RoomReportView(LoginRequiredMixin, View):
             response['Content-Disposition'] = f'attachment; filename="{room.room_name}_report.xlsx"'
             return response
 
-        # ---------------------------
-        # Default PDF generation
-        # ---------------------------
         html_string = render_to_string('room_incharge/room_report.html', context)
         html = HTML(string=html_string)
         pdf = html.write_pdf()
@@ -1527,59 +1441,34 @@ class IssueTimeExtensionRequestView(LoginRequiredMixin, View):
         reason = request.POST.get("reason")
 
         if not requested_extra_hours or not reason:
-            messages.error(
-                request,
-                "Both additional time and reason are required."
-            )
-            return redirect(
-                "room_incharge:issue_list",
-                room_slug=issue.room.slug
-            )
+            messages.error(request, "Both additional time and reason are required.")
+            return redirect("room_incharge:issue_list", room_slug=issue.room.slug)
 
-
-        # Calculate current TAT in hours
         if issue.tat_deadline:
             remaining_seconds = (issue.tat_deadline - timezone.now()).total_seconds()
             current_tat_hours = max(int(remaining_seconds // 3600), 0)
         else:
-            # Fallback to standard SLA (48 hours)
             current_tat_hours = 48
 
         IssueTimeExtensionRequest.objects.create(
             issue=issue,
             requested_by=request.user.profile,
-            current_tat_hours=current_tat_hours, 
+            current_tat_hours=current_tat_hours,
             requested_extra_hours=int(requested_extra_hours),
             reason=reason,
         )
 
-
-        messages.success(
-            request,
-            "Time extension request submitted successfully."
-        )
-
-        return redirect(
-            "room_incharge:issue_list",
-            room_slug=issue.room.slug
-        )
+        messages.success(request, "Time extension request submitted successfully.")
+        return redirect("room_incharge:issue_list", room_slug=issue.room.slug)
 
 class RoomInchargeNotificationsView(LoginRequiredMixin, View):
-    """
-    Shows the room incharge their personalised notification feed:
-      - Stock requests they raised: approved / rejected outcomes
-      - Stock requests where items were assigned to their room by admin
-      - Issues assigned to their room (new, in_progress, escalated, closed)
-    """
     template_name = "room_incharge/notifications.html"
 
     def get(self, request, *args, **kwargs):
         room_slug = kwargs["room_slug"]
-        room      = get_object_or_404(Room, slug=room_slug, incharge=request.user.profile)
+        room = get_object_or_404(Room, slug=room_slug, incharge=request.user.profile)
         room_settings = RoomSettings.objects.get_or_create(room=room)[0]
 
-        # Stock request outcomes raised BY this room (approved / rejected — skip pending)
-        # NOTE: StockRequest has no updated_on field — use created_on for ordering
         stock_notifications = (
             StockRequest.objects
             .filter(room=room, status__in=["approved", "rejected"])
@@ -1596,8 +1485,6 @@ class RoomInchargeNotificationsView(LoginRequiredMixin, View):
         except Exception:
             assigned_notifications = StockRequest.objects.none()
 
-        # All issues for this room, most recently updated first
-        # Covers: new issues received, in-progress, escalated, resolved
         issue_notifications = (
             Issue.objects
             .filter(room=room)
@@ -1605,11 +1492,11 @@ class RoomInchargeNotificationsView(LoginRequiredMixin, View):
         )
 
         context = {
-            "room":                  room,
-            "room_slug":             room_slug,
-            "room_settings":         room_settings,
-            "stock_notifications":   stock_notifications,
+            "room":                   room,
+            "room_slug":              room_slug,
+            "room_settings":          room_settings,
+            "stock_notifications":    stock_notifications,
             "assigned_notifications": assigned_notifications,
-            "issue_notifications":   issue_notifications,
+            "issue_notifications":    issue_notifications,
         }
         return render(request, self.template_name, context)
