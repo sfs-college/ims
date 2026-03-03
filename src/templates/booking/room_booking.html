@@ -506,6 +506,11 @@
                         <strong style="font-size:0.9rem;">Attach Document</strong><br>
                         <small class="text-muted">.doc, .docx</small>
                     </div>
+                    <div class="type-card flex-fill" id="reqText" onclick="switchRequirement('text')" style="padding:14px 20px;">
+                        <i class="bi bi-pencil-square mb-1 h5 d-block"></i>
+                        <strong style="font-size:0.9rem;">Enter Text</strong><br>
+                        <small class="text-muted">Type requirements</small>
+                    </div>
                     <div class="type-card flex-fill active" id="reqNA" onclick="switchRequirement('na')" style="padding:14px 20px;">
                         <i class="bi bi-dash-circle mb-1 h5 d-block"></i>
                         <strong style="font-size:0.9rem;">Not Applicable</strong><br>
@@ -513,12 +518,24 @@
                     </div>
                 </div>
 
+                <!-- Hidden field to track which option is active -->
+                <input type="hidden" name="requirements_type" id="reqTypeInput" value="na">
+
                 <div id="fileUploadSection" class="d-none">
                     {{ form.requirements_doc }}
                     <small class="text-muted d-block mt-2">
                         Upload .doc, .docx (Max 5MB). <strong>File name must be unique</strong> — no two bookings can share the same document name.
                     </small>
                     <div id="fileNameAlert" class="cm-alert error mt-2" style="display:none;"></div>
+                </div>
+                <div id="textRequirementsSection" class="d-none">
+                    <textarea id="requirements_text_input" name="requirements_text_input"
+                              class="cm-input" rows="5"
+                              placeholder="Type your room requirements here (equipment needed, seating arrangement, AV setup, etc.)…"
+                              style="resize:vertical;"></textarea>
+                    <small class="text-muted d-block mt-1">
+                        Describe your requirements in plain text. This will be stored and visible to admins.
+                    </small>
                 </div>
                 <div id="naSection" class="p-3 bg-light rounded-3 text-center text-muted">
                     <i class="bi bi-check-circle-fill text-success me-2"></i>No additional requirements document needed.
@@ -830,12 +847,18 @@ function loadRooms() {
 
 function switchRequirement(mode) {
     document.getElementById('reqAttach').classList.toggle('active', mode === 'attach');
+    document.getElementById('reqText').classList.toggle('active', mode === 'text');
     document.getElementById('reqNA').classList.toggle('active', mode === 'na');
-    document.getElementById('fileUploadSection').classList.toggle('d-none', mode === 'na');
-    document.getElementById('naSection').classList.toggle('d-none', mode === 'attach');
-    if (mode === 'na') {
+    document.getElementById('fileUploadSection').classList.toggle('d-none', mode !== 'attach');
+    document.getElementById('textRequirementsSection').classList.toggle('d-none', mode !== 'text');
+    document.getElementById('naSection').classList.toggle('d-none', mode !== 'na');
+    document.getElementById('reqTypeInput').value = mode;
+    if (mode !== 'attach') {
         const fileInput = document.querySelector('#fileUploadSection input[type="file"]');
         if (fileInput) fileInput.value = '';
+    }
+    if (mode !== 'text') {
+        document.getElementById('requirements_text_input').value = '';
     }
 }
 
@@ -868,7 +891,9 @@ document.getElementById('bookingForm').addEventListener('submit', function(e) {
     const room     = document.getElementById('id_room').value;
     const fileInput = document.querySelector('#fileUploadSection input[type="file"]');
     const hasFile = fileInput && fileInput.files && fileInput.files.length > 0;
-    const isAttach = document.getElementById('reqAttach').classList.contains('active');
+    const reqMode = document.getElementById('reqTypeInput').value;
+    const isAttach = reqMode === 'attach';
+    const isText   = reqMode === 'text';
 
     const errors = [];
 
@@ -877,7 +902,7 @@ document.getElementById('bookingForm').addEventListener('submit', function(e) {
     if (!category) errors.push('Please select a Room Category.');
     if (!start || !end) errors.push('Please select a valid booking date and time.');
 
-    // Date order validation
+    // Date order validation + same-day / previous-day block
     if (start && end) {
         const startDt = new Date(start);
         const endDt   = new Date(end);
@@ -888,12 +913,21 @@ document.getElementById('bookingForm').addEventListener('submit', function(e) {
         if (startDt < now) {
             errors.push('⚠ The start date/time cannot be in the past.');
         }
+        // Block same-day and previous-day bookings
+        const todayMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        const tomorrowMidnight = new Date(todayMidnight.getTime() + 24 * 60 * 60 * 1000);
+        if (startDt < tomorrowMidnight) {
+            errors.push('⚠ Bookings cannot be made for today or the previous day. Please select a date <strong>at least one day in advance</strong>.');
+        }
     }
 
     if (!room) errors.push('Please select an available room from the grid below.');
 
     if (isAttach && !hasFile) {
         errors.push('You selected "Attach Document" but no file was chosen.');
+    }
+    if (isText && !document.getElementById('requirements_text_input').value.trim()) {
+        errors.push('You selected "Enter Text" but no requirements text was entered.');
     }
 
     if (errors.length > 0) {

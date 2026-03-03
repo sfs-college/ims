@@ -1197,6 +1197,27 @@
                             <div class="doc-text-content" id="doc-text-${b.id}"></div>
                         </div>
                     `;
+                } else if (b.has_inline_text) {
+                    // Faculty typed requirements as text — show inline, no fetch needed
+                    docHtml = `
+                        <button class="btn-view-file" onclick="toggleInlineText(this, ${b.id})" data-booking-id="${b.id}">
+                            <i class="bi bi-eye me-1"></i>View Requirements
+                        </button>
+                    `;
+                    docPanelHtml = `
+                        <div class="doc-text-panel" id="doc-panel-${b.id}">
+                            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+                                <span style="font-weight:700;font-size:0.78rem;color:#6366f1;text-transform:uppercase;letter-spacing:0.5px;">
+                                    <i class="bi bi-pencil-square me-1"></i>Requirements (Inline Text)
+                                </span>
+                                <span class="text-muted" style="font-size:0.72rem;cursor:pointer;" onclick="closeDocPanel(${b.id})">✕ Close</span>
+                            </div>
+                            <div class="doc-text-content" id="doc-text-${b.id}" data-loaded="1"
+                                 style="white-space:pre-line;font-size:0.84rem;color:#334155;line-height:1.6;">
+                                ${escHtml(b.inline_text)}
+                            </div>
+                        </div>
+                    `;
                 } else {
                     docHtml = `<span class="text-muted small"><i class="bi bi-dash-circle me-1"></i>No document attached</span>`;
                 }
@@ -1454,6 +1475,19 @@
         container.dataset.loaded = '1';
     }
 
+    function toggleInlineText(btn, bookingId) {
+        const card   = btn ? btn.closest('.bfc-body') : null;
+        const panel  = card ? card.querySelector('.doc-text-panel') : null;
+        if (!panel) return;
+        if (panel.classList.contains('open')) {
+            panel.classList.remove('open');
+            if (btn) btn.innerHTML = '<i class="bi bi-eye me-1"></i>View Requirements';
+        } else {
+            panel.classList.add('open');
+            if (btn) btn.innerHTML = '<i class="bi bi-eye-slash me-1"></i>Hide Requirements';
+        }
+    }
+
     function toggleDocText(btn, textUrl, forceClose) {
         const card   = btn ? btn.closest('.bfc-body') : null;
         const panel  = card ? card.querySelector('.doc-text-panel') : null;
@@ -1549,6 +1583,19 @@
                         .catch(function() { el.innerHTML = '<span class="text-danger">Failed to load document.</span>'; });
                 }, 50);
             }
+        } else if (b.has_inline_text) {
+            // Faculty typed requirements directly — no file fetch needed
+            docSection = `
+                <div style="background:#f8fafc;border-radius:14px;padding:16px 20px;border:1px solid #e2e8f0;margin-top:16px;">
+                    <div style="font-weight:700;font-size:0.8rem;color:#94a3b8;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:10px;">
+                        <i class="bi bi-pencil-square me-1"></i>Requirements (Inline Text)
+                    </div>
+                    <div style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:12px 14px;
+                                max-height:260px;overflow-y:auto;font-size:0.84rem;color:#334155;
+                                white-space:pre-line;line-height:1.6;">
+                        ${escHtml(b.inline_text)}
+                    </div>
+                </div>`;
         } else {
             docSection = '<p class="text-muted small mt-3"><i class="bi bi-dash-circle me-1"></i>No document attached for this booking.</p>';
         }

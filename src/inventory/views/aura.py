@@ -727,18 +727,24 @@ def confirmed_booking_files(request):
                 from_str = str(b.start_datetime)
                 to_str   = str(b.end_datetime)
 
+            # Inline text requirements (typed by faculty instead of uploading a doc)
+            inline_text     = (b.requirements_text or '').strip()
+            has_inline_text = bool(inline_text)
+
             results.append({
-                'id':           b.id,
-                'room':         b.room.room_name if b.room else '—',
-                'faculty':      b.faculty_name  or '—',
-                'email':        b.faculty_email or '—',
-                'from':         from_str,
-                'to':           to_str,
-                'purpose':      b.purpose or '',
-                'doc_name':     doc_name,
-                # True whenever a doc file is attached — buttons are always shown.
-                # Extraction happens lazily inside get_booking_doc_text.
-                'has_doc_text': has_doc,
+                'id':              b.id,
+                'room':            b.room.room_name if b.room else '—',
+                'faculty':         b.faculty_name  or '—',
+                'email':           b.faculty_email or '—',
+                'from':            from_str,
+                'to':              to_str,
+                'purpose':         b.purpose or '',
+                'doc_name':        doc_name,
+                # True whenever a doc file is attached
+                'has_doc_text':    has_doc,
+                # Inline text requirements (no file upload — typed directly)
+                'has_inline_text': has_inline_text,
+                'inline_text':     inline_text if has_inline_text else '',
             })
 
         return JsonResponse({'results': results})
@@ -1443,7 +1449,7 @@ class MasterInventoryImportView(LoginRequiredMixin, CentralAdminRequiredMixin, F
 
         has_errors = bool(preview['errors'] or any(r['errors'] for r in preview['items']))
 
-        return render(self.request, "central_admin/master_inventory_import_preview.html", {
+        return render(self.request, "central_admin/master_inventory_import_view.html", {
             "preview": preview,
             "has_errors": has_errors,
         })

@@ -697,6 +697,12 @@ class RoomBooking(models.Model):
         validators=[FileExtensionValidator(allowed_extensions=['doc', 'docx'])],
         help_text="Upload a Word document or leave empty if Not Applicable."
     )
+    # Inline text requirements (no doc needed)
+    requirements_text = models.TextField(
+        null=True,
+        blank=True,
+        help_text="Plain text requirements entered directly by the faculty."
+    )
     # Stores the plain-text content extracted from requirements_doc at approval time.
     # This allows admin to view/download the document content without touching
     requirements_doc_text = models.TextField(
@@ -814,15 +820,25 @@ class IssueTimeExtensionRequest(models.Model):
 # ROOM BOOKING APPROVAL WORKFLOW MODELS
 # ─────────────────────────────────────────────────────────────────────
 
+# TAT for booking approval (hours). Matches Issue TAT default.
+BOOKING_APPROVAL_TAT_HOURS = 48
+
+
 class RoomBookingRequest(models.Model):
     """
     Pending room booking that requires admin approval before becoming
     a confirmed RoomBooking entry.
+
+    TAT: 48 hours from submission.  Automated reminders at 24h and 12h
+    before expiry.  If still pending at deadline the request is auto-cancelled
+    and notification emails are sent to both faculty and admins.
     """
     STATUS_CHOICES = [
         ('pending',  'Pending'),
         ('approved', 'Approved'),
         ('rejected', 'Rejected'),
+        # Set by the automated expiry task — not by manual admin action.
+        ('expired',  'Expired / Auto-Cancelled'),
     ]
 
     room            = models.ForeignKey(Room, on_delete=models.CASCADE)
@@ -841,6 +857,13 @@ class RoomBookingRequest(models.Model):
                             allowed_extensions=['doc', 'docx', 'pdf']
                         )],
                       )
+    # NEW: plain-text requirements typed inline by faculty
+    requirements_text = models.TextField(
+        null=True,
+        blank=True,
+        help_text="Plain text requirements typed by faculty (no document upload needed)."
+    )
+
     status          = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
     reviewed_by     = models.ForeignKey(
                         UserProfile, on_delete=models.SET_NULL,
@@ -850,6 +873,23 @@ class RoomBookingRequest(models.Model):
     review_note     = models.TextField(blank=True)
     created_on      = models.DateTimeField(auto_now_add=True)
     updated_on      = models.DateTimeField(auto_now=True)
+
+    # ── TAT tracking ────────────────────────────────────────────────────────
+    # Set automatically on creation to created_on + BOOKING_APPROVAL_TAT_HOURS.
+    tat_deadline    = models.DateTimeField(
+                        null=True, blank=True,
+                        help_text="Deadline by which admin must approve/reject. Auto-cancelled if exceeded."
+                      )
+    # Tracks whether the 24h and 12h reminder emails have already been sent
+    # so the periodic task does not send them twice.
+    reminder_24h_sent = models.BooleanField(default=False)
+    reminder_12h_sent = models.BooleanField(default=False)
+
+    def save(self, *args, **kwargs):
+        # Set TAT deadline on first save
+        if not self.pk and not self.tat_deadline:
+            self.tat_deadline = timezone.now() + timezone.timedelta(hours=BOOKING_APPROVAL_TAT_HOURS)
+        super().save(*args, **kwargs)
 
     def __str__(self):
         return f"BookingReq [{self.status}]: {self.room} | {self.faculty_email}"
