@@ -153,6 +153,7 @@
                     {{ req.faculty_name }} &middot; {{ req.faculty_email }}<br>
                     {{ req.start_datetime|date:"d M Y, H:i" }} &rarr; {{ req.end_datetime|date:"d M Y, H:i" }}
                     {% if req.purpose %} &middot; {{ req.purpose|truncatechars:60 }}{% endif %}
+                    {% if req.tat_deadline %}<br><span style="color:#d97706;font-weight:700;"><i class="bi bi-clock me-1"></i>Approve by: {{ req.tat_deadline|date:"d M Y, H:i" }}</span>{% endif %}
                 </p>
                 <a href="{% url 'central_admin:approval_requests' %}?type=booking_req" class="notif-action-link">
                     <i class="bi bi-arrow-right-circle"></i> Review Request
@@ -167,6 +168,44 @@
     </div>
     {% else %}
     <div class="empty-section"><i class="bi bi-calendar-check"></i><p>No pending booking requests.</p></div>
+    {% endif %}
+
+
+    <!-- ═══════════════════════════════ BOOKING TAT EXPIRING SOON ═══ -->
+    {% if expiring_soon_bookings %}
+    <div class="section-header">
+        <div class="section-title">
+            <i class="bi bi-alarm" style="color:#dc2626;"></i>
+            Booking Requests Expiring Soon
+            <span class="section-count">{{ expiring_soon_bookings|length }}</span>
+        </div>
+    </div>
+    <div class="notif-feed">
+        {% for req in expiring_soon_bookings %}
+        <div class="notif-item" id="n-expiring-{{ req.id }}" style="border-left: 4px solid #ef4444;">
+            <div class="notif-icon" style="background:#fee2e2;color:#dc2626;"><i class="bi bi-alarm-fill"></i></div>
+            <div class="notif-body">
+                <div class="notif-title">
+                    <span style="color:#dc2626;">⚠ TAT Expiring — {{ req.room.room_name }}</span>
+                    <span class="nbadge nb-red">Urgent</span>
+                </div>
+                <p class="notif-sub">
+                    {{ req.faculty_name }} &middot; {{ req.faculty_email }}<br>
+                    {{ req.start_datetime|date:"d M Y, H:i" }} &rarr; {{ req.end_datetime|date:"d M Y, H:i" }}<br>
+                    <strong style="color:#dc2626;">Deadline: {{ req.tat_deadline|date:"d M Y, H:i" }}</strong>
+                    — Request will be auto-cancelled if not acted upon before then.
+                </p>
+                <a href="{% url 'central_admin:approval_requests' %}?type=booking_req" class="notif-action-link" style="border-color:#fecaca;color:#dc2626;">
+                    <i class="bi bi-arrow-right-circle"></i> Act Now
+                </a>
+            </div>
+            <div class="notif-meta">
+                <span class="notif-time">{{ req.created_on|date:"d M, H:i" }}</span>
+                <button class="dismiss-btn" onclick="dismissItem('n-expiring-{{ req.id }}')" title="Dismiss"><i class="bi bi-x-lg"></i></button>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
     {% endif %}
 
 

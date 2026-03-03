@@ -371,7 +371,7 @@
     <div class="tab-panel" id="panel-booking-req">
         <div class="request-grid">
             {% for r in booking_requests %}
-            <div class="request-card type-booking">
+            <div class="request-card type-booking" id="bk-card-{{ r.pk }}">
                 <span class="req-type">Room Booking Request</span>
                 <h5 class="req-title">{{ r.room.room_name }}</h5>
                 <div class="meta-pills">
@@ -379,6 +379,13 @@
                     <span class="pill"><i class="bi bi-envelope me-1"></i>{{ r.faculty_email }}</span>
                     {% if r.department %}
                     <span class="pill"><i class="bi bi-building me-1"></i>{{ r.department }}</span>
+                    {% endif %}
+                    {% if r.tat_deadline %}
+                    <span class="pill tat-pill" data-deadline="{{ r.tat_deadline|date:'c' }}"
+                          style="background:#fff7ed;color:#c2410c;border-color:#fed7aa;">
+                        <i class="bi bi-alarm me-1"></i>
+                        Approve by: {{ r.tat_deadline|date:"d M, H:i" }}
+                    </span>
                     {% endif %}
                 </div>
                 <div class="detail-zone">
@@ -395,12 +402,21 @@
                         <span class="fw-bold">{{ r.created_on|date:"d M Y" }}</span>
                     </div>
                 </div>
+
                 {% if r.purpose %}
                 <div class="detail-zone border-start border-3" style="border-color:#3b82f6!important;">
                     <h6 class="fw-bold small mb-1">Purpose</h6>
                     <p class="mb-0">{{ r.purpose }}</p>
                 </div>
                 {% endif %}
+
+                {% if r.requirements_text %}
+                <div class="detail-zone border-start border-3" style="border-color:#6366f1!important;">
+                    <h6 class="fw-bold small mb-1"><i class="bi bi-pencil-square me-1"></i>Requirements (Text)</h6>
+                    <p class="mb-0" style="white-space:pre-line;">{{ r.requirements_text }}</p>
+                </div>
+                {% endif %}
+
                 {% if r.requirements_doc %}
                 <div class="mb-2">
                     <a href="{{ r.requirements_doc.url }}" target="_blank"
@@ -409,7 +425,9 @@
                     </a>
                 </div>
                 {% endif %}
+
                 <div class="action-group">
+                    <!-- Approve -->
                     <form method="post" action="{% url 'central_admin:approve_room_booking_request' r.pk %}" class="flex-grow-1">
                         {% csrf_token %}
                         <input type="hidden" name="next_type" value="booking_req">
@@ -417,14 +435,40 @@
                             <i class="bi bi-calendar-check me-1"></i> Approve Booking
                         </button>
                     </form>
-                    <form method="post" action="{% url 'central_admin:reject_room_booking_request' r.pk %}" class="flex-grow-1">
+                    <!-- Reject — opens inline note panel -->
+                    <button type="button" class="btn-reject-outline flex-grow-1"
+                            onclick="toggleRejectNote({{ r.pk }})">
+                        <i class="bi bi-x-lg me-1"></i> Reject
+                    </button>
+                </div>
+
+                <!-- Inline rejection note panel (hidden by default) -->
+                <div id="reject-note-{{ r.pk }}" style="display:none; margin-top:12px;">
+                    <form method="post" action="{% url 'central_admin:reject_room_booking_request' r.pk %}">
                         {% csrf_token %}
                         <input type="hidden" name="next_type" value="booking_req">
-                        <button type="submit" class="btn-reject-outline w-100">
-                            <i class="bi bi-x-lg me-1"></i> Reject
-                        </button>
+                        <textarea name="review_note" rows="3"
+                                  placeholder="Enter reason for rejection (optional but recommended)…"
+                                  style="width:100%;padding:10px 14px;border:1.5px solid #fee2e2;border-radius:10px;
+                                         font-size:0.84rem;resize:vertical;margin-bottom:8px;
+                                         font-family:inherit;color:#1e293b;"></textarea>
+                        <div style="display:flex;gap:8px;">
+                            <button type="submit"
+                                    style="flex:2;background:linear-gradient(135deg,#ef4444,#dc2626);color:#fff;
+                                           border:none;padding:9px;border-radius:9px;font-weight:600;
+                                           font-size:0.84rem;cursor:pointer;">
+                                <i class="bi bi-send me-1"></i> Confirm Rejection
+                            </button>
+                            <button type="button" onclick="toggleRejectNote({{ r.pk }})"
+                                    style="flex:1;background:#f1f5f9;color:#475569;border:none;
+                                           padding:9px;border-radius:9px;font-weight:600;
+                                           font-size:0.84rem;cursor:pointer;">
+                                Cancel
+                            </button>
+                        </div>
                     </form>
                 </div>
+
             </div>
             {% empty %}
             <div class="empty-state">
@@ -498,6 +542,39 @@
 </div><!-- /admin-container -->
 
 <script>
+/* ════════════════════════════════════════════════════════════════
+   REJECT NOTE TOGGLE
+════════════════════════════════════════════════════════════════ */
+function toggleRejectNote(pk) {
+    var el = document.getElementById('reject-note-' + pk);
+    if (!el) return;
+    el.style.display = el.style.display === 'none' ? 'block' : 'none';
+}
+
+/* ════════════════════════════════════════════════════════════════
+   TAT DEADLINE URGENCY COLOURING
+   — Pills with data-deadline get coloured red if < 12 h remaining,
+     amber if 12-24 h, otherwise keep default warning orange.
+════════════════════════════════════════════════════════════════ */
+document.addEventListener('DOMContentLoaded', function() {
+    var now = Date.now();
+    document.querySelectorAll('.tat-pill[data-deadline]').forEach(function(el) {
+        var deadline = new Date(el.getAttribute('data-deadline')).getTime();
+        var hoursLeft = (deadline - now) / 3600000;
+        if (hoursLeft <= 0) {
+            el.style.background = '#fee2e2';
+            el.style.color      = '#991b1b';
+            el.style.borderColor= '#fecaca';
+            el.innerHTML = '<i class="bi bi-exclamation-triangle-fill me-1"></i>' + el.innerHTML.replace(/<[^>]+>/g,'').trim();
+        } else if (hoursLeft <= 12) {
+            el.style.background = '#fee2e2';
+            el.style.color      = '#dc2626';
+            el.style.borderColor= '#fecaca';
+        }
+        // 12-24h keeps the default amber set in the template
+    });
+});
+
 /* ════════════════════════════════════════════════════════════════
    TOAST HELPER
 ════════════════════════════════════════════════════════════════ */

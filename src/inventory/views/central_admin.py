@@ -951,6 +951,7 @@ class ApproveRoomBookingRequestView(LoginRequiredMixin, View):
                 purpose               = booking_req.purpose,
                 requirements_doc      = booking_req.requirements_doc,
                 requirements_doc_text = doc_text,
+                requirements_text     = getattr(booking_req, 'requirements_text', None),
             )
             booking.full_clean()  # runs conflict detection
             booking.save()
@@ -971,27 +972,17 @@ class ApproveRoomBookingRequestView(LoginRequiredMixin, View):
                 _safe_mail(
                     subject=f"[Blixtro] Booking Confirmed — {booking_req.purpose or booking_req.room.room_name}",
                     message=(
-                        f"Dear {booking_req.faculty_name},"
-                        
-                        f"Your room booking request has been approved."
-                        
-                        f"━━━━━━━━━━━━━━━━━━━━━━━━━"
-                        
-                        f"  Room      : {booking.room.room_name}"
-                        
-                        f"  Date      : {_date_str}"
-                        
-                        f"  Time      : {_start_str} – {_end_str}"
-                        
-                        f"  Purpose   : {booking_req.purpose or '—'}"
-                        
-                        f"  Booking ID: {booking.id}"
-                        
-                        f"━━━━━━━━━━━━━━━━━━━━━━━━━"
-                        
-                        f"Please ensure the room is vacated by the end time."
-                        
-                        f"Best regards, Blixtro — SFS College Inventory & Booking System"
+                        f"Dear {booking_req.faculty_name},\n\n"
+                        f"Your room booking request has been approved.\n\n"
+                        f"━━━━━━━━━━━━━━━━━━━━━━━━━\n"
+                        f"  Room      : {booking.room.room_name}\n"
+                        f"  Date      : {_date_str}\n"
+                        f"  Time      : {_start_str} – {_end_str}\n"
+                        f"  Purpose   : {booking_req.purpose or '—'}\n"
+                        f"  Booking ID: {booking.id}\n"
+                        f"━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
+                        f"Please ensure the room is vacated by the end time.\n\n"
+                        f"Best regards,\nBlixtro — SFS College Inventory & Booking System"
                     ),
                     recipient_list=[booking_req.faculty_email],
                     fail_silently=True,
@@ -1019,6 +1010,31 @@ class RejectRoomBookingRequestView(LoginRequiredMixin, View):
         booking_req.reviewed_by = request.user.profile
         booking_req.save(update_fields=["status", "review_note", "reviewed_by"])
 
+        # ── Email faculty about rejection ──────────────────────────────────
+        try:
+            from inventory.email import safe_send_mail as _safe_mail
+            from django.utils import timezone as _tz
+            _sl = _tz.localtime(booking_req.start_datetime)
+            _el = _tz.localtime(booking_req.end_datetime)
+            _safe_mail(
+                subject=f"[Blixtro] Room Booking Request Rejected — {booking_req.room.room_name}",
+                message=(
+                    f"Dear {booking_req.faculty_name},\n\n"
+                    f"We regret to inform you that your room booking request has been rejected.\n\n"
+                    f"  Room    : {booking_req.room.room_name}\n"
+                    f"  Date    : {_sl.strftime('%A, %d %B %Y')}\n"
+                    f"  Time    : {_sl.strftime('%I:%M %p')} – {_el.strftime('%I:%M %p')}\n"
+                    f"  Purpose : {booking_req.purpose or '—'}\n\n"
+                    + (f"Admin Note: {booking_req.review_note}\n\n" if booking_req.review_note else "")
+                    + "You are welcome to submit a new request.\n\n"
+                    "Best regards,\nBlixtro — SFS College Inventory & Booking System"
+                ),
+                recipient_list=[booking_req.faculty_email],
+                fail_silently=True,
+            )
+        except Exception as _e:
+            print(f"[RejectBooking] Email failed (non-fatal): {_e}", flush=True)
+
         messages.info(request, "Booking request rejected.")
         next_type = request.POST.get("next_type", "booking_req")
         return redirect(f"{reverse('central_admin:approval_requests')}?type={next_type}")
@@ -1037,13 +1053,70 @@ class ApproveCancellationRequestView(LoginRequiredMixin, View):
         cancel_req = get_object_or_404(RoomCancellationRequest, pk=pk, status="pending")
         booking    = cancel_req.booking
 
-        # Delete the confirmed booking — room is freed
-        booking.delete()
+        # Capture details before deletion for emails
+        _room_name    = booking.room.room_name
+        _faculty_name = booking.faculty_name
+        _faculty_email = booking.faculty_email
+        _start        = booking.start_datetime
+        _end          = booking.end_datetime
+        _purpose      = booking.purpose
 
+        # Update cancel_req BEFORE deleting the booking.
         cancel_req.status      = "approved"
         cancel_req.reviewed_by = request.user.profile
-        # booking FK is now null (CASCADE deleted), save only safe fields
         cancel_req.save(update_fields=["status", "reviewed_by"])
+
+        # Now delete the confirmed booking — room is freed
+        booking.delete()
+
+        # ── Emails ──────────────────────────────────────────────────────────
+        try:
+            from inventory.email import safe_send_mail as _safe_mail
+            from django.utils import timezone as _tz
+            _sl = _tz.localtime(_start)
+            _el = _tz.localtime(_end)
+            _details = (
+                f"\n  Room    : {_room_name}"
+                f"\n  Date    : {_sl.strftime('%A, %d %B %Y')}"
+                f"\n  Time    : {_sl.strftime('%I:%M %p')} – {_el.strftime('%I:%M %p')}"
+                f"\n  Purpose : {_purpose or '—'}"
+            )
+
+            # Faculty
+            _safe_mail(
+                subject=f"[Blixtro] Booking Cancellation Approved — {_room_name}",
+                message=(
+                    f"Dear {_faculty_name},\n\n"
+                    "Your booking cancellation request has been approved. "
+                    "The booking has been removed and the room is now available.\n"
+                    f"{_details}\n\n"
+                    "Best regards,\nBlixtro — SFS College Inventory & Booking System"
+                ),
+                recipient_list=[_faculty_email],
+                fail_silently=True,
+            )
+
+            # Admins
+            from inventory.models import UserProfile as _UP
+            from django.db.models import Q as _Q
+            _admin_emails = list(
+                _UP.objects.filter(_Q(is_central_admin=True) | _Q(is_sub_admin=True))
+                .values_list('user__email', flat=True)
+            )
+            if _admin_emails:
+                _safe_mail(
+                    subject=f"[Blixtro] Booking Cancelled — {_room_name}",
+                    message=(
+                        f"A confirmed booking has been cancelled (admin-approved).\n"
+                        f"{_details}\n\n"
+                        "The room is now available for new bookings.\n\n"
+                        "Blixtro — SFS College Inventory & Booking System"
+                    ),
+                    recipient_list=_admin_emails,
+                    fail_silently=True,
+                )
+        except Exception as _e:
+            print(f"[ApproveCancellation] Email failed (non-fatal): {_e}", flush=True)
 
         messages.success(
             request,
@@ -1059,6 +1132,29 @@ class RejectCancellationRequestView(LoginRequiredMixin, View):
         cancel_req.status      = "rejected"
         cancel_req.reviewed_by = request.user.profile
         cancel_req.save(update_fields=["status", "reviewed_by"])
+
+        # ── Email faculty about rejection ──────────────────────────────────
+        try:
+            from inventory.email import safe_send_mail as _safe_mail
+            from django.utils import timezone as _tz
+            b = cancel_req.booking
+            _sl = _tz.localtime(b.start_datetime)
+            _el = _tz.localtime(b.end_datetime)
+            _safe_mail(
+                subject=f"[Blixtro] Cancellation Request Rejected — {b.room.room_name}",
+                message=(
+                    f"Dear {b.faculty_name},\n\n"
+                    "Your cancellation request has been rejected. Your booking remains active.\n\n"
+                    f"  Room    : {b.room.room_name}\n"
+                    f"  Date    : {_sl.strftime('%A, %d %B %Y')}\n"
+                    f"  Time    : {_sl.strftime('%I:%M %p')} – {_el.strftime('%I:%M %p')}\n\n"
+                    "Best regards,\nBlixtro — SFS College Inventory & Booking System"
+                ),
+                recipient_list=[cancel_req.faculty_email],
+                fail_silently=True,
+            )
+        except Exception as _e:
+            print(f"[RejectCancellation] Email failed (non-fatal): {_e}", flush=True)
 
         messages.info(
             request,
@@ -1185,6 +1281,21 @@ class AdminNotificationsView(LoginRequiredMixin, View):
             .select_related('room')
             .order_by('-created_on')[:40]
         )
+
+        # ── Booking requests approaching TAT expiry (within 24 hours) ───────
+        from django.utils import timezone as _tz
+        _now = _tz.now()
+        expiring_soon_bookings = (
+            RoomBookingRequest.objects
+            .filter(
+                status='pending',
+                tat_deadline__isnull=False,
+                tat_deadline__lte=_now + timezone.timedelta(hours=24),
+                tat_deadline__gt=_now,
+            )
+            .select_related('room')
+            .order_by('tat_deadline')[:20]
+        )
         cancel_requests = (
             RoomCancellationRequest.objects
             .filter(status='pending')
@@ -1230,13 +1341,14 @@ class AdminNotificationsView(LoginRequiredMixin, View):
             )
 
         context = {
-            'is_central':          is_central,
-            'booking_requests':    booking_requests,
-            'cancel_requests':     cancel_requests,
-            'stock_requests':      stock_requests,
-            'tat_requests':        tat_requests,
-            'escalated_issues':    escalated_issues,
-            'purchase_requests':   purchase_requests,
-            'purchase_approvals':  purchase_approvals,
+            'is_central':             is_central,
+            'booking_requests':       booking_requests,
+            'expiring_soon_bookings': expiring_soon_bookings,
+            'cancel_requests':        cancel_requests,
+            'stock_requests':         stock_requests,
+            'tat_requests':           tat_requests,
+            'escalated_issues':       escalated_issues,
+            'purchase_requests':      purchase_requests,
+            'purchase_approvals':     purchase_approvals,
         }
         return render(request, self.template_name, context)
