@@ -363,10 +363,14 @@
   {% if messages %}
   <div class="mb-3">
     {% for message in messages %}
+    {% if 'purchase' in message.message|lower or 'request' in message.message|lower or 'approved' in message.message|lower or 'rejected' in message.message|lower or 'submitted' in message.message|lower or message.tags == 'success' or message.tags == 'error' %}
+    {% if 'room' not in message.message|lower or 'purchase' in message.message|lower %}
     <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
       {{ message }}
       <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
     </div>
+    {% endif %}
+    {% endif %}
     {% endfor %}
   </div>
   {% endif %}

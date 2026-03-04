@@ -285,11 +285,85 @@
 
     .field-hint { font-size: 0.8rem; color: #94a3b8; margin-top: 5px; }
 
+    /* ── Purchase Type Toggle ── */
+    .type-toggle {
+        display: flex;
+        gap: 10px;
+        margin-bottom: 24px;
+    }
+
+    .type-toggle-btn {
+        flex: 1;
+        padding: 14px 20px;
+        border-radius: 12px;
+        border: 2px solid #e2e8f0;
+        background: #f8fafc;
+        color: #475569;
+        font-weight: 700;
+        font-size: 0.88rem;
+        cursor: pointer;
+        transition: all 0.2s;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 6px;
+        text-align: center;
+    }
+
+    .type-toggle-btn i {
+        font-size: 1.4rem;
+    }
+
+    .type-toggle-btn.active {
+        border-color: #6366f1;
+        background: #eef2ff;
+        color: #4338ca;
+        box-shadow: 0 0 0 3px rgba(99,102,241,0.12);
+    }
+
+    .type-toggle-btn:hover:not(.active) {
+        border-color: #c4b5fd;
+        background: #f5f3ff;
+        color: #6366f1;
+    }
+
+    .type-toggle-btn .toggle-sub {
+        font-size: 0.72rem;
+        font-weight: 500;
+        opacity: 0.7;
+    }
+
+    /* Section panels */
+    .item-panel { display: none; }
+    .item-panel.visible { display: block; }
+
+    /* Filter row */
+    .filter-row {
+        background: #f8fafc;
+        border: 1.5px solid #e2e8f0;
+        border-radius: 12px;
+        padding: 16px 18px;
+        margin-bottom: 18px;
+    }
+
+    .filter-row-title {
+        font-size: 0.78rem;
+        font-weight: 700;
+        color: #6366f1;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        margin-bottom: 12px;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+    }
+
     @media (max-width: 640px) {
         .create-card { padding: 28px 20px; }
         .internal-nav { padding: 0 16px; }
         .nav-breadcrumb { display: none; }
         .nav-status-pill { display: none; }
+        .type-toggle { flex-direction: column; }
     }
 </style>
 {% endblock style %}
@@ -374,34 +448,106 @@
         </div>
         {% endif %}
 
+        <!-- Purchase Type Toggle -->
+        <div class="mb-3">
+            <label class="form-label">Request Type <span class="text-danger">*</span></label>
+            <div class="type-toggle">
+                <button type="button" class="type-toggle-btn active" id="btnNew" onclick="switchType('new')">
+                    <i class="bi bi-plus-circle-fill"></i>
+                    <span>New Item</span>
+                    <span class="toggle-sub">Item not in inventory yet</span>
+                </button>
+                <button type="button" class="type-toggle-btn" id="btnExisting" onclick="switchType('existing')">
+                    <i class="bi bi-box-seam-fill"></i>
+                    <span>Existing Item</span>
+                    <span class="toggle-sub">Item already in master inventory</span>
+                </button>
+            </div>
+        </div>
+
         <!-- Form -->
-        <form method="POST">
+        <form method="POST" id="purchaseForm">
             {% csrf_token %}
+            <input type="hidden" name="purchase_type" id="purchaseTypeInput" value="new">
 
-            <!-- Item Name -->
-            <div class="mb-4">
-                <label class="form-label">Item Name <span class="text-danger">*</span></label>
-                <input type="text" name="item_name" class="form-control"
-                    placeholder="e.g. HP Laptop, Projector, Whiteboard Marker…" required>
-                <div class="field-hint">Enter the exact item name you need to purchase.</div>
+            <!-- ══ NEW ITEM PANEL ══ -->
+            <div class="item-panel visible" id="panelNew">
+                <!-- Item Name -->
+                <div class="mb-4">
+                    <label class="form-label">Item Name <span class="text-danger">*</span></label>
+                    <input type="text" name="item_name" id="newItemName" class="form-control"
+                        placeholder="e.g. HP Laptop, Projector, Whiteboard Marker…">
+                    <div class="field-hint">Enter the exact item name you need to purchase.</div>
+                </div>
+
+                <!-- Category + Brand -->
+                <div class="row g-3 mb-4">
+                    <div class="col-6">
+                        <label class="form-label">Category <span class="text-danger">*</span></label>
+                        <input type="text" name="item_category" id="newItemCategory" class="form-control"
+                            placeholder="e.g. Laptops, Printers…">
+                        <div class="field-hint">Item category for inventory.</div>
+                    </div>
+                    <div class="col-6">
+                        <label class="form-label">Brand <span class="text-danger">*</span></label>
+                        <input type="text" name="item_brand" id="newItemBrand" class="form-control"
+                            placeholder="e.g. HP, Dell, Canon…">
+                        <div class="field-hint">Manufacturer or brand name.</div>
+                    </div>
+                </div>
             </div>
 
-            <!-- Category + Brand -->
-            <div class="row g-3 mb-4">
-                <div class="col-6">
-                    <label class="form-label">Category <span class="text-danger">*</span></label>
-                    <input type="text" name="item_category" class="form-control"
-                        placeholder="e.g. Laptops, Printers…" required>
-                    <div class="field-hint">Item category for inventory.</div>
+            <!-- ══ EXISTING ITEM PANEL ══ -->
+            <div class="item-panel" id="panelExisting">
+                <div class="filter-row mb-4">
+                    <div class="filter-row-title">
+                        <i class="bi bi-funnel-fill"></i>
+                        Filter from Master Inventory
+                    </div>
+                    <div class="row g-3">
+                        <!-- Category Filter -->
+                        <div class="col-6">
+                            <label class="form-label">Filter by Category</label>
+                            <select class="form-select" id="filterCategory" onchange="filterItems()">
+                                <option value="">All Categories</option>
+                                {% for cat in categories %}
+                                <option value="{{ cat.id }}">{{ cat.category_name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <!-- Brand Filter -->
+                        <div class="col-6">
+                            <label class="form-label">Filter by Brand</label>
+                            <select class="form-select" id="filterBrand" onchange="filterItems()">
+                                <option value="">All Brands</option>
+                                {% for brand in brands %}
+                                <option value="{{ brand.id }}">{{ brand.brand_name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
                 </div>
-                <div class="col-6">
-                    <label class="form-label">Brand <span class="text-danger">*</span></label>
-                    <input type="text" name="item_brand" class="form-control"
-                        placeholder="e.g. HP, Dell, Canon…" required>
-                    <div class="field-hint">Manufacturer or brand name.</div>
+
+                <!-- Item Selector (filtered) -->
+                <div class="mb-4">
+                    <label class="form-label">Select Item <span class="text-danger">*</span></label>
+                    <select name="existing_item_id" id="existingItemSelect" class="form-select">
+                        <option value="">-- Select an Item --</option>
+                        {% for item in master_items %}
+                        <option value="{{ item.id }}"
+                            data-category="{{ item.category.id }}"
+                            data-brand="{{ item.brand.id }}"
+                            data-category-name="{{ item.category.category_name }}"
+                            data-brand-name="{{ item.brand.brand_name }}">
+                            {{ item.item_name }} — {{ item.category.category_name }} / {{ item.brand.brand_name }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                    <div class="field-hint">Select the item from your organisation's master inventory.</div>
                 </div>
             </div>
 
+            <!-- ══ SHARED FIELDS ══ -->
             <!-- Quantity + Unit -->
             <div class="row g-3 mb-4">
                 <div class="col-7">
@@ -442,7 +588,7 @@
 
             <!-- Actions -->
             <div class="d-flex align-items-center gap-2">
-                <button type="submit" class="btn btn-submit">
+                <button type="submit" class="btn btn-submit" onclick="return validateForm()">
                     <i class="bi bi-send-fill me-2"></i>Submit Request
                 </button>
                 <a href="{% url 'central_admin:purchase_list' %}" class="btn-cancel">Cancel</a>
@@ -450,4 +596,95 @@
         </form>
     </div>
 </div>
+
+<script>
+// All master items as JS array for client-side filtering
+var ALL_ITEMS = [
+    {% for item in master_items %}
+    {
+        id: {{ item.id }},
+        name: "{{ item.item_name|escapejs }}",
+        categoryId: {{ item.category.id }},
+        brandId: {{ item.brand.id }},
+        categoryName: "{{ item.category.category_name|escapejs }}",
+        brandName: "{{ item.brand.brand_name|escapejs }}",
+    },
+    {% endfor %}
+];
+
+var currentType = 'new';
+
+function switchType(type) {
+    currentType = type;
+    document.getElementById('purchaseTypeInput').value = type;
+
+    document.getElementById('btnNew').classList.toggle('active', type === 'new');
+    document.getElementById('btnExisting').classList.toggle('active', type === 'existing');
+
+    document.getElementById('panelNew').classList.toggle('visible', type === 'new');
+    document.getElementById('panelExisting').classList.toggle('visible', type === 'existing');
+
+    // Toggle required attributes
+    var newItemName = document.getElementById('newItemName');
+    var newItemCategory = document.getElementById('newItemCategory');
+    var newItemBrand = document.getElementById('newItemBrand');
+    var existingSelect = document.getElementById('existingItemSelect');
+
+    if (type === 'new') {
+        newItemName.setAttribute('required', '');
+        newItemCategory.setAttribute('required', '');
+        newItemBrand.setAttribute('required', '');
+        existingSelect.removeAttribute('required');
+    } else {
+        newItemName.removeAttribute('required');
+        newItemCategory.removeAttribute('required');
+        newItemBrand.removeAttribute('required');
+        existingSelect.setAttribute('required', '');
+    }
+}
+
+function filterItems() {
+    var catId = document.getElementById('filterCategory').value;
+    var brandId = document.getElementById('filterBrand').value;
+    var select = document.getElementById('existingItemSelect');
+
+    // Clear existing options
+    select.innerHTML = '<option value="">-- Select an Item --</option>';
+
+    ALL_ITEMS.forEach(function(item) {
+        var catMatch  = !catId   || String(item.categoryId) === catId;
+        var brandMatch = !brandId || String(item.brandId)   === brandId;
+        if (catMatch && brandMatch) {
+            var opt = document.createElement('option');
+            opt.value = item.id;
+            opt.textContent = item.name + ' — ' + item.categoryName + ' / ' + item.brandName;
+            opt.dataset.category = item.categoryId;
+            opt.dataset.brand    = item.brandId;
+            select.appendChild(opt);
+        }
+    });
+}
+
+function validateForm() {
+    if (currentType === 'new') {
+        var name = document.getElementById('newItemName').value.trim();
+        var cat  = document.getElementById('newItemCategory').value.trim();
+        var brand = document.getElementById('newItemBrand').value.trim();
+        if (!name || !cat || !brand) {
+            alert('Please fill in Item Name, Category, and Brand.');
+            return false;
+        }
+    } else {
+        var sel = document.getElementById('existingItemSelect').value;
+        if (!sel) {
+            alert('Please select an existing item.');
+            return false;
+        }
+    }
+    return true;
+}
+
+// Initialize
+switchType('new');
+</script>
 {% endblock content %}
