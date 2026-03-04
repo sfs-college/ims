@@ -1469,27 +1469,44 @@ class RoomInchargeNotificationsView(LoginRequiredMixin, View):
         room = get_object_or_404(Room, slug=room_slug, incharge=request.user.profile)
         room_settings = RoomSettings.objects.get_or_create(room=room)[0]
 
-        stock_notifications = (
-            StockRequest.objects
-            .filter(room=room, status__in=["approved", "rejected"])
-            .select_related("item", "reviewed_by")
-            .order_by("-created_on")[:50]
-        )
-        try:
-            assigned_notifications = (
-                StockRequest.objects
-                .filter(room=room, status="approved", requested_by__isnull=True)
-                .select_related("item", "reviewed_by")
-                .order_by("-created_on")[:30]
-            )
-        except Exception:
-            assigned_notifications = StockRequest.objects.none()
+        # Session key scoped to this room so dismissals don't bleed across rooms
+        session_key = f"dismissed_notifs_{room_slug}"
+        dismissed = request.session.get(session_key, {})
 
-        issue_notifications = (
-            Issue.objects
-            .filter(room=room)
-            .order_by("-updated_on")[:50]
-        )
+        def not_dismissed(prefix, obj_id):
+            return str(obj_id) not in dismissed.get(prefix, [])
+
+        stock_notifications = [
+            r for r in (
+                StockRequest.objects
+                .filter(room=room, status__in=["approved", "rejected"])
+                .select_related("item", "reviewed_by")
+                .order_by("-created_on")[:50]
+            )
+            if not_dismissed("stock", r.id)
+        ]
+
+        try:
+            assigned_notifications = [
+                r for r in (
+                    StockRequest.objects
+                    .filter(room=room, status="approved", requested_by__isnull=True)
+                    .select_related("item", "reviewed_by")
+                    .order_by("-created_on")[:30]
+                )
+                if not_dismissed("assigned", r.id)
+            ]
+        except Exception:
+            assigned_notifications = []
+
+        issue_notifications = [
+            r for r in (
+                Issue.objects
+                .filter(room=room)
+                .order_by("-updated_on")[:50]
+            )
+            if not_dismissed("issue", r.id)
+        ]
 
         context = {
             "room":                   room,
@@ -1500,3 +1517,50 @@ class RoomInchargeNotificationsView(LoginRequiredMixin, View):
             "issue_notifications":    issue_notifications,
         }
         return render(request, self.template_name, context)
+
+    def post(self, request, *args, **kwargs):
+        """
+        AJAX endpoint to persist notification dismissals in session for room incharge.
+        Body: { "action": "dismiss", "prefix": "stock", "id": 42 }
+              { "action": "clear_all", "items": [{"prefix":"stock","id":42}, ...] }
+        """
+        import json
+        room_slug = kwargs["room_slug"]
+        room = get_object_or_404(Room, slug=room_slug, incharge=request.user.profile)
+
+        try:
+            data = json.loads(request.body)
+        except Exception:
+            return JsonResponse({'error': 'Invalid JSON'}, status=400)
+
+        session_key = f"dismissed_notifs_{room_slug}"
+        dismissed = request.session.get(session_key, {})
+
+        if data.get('action') == 'dismiss':
+            prefix = data.get('prefix', '')
+            obj_id = str(data.get('id', ''))
+            if prefix and obj_id:
+                if prefix not in dismissed:
+                    dismissed[prefix] = []
+                if obj_id not in dismissed[prefix]:
+                    dismissed[prefix].append(obj_id)
+                request.session[session_key] = dismissed
+                request.session.modified = True
+            return JsonResponse({'ok': True})
+
+        elif data.get('action') == 'clear_all':
+            # Persist each item passed from the frontend
+            items = data.get('items', [])
+            for item in items:
+                prefix = item.get('prefix', '')
+                obj_id = str(item.get('id', ''))
+                if prefix and obj_id:
+                    if prefix not in dismissed:
+                        dismissed[prefix] = []
+                    if obj_id not in dismissed[prefix]:
+                        dismissed[prefix].append(obj_id)
+            request.session[session_key] = dismissed
+            request.session.modified = True
+            return JsonResponse({'ok': True})
+
+        return JsonResponse({'error': 'Unknown action'}, status=400)

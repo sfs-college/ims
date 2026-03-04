@@ -64,6 +64,7 @@
         .ni-escalated { background: #fce7f3; color: #db2777; }
         .ni-purchase  { background: #ede9fe; color: #7c3aed; }
         .ni-approved  { background: #d1fae5; color: #059669; }
+        .ni-room-action { background: #fef3c7; color: #b45309; }
 
         /* ── Body ── */
         .notif-body { flex: 1; min-width: 0; }
@@ -161,7 +162,7 @@
             </div>
             <div class="notif-meta">
                 <span class="notif-time">{{ req.created_on|date:"d M, H:i" }}</span>
-                <button class="dismiss-btn" onclick="dismissItem('n-booking-{{ req.id }}')" title="Dismiss"><i class="bi bi-x-lg"></i></button>
+                <button class="dismiss-btn" onclick="dismissItem('n-booking-{{ req.id }}', 'booking', {{ req.id }})" title="Dismiss"><i class="bi bi-x-lg"></i></button>
             </div>
         </div>
         {% endfor %}
@@ -201,7 +202,7 @@
             </div>
             <div class="notif-meta">
                 <span class="notif-time">{{ req.created_on|date:"d M, H:i" }}</span>
-                <button class="dismiss-btn" onclick="dismissItem('n-expiring-{{ req.id }}')" title="Dismiss"><i class="bi bi-x-lg"></i></button>
+                <button class="dismiss-btn" onclick="dismissItem('n-expiring-{{ req.id }}', 'booking_expiring', {{ req.id }})" title="Dismiss"><i class="bi bi-x-lg"></i></button>
             </div>
         </div>
         {% endfor %}
@@ -238,7 +239,7 @@
             </div>
             <div class="notif-meta">
                 <span class="notif-time">{{ req.created_on|date:"d M, H:i" }}</span>
-                <button class="dismiss-btn" onclick="dismissItem('n-cancel-{{ req.id }}')" title="Dismiss"><i class="bi bi-x-lg"></i></button>
+                <button class="dismiss-btn" onclick="dismissItem('n-cancel-{{ req.id }}', 'cancel', {{ req.id }})" title="Dismiss"><i class="bi bi-x-lg"></i></button>
             </div>
         </div>
         {% endfor %}
@@ -278,7 +279,7 @@
             </div>
             <div class="notif-meta">
                 <span class="notif-time">{{ req.created_on|date:"d M, H:i" }}</span>
-                <button class="dismiss-btn" onclick="dismissItem('n-stock-{{ req.id }}')" title="Dismiss"><i class="bi bi-x-lg"></i></button>
+                <button class="dismiss-btn" onclick="dismissItem('n-stock-{{ req.id }}', 'stock', {{ req.id }})" title="Dismiss"><i class="bi bi-x-lg"></i></button>
             </div>
         </div>
         {% endfor %}
@@ -318,7 +319,7 @@
             </div>
             <div class="notif-meta">
                 <span class="notif-time">{{ req.created_on|date:"d M, H:i" }}</span>
-                <button class="dismiss-btn" onclick="dismissItem('n-tat-{{ req.id }}')" title="Dismiss"><i class="bi bi-x-lg"></i></button>
+                <button class="dismiss-btn" onclick="dismissItem('n-tat-{{ req.id }}', 'tat', {{ req.id }})" title="Dismiss"><i class="bi bi-x-lg"></i></button>
             </div>
         </div>
         {% endfor %}
@@ -358,7 +359,7 @@
             </div>
             <div class="notif-meta">
                 <span class="notif-time">{{ issue.updated_on|date:"d M, H:i" }}</span>
-                <button class="dismiss-btn" onclick="dismissItem('n-esc-{{ issue.id }}')" title="Dismiss"><i class="bi bi-x-lg"></i></button>
+                <button class="dismiss-btn" onclick="dismissItem('n-esc-{{ issue.id }}', 'esc', {{ issue.id }})" title="Dismiss"><i class="bi bi-x-lg"></i></button>
             </div>
         </div>
         {% endfor %}
@@ -385,13 +386,13 @@
             <div class="notif-body">
                 <div class="notif-title">
                     Purchase Request <span class="nbadge nb-yellow">Pending</span>
-                    &mdash; {{ p.room.room_name }}
+                    &mdash; {{ p.room.room_name|default:"No room" }}
                 </div>
                 <p class="notif-sub">
                     {% if p.item %}Item: {{ p.item.item_name }} &middot; {% endif %}
                     {% if p.vendor %}Vendor: {{ p.vendor.vendor_name }} &middot; {% endif %}
                     Qty: {{ p.quantity|default:"—" }}
-                    {% if p.remarks %} &middot; {{ p.remarks|truncatechars:50 }}{% endif %}
+                    {% if p.reason %} &middot; {{ p.reason|truncatechars:50 }}{% endif %}
                 </p>
                 <a href="{% url 'central_admin:purchase_list' %}" class="notif-action-link">
                     <i class="bi bi-arrow-right-circle"></i> Review Purchase
@@ -399,7 +400,7 @@
             </div>
             <div class="notif-meta">
                 <span class="notif-time">{{ p.created_on|date:"d M, H:i" }}</span>
-                <button class="dismiss-btn" onclick="dismissItem('n-pur-{{ p.id }}')" title="Dismiss"><i class="bi bi-x-lg"></i></button>
+                <button class="dismiss-btn" onclick="dismissItem('n-pur-{{ p.id }}', 'pur', {{ p.id }})" title="Dismiss"><i class="bi bi-x-lg"></i></button>
             </div>
         </div>
         {% endfor %}
@@ -407,6 +408,41 @@
     {% else %}
     <div class="empty-section"><i class="bi bi-cart-x"></i><p>No pending purchase requests.</p></div>
     {% endif %}
+    {% endif %}
+
+
+    <!-- ═══════════════════════════════ ROOM ACTION LOGS (Central Admin only) ═══ -->
+    {% if is_central and room_action_logs %}
+    <div class="section-header">
+        <div class="section-title">
+            <i class="bi bi-door-open" style="color:#b45309;"></i>
+            Room Changes by Sub-Admin
+            <span class="section-count">{{ room_action_logs|length }}</span>
+        </div>
+    </div>
+    <div class="notif-feed">
+        {% for log in room_action_logs %}
+        <div class="notif-item" id="n-roomlog-{{ log.id }}">
+            <div class="notif-icon ni-room-action"><i class="bi bi-door-open-fill"></i></div>
+            <div class="notif-body">
+                <div class="notif-title">
+                    Room {{ log.action|title }} <span class="nbadge nb-yellow">Sub-Admin Action</span>
+                </div>
+                <p class="notif-sub">
+                    Room: <strong>{{ log.room_name }}</strong>
+                    {% if log.actor %} &middot; By: {{ log.actor }}{% endif %}
+                </p>
+                <a href="{% url 'central_admin:room_list' %}" class="notif-action-link">
+                    <i class="bi bi-arrow-right-circle"></i> View Rooms
+                </a>
+            </div>
+            <div class="notif-meta">
+                <span class="notif-time">{{ log.created_on|date:"d M, H:i" }}</span>
+                <button class="dismiss-btn" onclick="dismissRoomLog({{ log.id }}, 'n-roomlog-{{ log.id }}')" title="Dismiss"><i class="bi bi-x-lg"></i></button>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
     {% endif %}
 
 
@@ -427,7 +463,7 @@
             <div class="notif-body">
                 <div class="notif-title">
                     Purchase Approved <span class="nbadge nb-green">Approved</span>
-                    &mdash; {{ p.room.room_name }}
+                    &mdash; {{ p.room.room_name|default:"No room" }}
                 </div>
                 <p class="notif-sub">
                     {% if p.item %}Item: {{ p.item.item_name }} &middot; {% endif %}
@@ -440,7 +476,7 @@
             </div>
             <div class="notif-meta">
                 <span class="notif-time">{{ p.created_on|date:"d M, H:i" }}</span>
-                <button class="dismiss-btn" onclick="dismissItem('n-papp-{{ p.id }}')" title="Dismiss"><i class="bi bi-x-lg"></i></button>
+                <button class="dismiss-btn" onclick="dismissItem('n-papp-{{ p.id }}', 'papp', {{ p.id }})" title="Dismiss"><i class="bi bi-x-lg"></i></button>
             </div>
         </div>
         {% endfor %}
@@ -462,20 +498,93 @@
 <div id="toastWrap"><div class="mini-toast" id="miniToast"></div></div>
 
 <script>
-function dismissItem(id) {
-    var el = document.getElementById(id);
+const CSRF_TOKEN = '{{ csrf_token }}';
+const NOTIF_URL  = '{% url "central_admin:admin_notifications" %}';
+
+function getCsrf() {
+    return CSRF_TOKEN;
+}
+
+/**
+ * Dismiss a notification item visually AND persist server-side via POST.
+ */
+function dismissItem(elemId, prefix, objId) {
+    var el = document.getElementById(elemId);
     if (!el) return;
+    // Animate out
     el.style.transition = 'opacity 0.28s ease, transform 0.28s ease';
     el.style.opacity = '0';
     el.style.transform = 'translateX(36px)';
     el.style.pointerEvents = 'none';
     setTimeout(function() { el.remove(); checkAllGone(); }, 300);
     showToast('Notification dismissed');
+
+    // Persist dismissal server-side
+    if (prefix && objId) {
+        fetch(NOTIF_URL, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCsrf(),
+            },
+            body: JSON.stringify({ action: 'dismiss', prefix: prefix, id: objId }),
+        }).catch(function() {});
+    }
 }
 
+/**
+ * Dismiss a room action log entry — marks it as read server-side.
+ */
+function dismissRoomLog(logId, elemId) {
+    var el = document.getElementById(elemId);
+    if (el) {
+        el.style.transition = 'opacity 0.28s ease, transform 0.28s ease';
+        el.style.opacity = '0';
+        el.style.transform = 'translateX(36px)';
+        el.style.pointerEvents = 'none';
+        setTimeout(function() { el.remove(); checkAllGone(); }, 300);
+    }
+    showToast('Notification dismissed');
+
+    // Mark as read via server — reuse dismiss with 'room_log' prefix
+    fetch(NOTIF_URL, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': getCsrf(),
+        },
+        body: JSON.stringify({ action: 'dismiss', prefix: 'room_log', id: logId }),
+    }).catch(function() {});
+}
+
+/**
+ * Clear all notifications — animate them out AND persist each one server-side
+ * so they do not reappear on page refresh.
+ */
 function clearAll() {
     var items = document.querySelectorAll('.notif-item');
     if (!items.length) return;
+
+    // Collect all dismiss payloads from DOM before removing elements
+    var dismissPayloads = [];
+    items.forEach(function(el) {
+        var btn = el.querySelector('.dismiss-btn');
+        if (btn) {
+            // Extract prefix and id from onclick: dismissItem('n-booking-42', 'booking', 42)
+            var onclickStr = btn.getAttribute('onclick') || '';
+            var match = onclickStr.match(/dismissItem\([^,]+,\s*'([^']+)',\s*(\d+)/);
+            if (match) {
+                dismissPayloads.push({ action: 'dismiss', prefix: match[1], id: parseInt(match[2]) });
+            }
+            // Also handle dismissRoomLog(42, 'n-roomlog-42')
+            var rlMatch = onclickStr.match(/dismissRoomLog\((\d+)/);
+            if (rlMatch) {
+                dismissPayloads.push({ action: 'dismiss', prefix: 'room_log', id: parseInt(rlMatch[1]) });
+            }
+        }
+    });
+
+    // Animate all items out
     var delay = 0;
     items.forEach(function(el) {
         setTimeout(function() {
@@ -488,6 +597,28 @@ function clearAll() {
         delay += 45;
     });
     showToast('All notifications cleared');
+
+    // Persist each dismissal individually so they are tracked in session
+    dismissPayloads.forEach(function(payload) {
+        fetch(NOTIF_URL, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCsrf(),
+            },
+            body: JSON.stringify(payload),
+        }).catch(function() {});
+    });
+
+    // Also mark room_action_logs as read via clear_all action
+    fetch(NOTIF_URL, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': getCsrf(),
+        },
+        body: JSON.stringify({ action: 'clear_all' }),
+    }).catch(function() {});
 }
 
 function checkAllGone() {

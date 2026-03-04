@@ -68,6 +68,48 @@
     .btn-del-red:hover   { background:#fef2f2; }
 
     .empty-section { color:#94a3b8; text-align:center; padding:24px; font-size:0.88rem; }
+
+    /* ── Export buttons ─────────────────────────────────── */
+    .btn-export {
+        display: inline-flex; align-items: center; gap: 6px;
+        padding: 7px 14px; border-radius: 8px; font-size: 0.82rem; font-weight: 600;
+        border: 1.5px solid; cursor: pointer; transition: all 0.18s; text-decoration: none;
+    }
+    .btn-export-pdf { background:#fff5f5; color:#dc2626; border-color:#fecaca; }
+    .btn-export-pdf:hover { background:#dc2626; color:#fff; border-color:#dc2626; }
+    .btn-export-excel { background:#f0fdf4; color:#059669; border-color:#a7f3d0; }
+    .btn-export-excel:hover { background:#059669; color:#fff; border-color:#059669; }
+
+    /* Export group wrapper */
+    .export-group {
+        display: flex; flex-direction: column; gap: 4px;
+        background: #f8fafc; border: 1.5px solid #e2e8f0;
+        border-radius: 12px; padding: 8px 12px;
+    }
+    .export-group-label {
+        font-size: 0.68rem; font-weight: 700; color: #94a3b8;
+        text-transform: uppercase; letter-spacing: 0.6px;
+        display: flex; align-items: center; gap: 4px;
+    }
+    .export-group-controls {
+        display: flex; align-items: center; gap: 6px;
+    }
+    .export-filter-select {
+        padding: 5px 10px; border-radius: 8px; border: 1.5px solid #e2e8f0;
+        font-size: 0.80rem; font-weight: 600; color: #334155;
+        background: #fff; cursor: pointer;
+        appearance: auto;
+    }
+    .export-filter-select:focus { outline: none; border-color: #6366f1; }
+
+    /* Sub-admin edit/delete chip */
+    .sub-admin-chip {
+        display: inline-flex; align-items: center; gap: 4px;
+        padding: 2px 8px; border-radius: 999px;
+        background: #fef3c7; color: #b45309;
+        font-size: 0.68rem; font-weight: 700;
+        margin-left: 6px;
+    }
 </style>
 {% endblock style %}
 
@@ -82,8 +124,31 @@
 {% block content %}
 
 <div class="d-flex justify-content-between align-items-center my-3 flex-wrap gap-2">
-    <h4 class="mb-0">Rooms</h4>
-    <div class="d-flex align-items-center gap-3">
+    {% comment %} <h4 class="mb-0">
+        Rooms
+        {% if request.user.profile.is_sub_admin %}
+        <span class="sub-admin-chip"><i class="bi bi-pencil-fill"></i> Edit &amp; Delete enabled</span>
+        {% endif %}
+    </h4> {% endcomment %}
+    <div class="d-flex align-items-center gap-2 flex-wrap">
+        <!-- Export filter + buttons -->
+        <div class="export-group">
+            <div class="export-group-label"><i class="bi bi-funnel-fill"></i> Export Report</div>
+            <div class="export-group-controls">
+                <select id="exportFilter" class="export-filter-select">
+                    <option value="all">All Rooms</option>
+                    <option value="booked">Booked Rooms</option>
+                    <option value="pending">Pre-Booked (Pending)</option>
+                    <option value="available">Available Rooms</option>
+                </select>
+                <button class="btn-export btn-export-pdf" onclick="exportRooms('pdf')">
+                    <i class="bi bi-file-earmark-pdf-fill"></i> PDF
+                </button>
+                <button class="btn-export btn-export-excel" onclick="exportRooms('excel')">
+                    <i class="bi bi-file-earmark-excel-fill"></i> Excel
+                </button>
+            </div>
+        </div>
         <!-- View toggle -->
         <div class="view-toggle">
             <a href="?view=list{% if request.GET.category %}&category={{ request.GET.category }}{% endif %}{% if request.GET.search %}&search={{ request.GET.search }}{% endif %}"
@@ -119,7 +184,7 @@
 <!-- ════════════════════════════════
      LIST VIEW (original table)
 ════════════════════════════════ -->
-<div class="table-responsive">
+<div class="table-responsive" id="roomsTable">
     <table class="table">
         <thead>
             <tr>
@@ -142,12 +207,9 @@
                 <td>{% if room.department %}{{ room.department.department_name }}{% else %}None{% endif %}</td>
                 <td>{{ room.created_on|date:"d-M-Y H:i:s" }}</td>
                 <td>
-                    {% if not request.user.userprofile.is_sub_admin %}
+                    <!-- Both central admin AND sub-admin can edit/delete -->
                     <a href="{% url 'central_admin:room_update' room_slug=room.slug %}" class="btn btn-dark btn-sm">Edit</a>
                     <a href="{% url 'central_admin:room_delete' room_slug=room.slug %}" class="btn btn-danger btn-sm">Delete</a>
-                    {% else %}
-                    <span class="text-muted small">View Only</span>
-                    {% endif %}
                 </td>
             </tr>
             {% empty %}
@@ -161,7 +223,7 @@
 <!-- ════════════════════════════════
      BOOKING STATUS VIEW
 ════════════════════════════════ -->
-<div class="status-sections">
+<div class="status-sections" id="bookingStatusView">
 
     <!-- ── BOOKED ────────────────────────────────────── -->
     <div>
@@ -204,9 +266,8 @@
                     {% endif %}
                 </div>
                 <div class="room-card-actions">
-                    {% if not request.user.userprofile.is_sub_admin %}
                     <a href="{% url 'central_admin:room_update' room_slug=entry.room.slug %}" class="btn-card-sm btn-edit-dark">Edit Room</a>
-                    {% endif %}
+                    <a href="{% url 'central_admin:room_delete' room_slug=entry.room.slug %}" class="btn-card-sm btn-del-red">Delete</a>
                 </div>
             </div>
             {% endfor %}
@@ -257,6 +318,7 @@
                 <div class="room-card-actions">
                     <a href="{% url 'central_admin:approval_requests' %}?type=booking_req"
                        class="btn-card-sm btn-edit-dark">Review Request</a>
+                    <a href="{% url 'central_admin:room_update' room_slug=entry.room.slug %}" class="btn-card-sm btn-edit-dark">Edit</a>
                 </div>
             </div>
             {% endfor %}
@@ -294,10 +356,8 @@
                     </div>
                 </div>
                 <div class="room-card-actions">
-                    {% if not request.user.userprofile.is_sub_admin %}
                     <a href="{% url 'central_admin:room_update' room_slug=room.slug %}" class="btn-card-sm btn-edit-dark">Edit</a>
                     <a href="{% url 'central_admin:room_delete' room_slug=room.slug %}" class="btn-card-sm btn-del-red">Delete</a>
-                    {% endif %}
                 </div>
             </div>
             {% endfor %}
@@ -309,5 +369,495 @@
 
 </div>
 {% endif %}
+
+<!-- ══ Export Script ══ -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script>
+// ── Room data injected from Django template ──────────────────────
+var BOOKING_DATA = {
+    booked: [
+        {% for entry in booked_rooms %}
+        {
+            room:     "{{ entry.room.room_name|escapejs }}",
+            category: "{{ entry.room.get_room_category_display|escapejs }}",
+            incharge: "{{ entry.room.incharge.user.get_full_name|escapejs }}",
+            capacity: "{{ entry.room.capacity }}",
+            dept:     "{% if entry.room.department %}{{ entry.room.department.department_name|escapejs }}{% else %}—{% endif %}",
+            status:   "Booked",
+            faculty:  "{{ entry.booking.faculty_name|escapejs }}",
+            email:    "{{ entry.booking.faculty_email|escapejs }}",
+            from:     "{{ entry.booking.start_datetime|date:'d M Y, H:i' }}",
+            until:    "{{ entry.booking.end_datetime|date:'d M Y, H:i' }}",
+            purpose:  "{{ entry.booking.purpose|default:''|truncatechars:80|escapejs }}",
+        },
+        {% endfor %}
+    ],
+    pending: [
+        {% for entry in pending_booking_rooms %}
+        {
+            room:     "{{ entry.room.room_name|escapejs }}",
+            category: "{{ entry.room.get_room_category_display|escapejs }}",
+            incharge: "{{ entry.room.incharge.user.get_full_name|escapejs }}",
+            capacity: "{{ entry.room.capacity }}",
+            dept:     "{% if entry.room.department %}{{ entry.room.department.department_name|escapejs }}{% else %}—{% endif %}",
+            status:   "Pending Approval",
+            faculty:  "{{ entry.request.faculty_name|escapejs }}",
+            email:    "{{ entry.request.faculty_email|escapejs }}",
+            from:     "{{ entry.request.start_datetime|date:'d M Y, H:i' }}",
+            until:    "{{ entry.request.end_datetime|date:'d M Y, H:i' }}",
+            purpose:  "",
+        },
+        {% endfor %}
+    ],
+    available: [
+        {% for room in available_rooms %}
+        {
+            room:     "{{ room.room_name|escapejs }}",
+            category: "{{ room.get_room_category_display|escapejs }}",
+            incharge: "{{ room.incharge.user.get_full_name|escapejs }}",
+            capacity: "{{ room.capacity }}",
+            dept:     "{% if room.department %}{{ room.department.department_name|escapejs }}{% else %}—{% endif %}",
+            status:   "Available",
+            faculty:  "—", email: "—", from: "—", until: "—", purpose: "—",
+        },
+        {% endfor %}
+    ],
+};
+
+var ALL_ROOMS = [
+    {% for room in rooms %}
+    {
+        name:     "{{ room.room_name|escapejs }}",
+        category: "{{ room.get_room_category_display|escapejs }}",
+        capacity: "{{ room.capacity }}",
+        incharge: "{{ room.incharge.user.get_full_name|escapejs }}",
+        dept:     "{% if room.department %}{{ room.department.department_name|escapejs }}{% else %}—{% endif %}",
+        created:  "{{ room.created_on|date:'d-M-Y H:i' }}",
+    },
+    {% endfor %}
+];
+
+// ── Status display helpers ────────────────────────────────────────
+var STATUS_META = {
+    'Booked':           { label: 'BOOKED',          color: [59, 130, 246],  light: [239, 246, 255] },
+    'Pending Approval': { label: 'PRE-BOOKED',       color: [245, 158, 11],  light: [255, 251, 235] },
+    'Available':        { label: 'AVAILABLE',        color: [16, 185, 129],  light: [236, 253, 245] },
+};
+
+// ── Get rows based on current filter selection ────────────────────
+function getFilteredRows() {
+    var filter = document.getElementById('exportFilter').value;
+    var rows = [];
+    if (filter === 'all' || filter === 'booked')   BOOKING_DATA.booked.forEach(function(r)   { rows.push(r); });
+    if (filter === 'all' || filter === 'pending')  BOOKING_DATA.pending.forEach(function(r)  { rows.push(r); });
+    if (filter === 'all' || filter === 'available') BOOKING_DATA.available.forEach(function(r) { rows.push(r); });
+    return rows;
+}
+
+function getFilterLabel() {
+    var el = document.getElementById('exportFilter');
+    return el.options[el.selectedIndex].text;
+}
+
+// ── Summary counts ────────────────────────────────────────────────
+function getSummary() {
+    var filter = document.getElementById('exportFilter').value;
+    var booked    = (filter === 'all' || filter === 'booked')    ? BOOKING_DATA.booked.length    : 0;
+    var pending   = (filter === 'all' || filter === 'pending')   ? BOOKING_DATA.pending.length   : 0;
+    var available = (filter === 'all' || filter === 'available') ? BOOKING_DATA.available.length : 0;
+    return { booked: booked, pending: pending, available: available, total: booked + pending + available };
+}
+
+// ══════════════════════════════════════════════════════════════════
+//  PDF EXPORT
+// ══════════════════════════════════════════════════════════════════
+function exportPDF() {
+    var { jsPDF } = window.jspdf;
+    var doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+
+    var pageW  = doc.internal.pageSize.getWidth();
+    var pageH  = doc.internal.pageSize.getHeight();
+    var margin = 14;
+    var now    = new Date();
+    var filterLabel = getFilterLabel();
+    var summary = getSummary();
+    var rows = getFilteredRows();
+
+    // ── Header band ──────────────────────────────────────────────
+    doc.setFillColor(15, 23, 42);
+    doc.rect(0, 0, pageW, 28, 'F');
+
+    // Logo accent bar
+    doc.setFillColor(99, 102, 241);
+    doc.rect(0, 0, 5, 28, 'F');
+
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(16);
+    doc.setFont('helvetica', 'bold');
+    doc.text('Room Booking Report', margin + 2, 11);
+
+    doc.setFontSize(8);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(148, 163, 184);
+    doc.text('SFS IMS  ·  Blixtro', margin + 2, 18);
+    doc.text('Generated: ' + now.toLocaleString(), margin + 2, 23);
+
+    // Filter chip (right side of header)
+    doc.setFillColor(99, 102, 241);
+    doc.roundedRect(pageW - margin - 52, 8, 52, 12, 3, 3, 'F');
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(8);
+    doc.setFont('helvetica', 'bold');
+    doc.text('Filter: ' + filterLabel.toUpperCase(), pageW - margin - 48, 15.5);
+
+    // ── Summary stat boxes ────────────────────────────────────────
+    var statY = 34;
+    var statBoxW = 44;
+    var statBoxH = 16;
+    var statGap  = 4;
+    var statStartX = margin;
+
+    var stats = [
+        { label: 'Total Rooms',      value: summary.total,     fill: [241, 245, 249], text: [30, 41, 59],   accent: [99, 102, 241] },
+        { label: 'Booked',           value: summary.booked,    fill: [239, 246, 255], text: [29, 78, 216],  accent: [59, 130, 246] },
+        { label: 'Pre-Booked',       value: summary.pending,   fill: [255, 251, 235], text: [120, 53, 15],  accent: [245, 158, 11] },
+        { label: 'Available',        value: summary.available, fill: [236, 253, 245], text: [4, 120, 87],   accent: [16, 185, 129] },
+    ];
+
+    stats.forEach(function(s, i) {
+        var bx = statStartX + i * (statBoxW + statGap);
+        // Card bg
+        doc.setFillColor(s.fill[0], s.fill[1], s.fill[2]);
+        doc.roundedRect(bx, statY, statBoxW, statBoxH, 3, 3, 'F');
+        // Left accent
+        doc.setFillColor(s.accent[0], s.accent[1], s.accent[2]);
+        doc.rect(bx, statY, 2.5, statBoxH, 'F');
+        // Value
+        doc.setTextColor(s.text[0], s.text[1], s.text[2]);
+        doc.setFontSize(14);
+        doc.setFont('helvetica', 'bold');
+        doc.text(String(s.value), bx + 7, statY + 10);
+        // Label
+        doc.setFontSize(6.5);
+        doc.setFont('helvetica', 'normal');
+        doc.text(s.label.toUpperCase(), bx + 7, statY + 14.5);
+    });
+
+    // ── Table ─────────────────────────────────────────────────────
+    var tableY = statY + statBoxH + 6;
+
+    var headers = ['#', 'Room Name', 'Category', 'Status', 'Incharge', 'Faculty / Requester', 'Email', 'From', 'Until', 'Purpose'];
+    var bodyRows = rows.map(function(r, i) {
+        return [
+            String(i + 1),
+            r.room,
+            r.category,
+            r.status,
+            r.incharge || '—',
+            r.faculty  || '—',
+            r.email    || '—',
+            r.from     || '—',
+            r.until    || '—',
+            r.purpose  || '—',
+        ];
+    });
+
+    // Status color per row
+    function statusFill(status) {
+        if (status === 'Booked')           return [239, 246, 255];
+        if (status === 'Pending Approval') return [255, 251, 235];
+        if (status === 'Available')        return [236, 253, 245];
+        return [255, 255, 255];
+    }
+    function statusTextColor(status) {
+        if (status === 'Booked')           return [29, 78, 216];
+        if (status === 'Pending Approval') return [120, 53, 15];
+        if (status === 'Available')        return [4, 120, 87];
+        return [30, 41, 59];
+    }
+
+    doc.autoTable({
+        head: [headers],
+        body: bodyRows,
+        startY: tableY,
+        margin: { left: margin, right: margin },
+        styles: {
+            fontSize: 7,
+            cellPadding: { top: 3, bottom: 3, left: 3, right: 3 },
+            textColor: [30, 41, 59],
+            lineColor: [226, 232, 240],
+            lineWidth: 0.2,
+            font: 'helvetica',
+            valign: 'middle',
+        },
+        headStyles: {
+            fillColor: [15, 23, 42],
+            textColor: [255, 255, 255],
+            fontStyle: 'bold',
+            fontSize: 7.5,
+            halign: 'left',
+        },
+        alternateRowStyles: { fillColor: [248, 250, 252] },
+        columnStyles: {
+            0:  { cellWidth: 7,  halign: 'center' },
+            1:  { cellWidth: 32, fontStyle: 'bold' },
+            2:  { cellWidth: 24 },
+            3:  { cellWidth: 26 },
+            4:  { cellWidth: 28 },
+            5:  { cellWidth: 30 },
+            6:  { cellWidth: 38 },
+            7:  { cellWidth: 24 },
+            8:  { cellWidth: 24 },
+            9:  { cellWidth: 'auto' },
+        },
+        // Colour the Status cell per row
+        didParseCell: function(data) {
+            if (data.section === 'body' && data.column.index === 3) {
+                var status = bodyRows[data.row.index] ? bodyRows[data.row.index][3] : '';
+                data.cell.styles.fillColor = statusFill(status);
+                data.cell.styles.textColor = statusTextColor(status);
+                data.cell.styles.fontStyle = 'bold';
+            }
+        },
+    });
+
+    // ── Footer on every page ─────────────────────────────────────
+    var pageCount = doc.internal.getNumberOfPages();
+    for (var p = 1; p <= pageCount; p++) {
+        doc.setPage(p);
+        doc.setFillColor(248, 250, 252);
+        doc.rect(0, pageH - 8, pageW, 8, 'F');
+        doc.setFontSize(6.5);
+        doc.setFont('helvetica', 'normal');
+        doc.setTextColor(148, 163, 184);
+        doc.text('SFS IMS  ·  Room Booking Report  ·  ' + filterLabel, margin, pageH - 2.5);
+        doc.text('Page ' + p + ' of ' + pageCount, pageW - margin, pageH - 2.5, { align: 'right' });
+    }
+
+    var slug = filterLabel.toLowerCase().replace(/\s+/g, '_');
+    doc.save('room_report_' + slug + '_' + now.toISOString().slice(0,10) + '.pdf');
+}
+
+// ══════════════════════════════════════════════════════════════════
+//  EXCEL EXPORT
+// ══════════════════════════════════════════════════════════════════
+function exportExcel() {
+    var now = new Date();
+    var filterLabel = getFilterLabel();
+    var rows = getFilteredRows();
+    var summary = getSummary();
+    var wb = XLSX.utils.book_new();
+
+    // ── Sheet 1: Booking Report ───────────────────────────────────
+    var wsData = [];
+
+    // Title rows
+    wsData.push(['Room Booking Report — ' + filterLabel]);
+    wsData.push(['SFS IMS  |  Blixtro']);
+    wsData.push(['Generated: ' + now.toLocaleString()]);
+    wsData.push([]);
+
+    // Summary row
+    wsData.push([
+        'Total: ' + summary.total,
+        'Booked: ' + summary.booked,
+        'Pre-Booked: ' + summary.pending,
+        'Available: ' + summary.available,
+        '', '', '', '', '', ''
+    ]);
+    wsData.push([]);
+
+    // Header row (index 6, 0-based row 6)
+    var hdr = ['#', 'Room Name', 'Category', 'Status', 'Incharge', 'Dept / Building', 'Faculty / Requester', 'Email', 'From', 'Until', 'Purpose'];
+    wsData.push(hdr);
+
+    // Data rows
+    rows.forEach(function(r, i) {
+        wsData.push([
+            i + 1,
+            r.room,
+            r.category,
+            r.status,
+            r.incharge || '—',
+            r.dept     || '—',
+            r.faculty  || '—',
+            r.email    || '—',
+            r.from     || '—',
+            r.until    || '—',
+            r.purpose  || '—',
+        ]);
+    });
+
+    var ws = XLSX.utils.aoa_to_sheet(wsData);
+
+    // Column widths
+    ws['!cols'] = [
+        { wch: 5 }, { wch: 24 }, { wch: 18 }, { wch: 20 },
+        { wch: 22 }, { wch: 18 }, { wch: 24 }, { wch: 32 },
+        { wch: 20 }, { wch: 20 }, { wch: 36 },
+    ];
+
+    // Style helpers
+    var DARK   = { rgb: '0F172A' };
+    var WHITE  = { rgb: 'FFFFFF' };
+    var INDIGO = { rgb: '6366F1' };
+    var LIGHT  = { rgb: 'F8FAFC' };
+    var MUTED  = { rgb: '94A3B8' };
+    var BLUE_L = { rgb: 'EFF6FF' };
+    var AMBR_L = { rgb: 'FFFBEB' };
+    var GRN_L  = { rgb: 'ECFDF5' };
+    var BLUE_T = { rgb: '1D4ED8' };
+    var AMBR_T = { rgb: '78350F' };
+    var GRN_T  = { rgb: '047857' };
+
+    function cellStyle(fill, fontColor, bold, sz) {
+        return {
+            fill: { patternType: 'solid', fgColor: fill },
+            font: { bold: !!bold, color: fontColor, sz: sz || 10 },
+            alignment: { vertical: 'center', wrapText: false },
+        };
+    }
+
+    var headerRowIdx = 6; // 0-based row index for column headers
+    var dataStartIdx = 7;
+
+    // Title row
+    var t0 = XLSX.utils.encode_cell({ r: 0, c: 0 });
+    ws[t0] = ws[t0] || { t: 's', v: 'Room Booking Report — ' + filterLabel };
+    ws[t0].s = cellStyle(DARK, WHITE, true, 14);
+
+    var t1 = XLSX.utils.encode_cell({ r: 1, c: 0 });
+    if (ws[t1]) ws[t1].s = cellStyle(DARK, MUTED, false, 9);
+
+    var t2 = XLSX.utils.encode_cell({ r: 2, c: 0 });
+    if (ws[t2]) ws[t2].s = cellStyle({ rgb: 'FFFFFF' }, MUTED, false, 9);
+
+    // Summary row styling
+    var summaryStyle = cellStyle(INDIGO, WHITE, true, 10);
+    for (var c = 0; c < 4; c++) {
+        var sc = XLSX.utils.encode_cell({ r: 4, c: c });
+        if (ws[sc]) ws[sc].s = summaryStyle;
+    }
+
+    // Header row styling
+    for (var ci = 0; ci < hdr.length; ci++) {
+        var hc = XLSX.utils.encode_cell({ r: headerRowIdx, c: ci });
+        if (!ws[hc]) continue;
+        ws[hc].s = {
+            fill: { patternType: 'solid', fgColor: DARK },
+            font: { bold: true, color: WHITE, sz: 10 },
+            alignment: { vertical: 'center', horizontal: 'center' },
+            border: { bottom: { style: 'medium', color: INDIGO } },
+        };
+    }
+
+    // Data rows: status-column colouring + alternating rows
+    rows.forEach(function(r, i) {
+        var ri = dataStartIdx + i;
+        var isBg = i % 2 === 0 ? { rgb: 'FFFFFF' } : LIGHT;
+
+        for (var ci2 = 0; ci2 < hdr.length; ci2++) {
+            var dc = XLSX.utils.encode_cell({ r: ri, c: ci2 });
+            if (!ws[dc]) continue;
+            var isStatus = ci2 === 3;
+            var statusFill = isBg, statusFontColor = { rgb: '1E293B' }, statusBold = false;
+            if (isStatus) {
+                if (r.status === 'Booked')           { statusFill = BLUE_L; statusFontColor = BLUE_T; statusBold = true; }
+                if (r.status === 'Pending Approval') { statusFill = AMBR_L; statusFontColor = AMBR_T; statusBold = true; }
+                if (r.status === 'Available')        { statusFill = GRN_L;  statusFontColor = GRN_T;  statusBold = true; }
+            }
+            ws[dc].s = {
+                fill: { patternType: 'solid', fgColor: isStatus ? statusFill : isBg },
+                font: { bold: (ci2 === 1 || statusBold), color: isStatus ? statusFontColor : { rgb: '1E293B' }, sz: 9.5 },
+                alignment: { vertical: 'center', wrapText: ci2 === 10 },
+                border: { bottom: { style: 'hair', color: { rgb: 'E2E8F0' } } },
+            };
+        }
+    });
+
+    // Row heights
+    ws['!rows'] = [];
+    ws['!rows'][0] = { hpx: 24 };
+    ws['!rows'][4] = { hpx: 20 };
+    ws['!rows'][headerRowIdx] = { hpx: 20 };
+    rows.forEach(function(_, i) { ws['!rows'][dataStartIdx + i] = { hpx: 18 }; });
+
+    // Merge title cell across columns
+    ws['!merges'] = [
+        { s: { r: 0, c: 0 }, e: { r: 0, c: 10 } },
+        { s: { r: 1, c: 0 }, e: { r: 1, c: 10 } },
+        { s: { r: 2, c: 0 }, e: { r: 2, c: 10 } },
+        { s: { r: 4, c: 4 }, e: { r: 4, c: 10 } },
+    ];
+
+    var sheetName = filterLabel.slice(0, 31);
+    XLSX.utils.book_append_sheet(wb, ws, sheetName);
+
+    // ── Sheet 2: Full Room List ───────────────────────────────────
+    var rlData = [];
+    rlData.push(['Full Room Directory']);
+    rlData.push(['SFS IMS  |  All rooms regardless of filter']);
+    rlData.push([]);
+    var rlHdr = ['#', 'Room Name', 'Category', 'Capacity', 'Incharge', 'Department', 'Created On'];
+    rlData.push(rlHdr);
+    ALL_ROOMS.forEach(function(r, i) {
+        rlData.push([i + 1, r.name, r.category, r.capacity, r.incharge, r.dept, r.created]);
+    });
+
+    var ws2 = XLSX.utils.aoa_to_sheet(rlData);
+    ws2['!cols'] = [{ wch: 5 }, { wch: 26 }, { wch: 18 }, { wch: 10 }, { wch: 24 }, { wch: 20 }, { wch: 20 }];
+
+    // Style title
+    var rl0 = XLSX.utils.encode_cell({ r: 0, c: 0 });
+    if (ws2[rl0]) ws2[rl0].s = cellStyle(DARK, WHITE, true, 13);
+    var rl1 = XLSX.utils.encode_cell({ r: 1, c: 0 });
+    if (ws2[rl1]) ws2[rl1].s = cellStyle(DARK, MUTED, false, 9);
+
+    // Header row
+    for (var ch = 0; ch < rlHdr.length; ch++) {
+        var rhc = XLSX.utils.encode_cell({ r: 3, c: ch });
+        if (!ws2[rhc]) continue;
+        ws2[rhc].s = {
+            fill: { patternType: 'solid', fgColor: DARK },
+            font: { bold: true, color: WHITE, sz: 10 },
+            alignment: { vertical: 'center', horizontal: 'center' },
+        };
+    }
+
+    // Data rows alternating
+    ALL_ROOMS.forEach(function(r, i) {
+        var ri2 = 4 + i;
+        var altBg = i % 2 === 0 ? { rgb: 'FFFFFF' } : LIGHT;
+        for (var ci3 = 0; ci3 < rlHdr.length; ci3++) {
+            var dc2 = XLSX.utils.encode_cell({ r: ri2, c: ci3 });
+            if (!ws2[dc2]) continue;
+            ws2[dc2].s = {
+                fill: { patternType: 'solid', fgColor: altBg },
+                font: { bold: ci3 === 1, color: { rgb: '1E293B' }, sz: 9.5 },
+                alignment: { vertical: 'center' },
+                border: { bottom: { style: 'hair', color: { rgb: 'E2E8F0' } } },
+            };
+        }
+    });
+
+    ws2['!merges'] = [
+        { s: { r: 0, c: 0 }, e: { r: 0, c: 6 } },
+        { s: { r: 1, c: 0 }, e: { r: 1, c: 6 } },
+    ];
+
+    XLSX.utils.book_append_sheet(wb, ws2, 'Room Directory');
+
+    var slug = filterLabel.toLowerCase().replace(/\s+/g, '_');
+    XLSX.writeFile(wb, 'room_report_' + slug + '_' + now.toISOString().slice(0,10) + '.xlsx');
+}
+
+// ── Main export dispatcher ────────────────────────────────────────
+function exportRooms(type) {
+    if (type === 'pdf')   exportPDF();
+    if (type === 'excel') exportExcel();
+}
+</script>
 
 {% endblock content %}

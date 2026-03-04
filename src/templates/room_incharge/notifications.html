@@ -224,7 +224,7 @@
             </div>
             <div class="notif-meta">
                 <span class="notif-time">{{ req.updated_on|date:"d M, H:i" }}</span>
-                <button class="dismiss-btn" onclick="dismissItem('n-stock-{{ req.id }}')" title="Dismiss"><i class="bi bi-x-lg"></i></button>
+                <button class="dismiss-btn" onclick="dismissItem('n-stock-{{ req.id }}', 'stock', {{ req.id }})" title="Dismiss"><i class="bi bi-x-lg"></i></button>
             </div>
         </div>
         {% endfor %}
@@ -266,7 +266,7 @@
             </div>
             <div class="notif-meta">
                 <span class="notif-time">{{ req.updated_on|date:"d M, H:i" }}</span>
-                <button class="dismiss-btn" onclick="dismissItem('n-assigned-{{ req.id }}')" title="Dismiss"><i class="bi bi-x-lg"></i></button>
+                <button class="dismiss-btn" onclick="dismissItem('n-assigned-{{ req.id }}', 'assigned', {{ req.id }})" title="Dismiss"><i class="bi bi-x-lg"></i></button>
             </div>
         </div>
         {% endfor %}
@@ -338,7 +338,7 @@
 
             <div class="notif-meta">
                 <span class="notif-time">{{ issue.updated_on|date:"d M, H:i" }}</span>
-                <button class="dismiss-btn" onclick="dismissItem('n-issue-{{ issue.id }}')" title="Dismiss"><i class="bi bi-x-lg"></i></button>
+                <button class="dismiss-btn" onclick="dismissItem('n-issue-{{ issue.id }}', 'issue', {{ issue.id }})" title="Dismiss"><i class="bi bi-x-lg"></i></button>
             </div>
         </div>
         {% endfor %}
@@ -362,8 +362,16 @@
 <div id="toastWrap"><div class="mini-toast" id="miniToast"></div></div>
 
 <script>
-function dismissItem(id) {
-    var el = document.getElementById(id);
+const CSRF_TOKEN = '{{ csrf_token }}';
+const NOTIF_URL  = '{% url "room_incharge:room_notifications" room_slug=room.slug %}';
+
+function getCsrf() { return CSRF_TOKEN; }
+
+/**
+ * Dismiss a single notification — animate out AND persist server-side.
+ */
+function dismissItem(elemId, prefix, objId) {
+    var el = document.getElementById(elemId);
     if (!el) return;
     el.style.opacity = '0';
     el.style.transform = 'translateX(36px)';
@@ -373,11 +381,37 @@ function dismissItem(id) {
         checkAllGone();
     }, 290);
     showToast('Notification dismissed');
+
+    // Persist server-side
+    if (prefix && objId) {
+        fetch(NOTIF_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCsrf() },
+            body: JSON.stringify({ action: 'dismiss', prefix: prefix, id: objId }),
+        }).catch(function() {});
+    }
 }
 
+/**
+ * Clear all notifications — animate out AND persist all IDs server-side.
+ */
 function clearAll() {
     var items = document.querySelectorAll('.notif-item');
     if (!items.length) return;
+
+    // Collect dismiss payloads from each dismiss button's onclick before removal
+    var payloadItems = [];
+    items.forEach(function(el) {
+        var btn = el.querySelector('.dismiss-btn');
+        if (btn) {
+            var onclickStr = btn.getAttribute('onclick') || '';
+            var match = onclickStr.match(/dismissItem\([^,]+,\s*'([^']+)',\s*(\d+)/);
+            if (match) {
+                payloadItems.push({ prefix: match[1], id: parseInt(match[2]) });
+            }
+        }
+    });
+
     var delay = 0;
     items.forEach(function(el) {
         setTimeout(function() {
@@ -389,6 +423,13 @@ function clearAll() {
         delay += 50;
     });
     showToast('All notifications cleared');
+
+    // Persist all dismissals in one request
+    fetch(NOTIF_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCsrf() },
+        body: JSON.stringify({ action: 'clear_all', items: payloadItems }),
+    }).catch(function() {});
 }
 
 function checkAllGone() {
