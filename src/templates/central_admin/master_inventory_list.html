@@ -120,9 +120,34 @@
     .table thead th {
         border:none; padding:14px 16px; font-weight:700; color:#475569;
         text-transform:uppercase; font-size:0.7rem; letter-spacing:0.5px;
-        white-space:nowrap;
+        white-space:nowrap; text-align:center;
     }
-    .table tbody td { padding:16px; border-top:1px solid #f1f5f9; vertical-align:middle; }
+    .table thead th:first-child { text-align:left; }
+    .table thead th:nth-child(2),
+    .table thead th:nth-child(3) { text-align:left; }
+    .table tbody td { padding:16px; border-top:1px solid #f1f5f9; vertical-align:middle; text-align:center; }
+    .table tbody td:first-child,
+    .table tbody td:nth-child(2),
+    .table tbody td:nth-child(3) { text-align:left; }
+    .table thead th {
+        border: none; padding: 14px 12px; font-weight: 700; color: #475569;
+        text-transform: uppercase; font-size: 0.7rem; letter-spacing: 0.5px;
+        white-space: nowrap; text-align: center; vertical-align: middle;
+    }
+    .table thead th:first-child,
+    .table thead th:nth-child(2),
+    .table thead th:nth-child(3) { text-align: left; }
+
+    .table tbody td {
+        padding: 14px 12px; border-top: 1px solid #f1f5f9;
+        vertical-align: middle; text-align: center;
+    }
+    .table tbody td:first-child,
+    .table tbody td:nth-child(2),
+    .table tbody td:nth-child(3) { text-align: left; }
+
+    .table { table-layout: auto; width: 100%; }
+    .badge-count { min-width: 36px; display: inline-block; text-align: center; }
     .item-name { font-weight:600; color:#1e293b; font-size:0.95rem; }
     .badge-count {
         display:inline-block; min-width:40px; text-align:center;
@@ -237,6 +262,13 @@
             <label class="field-check-item selected" data-field="assigned">
                 <input type="checkbox" checked> <i class="bi bi-building"></i> Assigned
             </label>
+            <label class="field-check-item selected" data-field="archived">
+                <input type="checkbox" checked> <i class="bi bi-archive"></i> Archived
+            </label>
+            <label class="field-check-item selected" data-field="compstatus">
+                <input type="checkbox" checked> <i class="bi bi-activity"></i> Comp. Status
+            </label>
+
         </div>
         <div class="export-btns">
             <button class="btn-export btn-export-pdf" onclick="exportPDF()">
@@ -274,6 +306,15 @@
                         </div>
                     </th>
                     <th data-col="assigned" class="text-center">Assigned to Rooms</th>
+                    <th data-col="archived" class="text-center">Archived</th>
+                    <th data-col="compstatus">
+                        <div class="col-toggle-header">
+                            <span id="compStatusColLabel">Inactive</span>
+                            <span class="col-toggle-btn" onclick="cycleCompStatus(event)">
+                                <i class="bi bi-arrow-repeat"></i>
+                            </span>
+                        </div>
+                    </th>
                 </tr>
             </thead>
             <tbody>
@@ -306,6 +347,20 @@
                             onclick="viewAssignments({{ data.item.id }}, '{{ data.item.item_name|escapejs }}')">
                             <i class="bi bi-eye me-1"></i>View Details
                         </button>
+                    </td>
+                    <td data-col="archived" class="text-center">
+                        <span class="badge-count" style="background:#fef3c7; color:#92400e; border:1px solid #fde68a;">
+                            {{ data.archived_count }}
+                        </span>
+                    </td>
+                    <td data-col="compstatus" class="text-center"
+                        data-inactive="{{ data.inactive_count }}"
+                        data-maintenance="{{ data.under_maintenance_count }}"
+                        data-disposed="{{ data.disposed_count }}">
+                        <span class="badge-count compstatus-display"
+                            style="background:#fef2f2; color:#991b1b; border:1px solid #fecaca;">
+                            {{ data.inactive_count }}
+                        </span>
                     </td>
                 </tr>
                 {% endfor %}
@@ -424,7 +479,7 @@ function getSelectedFields() {
 
 function applyFieldVisibility() {
     const selected = getSelectedFields();
-    const allCols = ['name','category','brand','stock','cost','assigned'];
+    const allCols = ['name','category','brand','stock','cost','assigned', 'archived','compstatus'];
     allCols.forEach(col => {
         const show = selected.includes(col);
         document.querySelectorAll(`[data-col="${col}"]`).forEach(el => {
@@ -603,6 +658,10 @@ const allStockData = [
         total: {{ data.total_items }},
         cpu: {{ data.cpu|default:0 }},
         totalCost: {{ data.total_cost|default:0 }},
+        archived: {{ data.archived_count|default:0 }},
+        inactive: {{ data.inactive_count|default:0 }},
+        under_maintenance: {{ data.under_maintenance_count|default:0 }},
+        disposed: {{ data.disposed_count|default:0 }},
     },
     {% endfor %}
 ];
@@ -651,6 +710,17 @@ function applyStockFilter() {
     const totAvailable = filtered.reduce((s,d) => s + d.available, 0);
     const totAssigned  = filtered.reduce((s,d) => s + d.assigned,  0);
     const totTotal     = filtered.reduce((s,d) => s + d.total,     0);
+    const totArchived  = filtered.reduce((s,d) => s + d.archived,  0);
+
+    // Dynamic comp status
+    const compKeys   = ['inactive', 'under_maintenance', 'disposed'];
+    const compLabels = ['Inactive', 'Under Maintenance', 'Disposed'];
+    const compStyles = [
+        'background:#fef2f2; color:#991b1b; border:1px solid #fecaca;',
+        'background:#fff7ed; color:#c2410c; border:1px solid #fed7aa;',
+        'background:#f1f5f9; color:#475569; border:1px solid #e2e8f0;',
+    ];
+    let sfCompState = window.sfCompState || 0;
 
     const rows = filtered.map(d => `
         <tr>
@@ -660,26 +730,45 @@ function applyStockFilter() {
             <td class="text-center"><span class="badge-count badge-available">${d.available}</span></td>
             <td class="text-center"><span class="badge-count badge-assigned">${d.assigned}</span></td>
             <td class="text-center"><span class="badge-count badge-total">${d.total}</span></td>
+            <td class="text-center">
+                <span class="badge-count sf-archived-pill" style="background:#fef3c7; color:#92400e; border:1px solid #fde68a;">
+                    ${d.archived}
+                </span>
+            </td>
+            <td class="text-center">
+                <span class="badge-count sf-comp-pill" style="${compStyles[sfCompState]}"
+                    data-inactive="${d.inactive}"
+                    data-under_maintenance="${d.under_maintenance}"
+                    data-disposed="${d.disposed}">
+                    ${d[compKeys[sfCompState]]}
+                </span>
+            </td>
         </tr>`).join('');
 
     resultsDiv.innerHTML = `
         <div class="row g-3 mb-4">
-            <div class="col-4">
+            <div class="col-3">
                 <div style="background:#d1fae5;border-radius:12px;padding:16px;text-align:center;">
                     <div style="font-size:1.6rem;font-weight:800;color:#065f46;">${totAvailable}</div>
                     <div style="font-size:0.78rem;font-weight:600;color:#065f46;">Available</div>
                 </div>
             </div>
-            <div class="col-4">
+            <div class="col-3">
                 <div style="background:#dbeafe;border-radius:12px;padding:16px;text-align:center;">
                     <div style="font-size:1.6rem;font-weight:800;color:#1e40af;">${totAssigned}</div>
                     <div style="font-size:0.78rem;font-weight:600;color:#1e40af;">Assigned</div>
                 </div>
             </div>
-            <div class="col-4">
+            <div class="col-3">
                 <div style="background:#f3e8ff;border-radius:12px;padding:16px;text-align:center;">
                     <div style="font-size:1.6rem;font-weight:800;color:#6b21a8;">${totTotal}</div>
                     <div style="font-size:0.78rem;font-weight:600;color:#6b21a8;">Total</div>
+                </div>
+            </div>
+            <div class="col-3">
+                <div style="background:#fef3c7;border-radius:12px;padding:16px;text-align:center;">
+                    <div style="font-size:1.6rem;font-weight:800;color:#92400e;">${totArchived}</div>
+                    <div style="font-size:0.78rem;font-weight:600;color:#92400e;">Archived</div>
                 </div>
             </div>
         </div>
@@ -691,11 +780,39 @@ function applyStockFilter() {
                         <th class="text-center">Available</th>
                         <th class="text-center">Assigned</th>
                         <th class="text-center">Total</th>
+                        <th class="text-center">Archived</th>
+                        <th class="text-center" style="cursor:pointer; white-space:nowrap;"
+                            onclick="cycleSfComp()">
+                            <span id="sfCompLabel">${compLabels[sfCompState]}</span>
+                            <span style="font-size:0.65rem; background:white; color:var(--purple);
+                                border:1.5px solid var(--purple); border-radius:12px;
+                                padding:1px 7px; margin-left:4px; font-weight:700;">
+                                <i class="bi bi-arrow-repeat"></i>
+                            </span>
+                        </th>
                     </tr>
                 </thead>
                 <tbody>${rows}</tbody>
             </table>
         </div>`;
+}
+
+// Cycle comp status inside stock filter modal
+function cycleSfComp() {
+    const compKeys   = ['inactive', 'under_maintenance', 'disposed'];
+    const compLabels = ['Inactive', 'Under Maintenance', 'Disposed'];
+    const compStyles = [
+        'background:#fef2f2; color:#991b1b; border:1px solid #fecaca;',
+        'background:#fff7ed; color:#c2410c; border:1px solid #fed7aa;',
+        'background:#f1f5f9; color:#475569; border:1px solid #e2e8f0;',
+    ];
+    window.sfCompState = ((window.sfCompState || 0) + 1) % 3;
+    document.getElementById('sfCompLabel').textContent = compLabels[window.sfCompState];
+    document.querySelectorAll('.sf-comp-pill').forEach(pill => {
+        const val = pill.getAttribute('data-' + compKeys[window.sfCompState]);
+        pill.textContent = val;
+        pill.style.cssText = compStyles[window.sfCompState];
+    });
 }
 
 function getCsrf() {
@@ -759,6 +876,29 @@ function submitUnassign(roomItemId, maxQty) {
         btn.innerHTML = '<i class="bi bi-arrow-return-left me-1"></i>Return Stock';
         msgEl.style.display = 'block'; msgEl.style.color = '#dc2626';
         msgEl.textContent = 'Network error. Try again.';
+    });
+}
+
+// ── COMPONENT STATUS COLUMN TOGGLE ──
+// States: 0=inactive, 1=under_maintenance, 2=disposed
+let compStatusState = 0;
+const compStatusLabels = ['Inactive', 'Under Maintenance', 'Disposed'];
+const compStatusDataKeys = ['inactive', 'maintenance', 'disposed'];
+const compStatusStyles = [
+    'background:#fef2f2; color:#991b1b; border:1px solid #fecaca;',
+    'background:#fff7ed; color:#c2410c; border:1px solid #fed7aa;',
+    'background:#f1f5f9; color:#475569; border:1px solid #e2e8f0;',
+];
+
+function cycleCompStatus(e) {
+    e.stopPropagation();
+    compStatusState = (compStatusState + 1) % 3;
+    document.getElementById('compStatusColLabel').textContent = compStatusLabels[compStatusState];
+    document.querySelectorAll('td[data-col="compstatus"]').forEach(td => {
+        const val = td.getAttribute('data-' + compStatusDataKeys[compStatusState]);
+        const span = td.querySelector('.compstatus-display');
+        span.textContent = val;
+        span.style.cssText = compStatusStyles[compStatusState];
     });
 }
 </script>

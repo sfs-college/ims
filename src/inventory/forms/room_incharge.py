@@ -28,12 +28,12 @@ class ItemForm(form_mixin.BootstrapFormMixin, forms.ModelForm):
 class SystemForm(form_mixin.BootstrapFormMixin, forms.ModelForm):
     class Meta:
         model = System
-        fields = ['system_name', 'status']
+        fields = ['system_name']
 
 class SystemComponentForm(form_mixin.BootstrapFormMixin, forms.ModelForm):
     class Meta:
         model = SystemComponent
-        fields = ['component_item', 'component_type', 'serial_number']  # Updated field
+        fields = ['component_item', 'component_type', 'serial_number' , 'status']  # Updated field
 
 class SystemComponentArchiveForm(form_mixin.BootstrapFormMixin, forms.ModelForm):
     class Meta:

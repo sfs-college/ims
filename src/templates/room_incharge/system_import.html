@@ -1,0 +1,280 @@
+{% extends "sidebar_base.html" %}
+{% load static %}
+
+{% block title %} | Import Systems{% endblock %}
+
+{% block style %}
+<link rel="stylesheet" href="{% static 'styles/inventory/room_incharge/system_list/style.css' %}">
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&display=swap');
+  :root {
+    --accent: #6c63ff; --accent-lt: #a89dff;
+    --surface: #ffffff; --surface-2: #f8f8fc;
+    --border: #ebebf5; --text: #1a1a2e; --text-muted: #7c7c9a;
+  }
+  body { background: #f4f4fb; font-family: 'DM Sans', sans-serif; }
+
+  .page-header { display:flex; justify-content:space-between; align-items:center; margin:28px 0 20px; }
+  .page-title  { font-size:20px; font-weight:700; color:var(--text); margin:0; }
+
+  .card {
+    background:var(--surface); border-radius:14px; border:1px solid var(--border);
+    padding:28px; box-shadow:0 1px 8px rgba(0,0,0,0.04); margin-bottom:20px;
+  }
+
+  .upload-zone {
+    border: 2px dashed var(--accent-lt);
+    border-radius: 12px;
+    padding: 40px 24px;
+    text-align: center;
+    background: rgba(108,99,255,0.03);
+    cursor: pointer;
+    transition: all 0.18s;
+  }
+  .upload-zone:hover { border-color: var(--accent); background: rgba(108,99,255,0.06); }
+  .upload-zone .material-symbols-outlined { font-size:40px; color:var(--accent-lt); display:block; margin-bottom:10px; }
+  .upload-zone p { color:var(--text-muted); font-size:14px; margin:4px 0; }
+  #fileInput { display:none; }
+
+  .file-chosen { font-size:13px; color:var(--accent); font-weight:600; margin-top:10px; }
+
+  .btn-primary {
+    display:inline-flex; align-items:center; gap:6px;
+    padding:10px 22px; background:linear-gradient(135deg,var(--accent),#8b7cf8);
+    color:white; border:none; border-radius:9px; font-size:14px; font-weight:600;
+    cursor:pointer; transition:all 0.18s; box-shadow:0 2px 12px rgba(108,99,255,0.3);
+  }
+  .btn-primary:hover { transform:translateY(-1px); box-shadow:0 4px 18px rgba(108,99,255,0.4); }
+
+  .btn-confirm {
+    display:inline-flex; align-items:center; gap:6px;
+    padding:10px 22px; background:linear-gradient(135deg,#059669,#10b981);
+    color:white; border:none; border-radius:9px; font-size:14px; font-weight:600;
+    cursor:pointer; transition:all 0.18s; box-shadow:0 2px 12px rgba(5,150,105,0.3);
+  }
+  .btn-confirm:hover { transform:translateY(-1px); }
+
+  .template-hint {
+    display:flex; align-items:center; gap:8px;
+    background:#f0f0ff; border:1px solid #ddd8ff; border-radius:10px;
+    padding:12px 16px; margin-bottom:20px; font-size:13px; color:var(--accent); font-weight:600;
+  }
+
+  .summary-bar {
+    display:flex; gap:14px; margin-bottom:20px; flex-wrap:wrap;
+  }
+  .summary-pill {
+    display:inline-flex; align-items:center; gap:6px;
+    padding:8px 16px; border-radius:20px; font-size:13px; font-weight:700;
+  }
+  .pill-systems  { background:#ede9fe; color:#5b21b6; border:1px solid #ddd6fe; }
+  .pill-comps    { background:#d1fae5; color:#065f46; border:1px solid #a7f3d0; }
+  .pill-errors   { background:#fef2f2; color:#991b1b; border:1px solid #fecaca; }
+
+  .system-preview {
+    border:1px solid var(--border); border-radius:10px; overflow:hidden; margin-bottom:14px;
+  }
+  .system-preview-header {
+    display:flex; align-items:center; justify-content:space-between;
+    padding:10px 16px; background:var(--surface-2);
+    font-weight:700; font-size:13.5px; color:var(--text);
+    border-bottom:1px solid var(--border);
+  }
+  .system-preview-header .has-error { color:#e11d48; font-size:12px; font-weight:600; }
+  .system-preview-header .all-ok    { color:#059669; font-size:12px; font-weight:600; }
+
+  .comp-table { width:100%; border-collapse:collapse; }
+  .comp-table th {
+    padding:8px 14px; font-size:11px; font-weight:700; text-transform:uppercase;
+    letter-spacing:0.06em; color:var(--text-muted); background:#fafafa;
+    border-bottom:1px solid var(--border);
+  }
+  .comp-table td { padding:8px 14px; font-size:13px; color:var(--text); border-bottom:1px solid var(--border); }
+  .comp-table tr:last-child td { border-bottom:none; }
+  .comp-table tr.has-error td { background:#fff5f5; }
+
+  .error-tag {
+    display:inline-block; padding:2px 8px; border-radius:12px;
+    background:#fef2f2; color:#991b1b; border:1px solid #fecaca;
+    font-size:11px; font-weight:600; margin-left:4px;
+  }
+
+  .error-alert {
+    background:#fff5f5; border:1px solid #fecaca; border-radius:10px;
+    padding:12px 16px; margin-bottom:20px; font-size:13px; color:#991b1b; font-weight:500;
+  }
+
+  .format-table { width:100%; border-collapse:collapse; font-size:13px; }
+  .format-table th { padding:8px 12px; background:#f0f0ff; color:var(--accent); font-weight:700; text-align:left; }
+  .format-table td { padding:8px 12px; border-bottom:1px solid var(--border); }
+  .format-table tr:last-child td { border-bottom:none; }
+
+  .badge-type {
+    display:inline-block; padding:2px 8px; border-radius:12px;
+    background:#ede9fe; color:#5b21b6; font-size:11px; font-weight:700;
+  }
+</style>
+{% endblock %}
+
+{% block navbar %}{% include "room_incharge/navbar.html" %}{% endblock %}
+{% block sidebar %}{% include "room_incharge/sidebar.html" %}{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h4 class="page-title">Import Systems via Excel</h4>
+  <a href="{% url 'room_incharge:system_list' room_slug=room_slug %}"
+     style="display:inline-flex;align-items:center;gap:5px;color:var(--text-muted);font-size:13px;text-decoration:none;">
+    <span class="material-symbols-outlined" style="font-size:16px">arrow_back</span> Back to Systems
+  </a>
+</div>
+
+{% if error %}
+<div class="error-alert">
+  <span class="material-symbols-outlined" style="font-size:16px;vertical-align:middle;margin-right:6px;">error</span>
+  {{ error }}
+</div>
+{% endif %}
+
+{% if show_preview %}
+{% else %}
+<!-- Upload Form -->
+<div class="card">
+  <div class="template-hint">
+    <span class="material-symbols-outlined" style="font-size:18px">info</span>
+    Your Excel file must have these columns in row 1:
+    <strong>System Name &nbsp;|&nbsp; Component Type &nbsp;|&nbsp; Item Name &nbsp;|&nbsp; Serial Number &nbsp;|&nbsp; Component Status (optional)</strong>
+  </div>
+
+  <div style="margin-bottom:20px;">
+    <p style="font-size:13.5px;color:var(--text-muted);margin-bottom:12px;">
+      Each row is one component. Use the same System Name across multiple rows to group components under one system.
+      Item Name must match an existing item in this room exactly.
+    </p>
+    <table class="format-table">
+      <thead>
+        <tr>
+          <th>System Name</th><th>Component Type</th><th>Item Name</th><th>Serial Number</th><th>Component Status</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Computer 01</td>
+          <td><span class="badge-type">cpu</span></td>
+          <td>Dell OptiPlex</td><td>SN-CPU-001</td><td>active</td>
+        </tr>
+        <tr>
+          <td>Computer 01</td>
+          <td><span class="badge-type">monitor</span></td>
+          <td>Dell 24 Inch Monitor</td><td>SN-MON-001</td><td>active</td>
+        </tr>
+        <tr>
+          <td>Computer 02</td>
+          <td><span class="badge-type">cpu</span></td>
+          <td>Dell OptiPlex</td><td>SN-CPU-002</td><td>active</td>
+        </tr>
+      </tbody>
+    </table>
+    <p style="font-size:12px;color:var(--text-muted);margin-top:10px;">
+      Valid component types: cpu, monitor, keyboard, mouse, ups, printer, scanner, projector, router, switch, firewall, server, storage, network, other
+    </p>
+  </div>
+
+  <form method="post" enctype="multipart/form-data">
+    {% csrf_token %}
+    <div class="upload-zone" id="uploadZone" onclick="document.getElementById('fileInput').click()">
+      <span class="material-symbols-outlined">upload_file</span>
+      <p><strong>Click to choose your Excel file</strong></p>
+      <p>.xlsx files only</p>
+    </div>
+    <input type="file" id="fileInput" name="excel_file" accept=".xlsx"
+           onchange="document.getElementById('fileName').textContent = this.files[0]?.name || ''">
+    <div class="file-chosen" id="fileName"></div>
+    <div style="margin-top:18px;">
+      <button type="submit" class="btn-primary">
+        <span class="material-symbols-outlined" style="font-size:16px">preview</span>
+        Preview Import
+      </button>
+    </div>
+  </form>
+</div>
+
+{% comment %} {% else %} {% endcomment %}
+{% endif %}
+{% if show_preview %}
+<!-- Preview -->
+<div class="summary-bar">
+  <span class="summary-pill pill-systems">
+    <span class="material-symbols-outlined" style="font-size:15px">devices</span>
+    {{ total_systems }} System{{ total_systems|pluralize }} to create
+  </span>
+  <span class="summary-pill pill-comps">
+    <span class="material-symbols-outlined" style="font-size:15px">memory</span>
+    {{ total_components }} Component{{ total_components|pluralize }} to create
+  </span>
+  {% if error_rows %}
+  <span class="summary-pill pill-errors">
+    <span class="material-symbols-outlined" style="font-size:15px">warning</span>
+    {{ error_rows }} row{{ error_rows|pluralize }} with errors (will be skipped)
+  </span>
+  {% endif %}
+</div>
+
+{% for system_name, sdata in preview.items %}
+<div class="system-preview">
+  <div class="system-preview-header">
+    <span>
+      <span class="material-symbols-outlined" style="font-size:16px;vertical-align:middle;margin-right:4px;">devices</span>
+      {{ system_name }}
+    </span>
+    {% if sdata.has_error %}
+      <span class="has-error">⚠ Some rows have errors and will be skipped</span>
+    {% else %}
+      <span class="all-ok">✓ All rows valid</span>
+    {% endif %}
+  </div>
+  <table class="comp-table">
+    <thead>
+      <tr><th>Component Type</th><th>Item Name</th><th>Serial Number</th><th>Status</th><th>Notes</th></tr>
+    </thead>
+    <tbody>
+      {% for comp in sdata.components %}
+      <tr {% if comp.errors %}class="has-error"{% endif %}>
+        <td><span class="badge-type">{{ comp.component_type }}</span></td>
+        <td>{{ comp.item_name }}</td>
+        <td>{{ comp.serial_number }}</td>
+        <td>{{ comp.status }}</td>
+        <td>
+          {% if comp.errors %}
+            {% for err in comp.errors %}
+              <span class="error-tag">{{ err }}</span>
+            {% endfor %}
+          {% else %}
+            <span style="color:#059669;font-size:12px;font-weight:600;">✓ OK</span>
+          {% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endfor %}
+
+<div style="display:flex;gap:12px;margin-top:8px;">
+  <form method="post" action="{% url 'room_incharge:system_import_confirm' room_slug=room_slug %}">
+    {% csrf_token %}
+    <button type="submit" class="btn-confirm">
+      <span class="material-symbols-outlined" style="font-size:16px">check_circle</span>
+      Confirm Import
+    </button>
+  </form>
+  <a href="{% url 'room_incharge:system_import' room_slug=room_slug %}"
+     style="display:inline-flex;align-items:center;gap:6px;padding:10px 18px;
+            background:white;color:var(--text-muted);border:1px solid var(--border);
+            border-radius:9px;font-size:14px;font-weight:600;text-decoration:none;">
+    <span class="material-symbols-outlined" style="font-size:16px">upload_file</span>
+    Upload Different File
+  </a>
+</div>
+{% endif %}
+
+{% endblock %}

@@ -233,6 +233,31 @@
     font-weight: 700; font-size: 0.88rem; cursor: pointer;
     margin-top: 10px; font-family: inherit;
   }
+
+  .data-table tbody td {
+    padding: 13px 18px;
+    font-size: 14px;
+    color: var(--text);
+    vertical-align: middle;
+    text-align: center;
+  }
+
+  .data-table tbody td:first-child { text-align: left; }
+  .data-table tbody td:last-child  { text-align: left; }
+
+  .data-table thead th {
+    padding: 12px 18px;
+    font-size: 11.5px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    color: var(--text-muted);
+    white-space: nowrap;
+    text-align: center;
+  }
+
+  .data-table thead th:first-child { text-align: left; }
+  .data-table thead th:last-child  { text-align: left; }
 </style>
 {% endblock style %}
 
@@ -260,6 +285,15 @@
             <th>Total Stock</th>
             <th>Available</th>
             <th>In Use</th>
+            <th>Archived</th>
+            <th>
+              <span id="statusColToggleBtn" onclick="cycleStatusCol()"
+                style="cursor:pointer; font-size:11px; background:#f0f0ff; color:#6c63ff;
+                      border:1px solid #ddd8ff; border-radius:12px; padding:2px 8px;
+                      margin-left:6px; font-weight:700; display:inline-block;">
+                ↻ Inactive
+              </span>
+            </th>
             <th>Actions</th>
           </tr>
         </thead>
@@ -277,6 +311,20 @@
             <td><span class="stock-pill stock-total">{{ item.total_count }}</span></td>
             <td><span class="stock-pill stock-avail">{{ item.available_count }}</span></td>
             <td><span class="stock-pill stock-in-use">{{ item.in_use }}</span></td>
+            <td>
+              <span class="stock-pill" style="background:#fef3c7; color:#92400e; border:1px solid #fde68a;">
+                {{ item.archived_count }}
+              </span>
+            </td>
+            <td>
+              <span class="stock-pill status-dynamic-pill"
+                style="background:#fef2f2; color:#991b1b; border:1px solid #fecaca;"
+                data-inactive="{{ item.inactive_count }}"
+                data-maintenance="{{ item.under_maintenance_count }}"
+                data-disposed="{{ item.disposed_count }}">
+                {{ item.inactive_count }}
+              </span>
+            </td>
             <td>
               <div class="actions-wrap">
                 {% if item.id in pending_items %}
@@ -297,6 +345,12 @@
                     Request Stock
                   </button>
                 {% endif %}
+                <a href="{% url 'room_incharge:item_archive' room_slug=room_slug item_slug=item.slug %}"
+                  class="btn-stock-request"
+                  style="background: linear-gradient(135deg, #6c63ff, #8b7cf8); box-shadow: 0 2px 8px rgba(108,99,255,0.25); text-decoration:none;">
+                  <i class="bi bi-archive"></i>
+                  Archive
+                </a>
               </div>
             </td>
           </tr>
@@ -446,6 +500,27 @@ function submitStockRequest(e) {
     srShowAlert('error', 'Network error. Please try again.');
     btn.disabled = false;
     btn.innerHTML = '<i class="bi bi-send-fill me-2"></i>Submit Stock Request';
+  });
+}
+
+// Dynamic status column toggle
+const statusLabels = ['Inactive', 'Under Maintenance', 'Disposed'];
+const statusDataKeys = ['inactive', 'maintenance', 'disposed'];
+const statusStyles = [
+  'background:#fef2f2; color:#991b1b; border:1px solid #fecaca;',
+  'background:#fff7ed; color:#c2410c; border:1px solid #fed7aa;',
+  'background:#f1f5f9; color:#475569; border:1px solid #e2e8f0;',
+];
+let statusColState = 0;
+
+function cycleStatusCol() {
+  statusColState = (statusColState + 1) % 3;
+  const btn = document.getElementById('statusColToggleBtn');
+  btn.textContent = '↻ ' + statusLabels[statusColState];
+  document.querySelectorAll('.status-dynamic-pill').forEach(pill => {
+    const val = pill.getAttribute('data-' + statusDataKeys[statusColState]);
+    pill.textContent = val;
+    pill.style.cssText = statusStyles[statusColState];
   });
 }
 </script>

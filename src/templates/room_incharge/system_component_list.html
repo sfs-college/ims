@@ -31,7 +31,9 @@
             <tr>
                 <th scope="col" class="text-muted">Sno.</th>
                 <th scope="col" class="text-muted">Component Type</th>
+                <th scope="col" class="text-muted">Component Item</th>
                 <th scope="col" class="text-muted">Serial Number</th>
+                <th scope="col" class="text-muted">Status</th>
                 <th scope="col" class="text-muted">Actions</th>
             </tr>
         </thead>
@@ -40,7 +42,9 @@
             <tr>
                 <td>{{ forloop.counter }}</td>
                 <td>{{ component.get_component_type_display }}</td>
+                <td>{{ component.component_item.item_name }}</td>
                 <td>{{ component.serial_number }}</td>
+                <td>{{ component.get_status_display }}</td>
                 <td>
                     <a href="{% url 'room_incharge:system_component_update' room_slug=room_slug system_slug=system_slug component_slug=component.slug %}" class="btn btn-outline-dark btn-sm">Edit</a>
                     {% comment %} <a href="{% url 'room_incharge:system_component_delete' room_slug=room_slug system_slug=system_slug component_slug=component.slug %}" class="btn btn-danger btn-sm">Delete</a> {% endcomment %}

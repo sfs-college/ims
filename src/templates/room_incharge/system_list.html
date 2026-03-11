@@ -190,10 +190,20 @@
 {% block content %}
 <div class="page-header">
   <h4 class="page-title">Systems</h4>
-  <a href="{% url 'room_incharge:system_create' room_slug=room_slug %}" class="btn-create">
-    <span class="material-symbols-outlined" style="font-size:16px">add</span>
-    Create System
-  </a>
+  <div style="display:flex; gap:10px; align-items:center;">
+    <a href="{% url 'room_incharge:system_import' room_slug=room_slug %}"
+       style="display:inline-flex;align-items:center;gap:6px;padding:9px 18px;
+              background:white;color:var(--accent);border:1.5px solid var(--accent);
+              border-radius:9px;font-size:13.5px;font-weight:600;text-decoration:none;
+              transition:all 0.18s ease;">
+      <span class="material-symbols-outlined" style="font-size:16px">upload_file</span>
+      Import Excel
+    </a>
+    <a href="{% url 'room_incharge:system_create' room_slug=room_slug %}" class="btn-create">
+      <span class="material-symbols-outlined" style="font-size:16px">add</span>
+      Create System
+    </a>
+  </div>
 </div>
 
 <div class="data-card">
@@ -202,7 +212,6 @@
     <thead>
       <tr>
         <th>Label</th>
-        <th>Status</th>
         <th>Date Added</th>
         <th>Action</th>
       </tr>
@@ -217,9 +226,6 @@
             </span>
             {{ system.system_name }}
           </a>
-        </td>
-        <td>
-          <span class="status-pill status-pill-active">{{ system.get_status_display }}</span>
         </td>
         <td class="date-cell">{{ system.created_on.date }}</td>
         <td>

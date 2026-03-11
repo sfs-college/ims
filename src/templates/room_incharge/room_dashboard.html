@@ -210,16 +210,16 @@
       </a>
 
       <!-- Report Generator -->
-      <form action="{% url 'room_incharge:room_report' room_slug=room_slug %}" method="get" class="report-form">
-        <select name="format" class="report-select">
-          <option value="pdf" selected>PDF Report</option>
-          <option value="excel">Excel Report</option>
-        </select>
-        <button type="submit" class="btn-report">
-          <span class="material-symbols-outlined" style="font-size:16px">download</span>
-          Generate Report
-        </button>
-      </form>
+      <a href="{% url 'room_incharge:room_report' room_slug=room_slug %}?format=pdf"
+         class="btn-report" style="color:#e11d48; border-color:#fecaca;">
+        <span class="material-symbols-outlined" style="font-size:16px">picture_as_pdf</span>
+        PDF
+      </a>
+      <a href="{% url 'room_incharge:room_report' room_slug=room_slug %}?format=excel"
+         class="btn-report" style="color:#16a34a; border-color:#bbf7d0;">
+        <span class="material-symbols-outlined" style="font-size:16px">table_view</span>
+        Excel
+      </a>
 
     </div>
   </div>
@@ -250,10 +250,10 @@
       <p class="nav-card-desc">Manage systems in this room.</p>
     </a>
 
-    <a href="{% url 'room_incharge:item_group_list' room_slug=room_slug %}" class="nav-card card-amber">
-      <span class="nav-card-icon"><span class="material-symbols-outlined">communities</span></span>
-      <span class="nav-card-label">Item Groups</span>
-      <p class="nav-card-desc">Manage item groups in this room.</p>
+    <a href="{% url 'room_incharge:archive_list' room_slug=room_slug %}" class="nav-card card-amber">
+      <span class="nav-card-icon"><span class="material-symbols-outlined">inventory</span></span>
+      <span class="nav-card-label">Archives</span>
+      <p class="nav-card-desc">View archived items in this room.</p>
     </a>
 
     <a href="{% url 'room_incharge:issue_list' room_slug=room_slug %}" class="nav-card card-rose">
