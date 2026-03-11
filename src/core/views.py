@@ -600,6 +600,7 @@ def rooms_by_category(request):
         data.append({
             "id":          room.id,
             "name":        room.room_name,
+            "label":       room.label,
             "category":    room.room_category,
             "capacity":    getattr(room, 'capacity', 40),
             "available":   not is_confirmed_booked and not is_pending,

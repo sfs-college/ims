@@ -670,10 +670,35 @@ class PurchaseApproveView(LoginRequiredMixin, View):
         ).first()
 
         if master_item:
-            master_item.total_count += int(purchase.quantity)
-            if cost_value and not master_item.cost:
-                master_item.cost = cost_value
-            master_item.save()
+            # Check if cost has changed
+            existing_cost = master_item.cost
+            cost_is_different = (
+                cost_value is not None
+                and existing_cost is not None
+                and cost_value != existing_cost
+            )
+
+            if cost_is_different:
+                # Different cost — create a new row for this price point
+                Item.objects.create(
+                    organisation=org,
+                    room=None,
+                    item_name=purchase.item.item_name,
+                    category=master_item.category,
+                    brand=master_item.brand,
+                    total_count=int(purchase.quantity),
+                    cost=cost_value,
+                    is_listed=True,
+                    item_description=master_item.item_description or purchase.item.item_name,
+                    created_by=profile,
+                    vendor=purchase.vendor,
+                )
+            else:
+                # Same cost (or no cost entered) — just update count on existing row
+                master_item.total_count += int(purchase.quantity)
+                if cost_value and not master_item.cost:
+                    master_item.cost = cost_value
+                master_item.save()
         else:
             Item.objects.create(
                 organisation=org,
@@ -686,6 +711,7 @@ class PurchaseApproveView(LoginRequiredMixin, View):
                 is_listed=True,
                 item_description=purchase.item.item_name,
                 created_by=profile,
+                vendor=purchase.vendor,
             )
 
         return redirect('central_admin:purchase_list')

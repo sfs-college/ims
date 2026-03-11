@@ -169,13 +169,13 @@
     </a>
     {% endif %}
 
-    {% if room_settings.item_groups_tab %}
+    {% comment %} {% if room_settings.item_groups_tab %}
     <a class="navlink {% if request.resolver_match.url_name == 'item_group_list' %}active{% endif %}"
        href="{% url 'room_incharge:item_group_list' room_slug=room_slug %}">
       <span class="material-symbols-outlined">communities</span>
       <span class="menu-text">Groups</span>
     </a>
-    {% endif %}
+    {% endif %} {% endcomment %}
 
     {% if room_settings.systems_tab %}
     <a class="navlink {% if request.resolver_match.url_name == 'system_list' %}active{% endif %}"
@@ -184,6 +184,12 @@
       <span class="menu-text">Systems</span>
     </a>
     {% endif %}
+
+    <a class="navlink {% if request.resolver_match.url_name == 'archive_list' %}active{% endif %}"
+      href="{% url 'room_incharge:archive_list' room_slug=room_slug %}">
+      <span class="material-symbols-outlined">inventory</span>
+      <span class="menu-text">Archives</span>
+    </a>
 
     {% if room_settings.categories_tab %}
     <a class="navlink {% if request.resolver_match.url_name == 'category_list' %}active{% endif %}"

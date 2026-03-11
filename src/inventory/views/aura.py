@@ -20,6 +20,7 @@ from django.contrib import messages
 from django.urls import reverse
 from inventory.forms.room_incharge import ExcelUploadForm
 from django.db import models
+from inventory.models import SystemComponent as SC
 
 
 def _extract_docx_structured(raw_bytes):
@@ -1547,6 +1548,21 @@ class MasterInventoryListView(LoginRequiredMixin, CentralAdminRequiredMixin, Tem
             cpu = item.cost or 0
             total_cost = float(cpu) * total_items if cpu else 0
 
+            room_items = Item.objects.filter(
+                organisation=org,
+                item_name=item.item_name,
+                room__isnull=False
+            )
+            inactive_count = 0
+            under_maintenance_count = 0
+            disposed_count = 0
+            for room_item in room_items:
+                comps = SC.objects.filter(component_item=room_item)
+                inactive_count += comps.filter(status='inactive').count()
+                under_maintenance_count += comps.filter(status='under_maintenance').count()
+                disposed_count += comps.filter(status='disposed').count()
+
+
             items_data.append({
                 'item': item,
                 'available_stock': available,
@@ -1554,8 +1570,15 @@ class MasterInventoryListView(LoginRequiredMixin, CentralAdminRequiredMixin, Tem
                 'total_items': total_items,
                 'cpu': cpu,
                 'total_cost': round(total_cost, 2),
+                'archived_count': Item.objects.filter(
+                    organisation=org,
+                    item_name=item.item_name,
+                ).aggregate(total=models.Sum('archived_count'))['total'] or 0,
+                'inactive_count': inactive_count,
+                'under_maintenance_count': under_maintenance_count,
+                'disposed_count': disposed_count,
             })
-
+            
         context['items_data'] = items_data
         context['total_items'] = len(items_data)
         return context
@@ -1573,7 +1596,7 @@ def master_inventory_export_pdf(request):
     master_items = Item.objects.filter(
         organisation=org,
         room__isnull=True,
-        is_listed=True                          # ← fix #1
+        is_listed=True
     ).select_related('category', 'brand').order_by('item_name')
 
     buffer = io.BytesIO()
@@ -1585,31 +1608,31 @@ def master_inventory_export_pdf(request):
     elements.append(Paragraph("Master Inventory Report", styles['Title']))
     elements.append(Spacer(1, 10))
 
-    # ── Build header row ──
-    # Selected text fields first, then always include all stock+cost columns
     text_col_map = {
         'name':     ('Item Name',  80),
         'category': ('Category',   70),
         'brand':    ('Brand',      70),
     }
-    # Always-present columns (5 of them)
     fixed_cols = [
-        ('Assigned\nto Rooms', 55),
-        ('Available\nin Stock', 55),
-        ('Total\nItems',        55),
-        ('Cost /\nUnit (₹)',    60),
-        ('Total\nCost (₹)',     65),
+        ('Assigned\nto Rooms',    55),
+        ('Available\nin Stock',   55),
+        ('Total\nItems',          55),
+        ('Cost /\nUnit (₹)',      60),
+        ('Total\nCost (₹)',       65),
+        ('Archived',              50),
+        ('Inactive\nComponents',  55),
+        ('Under\nMaintenance',    55),
+        ('Disposed\nComponents',  55),
     ]
 
     selected_text = [k for k in ['name', 'category', 'brand'] if k in fields]
-    # headers = [Paragraph(text_col_map[k][0], styles['Normal']) for k in selected_text]
     from reportlab.lib.styles import ParagraphStyle
     header_style = ParagraphStyle('header', parent=styles['Normal'], textColor=colors.whitesmoke, fontName='Helvetica-Bold')
-    headers = [Paragraph(text_col_map[k][0], header_style) for k in selected_text]  
+    headers = [Paragraph(text_col_map[k][0], header_style) for k in selected_text]
     col_widths = [text_col_map[k][1] for k in selected_text]
 
     for label, w in fixed_cols:
-        headers.append(Paragraph(label, header_style ))
+        headers.append(Paragraph(label, header_style))
         col_widths.append(w)
 
     table_data = [headers]
@@ -1626,6 +1649,20 @@ def master_inventory_export_pdf(request):
         cpu = item.cost or 0
         total_cost = (cpu * total_items) if cpu else 0
 
+        room_items_pdf = Item.objects.filter(
+            organisation=org,
+            item_name=item.item_name,
+            room__isnull=False
+        )
+        inactive_c = 0
+        under_maintenance_c = 0
+        disposed_c = 0
+        for ri in room_items_pdf:
+            comps = SC.objects.filter(component_item=ri)
+            inactive_c += comps.filter(status='inactive').count()
+            under_maintenance_c += comps.filter(status='under_maintenance').count()
+            disposed_c += comps.filter(status='disposed').count()
+
         row = []
         if 'name' in selected_text:
             row.append(Paragraph(item.item_name, styles['Normal']))
@@ -1634,12 +1671,21 @@ def master_inventory_export_pdf(request):
         if 'brand' in selected_text:
             row.append(Paragraph(item.brand.brand_name, styles['Normal']))
 
+        archived_c = Item.objects.filter(
+            organisation=org,
+            item_name=item.item_name,
+        ).aggregate(total=models.Sum('archived_count'))['total'] or 0
+
         row += [
             Paragraph(str(assigned), styles['Normal']),
             Paragraph(str(available), styles['Normal']),
             Paragraph(str(total_items), styles['Normal']),
             Paragraph(f"₹{cpu}", styles['Normal']),
             Paragraph(f"₹{total_cost:.2f}", styles['Normal']),
+            Paragraph(str(archived_c), styles['Normal']),
+            Paragraph(str(inactive_c), styles['Normal']),
+            Paragraph(str(under_maintenance_c), styles['Normal']),
+            Paragraph(str(disposed_c), styles['Normal']),
         ]
         table_data.append(row)
 
@@ -1669,7 +1715,6 @@ def master_inventory_export_pdf(request):
     response['Content-Disposition'] = 'attachment; filename="Master_Inventory.pdf"'
     return response
 
-
 def master_inventory_export_excel(request):
     profile = request.user.profile
     if not (profile.is_central_admin or profile.is_sub_admin):
@@ -1683,7 +1728,7 @@ def master_inventory_export_excel(request):
     master_items = Item.objects.filter(
         organisation=org,
         room__isnull=True,
-        is_listed=True                          # ← fix #1
+        is_listed=True
     ).select_related('category', 'brand').order_by('item_name')
 
     import openpyxl
@@ -1693,7 +1738,6 @@ def master_inventory_export_excel(request):
     ws = wb.active
     ws.title = "Master Inventory"
 
-    # ── Headers ──
     text_col_map = {
         'name':     'Item Name',
         'category': 'Category',
@@ -1702,18 +1746,20 @@ def master_inventory_export_excel(request):
     selected_text = [k for k in ['name', 'category', 'brand'] if k in fields]
     headers = [text_col_map[k] for k in selected_text]
 
-    # Always add all stock + cost columns
     headers += [
         'Assigned to Rooms',
         'Available in Stock',
         'Total Items',
         'Cost per Unit (₹)',
         'Total Cost (₹)',
+        'Archived',
+        'Inactive Components',
+        'Under Maintenance',
+        'Disposed Components',
     ]
 
     ws.append(headers)
 
-    # Style header row
     dark = PatternFill(start_color="0F172A", end_color="0F172A", fill_type="solid")
     for cell in ws[1]:
         cell.font = Font(bold=True, color="FFFFFF", size=10)
@@ -1722,7 +1768,6 @@ def master_inventory_export_excel(request):
 
     ws.row_dimensions[1].height = 30
 
-    # ── Data rows ──
     for item in master_items:
         assigned = Item.objects.filter(
             organisation=org,
@@ -1735,15 +1780,35 @@ def master_inventory_export_excel(request):
         cpu = float(item.cost) if item.cost else 0
         total_cost = round(cpu * total_items, 2)
 
+        room_items_xl = Item.objects.filter(
+            organisation=org,
+            item_name=item.item_name,
+            room__isnull=False
+        )
+        inactive_xl = 0
+        under_maintenance_xl = 0
+        disposed_xl = 0
+        for ri in room_items_xl:
+            comps = SC.objects.filter(component_item=ri)
+            inactive_xl += comps.filter(status='inactive').count()
+            under_maintenance_xl += comps.filter(status='under_maintenance').count()
+            disposed_xl += comps.filter(status='disposed').count()
+
         row = []
         if 'name' in selected_text:     row.append(item.item_name)
         if 'category' in selected_text: row.append(item.category.category_name)
         if 'brand' in selected_text:    row.append(item.brand.brand_name)
 
-        row += [assigned, available, total_items, cpu, total_cost]
+        archived_xl = Item.objects.filter(
+            organisation=org,
+            item_name=item.item_name,
+        ).aggregate(total=models.Sum('archived_count'))['total'] or 0
+
+
+        row += [assigned, available, total_items, cpu, total_cost, archived_xl,
+                inactive_xl, under_maintenance_xl, disposed_xl]
         ws.append(row)
 
-    # Style data rows
     thin = Border(
         left=Side(style='thin', color='E2E8F0'),
         right=Side(style='thin', color='E2E8F0'),
@@ -1759,15 +1824,13 @@ def master_inventory_export_excel(request):
             if fill:
                 cell.fill = fill
 
-    # Left-align text columns
     for row in ws.iter_rows(min_row=2, max_row=ws.max_row,
                              min_col=1, max_col=len(selected_text)):
         for cell in row:
             cell.alignment = Alignment(vertical="center", horizontal="left")
 
-    # Column widths
     text_widths = {'name': 32, 'category': 20, 'brand': 18}
-    fixed_widths = [18, 18, 14, 18, 16]
+    fixed_widths = [18, 18, 14, 18, 16, 14, 18, 18, 18]
 
     col = 1
     for k in selected_text:
@@ -1777,7 +1840,6 @@ def master_inventory_export_excel(request):
         ws.column_dimensions[ws.cell(row=1, column=col).column_letter].width = w
         col += 1
 
-    # Row heights
     for r in range(2, ws.max_row + 1):
         ws.row_dimensions[r].height = 20
 

@@ -826,6 +826,9 @@ function loadRooms() {
                 roomDiv.className = `room-item ${cardClass}`;
                 roomDiv.innerHTML = `
                     <span class="status-pill"><i class="bi ${statusIcon} me-1"></i>${statusLabel}</span>
+                    <div class="small fw-bold mt-3 mb-1" style="color:#6366f1; font-size:0.78rem; letter-spacing:0.5px;">
+                        ${room.label}
+                    </div>
                     <h5 class="mt-3 mb-1 fw-bold">${room.name}</h5>
                     <div class="small text-muted"><i class="bi bi-people-fill me-1"></i>Capacity: ${room.capacity || 40} Seats</div>
                 `;

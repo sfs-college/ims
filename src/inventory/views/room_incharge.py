@@ -25,6 +25,8 @@ from django.views.generic import FormView, View
 from django.urls import reverse
 from django.http import JsonResponse
 from django.core.exceptions import PermissionDenied
+from django.db.models import Count, Q
+from inventory.models import SystemComponent as SC
 
 
 class CategoryListView(LoginRequiredMixin, ListView):
@@ -276,9 +278,35 @@ class ItemListView(LoginRequiredMixin, ListView):
                 .values_list("item_id", flat=True)
             )
         context["pending_items"] = pending_items
+        # Status counts per item from SystemComponent       
+        items = context['items']
+        item_ids = [item.id for item in items]
+
+        status_counts = {}       
+        raw = (
+            SC.objects
+            .filter(component_item_id__in=item_ids)
+            .values('component_item_id', 'status')
+            .annotate(cnt=Count('id'))
+        )
+        for row in raw:
+            iid = row['component_item_id']
+            if iid not in status_counts:
+                status_counts[iid] = {'inactive': 0, 'under_maintenance': 0, 'disposed': 0}
+            if row['status'] in status_counts[iid]:
+                status_counts[iid][row['status']] = row['cnt']
+
+        context['status_counts'] = status_counts
         profile = getattr(self.request.user, 'profile', None)
         context['is_central_admin'] = bool(profile and profile.is_central_admin and not profile.is_sub_admin)
         context['is_sub_admin'] = bool(profile and profile.is_sub_admin)
+
+        for item in context['items']:
+            counts = status_counts.get(item.id, {})
+            item.inactive_count = counts.get('inactive', 0)
+            item.under_maintenance_count = counts.get('under_maintenance', 0)
+            item.disposed_count = counts.get('disposed', 0)
+
         return context
 
 
@@ -722,6 +750,197 @@ class SystemComponentArchiveView(LoginRequiredMixin, FormView):
         room = Room.objects.get(slug=self.kwargs['room_slug'])
         context['room_settings'] = RoomSettings.objects.get_or_create(room=room)[0]
         return context
+
+class SystemImportView(LoginRequiredMixin, View):
+    template_name = 'room_incharge/system_import.html'
+
+    def get(self, request, *args, **kwargs):
+        room = get_object_or_404(Room, slug=self.kwargs['room_slug'])
+        room_settings = RoomSettings.objects.get_or_create(room=room)[0]
+        return render(request, self.template_name, {
+            'room_slug': self.kwargs['room_slug'],
+            'room': room,
+            'room_settings': room_settings,
+        })
+
+    def post(self, request, *args, **kwargs):
+        import openpyxl
+        room = get_object_or_404(Room, slug=self.kwargs['room_slug'])
+        room_settings = RoomSettings.objects.get_or_create(room=room)[0]
+        excel_file = request.FILES.get('excel_file')
+
+        if not excel_file:
+            return render(request, self.template_name, {
+                'room_slug': self.kwargs['room_slug'],
+                'room': room,
+                'room_settings': room_settings,
+                'error': 'Please upload an Excel file.',
+            })
+
+        try:
+            wb = openpyxl.load_workbook(excel_file)
+            ws = wb.active
+        except Exception:
+            return render(request, self.template_name, {
+                'room_slug': self.kwargs['room_slug'],
+                'room': room,
+                'room_settings': room_settings,
+                'error': 'Invalid Excel file. Please use the provided template.',
+            })
+
+        headers = [str(c.value).strip() if c.value else '' for c in ws[1]]
+        required = ['System Name', 'Component Type', 'Item Name', 'Serial Number']
+        missing = [h for h in required if h not in headers]
+        if missing:
+            return render(request, self.template_name, {
+                'room_slug': self.kwargs['room_slug'],
+                'room': room,
+                'room_settings': room_settings,
+                'error': f'Missing columns: {", ".join(missing)}. Please use the provided template.',
+            })
+
+        col = {name: idx for idx, name in enumerate(headers)}
+
+        # Valid component types
+        valid_types = [c[0] for c in SystemComponent.COMPONENT_TYPES]
+        valid_statuses = [c[0] for c in SystemComponent.STATUS_CHOICES]
+
+        # All items in this room for matching
+        room_items = {item.item_name.strip().lower(): item for item in Item.objects.filter(room=room)}
+
+        preview_systems = {}   # system_name -> {components: [], error: None}
+        row_errors = []
+
+        for row_num, row in enumerate(ws.iter_rows(min_row=2, values_only=True), start=2):
+            if not any(row):
+                continue
+
+            def get_col(name):
+                idx = col.get(name)
+                if idx is None:
+                    return ''
+                val = row[idx]
+                return str(val).strip() if val is not None else ''
+
+            system_name = get_col('System Name')
+            component_type = get_col('Component Type').lower()
+            item_name = get_col('Item Name')
+            serial_number = get_col('Serial Number')
+            comp_status = get_col('Component Status') or 'active'
+
+            if not system_name:
+                row_errors.append({'row': row_num, 'issue': 'System Name is empty'})
+                continue
+
+            errors = []
+            if component_type not in valid_types:
+                errors.append(f'Invalid component type "{component_type}"')
+            matched_item = room_items.get(item_name.strip().lower())
+            if not matched_item:
+                errors.append(f'Item "{item_name}" not found in this room')
+            if comp_status not in valid_statuses:
+                comp_status = 'active'
+
+            if system_name not in preview_systems:
+                preview_systems[system_name] = {'components': [], 'has_error': False}
+
+            preview_systems[system_name]['components'].append({
+                'component_type': component_type,
+                'item_name': item_name,
+                'item_id': matched_item.id if matched_item else None,
+                'serial_number': serial_number,
+                'status': comp_status,
+                'errors': errors,
+                'row': row_num,
+            })
+            if errors:
+                preview_systems[system_name]['has_error'] = True
+
+        # Store in session for confirm step
+        import json
+        session_data = {}
+        for sname, sdata in preview_systems.items():
+            session_data[sname] = {
+                'components': [{
+                    'component_type': c['component_type'],
+                    'item_id': c['item_id'],
+                    'serial_number': c['serial_number'],
+                    'status': c['status'],
+                } for c in sdata['components'] if not c['errors']],
+            }
+        request.session['system_import_data'] = json.dumps(session_data)
+        request.session['system_import_room'] = str(room.slug)
+
+        total_systems = len(preview_systems)
+        total_components = sum(len(s['components']) for s in preview_systems.values())
+        error_rows = sum(
+            len([c for c in s['components'] if c['errors']])
+            for s in preview_systems.values()
+        )
+
+        return render(request, self.template_name, {
+            'room_slug': self.kwargs['room_slug'],
+            'room': room,
+            'room_settings': room_settings,
+            'preview': preview_systems,
+            'total_systems': total_systems,
+            'total_components': total_components,
+            'error_rows': error_rows,
+            'show_preview': True,
+        })
+
+
+class SystemImportConfirmView(LoginRequiredMixin, View):
+
+    def post(self, request, *args, **kwargs):
+        import json
+        room = get_object_or_404(Room, slug=self.kwargs['room_slug'])
+
+        raw = request.session.get('system_import_data')
+        session_room = request.session.get('system_import_room')
+
+        if not raw or session_room != str(room.slug):
+            messages.error(request, 'Import session expired. Please upload again.')
+            return redirect(reverse_lazy('room_incharge:system_import', kwargs={'room_slug': room.slug}))
+
+        data = json.loads(raw)
+        created_systems = 0
+        created_components = 0
+
+        for system_name, sdata in data.items():
+            if not sdata['components']:
+                continue
+
+            system = System.objects.create(
+                organisation=room.organisation,
+                department=room.department,
+                room=room,
+                system_name=system_name,
+            )
+            created_systems += 1
+
+            for comp in sdata['components']:
+                item = Item.objects.get(id=comp['item_id'])
+                try:
+                    SystemComponent.objects.create(
+                        system=system,
+                        component_item=item,
+                        component_type=comp['component_type'],
+                        serial_number=comp['serial_number'],
+                        status=comp['status'],
+                    )
+                    item.available_count -= 1
+                    item.in_use += 1
+                    item.save()
+                    created_components += 1
+                except Exception:
+                    pass
+
+        del request.session['system_import_data']
+        del request.session['system_import_room']
+
+        messages.success(request, f'Import complete: {created_systems} systems and {created_components} components created.')
+        return redirect(reverse_lazy('room_incharge:system_list', kwargs={'room_slug': room.slug}))
 
 class ArchiveListView(LoginRequiredMixin, ListView):
     template_name = 'room_incharge/archive_list.html'
@@ -1364,7 +1583,6 @@ class RoomReportView(LoginRequiredMixin, View):
                 if context['systems'] is not None and context['systems'].exists():
                     rows = [{
                         'System Name': s.system_name,
-                        'Status': s.status,
                         'Created On': fmt_datetime(s.created_on),
                         'Updated On': fmt_datetime(s.updated_on)
                     } for s in context['systems']]
@@ -1416,6 +1634,24 @@ class RoomReportView(LoginRequiredMixin, View):
                         'Updated On': fmt_datetime(iss.updated_on)
                     } for iss in context['issues']]
                     pd.DataFrame(rows).to_excel(writer, sheet_name='Issues', index=False)
+
+            # Autofit all columns in all sheets
+            from openpyxl.utils import get_column_letter
+            wb = writer.book
+            for sheet in wb.worksheets:
+                for col_cells in sheet.columns:
+                    max_len = 0
+                    col_letter = get_column_letter(col_cells[0].column)
+                    for cell in col_cells:
+                        try:
+                            cell_len = len(str(cell.value)) if cell.value is not None else 0
+                            if cell_len > max_len:
+                                max_len = cell_len
+                        except Exception:
+                            pass
+                    sheet.column_dimensions[col_letter].width = min(max_len + 4, 50)
+                for row in sheet.iter_rows():
+                    sheet.row_dimensions[row[0].row].height = 18
 
             excel_buffer.seek(0)
             response = HttpResponse(

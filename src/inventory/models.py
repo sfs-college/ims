@@ -531,17 +531,10 @@ def restore_item_count(sender, instance, **kwargs):
 
 
 class System(models.Model):
-    STATUS_CHOICES = [
-        ('active', 'Active'),
-        ('inactive', 'Inactive'),
-        ('under_maintenance', 'Under Maintenance'),
-        ('disposed', 'Disposed'),
-    ]
     organisation = models.ForeignKey(Organisation, on_delete=models.CASCADE)
     department = models.ForeignKey(Department, on_delete=models.CASCADE, null=True, blank=True) 
     room = models.ForeignKey(Room, on_delete=models.CASCADE)
     system_name = models.CharField(max_length=255)
-    status = models.CharField(max_length=255, choices=STATUS_CHOICES)
     created_on = models.DateTimeField(auto_now_add=True)
     updated_on = models.DateTimeField(auto_now=True)
     slug = models.SlugField(unique=True, max_length=255)
@@ -574,10 +567,23 @@ class SystemComponent(models.Model):
         ('network', 'Network'),
         ('other', 'Other'),
     ]
+
+    STATUS_CHOICES = [
+        ('active', 'Active'),
+        ('inactive', 'Inactive'),
+        ('under_maintenance', 'Under Maintenance'),
+        ('disposed', 'Disposed'),
+    ]
+
     system = models.ForeignKey(System, on_delete=models.CASCADE)
     component_item = models.ForeignKey(Item, on_delete=models.CASCADE)  # Updated field
     component_type = models.CharField(max_length=255, choices=COMPONENT_TYPES)
     serial_number = models.CharField(max_length=255)
+    status = models.CharField(
+        max_length=20,
+        choices=STATUS_CHOICES,
+        default='active'
+    )
     created_on = models.DateTimeField(auto_now_add=True)
     updated_on = models.DateTimeField(auto_now=True)
     slug = models.SlugField(unique=True, max_length=255)
