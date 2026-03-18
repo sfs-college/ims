@@ -177,13 +177,35 @@
     .empty-state i { font-size:4rem; color:#cbd5e0; margin-bottom:20px; display:block; }
 
     @media (max-width: 768px) {
-        .inventory-container { padding:16px; }
-        .internal-nav { padding:0 16px; }
+        .inventory-container { padding:12px; }
+        .internal-nav { padding:0 12px; height:54px; gap:8px; }
         .nav-breadcrumb { display:none; }
         .nav-stat { display:none; }
+        .nav-brand-text { display:none; }
+        .nav-divider { display:none; }
+        .nav-actions { gap:5px; }
+        .nav-btn-ghost, .nav-btn-primary { padding:6px 10px; font-size:0.75rem; }
+        .page-header { padding:14px 16px; flex-direction:column; align-items:flex-start; gap:12px; border-radius:12px; }
+        .page-header > div:last-child { width:100%; flex-wrap:wrap; }
+        .page-title { font-size:1.5rem; }
+        .inventory-table .table-responsive { border-radius:12px; }
     }
-    @media (max-width: 360px) {
-        .card-body { padding:16px !important; }
+    @media (max-width: 540px) {
+        .internal-nav { padding:0 10px; }
+        .nav-logo { width:30px; height:30px; font-size:0.6rem; border-radius:8px; }
+        /* Hide secondary nav buttons, keep just Assign */
+        .nav-actions .nav-btn-ghost { display:none; }
+        .page-title { font-size:1.25rem; }
+        /* Field selector — allow wrapping on small screens */
+        #fieldCheckboxes { flex-wrap:wrap !important; overflow-x:visible !important; }
+        .fc-pill { font-size:0.68rem; padding:3px 8px; }
+    }
+    @media (max-width: 400px) {
+        .inventory-container { padding:8px; }
+        .page-title { font-size:1.1rem; }
+        .page-header { padding:12px; }
+        .card-body { padding:12px !important; }
+        .nav-btn-primary { font-size:0.72rem; padding:5px 8px; }
     }
     @keyframes spin {
     to { transform: rotate(360deg); }

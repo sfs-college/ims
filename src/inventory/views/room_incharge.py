@@ -1556,13 +1556,36 @@ class RoomReportView(LoginRequiredMixin, View):
             except Exception:
                 return ''
 
+        systems_qs = System.objects.filter(room=room) if room_settings.systems_tab else None
+
+        # Build system_configs as a list (safe for Django template iteration)
+        # Each entry: {'name': str, 'rows': [{'spec': str, 'value': str}, ...]}
+        system_configs_list = []
+        if systems_qs is not None:
+            from inventory.models import SystemConfiguration
+            import json as _json
+            for s in systems_qs:
+                try:
+                    cfg_text = s.configuration.configuration
+                    try:
+                        rows = _json.loads(cfg_text)
+                        if not isinstance(rows, list):
+                            raise ValueError
+                    except Exception:
+                        rows = [{'spec': 'Configuration', 'value': cfg_text}]
+                except Exception:
+                    rows = []
+                if rows:
+                    system_configs_list.append({'name': s.system_name, 'rows': rows})
+
         context = {
             'room': room,
             'room_settings': room_settings,
             'categories': Category.objects.filter(room=room) if room_settings.categories_tab else None,
             'brands': Brand.objects.filter(room=room) if room_settings.brands_tab else None,
             'items': Item.objects.filter(room=room) if room_settings.items_tab else None,
-            'systems': System.objects.filter(room=room) if room_settings.systems_tab else None,
+            'systems': systems_qs,
+            'system_configs': system_configs_list,   # list of {name, rows}
             'item_groups': ItemGroup.objects.filter(room=room) if room_settings.item_groups_tab else None,
             'system_components': SystemComponent.objects.filter(system__room=room) if room_settings.systems_tab else None,
             'purchases': Purchase.objects.filter(room=room),
@@ -1629,6 +1652,19 @@ class RoomReportView(LoginRequiredMixin, View):
                         'Updated On': fmt_datetime(s.updated_on)
                     } for s in context['systems']]
                     pd.DataFrame(rows).to_excel(writer, sheet_name='Systems', index=False)
+
+                # System Configurations sheet
+                if context['system_configs']:
+                    cfg_rows = []
+                    for cfg in context['system_configs']:
+                        for row in cfg['rows']:
+                            cfg_rows.append({
+                                'System Name': cfg['name'],
+                                'Specification': row.get('spec', ''),
+                                'Value / Details': row.get('value', ''),
+                            })
+                    if cfg_rows:
+                        pd.DataFrame(cfg_rows).to_excel(writer, sheet_name='System Configurations', index=False)
 
                 if context['system_components'] is not None and context['system_components'].exists():
                     rows = [{

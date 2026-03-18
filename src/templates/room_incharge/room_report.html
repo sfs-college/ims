@@ -203,6 +203,31 @@
     </div>
     {% endif %}
 
+    {% if room_settings.systems_tab and system_configs %}
+    <div class="section">
+        <h2>System Configurations</h2>
+        {% for cfg in system_configs %}
+        <h3 style="font-size:12px; margin:10px 0 5px; color:#555;">{{ cfg.name }}</h3>
+        <table style="margin-bottom:10px;">
+            <thead>
+                <tr>
+                    <th style="width:40%;">Specification</th>
+                    <th style="width:60%;">Value / Details</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in cfg.rows %}
+                <tr>
+                    <td style="font-weight:600;">{{ row.spec }}</td>
+                    <td>{{ row.value }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% endfor %}
+    </div>
+    {% endif %}
+
     {% if room_settings.systems_tab %}
     <div class="section">
         <h2>System Components</h2>
@@ -233,7 +258,7 @@
     </div>
     {% endif %}
 
-    {% if room_settings.item_groups_tab %}
+    {% if room_settings.item_groups_tab and item_groups %}
     <div class="section">
         <h2>Item Groups</h2>
         <table>

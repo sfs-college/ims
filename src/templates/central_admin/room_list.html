@@ -7,109 +7,227 @@
 <link rel="stylesheet" href="{% static 'styles/inventory/central_admin/rooms/style.css' %}">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
 <style>
-    /* ── View toggle ─────────────────────────────────── */
-    .view-toggle { display:flex; gap:8px; }
-    .view-btn {
-        padding: 7px 20px; border-radius: 20px; border: 1.5px solid #dee2e6;
-        background: #fff; color: #6c757d; font-weight: 600; font-size: 0.85rem;
-        cursor: pointer; transition: all 0.18s; text-decoration: none;
-    }
-    .view-btn.active, .view-btn:hover {
-        background: #6366f1; color: #fff; border-color: #6366f1;
-    }
+  @import url('https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&display=swap');
 
-    /* ── Booking status panels ───────────────────────── */
-    .status-sections { display: flex; flex-direction: column; gap: 28px; }
-    .status-section-title {
-        display: flex; align-items: center; gap: 10px;
-        font-size: 1rem; font-weight: 700; margin-bottom: 14px;
-    }
-    .status-badge {
-        padding: 3px 12px; border-radius: 20px; font-size: 0.75rem; font-weight: 700;
-    }
-    .badge-available { background: #d1fae5; color: #065f46; }
-    .badge-booked    { background: #dbeafe; color: #1e40af; }
-    .badge-pending   { background: #fef3c7; color: #92400e; }
+  body { font-family: 'DM Sans', sans-serif; }
 
-    /* Room cards grid */
-    .room-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 16px; }
-    .room-card {
-        background: #fff; border-radius: 14px; padding: 20px;
-        border: 1px solid #e5e7eb;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.04);
-        position: relative; overflow: hidden;
-        transition: transform 0.2s, box-shadow 0.2s;
-    }
-    .room-card:hover { transform: translateY(-3px); box-shadow: 0 8px 24px rgba(0,0,0,0.08); }
+  /* ── Toolbar ────────────────────────────────────────── */
+  .rooms-toolbar {
+    display: flex; justify-content: space-between;
+    align-items: center; flex-wrap: wrap; gap: 12px;
+    margin: 24px 0 16px;
+  }
+  .rooms-toolbar-right {
+    display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  }
 
-    /* left colour stripe */
-    .room-card::before {
-        content:''; position:absolute; top:0; left:0; width:4px; height:100%;
-    }
-    .room-card.card-available::before { background: #10b981; }
-    .room-card.card-booked::before    { background: #3b82f6; }
-    .room-card.card-pending::before   { background: #f59e0b; }
+  /* ── View toggle ─────────────────────────────────────── */
+  .view-toggle {
+    display: flex; gap: 4px;
+    background: #f1f5f9; border-radius: 12px; padding: 4px;
+  }
+  .view-btn {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 7px 16px; border-radius: 9px;
+    border: none; background: transparent;
+    color: #64748b; font-weight: 600; font-size: 0.83rem;
+    cursor: pointer; transition: all 0.16s; text-decoration: none;
+    font-family: 'DM Sans', sans-serif;
+  }
+  .view-btn.active, .view-btn:hover {
+    background: #fff; color: #6366f1;
+    box-shadow: 0 1px 6px rgba(0,0,0,0.09);
+  }
 
-    .room-card-name { font-weight: 700; font-size: 1rem; color: #1e293b; margin-bottom: 4px; }
-    .room-card-meta { font-size: 0.80rem; color: #64748b; margin-bottom: 10px; }
-    .room-card-detail {
-        background: #f8fafc; border-radius: 8px; padding: 10px 12px;
-        font-size: 0.80rem; color: #475569;
-    }
-    .room-card-detail-row { display:flex; justify-content:space-between; padding: 2px 0; }
-    .room-card-actions { display:flex; gap:8px; margin-top:12px; }
-    .btn-card-sm {
-        padding: 5px 14px; border-radius: 8px; font-size: 0.78rem; font-weight: 600;
-        border: 1.5px solid; cursor: pointer; transition: all 0.18s; text-decoration: none;
-    }
-    .btn-edit-dark { background:#1e293b; color:#fff; border-color:#1e293b; }
-    .btn-del-red   { background:#fff; color:#ef4444; border-color:#fee2e2; }
-    .btn-edit-dark:hover { background:#334155; color:#fff; }
-    .btn-del-red:hover   { background:#fef2f2; }
+  /* ── Create Room button ──────────────────────────────── */
+  .btn.btn-primary {
+    display: inline-flex; align-items: center; gap: 7px;
+    padding: 9px 18px; border-radius: 11px;
+    background: linear-gradient(135deg, #6366f1, #8b5cf6);
+    color: #fff; font-weight: 700; font-size: 0.86rem;
+    text-decoration: none; border: none; cursor: pointer;
+    box-shadow: 0 4px 12px rgba(99,102,241,0.28);
+    transition: opacity 0.16s, transform 0.13s;
+    font-family: 'DM Sans', sans-serif;
+  }
+  .btn.btn-primary:hover { opacity: 0.9; transform: translateY(-1px); color: #fff; }
 
-    .empty-section { color:#94a3b8; text-align:center; padding:24px; font-size:0.88rem; }
+  /* ── Filter bar ──────────────────────────────────────── */
+  .filter-bar-form {
+    display: flex; gap: 10px; align-items: center;
+    flex-wrap: wrap; margin-bottom: 20px;
+  }
+  .filter-bar-form .form-select,
+  .filter-bar-form .form-control {
+    border: 1.5px solid #e2e8f0; border-radius: 10px;
+    font-size: 0.86rem; font-family: 'DM Sans', sans-serif;
+    color: #334155; background: #fff; padding: 9px 13px;
+    outline: none; transition: border-color 0.15s, box-shadow 0.15s;
+  }
+  .filter-bar-form .form-select:focus,
+  .filter-bar-form .form-control:focus {
+    border-color: #6366f1; box-shadow: 0 0 0 3px rgba(99,102,241,0.1);
+  }
+  .filter-bar-form .btn-outline-primary {
+    padding: 9px 18px; border-radius: 10px;
+    border: 1.5px solid #6366f1; color: #6366f1;
+    background: #fff; font-weight: 600; font-size: 0.86rem;
+    font-family: 'DM Sans', sans-serif; cursor: pointer;
+    transition: all 0.15s;
+  }
+  .filter-bar-form .btn-outline-primary:hover { background: #6366f1; color: #fff; }
 
-    /* ── Export buttons ─────────────────────────────────── */
-    .btn-export {
-        display: inline-flex; align-items: center; gap: 6px;
-        padding: 7px 14px; border-radius: 8px; font-size: 0.82rem; font-weight: 600;
-        border: 1.5px solid; cursor: pointer; transition: all 0.18s; text-decoration: none;
-    }
-    .btn-export-pdf { background:#fff5f5; color:#dc2626; border-color:#fecaca; }
-    .btn-export-pdf:hover { background:#dc2626; color:#fff; border-color:#dc2626; }
-    .btn-export-excel { background:#f0fdf4; color:#059669; border-color:#a7f3d0; }
-    .btn-export-excel:hover { background:#059669; color:#fff; border-color:#059669; }
+  /* ── Export group ────────────────────────────────────── */
+  .export-group {
+    display: flex; flex-direction: column; gap: 5px;
+    background: #f8fafc; border: 1.5px solid #e2e8f0;
+    border-radius: 13px; padding: 9px 13px;
+  }
+  .export-group-label {
+    font-size: 0.67rem; font-weight: 700; color: #94a3b8;
+    text-transform: uppercase; letter-spacing: 0.6px;
+    display: flex; align-items: center; gap: 4px;
+  }
+  .export-group-controls { display: flex; align-items: center; gap: 7px; }
+  .export-filter-select {
+    padding: 5px 10px; border-radius: 8px; border: 1.5px solid #e2e8f0;
+    font-size: 0.80rem; font-weight: 600; color: #334155;
+    background: #fff; cursor: pointer; appearance: auto;
+    font-family: 'DM Sans', sans-serif;
+  }
+  .export-filter-select:focus { outline: none; border-color: #6366f1; }
+  .btn-export {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 6px 13px; border-radius: 8px;
+    font-size: 0.80rem; font-weight: 600;
+    border: 1.5px solid; cursor: pointer; transition: all 0.17s;
+    text-decoration: none; font-family: 'DM Sans', sans-serif;
+  }
+  .btn-export-pdf   { background:#fff5f5; color:#dc2626; border-color:#fecaca; }
+  .btn-export-pdf:hover   { background:#dc2626; color:#fff; border-color:#dc2626; }
+  .btn-export-excel { background:#f0fdf4; color:#059669; border-color:#a7f3d0; }
+  .btn-export-excel:hover { background:#059669; color:#fff; border-color:#059669; }
 
-    /* Export group wrapper */
-    .export-group {
-        display: flex; flex-direction: column; gap: 4px;
-        background: #f8fafc; border: 1.5px solid #e2e8f0;
-        border-radius: 12px; padding: 8px 12px;
-    }
-    .export-group-label {
-        font-size: 0.68rem; font-weight: 700; color: #94a3b8;
-        text-transform: uppercase; letter-spacing: 0.6px;
-        display: flex; align-items: center; gap: 4px;
-    }
-    .export-group-controls {
-        display: flex; align-items: center; gap: 6px;
-    }
-    .export-filter-select {
-        padding: 5px 10px; border-radius: 8px; border: 1.5px solid #e2e8f0;
-        font-size: 0.80rem; font-weight: 600; color: #334155;
-        background: #fff; cursor: pointer;
-        appearance: auto;
-    }
-    .export-filter-select:focus { outline: none; border-color: #6366f1; }
+  /* ── List view: table card ───────────────────────────── */
+  #roomsTable {
+    background: #fff; border: 1px solid #e2e8f0;
+    border-radius: 18px; overflow: hidden;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.05);
+  }
+  #roomsTable .table { margin-bottom: 0; font-size: 0.875rem; }
+  #roomsTable .table thead tr { background: #0f172a; }
+  #roomsTable .table thead th {
+    padding: 13px 16px;
+    font-size: 0.70rem; font-weight: 700;
+    text-transform: uppercase; letter-spacing: 0.6px;
+    color: #94a3b8; border: none; white-space: nowrap;
+  }
+  #roomsTable .table tbody tr {
+    border-bottom: 1px solid #f1f5f9; transition: background 0.13s;
+  }
+  #roomsTable .table tbody tr:last-child { border-bottom: none; }
+  #roomsTable .table tbody tr:hover { background: #f8fafc; }
+  #roomsTable .table tbody td {
+    padding: 13px 16px; color: #334155; vertical-align: middle; border: none;
+  }
+  #roomsTable .table tbody td:first-child { font-weight: 700; color: #0f172a; }
+  #roomsTable .badge { font-size: 0.71rem; font-weight: 700; padding: 3px 9px; border-radius: 8px; }
+  #roomsTable .btn-dark {
+    background: #0f172a; color: #fff; border: none;
+    border-radius: 8px; padding: 5px 12px;
+    font-size: 0.78rem; font-weight: 600;
+    font-family: 'DM Sans', sans-serif;
+    transition: background 0.15s; text-decoration: none;
+    display: inline-flex; align-items: center;
+  }
+  #roomsTable .btn-dark:hover { background: #1e293b; color: #fff; }
+  #roomsTable .btn-danger {
+    background: #fff; color: #ef4444;
+    border: 1.5px solid #fee2e2; border-radius: 8px;
+    padding: 5px 12px; font-size: 0.78rem; font-weight: 600;
+    font-family: 'DM Sans', sans-serif;
+    transition: background 0.15s; text-decoration: none;
+    display: inline-flex; align-items: center;
+  }
+  #roomsTable .btn-danger:hover { background: #fef2f2; }
 
-    /* Sub-admin edit/delete chip */
-    .sub-admin-chip {
-        display: inline-flex; align-items: center; gap: 4px;
-        padding: 2px 8px; border-radius: 999px;
-        background: #fef3c7; color: #b45309;
-        font-size: 0.68rem; font-weight: 700;
-        margin-left: 6px;
-    }
+  /* ── Booking status view ─────────────────────────────── */
+  .status-sections { display: flex; flex-direction: column; gap: 32px; }
+  .status-section-title {
+    display: flex; align-items: center; gap: 10px;
+    font-size: 0.97rem; font-weight: 800; margin-bottom: 14px; color: #0f172a;
+  }
+  .status-badge {
+    padding: 3px 11px; border-radius: 20px;
+    font-size: 0.71rem; font-weight: 700;
+  }
+  .badge-available { background: #d1fae5; color: #065f46; }
+  .badge-booked    { background: #dbeafe; color: #1e40af; }
+  .badge-pending   { background: #fef3c7; color: #92400e; }
+
+  .room-cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(290px, 1fr));
+    gap: 16px;
+  }
+  .room-card {
+    background: #fff; border-radius: 16px; padding: 20px 22px;
+    border: 1px solid #e2e8f0;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.04);
+    position: relative; overflow: hidden;
+    transition: transform 0.18s, box-shadow 0.18s;
+  }
+  .room-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 10px 28px rgba(0,0,0,0.09);
+  }
+  .room-card::before {
+    content:''; position:absolute; top:0; left:0;
+    width: 4px; height: 100%; border-radius: 4px 0 0 4px;
+  }
+  .room-card.card-available::before { background: linear-gradient(180deg,#10b981,#059669); }
+  .room-card.card-booked::before    { background: linear-gradient(180deg,#3b82f6,#1d4ed8); }
+  .room-card.card-pending::before   { background: linear-gradient(180deg,#f59e0b,#d97706); }
+
+  .room-card-name  { font-weight: 800; font-size: 0.97rem; color: #0f172a; margin-bottom: 5px; padding-left: 2px; }
+  .room-card-meta  { font-size: 0.78rem; color: #64748b; margin-bottom: 12px; padding-left: 2px; }
+  .room-card-detail {
+    background: #f8fafc; border-radius: 10px;
+    padding: 11px 13px; font-size: 0.79rem; color: #475569;
+    border: 1px solid #f1f5f9;
+  }
+  .room-card-detail-row { display: flex; justify-content: space-between; padding: 3px 0; gap: 8px; }
+  .room-card-actions { display: flex; gap: 8px; margin-top: 14px; }
+  .btn-card-sm {
+    padding: 6px 14px; border-radius: 9px;
+    font-size: 0.77rem; font-weight: 700;
+    border: 1.5px solid; cursor: pointer;
+    transition: all 0.16s; text-decoration: none;
+    font-family: 'DM Sans', sans-serif;
+    display: inline-flex; align-items: center; gap: 5px;
+  }
+  .btn-edit-dark { background: #0f172a; color: #fff; border-color: #0f172a; }
+  .btn-edit-dark:hover { background: #1e293b; color: #fff; }
+  .btn-del-red   { background: #fff; color: #ef4444; border-color: #fee2e2; }
+  .btn-del-red:hover   { background: #fef2f2; }
+
+  .empty-section {
+    color: #94a3b8; text-align: center; padding: 28px;
+    font-size: 0.85rem; background: #f8fafc; border-radius: 12px;
+    border: 1px dashed #e2e8f0;
+  }
+
+  /* Sub-admin chip */
+  .sub-admin-chip {
+    display: inline-flex; align-items: center; gap: 4px;
+    padding: 2px 8px; border-radius: 999px;
+    background: #fef3c7; color: #b45309;
+    font-size: 0.67rem; font-weight: 700; margin-left: 6px;
+  }
+
+  @media (max-width: 768px) {
+    .room-cards { grid-template-columns: 1fr; }
+  }
 </style>
 {% endblock style %}
 
@@ -165,7 +283,7 @@
 </div>
 
 <!-- Shared filter bar -->
-<form method="get" class="d-flex gap-2 mb-3">
+<form method="get" class="d-flex gap-2 mb-3 filter-bar-form">
     <input type="hidden" name="view" value="{{ view_mode }}">
     <select name="category" class="form-select">
         <option value="">All Categories</option>

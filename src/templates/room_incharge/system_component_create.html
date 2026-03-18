@@ -1,26 +1,109 @@
 {% extends "sidebar_base.html" %}
 {% load static %}
 
-{% block title %} | Create Room{% endblock title %}
+{% block title %} | Create System Component{% endblock title %}
 
 {% block style %}
 <link rel="stylesheet" href="{% static 'styles/inventory/room_incharge/forms_style/style.css' %}">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&display=swap');
+
+  .form-page-wrap {
+    max-width: 520px;
+    margin: 36px auto 60px;
+    font-family: 'DM Sans', sans-serif;
+  }
+  .form-page-header {
+    display: flex; align-items: center; gap: 14px;
+    margin-bottom: 26px;
+  }
+  .form-page-icon {
+    width: 48px; height: 48px; border-radius: 14px;
+    background: linear-gradient(135deg, #f59e0b, #d97706);
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0; box-shadow: 0 4px 12px rgba(245,158,11,0.28);
+  }
+  .form-page-icon i  { color: #fff; font-size: 1.3rem; }
+  .form-page-title   { font-size: 1.4rem; font-weight: 800; color: #0f172a; margin: 0; line-height: 1.2; }
+  .form-page-sub     { font-size: 0.81rem; color: #94a3b8; margin: 3px 0 0; }
+
+  .form-card {
+    background: #fff; border: 1px solid #e2e8f0;
+    border-radius: 20px; padding: 32px 34px;
+    box-shadow: 0 4px 24px rgba(0,0,0,0.05);
+  }
+
+  .form-card p { margin-bottom: 18px; }
+  .form-card p label {
+    display: block;
+    font-size: 0.72rem; font-weight: 700;
+    text-transform: uppercase; letter-spacing: 0.55px;
+    color: #64748b; margin-bottom: 6px;
+  }
+  .form-card p input,
+  .form-card p select,
+  .form-card p textarea {
+    width: 100%; padding: 10px 13px;
+    border: 1.5px solid #e2e8f0; border-radius: 10px;
+    font-size: 0.88rem; font-family: 'DM Sans', sans-serif;
+    color: #1e293b; background: #f8fafc;
+    transition: border-color 0.15s, box-shadow 0.15s, background 0.15s;
+    outline: none; box-sizing: border-box;
+  }
+  .form-card p input:focus,
+  .form-card p select:focus,
+  .form-card p textarea:focus {
+    border-color: #f59e0b; background: #fff;
+    box-shadow: 0 0 0 3px rgba(245,158,11,0.11);
+  }
+  .form-card ul.errorlist {
+    list-style: none; padding: 0; margin: 5px 0 0;
+    font-size: 0.77rem; color: #ef4444;
+  }
+
+  .btn-form-submit {
+    width: 100%; margin-top: 8px; padding: 12px;
+    border: none; border-radius: 12px;
+    background: linear-gradient(135deg, #f59e0b, #d97706);
+    color: #fff; font-size: 0.92rem; font-weight: 700;
+    font-family: 'DM Sans', sans-serif; cursor: pointer;
+    box-shadow: 0 4px 14px rgba(245,158,11,0.28);
+    transition: opacity 0.17s, transform 0.13s;
+  }
+  .btn-form-submit:hover { opacity: 0.88; transform: translateY(-1px); }
+  .btn-form-submit:active { transform: scale(0.98); }
+
+  @media (max-width: 600px) {
+    .form-card { padding: 22px 16px; }
+    .form-page-wrap { margin: 20px auto 40px; }
+  }
+</style>
 {% endblock style %}
 
-{% block navbar %}
-{% include "room_incharge/navbar.html" %}
-{% endblock navbar %}
-
-{% block sidebar %}
-{% include "room_incharge/sidebar.html" %}
-{% endblock sidebar %}
+{% block navbar %}{% include "room_incharge/navbar.html" %}{% endblock navbar %}
+{% block sidebar %}{% include "room_incharge/sidebar.html" %}{% endblock sidebar %}
 
 {% block content %}
-    <h3 class="mb-3">Create System Component</h3>
-    <form method="post">
-        {% csrf_token %}
-        {{ form.as_p |safe}}
-        <button type="submit" class="btn btn-primary">Create Component</button>
-    </form>
+<div class="form-page-wrap">
 
-    {% endblock content %}
+  <div class="form-page-header">
+    <div class="form-page-icon"><i class="bi bi-cpu-fill"></i></div>
+    <div>
+      <h1 class="form-page-title">Create System Component</h1>
+      <p class="form-page-sub">Add a new component to a system</p>
+    </div>
+  </div>
+
+  <div class="form-card">
+    <form method="post">
+      {% csrf_token %}
+      {{ form.as_p | safe }}
+      <button type="submit" class="btn-form-submit">
+        <i class="bi bi-plus-circle me-2"></i>Create Component
+      </button>
+    </form>
+  </div>
+
+</div>
+{% endblock content %}

@@ -1,10 +1,320 @@
 {% extends "sidebar_base.html" %}
 {% load static %}
 
-{% block title %} | Archive Create{% endblock title %}
+{% block title %} | Archive Component{% endblock title %}
 
 {% block style %}
 <link rel="stylesheet" href="{% static 'styles/inventory/room_incharge/archive_list/style.css' %}">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --rose:       #e11d48;
+    --rose-lt:    #fda4af;
+    --rose-dim:   rgba(225,29,72,0.08);
+    --rose-glow:  rgba(225,29,72,0.22);
+    --amber:      #f59e0b;
+    --amber-dim:  rgba(245,158,11,0.1);
+    --surface:    #ffffff;
+    --surface-2:  #fafafa;
+    --border:     #f0f0f0;
+    --text:       #111827;
+    --text-muted: #9ca3af;
+    --radius:     14px;
+    --font:       'Sora', sans-serif;
+    --mono:       'JetBrains Mono', monospace;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; }
+
+  body {
+    background: #f7f7f9;
+    font-family: var(--font);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* ── Breadcrumb ── */
+  .arc-breadcrumb {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin: 28px 0 22px;
+    font-size: 12.5px;
+    font-weight: 500;
+    color: var(--text-muted);
+  }
+  .arc-breadcrumb a {
+    color: var(--text-muted);
+    text-decoration: none;
+    transition: color .15s;
+  }
+  .arc-breadcrumb a:hover { color: var(--rose); }
+  .arc-breadcrumb .sep { font-size: 11px; opacity: .4; }
+  .arc-breadcrumb .current { color: var(--rose); font-weight: 600; }
+
+  /* ── Card Shell ── */
+  .arc-card {
+    background: var(--surface);
+    border-radius: 20px;
+    border: 1px solid var(--border);
+    box-shadow: 0 2px 24px rgba(0,0,0,0.05);
+    overflow: hidden;
+    max-width: 640px;
+  }
+
+  /* ── Card Header ── */
+  .arc-header {
+    padding: 28px 32px 22px;
+    border-bottom: 1px solid var(--border);
+    background: linear-gradient(135deg, #fff5f6 0%, #fff 60%);
+    position: relative;
+    overflow: hidden;
+  }
+  .arc-header::before {
+    content: '';
+    position: absolute;
+    top: -30px; right: -30px;
+    width: 130px; height: 130px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(225,29,72,0.07) 0%, transparent 70%);
+    pointer-events: none;
+  }
+  .arc-header-top {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin-bottom: 6px;
+  }
+  .arc-icon {
+    width: 42px; height: 42px;
+    border-radius: 12px;
+    background: linear-gradient(135deg, #fecdd3, #fda4af);
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+    box-shadow: 0 4px 14px rgba(225,29,72,0.2);
+  }
+  .arc-icon .material-symbols-outlined { font-size: 20px; color: var(--rose); }
+  .arc-title {
+    font-size: 18px;
+    font-weight: 800;
+    color: var(--text);
+    letter-spacing: -0.4px;
+    margin: 0;
+  }
+  .arc-subtitle {
+    font-size: 12.5px;
+    color: var(--text-muted);
+    margin: 0;
+    font-weight: 400;
+  }
+
+  /* ── Warning Banner ── */
+  .arc-warning {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 12px 16px;
+    background: rgba(245,158,11,0.08);
+    border: 1px solid rgba(245,158,11,0.25);
+    border-radius: 10px;
+    margin: 22px 32px 0;
+    font-size: 12.5px;
+    color: #92400e;
+    line-height: 1.55;
+  }
+  .arc-warning .material-symbols-outlined {
+    font-size: 16px;
+    color: var(--amber);
+    flex-shrink: 0;
+    margin-top: 1px;
+  }
+
+  /* ── Form Body ── */
+  .arc-body { padding: 28px 32px 32px; }
+
+  .arc-field { margin-bottom: 22px; }
+  .arc-field:last-of-type { margin-bottom: 0; }
+
+  .arc-label {
+    display: block;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    margin-bottom: 8px;
+  }
+  .arc-label .req { color: var(--rose); margin-left: 2px; }
+
+  /* Component info strip */
+  .arc-component-info {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 14px 16px;
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: 11px;
+    font-size: 13.5px;
+    font-weight: 600;
+    color: var(--text);
+  }
+  .arc-component-info .ci-icon {
+    width: 32px; height: 32px;
+    border-radius: 8px;
+    background: var(--rose-dim);
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+  }
+  .arc-component-info .ci-icon .material-symbols-outlined {
+    font-size: 15px; color: var(--rose);
+  }
+  .arc-component-info .ci-meta {
+    font-size: 11.5px;
+    font-weight: 400;
+    color: var(--text-muted);
+    margin-top: 1px;
+    font-family: var(--mono);
+  }
+
+  /* Select */
+  .arc-select {
+    width: 100%;
+    padding: 12px 16px;
+    border: 1.5px solid var(--border);
+    border-radius: 11px;
+    font-size: 13.5px;
+    font-family: var(--font);
+    font-weight: 500;
+    color: var(--text);
+    background: white;
+    appearance: none;
+    -webkit-appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%239ca3af' stroke-width='2.5'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 14px center;
+    cursor: pointer;
+    outline: none;
+    transition: border-color .18s, box-shadow .18s;
+  }
+  .arc-select:focus {
+    border-color: var(--rose);
+    box-shadow: 0 0 0 3px var(--rose-dim);
+  }
+  .arc-select option { font-weight: 400; }
+
+  /* Textarea */
+  .arc-textarea {
+    width: 100%;
+    padding: 12px 16px;
+    border: 1.5px solid var(--border);
+    border-radius: 11px;
+    font-size: 13.5px;
+    font-family: var(--font);
+    font-weight: 400;
+    color: var(--text);
+    resize: vertical;
+    min-height: 96px;
+    outline: none;
+    transition: border-color .18s, box-shadow .18s;
+    line-height: 1.6;
+  }
+  .arc-textarea:focus {
+    border-color: var(--rose);
+    box-shadow: 0 0 0 3px var(--rose-dim);
+  }
+  .arc-textarea::placeholder { color: var(--text-muted); }
+
+  /* Char counter */
+  .arc-counter {
+    font-size: 11px;
+    color: var(--text-muted);
+    text-align: right;
+    margin-top: 5px;
+    font-family: var(--mono);
+  }
+
+  /* Error messages (Django form errors) */
+  .arc-error {
+    font-size: 12px;
+    color: var(--rose);
+    font-weight: 500;
+    margin-top: 5px;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+
+  /* ── Divider ── */
+  .arc-divider {
+    height: 1px;
+    background: var(--border);
+    margin: 24px 0;
+  }
+
+  /* ── Actions ── */
+  .arc-actions {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+  }
+
+  .btn-archive {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 11px 22px;
+    background: linear-gradient(135deg, #e11d48, #be123c);
+    color: white;
+    border: none;
+    border-radius: 11px;
+    font-size: 13.5px;
+    font-weight: 700;
+    font-family: var(--font);
+    cursor: pointer;
+    transition: all .18s;
+    box-shadow: 0 3px 14px rgba(225,29,72,0.3);
+    letter-spacing: 0.01em;
+  }
+  .btn-archive:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 5px 20px rgba(225,29,72,0.4);
+  }
+  .btn-archive:active { transform: translateY(0); }
+  .btn-archive .material-symbols-outlined { font-size: 17px; }
+
+  .btn-cancel {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 11px 18px;
+    background: white;
+    color: var(--text-muted);
+    border: 1.5px solid var(--border);
+    border-radius: 11px;
+    font-size: 13.5px;
+    font-weight: 600;
+    font-family: var(--font);
+    text-decoration: none;
+    cursor: pointer;
+    transition: all .18s;
+  }
+  .btn-cancel:hover {
+    border-color: #d1d5db;
+    color: var(--text);
+    background: #f9f9f9;
+  }
+  .btn-cancel .material-symbols-outlined { font-size: 16px; }
+
+  /* ── Responsive ── */
+  @media (max-width: 600px) {
+    .arc-header, .arc-body { padding-left: 20px; padding-right: 20px; }
+    .arc-warning { margin-left: 20px; margin-right: 20px; }
+    .arc-card { border-radius: 16px; }
+    .arc-actions { flex-direction: column-reverse; }
+    .btn-archive, .btn-cancel { width: 100%; justify-content: center; }
+  }
+</style>
 {% endblock style %}
 
 {% block navbar %}
@@ -16,5 +326,137 @@
 {% endblock sidebar %}
 
 {% block content %}
+
+<!-- Breadcrumb -->
+<nav class="arc-breadcrumb">
+  <a href="{% url 'room_incharge:system_list' room_slug=room_slug %}">Systems</a>
+  <span class="sep">›</span>
+  <a href="{% url 'room_incharge:system_component_list' room_slug=room_slug system_slug=system_slug %}">Components</a>
+  <span class="sep">›</span>
+  <span class="current">Archive</span>
+</nav>
+
+<div class="arc-card">
+
+  <!-- Header -->
+  <div class="arc-header">
+    <div class="arc-header-top">
+      <div class="arc-icon">
+        <span class="material-symbols-outlined">archive</span>
+      </div>
+      <div>
+        <h4 class="arc-title">Archive Component</h4>
+        <p class="arc-subtitle">This action will permanently archive the component from the system.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Warning Banner -->
+  <div class="arc-warning">
+    <span class="material-symbols-outlined">warning</span>
+    <span>Archiving is irreversible. The component will be removed from the system and its inventory count will be updated accordingly.</span>
+  </div>
+
+  <!-- Form Body -->
+  <div class="arc-body">
+    <form method="post">
+      {% csrf_token %}
+
+      <!-- Component Info (read-only display) -->
+      {% if component %}
+      <div class="arc-field">
+        <label class="arc-label">Component</label>
+        <div class="arc-component-info">
+          <div class="ci-icon">
+            <span class="material-symbols-outlined">memory</span>
+          </div>
+          <div>
+            <div>{{ component.component_item.item_name }}</div>
+            <div class="ci-meta">{{ component.get_component_type_display }} &nbsp;·&nbsp; {{ component.serial_number }}</div>
+          </div>
+        </div>
+      </div>
+      {% endif %}
+
+      <!-- Archive Type -->
+      <div class="arc-field">
+        <label class="arc-label" for="{{ form.archive_type.id_for_label }}">
+          Archive Type <span class="req">*</span>
+        </label>
+        <select
+          name="{{ form.archive_type.html_name }}"
+          id="{{ form.archive_type.id_for_label }}"
+          class="arc-select"
+          required
+        >
+          <option value="" disabled selected>Select archive type…</option>
+          {% for value, label in form.archive_type.field.choices %}
+            {% if value %}
+            <option value="{{ value }}" {% if form.archive_type.value == value %}selected{% endif %}>
+              {{ label }}
+            </option>
+            {% endif %}
+          {% endfor %}
+        </select>
+        {% if form.archive_type.errors %}
+        <div class="arc-error">
+          <span class="material-symbols-outlined" style="font-size:13px;">error</span>
+          {{ form.archive_type.errors|join:", " }}
+        </div>
+        {% endif %}
+      </div>
+
+      <!-- Remark -->
+      <div class="arc-field">
+        <label class="arc-label" for="{{ form.remark.id_for_label }}">
+          Remark <span class="req">*</span>
+        </label>
+        <textarea
+          name="{{ form.remark.html_name }}"
+          id="{{ form.remark.id_for_label }}"
+          class="arc-textarea"
+          placeholder="Describe the reason for archiving this component…"
+          maxlength="500"
+          oninput="document.getElementById('remark-count').textContent = this.value.length"
+          required
+        >{{ form.remark.value|default:'' }}</textarea>
+        <div class="arc-counter"><span id="remark-count">0</span> / 500</div>
+        {% if form.remark.errors %}
+        <div class="arc-error">
+          <span class="material-symbols-outlined" style="font-size:13px;">error</span>
+          {{ form.remark.errors|join:", " }}
+        </div>
+        {% endif %}
+      </div>
+
+      <div class="arc-divider"></div>
+
+      <!-- Actions -->
+      <div class="arc-actions">
+        <button type="submit" class="btn-archive">
+          <span class="material-symbols-outlined">archive</span>
+          Confirm Archive
+        </button>
+        <a href="{% url 'room_incharge:system_component_list' room_slug=room_slug system_slug=system_slug %}"
+           class="btn-cancel">
+          <span class="material-symbols-outlined">arrow_back</span>
+          Cancel
+        </a>
+      </div>
+
+    </form>
+  </div>
+
+</div>
+
+<script>
+  /* Sync char counter on page load if value is pre-filled */
+  document.addEventListener('DOMContentLoaded', function () {
+    const ta = document.getElementById('{{ form.remark.id_for_label }}');
+    if (ta) {
+      document.getElementById('remark-count').textContent = ta.value.length;
+    }
+  });
+</script>
 
 {% endblock content %}
