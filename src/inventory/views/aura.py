@@ -21,7 +21,7 @@ from django.urls import reverse
 from inventory.forms.room_incharge import ExcelUploadForm
 from django.db import models
 from inventory.models import SystemComponent as SC
-
+import re as _re
 
 def _extract_docx_structured(raw_bytes):
     """
@@ -250,10 +250,24 @@ def aura_data_manager(request):
                 assigned = obj.assigned_to.user.get_full_name() if obj.assigned_to else "N/A"
                 row['detail'] = f"Email: {obj.reporter_email}<br>Ticket ID: {obj.ticket_id}<br>Status: {obj.status}<br>Room: {obj.room.room_name}<br>Assigned: {assigned}"
             elif model_name == 'items':
+                from inventory.models import AssetTag
                 row['label_head'] = "Items"
                 row['label'] = f"{obj.item_name}"
                 row['detail_head'] = "Metadata"
-                row['detail'] = f"Room: {obj.room.room_name}<br>Qty: {obj.total_count}<br>Available: {obj.available_count}<br>In Use: {obj.in_use}"
+                room_name = obj.room.room_name if obj.room else 'Master Inventory'
+                prod_code = obj.product_code or '—'
+                # Asset tag range for this room
+                tag_range = '—'
+                if obj.room and obj.product_code:
+                    tags = AssetTag.objects.filter(
+                        item_name=obj.item_name,
+                        assigned_room=obj.room
+                    ).order_by('tag_id')
+                    if tags.exists():
+                        first_tag = tags.first().tag_id
+                        last_tag = tags.last().tag_id
+                        tag_range = f"{first_tag} → {last_tag}"
+                row['detail'] = f"Room: {room_name}<br>Product Code: {prod_code}<br>Asset Tags: {tag_range}<br>Qty: {obj.total_count}<br>Available: {obj.available_count}<br>In Use: {obj.in_use}"
             elif model_name == 'purchases':
                 row['label_head'] = "Purchase ID"
                 room_name = obj.room.room_name if obj.room else 'No Room Assigned'
@@ -491,6 +505,8 @@ def aura_generate_report_pdf(request):
             elif model_name == 'items':
                 label = f"{obj.item_name}"
                 detail = f"Room: {obj.room.room_name}<br/>Qty: {obj.total_count}<br/>Available: {obj.available_count}<br/>In Use: {obj.in_use}"
+                room_name = obj.room.room_name if obj.room else 'Master Inventory'
+                prod_code = obj.product_code or '—'
             elif model_name == 'purchases':
                 label = f"{obj.purchase_id or 'Pending ID'}<br/>Room: {obj.room.room_name if obj.room else 'No Room'}"
                 item_name = obj.item.item_name if obj.item else 'N/A'
@@ -1330,7 +1346,9 @@ def aura_generate_report_excel(request):
             elif model_name == 'items':
                 label = obj.item_name
                 detail = f"Room: {obj.room.room_name}\nQty: {obj.total_count}\nAvailable: {obj.available_count}\nIn Use: {obj.in_use}"
-                
+                room_name = obj.room.room_name if obj.room else 'Master Inventory'
+                prod_code = obj.product_code or '—'
+
             elif model_name == 'purchases':
                 label = f"{obj.purchase_id or 'Pending ID'}<br/>Room: {obj.room.room_name if obj.room else 'No Room'}"
                 item_name = obj.item.item_name if obj.item else 'N/A'
@@ -1404,7 +1422,7 @@ class MasterInventoryImportView(LoginRequiredMixin, CentralAdminRequiredMixin, F
             df = excel.parse('Items')
             df.columns = [str(c).strip() for c in df.columns]
             
-            mandatory = ["Item Name", "Category", "Brand", "Total Count", "Cost"]
+            mandatory = ["Item Name","Total Count"]
             missing = [c for c in mandatory if c not in df.columns]
             
             if missing:
@@ -1483,22 +1501,30 @@ class MasterInventoryImportConfirmView(LoginRequiredMixin, CentralAdminRequiredM
             cat_name = str(row.get('Category', '')).strip()
             brand_name = str(row.get('Brand', '')).strip()
 
-            if not name or name.lower() == 'nan' or not cat_name or not brand_name:
+            if not name or name.lower() == 'nan':
                 continue
 
             # Create unassigned category and brand (no room)
             from inventory.models import Category, Brand
-            category, _ = Category.objects.get_or_create(
-                organisation=org,
-                room=None,  # Master inventory - no room
-                category_name=cat_name
-            )
+            if cat_name and cat_name.lower() != 'nan':
+                category, _ = Category.objects.get_or_create(
+                    organisation=org, room=None, category_name=cat_name)
+            else:
+                category, _ = Category.objects.get_or_create(
+                    organisation=org, room=None, category_name='Uncategorised')
 
-            brand, _ = Brand.objects.get_or_create(
-                organisation=org,
-                room=None,  # Master inventory - no room
-                brand_name=brand_name
-            )
+            if brand_name and brand_name.lower() != 'nan':
+                brand, _ = Brand.objects.get_or_create(
+                    organisation=org, room=None, brand_name=brand_name)
+            else:
+                brand, _ = Brand.objects.get_or_create(
+                    organisation=org, room=None, brand_name='Unknown')
+                
+            cost_val = row.get('Cost')
+            try:
+                cost = Decimal(str(cost_val)) if cost_val and str(cost_val).lower() not in ('nan','') else None
+            except Exception:
+                cost = None
 
             # Create unassigned item
             Item.objects.update_or_create(
@@ -1509,7 +1535,7 @@ class MasterInventoryImportConfirmView(LoginRequiredMixin, CentralAdminRequiredM
                     'category': category,
                     'brand': brand,
                     'total_count': int(row.get('Total Count', 0)),
-                    'cost': Decimal(str(row.get('Cost', 0))),
+                    'cost': cost,
                     'is_listed': True,
                     'item_description': f"{brand_name} {name} - Master Inventory"
                 }
@@ -1609,6 +1635,7 @@ def master_inventory_export_pdf(request):
     elements.append(Spacer(1, 10))
 
     text_col_map = {
+        'prodcode': ('Product Code', 70),
         'name':     ('Item Name',  80),
         'category': ('Category',   70),
         'brand':    ('Brand',      70),
@@ -1625,7 +1652,7 @@ def master_inventory_export_pdf(request):
         ('Disposed\nComponents',  55),
     ]
 
-    selected_text = [k for k in ['name', 'category', 'brand'] if k in fields]
+    selected_text = [k for k in ['prodcode', 'name', 'category', 'brand'] if k in fields]
     from reportlab.lib.styles import ParagraphStyle
     header_style = ParagraphStyle('header', parent=styles['Normal'], textColor=colors.whitesmoke, fontName='Helvetica-Bold')
     headers = [Paragraph(text_col_map[k][0], header_style) for k in selected_text]
@@ -1664,6 +1691,8 @@ def master_inventory_export_pdf(request):
             disposed_c += comps.filter(status='disposed').count()
 
         row = []
+        if 'prodcode' in selected_text:
+            row.append(Paragraph(item.product_code or '—', styles['Normal']))
         if 'name' in selected_text:
             row.append(Paragraph(item.item_name, styles['Normal']))
         if 'category' in selected_text:
@@ -1739,11 +1768,12 @@ def master_inventory_export_excel(request):
     ws.title = "Master Inventory"
 
     text_col_map = {
+        'prodcode': 'Product Code',
         'name':     'Item Name',
         'category': 'Category',
         'brand':    'Brand',
     }
-    selected_text = [k for k in ['name', 'category', 'brand'] if k in fields]
+    selected_text = [k for k in ['prodcode', 'name', 'category', 'brand'] if k in fields]
     headers = [text_col_map[k] for k in selected_text]
 
     headers += [
@@ -1795,6 +1825,7 @@ def master_inventory_export_excel(request):
             disposed_xl += comps.filter(status='disposed').count()
 
         row = []
+        if 'prodcode' in selected_text:    row.append(item.product_code or '—')
         if 'name' in selected_text:     row.append(item.item_name)
         if 'category' in selected_text: row.append(item.category.category_name)
         if 'brand' in selected_text:    row.append(item.brand.brand_name)
@@ -1829,7 +1860,7 @@ def master_inventory_export_excel(request):
         for cell in row:
             cell.alignment = Alignment(vertical="center", horizontal="left")
 
-    text_widths = {'name': 32, 'category': 20, 'brand': 18}
+    text_widths = {'prodcode': 16, 'name': 32, 'category': 20, 'brand': 18}
     fixed_widths = [18, 18, 14, 18, 16, 14, 18, 18, 18]
 
     col = 1
@@ -1971,6 +2002,10 @@ def assign_inventory_api(request):
                     created_by=profile,
                 )
 
+    # Assign asset tags to rooms after inventory assignment
+    from inventory.models import AssetTag
+    if Item.objects.filter(organisation=org, item_name=master_item.item_name, room__isnull=True, is_listed=True).filter(product_code__isnull=False).exists():
+        _assign_tags_to_rooms(org, master_item.item_name)
     return JsonResponse({
         'success': True,
         'message': f'Assigned {quantity} unit(s) of "{master_item.item_name}" to {len(room_ids)} room(s). Total deducted: {total_needed}.',
@@ -2075,3 +2110,182 @@ def get_master_items_api(request):
         'brand': item.brand.brand_name,
         'available_stock': item.total_count,
     } for item in items]})
+
+def save_product_code(request):
+    if request.method != 'POST':
+        return JsonResponse({'error': 'POST required'}, status=405)
+    profile = getattr(request.user, 'profile', None)
+    if not profile or not (profile.is_central_admin or profile.is_sub_admin):
+        return JsonResponse({'error': 'Unauthorized'}, status=403)
+
+    import json
+    from inventory.models import AssetTag
+    data = json.loads(request.body)
+    item_id = data.get('item_id')
+    code = (data.get('product_code') or '').strip()
+
+    if not item_id:
+        return JsonResponse({'error': 'item_id required'}, status=400)
+    if code and not _re.match(r'^[\w\-\.@#&*()]{1,12}$', code):
+        return JsonResponse({'error': 'Invalid code. Max 12 chars, alphanumeric + special chars only.'}, status=400)
+
+    org = profile.org
+    master_item = get_object_or_404(Item, id=item_id, organisation=org, room__isnull=True)
+    old_code = master_item.product_code or ''
+    master_item.product_code = code or None
+    master_item.save(update_fields=['product_code', 'updated_on'])
+
+    # Propagate to all room items with same item_name
+    Item.objects.filter(
+        organisation=org,
+        item_name=master_item.item_name,
+        room__isnull=False
+    ).update(product_code=master_item.product_code)
+
+    # Auto-generate asset tags if code provided
+    tags_created = 0
+    if code:
+        # Count total items across master + all rooms
+        total = Item.objects.filter(
+            organisation=org,
+            item_name=master_item.item_name,
+        ).aggregate(t=models.Sum('total_count'))['t'] or 0
+
+        existing_count = AssetTag.objects.filter(
+            organisation=org,
+            item_name=master_item.item_name,
+        ).count()
+
+        # Only generate new tags beyond existing ones
+        for i in range(existing_count + 1, total + 1):
+            tag_id = f"{code}-{i:02d}"
+            AssetTag.objects.get_or_create(
+                organisation=org,
+                item_name=master_item.item_name,
+                tag_id=tag_id,
+                defaults={'assigned_room': None}
+            )
+            tags_created += 1
+
+        # Assign tags to rooms in order
+        _assign_tags_to_rooms(org, master_item.item_name)
+
+    return JsonResponse({
+        'success': True,
+        'product_code': code,
+        'tags_created': tags_created,
+    })
+
+
+def _assign_tags_to_rooms(org, item_name):
+    """Assign unassigned asset tags to rooms in order based on room item counts."""
+    from inventory.models import AssetTag
+    unassigned = list(AssetTag.objects.filter(
+        organisation=org,
+        item_name=item_name,
+        assigned_room__isnull=True
+    ).order_by('tag_id'))
+
+    room_items = Item.objects.filter(
+        organisation=org,
+        item_name=item_name,
+        room__isnull=False
+    ).select_related('room').order_by('room__room_name')
+
+    idx = 0
+    for room_item in room_items:
+        needed = room_item.total_count
+        already = AssetTag.objects.filter(
+            organisation=org,
+            item_name=item_name,
+            assigned_room=room_item.room
+        ).count()
+        to_assign = needed - already
+        for _ in range(to_assign):
+            if idx >= len(unassigned):
+                break
+            tag = unassigned[idx]
+            tag.assigned_room = room_item.room
+            tag.save(update_fields=['assigned_room'])
+            idx += 1
+
+
+def save_item_edit(request):
+    """Inline edit for category, brand, cost on master inventory."""
+    if request.method != 'POST':
+        return JsonResponse({'error': 'POST required'}, status=405)
+    profile = getattr(request.user, 'profile', None)
+    if not profile or not (profile.is_central_admin or profile.is_sub_admin):
+        return JsonResponse({'error': 'Unauthorized'}, status=403)
+
+    import json
+    from decimal import Decimal, InvalidOperation
+    data = json.loads(request.body)
+    item_id = data.get('item_id')
+    org = profile.org
+
+    master_item = get_object_or_404(Item, id=item_id, organisation=org, room__isnull=True)
+
+    # Category
+    cat_name = (data.get('category') or '').strip()
+    if cat_name:
+        from inventory.models import Category as Cat
+        cat, _ = Cat.objects.get_or_create(organisation=org, room=None, category_name=cat_name)
+        master_item.category = cat
+
+    # Brand
+    brand_name = (data.get('brand') or '').strip()
+    if brand_name:
+        from inventory.models import Brand as Br
+        br, _ = Br.objects.get_or_create(organisation=org, room=None, brand_name=brand_name)
+        master_item.brand = br
+
+    # Cost
+    cost_val = data.get('cost')
+    if cost_val is not None and str(cost_val).strip() != '':
+        try:
+            master_item.cost = Decimal(str(cost_val))
+        except InvalidOperation:
+            return JsonResponse({'error': 'Invalid cost value'}, status=400)
+    elif cost_val == '':
+        master_item.cost = None
+
+    master_item.save()
+    return JsonResponse({'success': True})
+
+
+def get_asset_tags(request):
+    profile = getattr(request.user, 'profile', None)
+    if not profile or not (profile.is_central_admin or profile.is_sub_admin):
+        return JsonResponse({'error': 'Unauthorized'}, status=403)
+
+    from inventory.models import AssetTag
+    item_name = request.GET.get('item_name', '')
+    org = profile.org
+
+    tags = AssetTag.objects.filter(
+        organisation=org,
+        item_name=item_name,
+    ).select_related('assigned_room').order_by('tag_id')
+
+    return JsonResponse({'tags': [{
+        'tag_id': t.tag_id,
+        'assigned_room': t.assigned_room.room_name if t.assigned_room else '—',
+    } for t in tags]})
+
+
+def get_room_asset_tags(request):
+    """For room incharge — get asset tags assigned to their room for an item."""
+    if not request.user.is_authenticated:
+        return JsonResponse({'error': 'Unauthorized'}, status=403)
+
+    from inventory.models import AssetTag
+    item_name = request.GET.get('item_name', '')
+    room_slug = request.GET.get('room_slug', '')
+
+    tags = AssetTag.objects.filter(
+        item_name=item_name,
+        assigned_room__slug=room_slug,
+    ).order_by('tag_id')
+
+    return JsonResponse({'tags': [{'tag_id': t.tag_id} for t in tags]})

@@ -492,6 +492,47 @@ class SystemListView(LoginRequiredMixin, ListView):
         context['room_settings'] = RoomSettings.objects.get_or_create(room=room)[0]
         return context
 
+class SystemConfigurationView(LoginRequiredMixin, View):
+    def post(self, request, room_slug):
+        import json
+        from inventory.models import SystemConfiguration
+        try:
+            data = json.loads(request.body)
+        except Exception:
+            return JsonResponse({'error': 'Invalid JSON'}, status=400)
+
+        system_slugs = data.get('system_slugs', [])
+        configuration = data.get('configuration', '').strip()
+
+        if not system_slugs:
+            return JsonResponse({'error': 'No systems selected'}, status=400)
+        if not configuration:
+            return JsonResponse({'error': 'Configuration text is required'}, status=400)
+
+        room = get_object_or_404(Room, slug=room_slug)
+        updated = []
+        for slug in system_slugs:
+            system = System.objects.filter(slug=slug, room=room).first()
+            if system:
+                SystemConfiguration.objects.update_or_create(
+                    system=system,
+                    defaults={'configuration': configuration}
+                )
+                updated.append(system.system_name)
+
+        return JsonResponse({'success': True, 'updated': updated})
+
+
+class SystemConfigurationDetailView(LoginRequiredMixin, View):
+    def get(self, request, room_slug, system_slug):
+        from inventory.models import SystemConfiguration
+        system = get_object_or_404(System, slug=system_slug, room__slug=room_slug)
+        try:
+            config = system.configuration
+            return JsonResponse({'configuration': config.configuration, 'updated_on': config.updated_on.strftime('%d %b %Y, %H:%M')})
+        except SystemConfiguration.DoesNotExist:
+            return JsonResponse({'configuration': None})
+
 class SystemCreateView(LoginRequiredMixin, CreateView):
     model = System
     template_name = 'room_incharge/system_create.html'
@@ -1567,6 +1608,7 @@ class RoomReportView(LoginRequiredMixin, View):
                         total = opening_stock + arrival
                         item_rows.append({
                             'Sl No': i,
+                            'Product Code': item.product_code or '—',
                             'Date of Entry': fmt_datetime(item.created_on),
                             'Item Description': item.item_description or item.item_name,
                             'Category': safe_str(getattr(item.category, 'category_name', '')),
@@ -1800,3 +1842,13 @@ class RoomInchargeNotificationsView(LoginRequiredMixin, View):
             return JsonResponse({'ok': True})
 
         return JsonResponse({'error': 'Unknown action'}, status=400)
+
+def get_room_asset_tags(request, room_slug):
+    from inventory.models import AssetTag
+    from django.http import JsonResponse
+    item_name = request.GET.get('item_name', '')
+    tags = AssetTag.objects.filter(
+        item_name=item_name,
+        assigned_room__slug=room_slug,
+    ).order_by('tag_id')
+    return JsonResponse({'tags': [{'tag_id': t.tag_id} for t in tags]})

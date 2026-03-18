@@ -191,6 +191,14 @@
 <div class="page-header">
   <h4 class="page-title">Systems</h4>
   <div style="display:flex; gap:10px; align-items:center;">
+    <button onclick="openConfigModal()"
+       style="display:inline-flex;align-items:center;gap:6px;padding:9px 18px;
+              background:white;color:#0d9488;border:1.5px solid #0d9488;
+              border-radius:9px;font-size:13.5px;font-weight:600;cursor:pointer;
+              transition:all 0.18s ease;">
+      <span class="material-symbols-outlined" style="font-size:16px">settings</span>
+      Add Configuration
+    </button>
     <a href="{% url 'room_incharge:system_import' room_slug=room_slug %}"
        style="display:inline-flex;align-items:center;gap:6px;padding:9px 18px;
               background:white;color:var(--accent);border:1.5px solid var(--accent);
@@ -246,4 +254,136 @@
   </div>
   {% endif %}
 </div>
+
+<!-- Configuration Modal -->
+<div id="configOverlay" style="display:none;position:fixed;inset:0;z-index:1050;
+    background:rgba(15,23,42,0.55);backdrop-filter:blur(6px);
+    align-items:center;justify-content:center;padding:20px;"
+    onclick="if(event.target===this)closeConfigModal()">
+  <div style="background:#fff;border-radius:20px;padding:32px;max-width:500px;
+      width:100%;position:relative;box-shadow:0 25px 50px -10px rgba(0,0,0,0.25);">
+    <button onclick="closeConfigModal()" style="position:absolute;top:14px;right:18px;
+        background:none;border:none;font-size:1.2rem;cursor:pointer;color:#94a3b8;">✕</button>
+
+    <h5 style="font-weight:800;color:#1a1a2e;margin:0 0 6px;">Add Configuration</h5>
+    <p style="font-size:0.85rem;color:#7c7c9a;margin:0 0 20px;">
+      Select systems and enter configuration details. Same text will be applied to all selected systems.
+    </p>
+
+    <label style="display:block;font-weight:700;font-size:0.78rem;color:#64748b;
+        text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;">
+      Select Systems
+    </label>
+    <div style="border:1.5px solid #ebebf5;border-radius:10px;max-height:180px;
+        overflow-y:auto;margin-bottom:16px;padding:8px;">
+      {% for system in systems %}
+      <label style="display:flex;align-items:center;gap:8px;padding:6px 8px;
+          border-radius:7px;cursor:pointer;transition:background 0.12s;"
+          onmouseover="this.style.background='#f9f8ff'"
+          onmouseout="this.style.background='transparent'">
+        <input type="checkbox" class="sys-checkbox" value="{{ system.slug }}"
+            style="accent-color:#6c63ff;width:15px;height:15px;cursor:pointer;">
+        <span style="font-size:13.5px;font-weight:500;color:#1a1a2e;">{{ system.system_name }}</span>
+      </label>
+      {% empty %}
+      <p style="text-align:center;color:#94a3b8;font-size:13px;padding:10px 0;">No systems found.</p>
+      {% endfor %}
+    </div>
+
+    <label style="display:block;font-weight:700;font-size:0.78rem;color:#64748b;
+        text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;">
+      Configuration Details
+    </label>
+    <textarea id="configText" rows="5"
+        placeholder="Enter configuration details, specs, or notes for the selected systems..."
+        style="width:100%;padding:12px;border:1.5px solid #ebebf5;border-radius:10px;
+        font-size:13.5px;font-family:'DM Sans',sans-serif;resize:vertical;
+        outline:none;box-sizing:border-box;color:#1a1a2e;"
+        onfocus="this.style.borderColor='#6c63ff'"
+        onblur="this.style.borderColor='#ebebf5'"></textarea>
+
+    <div id="configAlert" style="display:none;margin-top:10px;padding:8px 12px;
+        border-radius:8px;font-size:13px;font-weight:600;"></div>
+
+    <button onclick="saveConfiguration()"
+        style="width:100%;margin-top:16px;padding:12px;background:linear-gradient(135deg,#6c63ff,#8b7cf8);
+        color:white;border:none;border-radius:11px;font-weight:800;font-size:0.9rem;
+        cursor:pointer;font-family:'DM Sans',sans-serif;" id="saveConfigBtn">
+      Save Configuration
+    </button>
+  </div>
+</div>
+
+<script>
+function openConfigModal() {
+    document.getElementById('configOverlay').style.display = 'flex';
+    document.getElementById('configText').value = '';
+    document.getElementById('configAlert').style.display = 'none';
+    document.querySelectorAll('.sys-checkbox').forEach(c => c.checked = false);
+}
+
+function closeConfigModal() {
+    document.getElementById('configOverlay').style.display = 'none';
+}
+
+function saveConfiguration() {
+    const selected = [...document.querySelectorAll('.sys-checkbox:checked')].map(c => c.value);
+    const text = document.getElementById('configText').value.trim();
+    const alertEl = document.getElementById('configAlert');
+    const btn = document.getElementById('saveConfigBtn');
+
+    if (!selected.length) {
+        alertEl.style.display = 'block';
+        alertEl.style.background = '#fef2f2';
+        alertEl.style.color = '#dc2626';
+        alertEl.textContent = 'Please select at least one system.';
+        return;
+    }
+    if (!text) {
+        alertEl.style.display = 'block';
+        alertEl.style.background = '#fef2f2';
+        alertEl.style.color = '#dc2626';
+        alertEl.textContent = 'Please enter configuration details.';
+        return;
+    }
+
+    btn.disabled = true;
+    btn.textContent = 'Saving...';
+
+    const csrf = document.cookie.split(';').find(x => x.trim().startsWith('csrftoken='));
+    const csrfToken = csrf ? decodeURIComponent(csrf.trim().split('=')[1]) : '';
+
+    fetch('{% url "room_incharge:system_configuration" room_slug=room_slug %}', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json', 'X-CSRFToken': csrfToken},
+        body: JSON.stringify({system_slugs: selected, configuration: text}),
+    })
+    .then(r => r.json())
+    .then(data => {
+        btn.disabled = false;
+        if (data.success) {
+            alertEl.style.display = 'block';
+            alertEl.style.background = '#f0fdf4';
+            alertEl.style.color = '#166534';
+            alertEl.textContent = `Saved for: ${data.updated.join(', ')}`;
+            btn.textContent = '✓ Saved';
+            setTimeout(() => closeConfigModal(), 1500);
+        } else {
+            alertEl.style.display = 'block';
+            alertEl.style.background = '#fef2f2';
+            alertEl.style.color = '#dc2626';
+            alertEl.textContent = data.error || 'Save failed.';
+            btn.textContent = 'Save Configuration';
+        }
+    })
+    .catch(() => {
+        btn.disabled = false;
+        btn.textContent = 'Save Configuration';
+        alertEl.style.display = 'block';
+        alertEl.style.background = '#fef2f2';
+        alertEl.style.color = '#dc2626';
+        alertEl.textContent = 'Network error. Try again.';
+    });
+}
+</script>
 {% endblock content %}

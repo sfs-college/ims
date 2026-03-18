@@ -802,6 +802,40 @@
             });
     }
 
+    function parseBookingEnd(schedule) {
+        // schedule format: "12 Mar, 2026 | 10:00 – 12:00"
+        try {
+            const datePart = schedule.split('|')[0].trim(); // "12 Mar, 2026"
+            return new Date(datePart);
+        } catch(e) {
+            return null;
+        }
+    }
+
+    function getBookingStatus(schedule) {
+        const endDate = parseBookingEnd(schedule);
+        const now = new Date();
+        if (endDate && endDate < now) {
+            return '<span class="badge bg-secondary">Completed</span>';
+        }
+        return '<span class="badge bg-success">Active</span>';
+    }
+
+    function getBookingControl(bookingId, schedule) {
+        const endDate = parseBookingEnd(schedule);
+        const now = new Date();
+        const isPast = endDate && endDate < now;
+
+        {% if request.user.profile.is_central_admin and not request.user.profile.is_sub_admin %}
+            if (isPast) {
+                return '<button class="btn btn-sm btn-secondary" disabled title="Booking already completed">Cancel</button>';
+            }
+            return `<button class="btn btn-sm btn-danger" onclick="deleteRecord('bookings', ${bookingId})">Cancel</button>`;
+        {% else %}
+            return '<span class="badge bg-secondary">View Only</span>';
+        {% endif %}
+    }
+
     // 4. Room Booking Manager Logic
     function loadBookingData() {
         const body = document.getElementById('bookingDataBody');
@@ -827,15 +861,8 @@
                         <td>${row.faculty_name || 'N/A'}</td>
                         <td><small class="text-muted">${row.faculty_email || 'N/A'}</small></td>
                         <td class="fw-semibold">${row.schedule || 'N/A'}</td>
-                        <td><span class="badge bg-success">Active</span></td>
-
-                        <td>
-                            {% if request.user.profile.is_central_admin and not request.user.profile.is_sub_admin %}
-                                <button class="btn btn-sm btn-danger" onclick="deleteRecord('bookings', ${row.id})">Cancel</button>
-                            {% else %}
-                                <span class="badge bg-secondary">View Only</span>
-                            {% endif %}
-                        </td>
+                        <td>${getBookingStatus(row.schedule)}</td>
+                        <td>${getBookingControl(row.id, row.schedule)}</td>
                     </tr>
                 `;
             });
