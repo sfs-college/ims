@@ -449,6 +449,7 @@ class Item(models.Model):
 
     # ✔ FIXED SPELLING
     archived_count = models.IntegerField(default=0)
+    product_code = models.CharField(max_length=12, blank=True, null=True)
 
     is_listed = models.BooleanField(default=True)
 
@@ -548,6 +549,14 @@ class System(models.Model):
     def __str__(self):
         return self.system_name
 
+class SystemConfiguration(models.Model):
+    system = models.OneToOneField(System, on_delete=models.CASCADE, related_name='configuration')
+    configuration = models.TextField()
+    updated_on = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"Config for {self.system.system_name}"
+
 
 class SystemComponent(models.Model):
     COMPONENT_TYPES = [
@@ -646,6 +655,16 @@ class Archive(models.Model):
     
     def __str__(self):
         return self.item.item_name
+
+class AssetTag(models.Model):
+    organisation = models.ForeignKey(Organisation, on_delete=models.CASCADE)
+    item_name = models.CharField(max_length=255)
+    tag_id = models.CharField(max_length=20, unique=True)
+    assigned_room = models.ForeignKey(Room, null=True, blank=True, on_delete=models.SET_NULL)
+    created_on = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return self.tag_id
 
 
 class Receipt(models.Model):

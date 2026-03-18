@@ -282,6 +282,7 @@
         <thead>
           <tr>
             <th>Item Name</th>
+            <th>Product Code</th>
             <th>Total Stock</th>
             <th>Available</th>
             <th>In Use</th>
@@ -307,6 +308,17 @@
                 </span>
                 {{ item.item_name }}
               </span>
+            </td>
+            <td class="text-center">
+              {% if item.product_code %}
+                <span style="font-family:monospace;font-weight:700;color:#6c63ff;font-size:0.82rem;
+                    background:#ede9fe;padding:3px 10px;border-radius:8px;cursor:pointer;"
+                    onclick="openRoomTagModal('{{ item.item_name|escapejs }}')">
+                    {{ item.product_code }}
+                </span>
+              {% else %}
+                <span class="text-muted" style="font-size:0.8rem;">—</span>
+              {% endif %}
             </td>
             <td><span class="stock-pill stock-total">{{ item.total_count }}</span></td>
             <td><span class="stock-pill stock-avail">{{ item.available_count }}</span></td>
@@ -364,6 +376,21 @@
       <p>No items found in this room.</p>
     </div>
     {% endif %}
+  </div>
+  <!-- Asset Tag Modal (Room Incharge) -->
+  <div class="sr-overlay" id="tagOverlay" onclick="if(event.target===this)closeTagModal()">
+    <div class="sr-modal" style="max-width:520px;">
+      <button class="sr-close" onclick="closeTagModal()"><i class="bi bi-x-lg"></i></button>
+      <h5 style="font-weight:800;color:#1e293b;margin:0 0 4px;">
+        <i class="bi bi-upc-scan me-2" style="color:#6c63ff;"></i>Asset Tags
+      </h5>
+      <p class="text-muted" style="font-size:0.85rem;margin:0 0 16px;">
+        Items of <strong id="roomTagItemName"></strong> assigned to this room
+      </p>
+      <div id="roomTagContent">
+        <div class="text-center py-4"><div class="spinner-border" style="color:#6c63ff;"></div></div>
+      </div>
+    </div>
   </div>
 </section>
 
@@ -522,6 +549,67 @@ function cycleStatusCol() {
     pill.textContent = val;
     pill.style.cssText = statusStyles[statusColState];
   });
+}
+
+function openRoomTagModal(itemName) {
+    document.getElementById('roomTagItemName').textContent = itemName;
+    document.getElementById('roomTagContent').innerHTML =
+        '<div class="text-center py-4"><div class="spinner-border" style="color:#6c63ff;"></div></div>';
+    document.getElementById('tagOverlay').classList.add('open');
+
+    fetch(`/central_admin/api/room-asset-tags/?item_name=${encodeURIComponent(itemName)}&room_slug={{ room_slug }}`, {
+        headers: { 'X-Requested-With': 'XMLHttpRequest' },
+        credentials: 'same-origin'
+    })
+        .then(r => r.json())
+        .then(data => {
+            if (!data.tags || !data.tags.length) {
+                document.getElementById('roomTagContent').innerHTML =
+                    '<div class="text-center text-muted py-3">No asset tags assigned to this room for this item.</div>';
+                return;
+            }
+            const pills = data.tags.map(t =>
+                `<span style="display:inline-block;font-family:monospace;font-weight:700;
+                    color:#5b21b6;background:#ede9fe;padding:4px 12px;border-radius:8px;
+                    margin:4px;font-size:0.85rem;">${t.tag_id}</span>`
+            ).join('');
+            document.getElementById('roomTagContent').innerHTML =
+                `<div style="display:flex;flex-wrap:wrap;gap:4px;">${pills}</div>`;
+        });
+}
+
+function closeTagModal() {
+    document.getElementById('tagOverlay').classList.remove('open');
+}
+
+function openRoomTagModal(itemName) {
+    document.getElementById('roomTagItemName').textContent = itemName;
+    document.getElementById('roomTagContent').innerHTML =
+        '<div class="text-center py-4"><div class="spinner-border" style="color:#6c63ff;"></div></div>';
+    document.getElementById('tagOverlay').classList.add('open');
+
+    fetch(`{% url 'room_incharge:get_room_asset_tags' room_slug=room_slug %}?item_name=${encodeURIComponent(itemName)}`, {
+        credentials: 'same-origin'
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (!data.tags || !data.tags.length) {
+            document.getElementById('roomTagContent').innerHTML =
+                '<div class="text-center text-muted py-3">No asset tags assigned to this room for this item.</div>';
+            return;
+        }
+        const pills = data.tags.map(t =>
+            `<span style="display:inline-block;font-family:monospace;font-weight:700;
+                color:#5b21b6;background:#ede9fe;padding:4px 12px;border-radius:8px;
+                margin:4px;font-size:0.85rem;">${t.tag_id}</span>`
+        ).join('');
+        document.getElementById('roomTagContent').innerHTML =
+            `<div style="display:flex;flex-wrap:wrap;gap:4px;">${pills}</div>`;
+    })
+    .catch(() => {
+        document.getElementById('roomTagContent').innerHTML =
+            '<div class="text-center text-muted py-3">Failed to load tags. Try again.</div>';
+    });
 }
 </script>
 

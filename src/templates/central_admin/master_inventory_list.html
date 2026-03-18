@@ -90,17 +90,17 @@
         font-size:0.75rem; font-weight:700; text-transform:uppercase;
         letter-spacing:0.05em; color:var(--text-mid); flex-shrink:0;
     }
-    .field-checkboxes { display:flex; gap:8px; flex-wrap:wrap; flex:1; }
-    .field-check-item {
-        display:inline-flex; align-items:center; gap:5px; padding:5px 12px;
-        border-radius:20px; border:1.5px solid var(--border); cursor:pointer;
-        font-size:0.78rem; font-weight:600; color:var(--text-mid);
-        transition:all 0.18s; user-select:none;
+    
+    .fc-pill {
+        display:inline-flex; align-items:center; padding:4px 10px;
+        border-radius:6px; border:1px solid var(--border); cursor:pointer;
+        font-size:0.72rem; font-weight:600; color:var(--text-muted);
+        transition:all 0.15s; user-select:none; white-space:nowrap;
+        background:white; flex-shrink:0;
     }
-    .field-check-item:hover { border-color:var(--purple); color:var(--purple); background:var(--purple-light); }
-    .field-check-item input[type="checkbox"] { display:none; }
-    .field-check-item.selected { background:var(--purple); border-color:var(--purple); color:white; }
-    .field-check-item.selected:hover { background:var(--purple-dark); border-color:var(--purple-dark); color:white; }
+    .fc-pill:hover { border-color:#c4b5fd; color:#6d28d9; background:#faf5ff; }
+    .fc-pill input[type="checkbox"] { display:none; }
+    .fc-pill.selected { background:#f5f3ff; border-color:#c4b5fd; color:#6d28d9; font-weight:700; }
 
     .export-btns { display:flex; gap:8px; flex-shrink:0; }
     .btn-export {
@@ -115,6 +115,8 @@
 
     /* ── TABLE ── */
     .inventory-table { background:white; border-radius:16px; box-shadow:var(--shadow); overflow:hidden; }
+    .inventory-table .table-responsive { overflow-x: auto; -webkit-overflow-scrolling: touch; border-radius:16px; }
+    .inventory-table .table-scroll-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
     .table { margin:0; }
     .table thead { background:#f8fafc; }
     .table thead th {
@@ -229,52 +231,62 @@
             <h1 class="page-title">Master Inventory</h1>
             <p class="text-muted mb-0" style="font-size:0.95rem;">College-wide unassigned stock</p>
         </div>
-        <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
-            <button class="btn-assign" style="background:white; color:var(--purple); border:2px solid var(--purple);"
-                onclick="openStockFilter()">
-                <i class="bi bi-funnel me-2"></i>Check Stock
+        <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+            <button style="display:inline-flex;align-items:center;gap:5px;padding:7px 14px;
+                background:white;color:var(--purple);border:1.5px solid var(--purple);
+                border-radius:8px;font-size:0.8rem;font-weight:600;cursor:pointer;
+                transition:all 0.18s;" onclick="openStockFilter()">
+                <i class="bi bi-funnel" style="font-size:0.8rem;"></i> Check Stock
             </button>
-            <a href="{% url 'central_admin:assign_inventory' %}" class="btn-assign">
-                <i class="bi bi-arrow-right-circle me-2"></i>Assign Inventory
+            <button id="editModeBtn" style="display:inline-flex;align-items:center;gap:5px;padding:7px 14px;
+                background:white;color:#0d9488;border:1.5px solid #0d9488;
+                border-radius:8px;font-size:0.8rem;font-weight:600;cursor:pointer;
+                transition:all 0.18s;" onclick="toggleEditMode()">
+                <i class="bi bi-pencil-square" style="font-size:0.8rem;"></i> Edit
+            </button>
+            <a href="{% url 'central_admin:assign_inventory' %}" style="display:inline-flex;align-items:center;gap:5px;padding:7px 14px;
+                background:var(--purple);color:white;border:none;
+                border-radius:8px;font-size:0.8rem;font-weight:600;cursor:pointer;
+                text-decoration:none;transition:all 0.18s;">
+                <i class="bi bi-arrow-right-circle" style="font-size:0.8rem;"></i> Assign Inventory
             </a>
         </div>
     </div>
 
-    <!-- Field Selector + Export -->
-    <div class="field-selector-panel">
-        <span class="field-selector-label"><i class="bi bi-sliders me-1"></i>Columns</span>
-        <div class="field-checkboxes" id="fieldCheckboxes">
-            <label class="field-check-item selected" data-field="name">
-                <input type="checkbox" checked> <i class="bi bi-tag"></i> Item Name
-            </label>
-            <label class="field-check-item selected" data-field="category">
-                <input type="checkbox" checked> <i class="bi bi-grid"></i> Category
-            </label>
-            <label class="field-check-item selected" data-field="brand">
-                <input type="checkbox" checked> <i class="bi bi-bookmark"></i> Brand
-            </label>
-            <label class="field-check-item selected" data-field="stock">
-                <input type="checkbox" checked> <i class="bi bi-box-seam"></i> Stock
-            </label>
-            <label class="field-check-item selected" data-field="cost">
-                <input type="checkbox" checked> <i class="bi bi-currency-rupee"></i> Cost
-            </label>
-            <label class="field-check-item selected" data-field="assigned">
-                <input type="checkbox" checked> <i class="bi bi-building"></i> Assigned
-            </label>
-            <label class="field-check-item selected" data-field="archived">
-                <input type="checkbox" checked> <i class="bi bi-archive"></i> Archived
-            </label>
-            <label class="field-check-item selected" data-field="compstatus">
-                <input type="checkbox" checked> <i class="bi bi-activity"></i> Comp. Status
-            </label>
+   <!-- Field Selector + Export -->
+    <div style="background:white; border-radius:12px; box-shadow:var(--shadow);
+        padding:10px 16px; margin-bottom:20px;
+        display:flex; align-items:center; gap:12px; flex-wrap:nowrap; overflow-x:auto;">
 
+        <span style="font-size:0.7rem; font-weight:700; text-transform:uppercase;
+            letter-spacing:0.06em; color:var(--text-muted); flex-shrink:0; white-space:nowrap;">
+            <i class="bi bi-layout-three-columns me-1"></i>Columns
+        </span>
+
+        <div style="display:flex; gap:5px; flex-wrap:nowrap; overflow-x:auto;
+            scrollbar-width:none; flex:1;" id="fieldCheckboxes">
+            <label class="fc-pill selected" data-field="prodcode"><input type="checkbox" checked>Code</label>
+            <label class="fc-pill selected" data-field="name"><input type="checkbox" checked>Item</label>
+            <label class="fc-pill selected" data-field="category"><input type="checkbox" checked>Category</label>
+            <label class="fc-pill selected" data-field="brand"><input type="checkbox" checked>Brand</label>
+            <label class="fc-pill selected" data-field="stock"><input type="checkbox" checked>Stock</label>
+            <label class="fc-pill selected" data-field="cost"><input type="checkbox" checked>Cost</label>
+            <label class="fc-pill selected" data-field="assigned"><input type="checkbox" checked>Assigned</label>
+            <label class="fc-pill selected" data-field="archived"><input type="checkbox" checked>Archived</label>
+            <label class="fc-pill selected" data-field="compstatus"><input type="checkbox" checked>Comp. Status</label>
         </div>
-        <div class="export-btns">
-            <button class="btn-export btn-export-pdf" onclick="exportPDF()">
+
+        <div style="display:flex; gap:6px; flex-shrink:0;">
+            <button onclick="exportPDF()"
+                style="display:inline-flex;align-items:center;gap:4px;padding:5px 10px;
+                border-radius:6px;border:1px solid #fecaca;background:#fff5f5;
+                color:#dc2626;font-size:0.72rem;font-weight:600;cursor:pointer;">
                 <i class="bi bi-file-earmark-pdf"></i> PDF
             </button>
-            <button class="btn-export btn-export-excel" onclick="exportExcel()">
+            <button onclick="exportExcel()"
+                style="display:inline-flex;align-items:center;gap:4px;padding:5px 10px;
+                border-radius:6px;border:1px solid #bbf7d0;background:#f0fdf4;
+                color:#059669;font-size:0.72rem;font-weight:600;cursor:pointer;">
                 <i class="bi bi-file-earmark-excel"></i> Excel
             </button>
         </div>
@@ -283,9 +295,11 @@
     <!-- Table -->
     <div class="inventory-table">
         {% if items_data %}
-        <table class="table table-hover" id="inventoryTable">
+        <div class="table-responsive">
+        <table class="table table-hover" id="inventoryTable" style="min-width:1100px;">
             <thead>
                 <tr id="tableHeader">
+                    <th data-col="prodcode" style="min-width:130px;">Product Code</th>
                     <th data-col="name">Item Name</th>
                     <th data-col="category">Category</th>
                     <th data-col="brand">Brand</th>
@@ -319,15 +333,43 @@
             </thead>
             <tbody>
                 {% for data in items_data %}
-                <tr>
+                <tr data-item-id="{{ data.item.id }}" data-item-name="{{ data.item.item_name|escapejs }}">
+                    <td data-col="prodcode" class="text-center">
+                        <div class="prodcode-view">
+                            {% if data.item.product_code %}
+                                <span class="badge" style="background:#ede9fe;color:#5b21b6;font-size:0.8rem;padding:4px 10px;border-radius:8px;font-weight:700;cursor:pointer;"
+                                    onclick="openTagModal('{{ data.item.item_name|escapejs }}')">
+                                    {{ data.item.product_code }}
+                                </span>
+                            {% else %}
+                                <span class="text-muted" style="font-size:0.8rem;">—</span>
+                            {% endif %}
+                        </div>
+                        <div class="prodcode-edit" style="display:none;">
+                            <input type="text" class="prodcode-input form-control form-control-sm"
+                                value="{{ data.item.product_code|default:'' }}"
+                                maxlength="12" placeholder="e.g. SFSBEN"
+                                style="width:110px; display:inline-block; font-size:0.8rem;"
+                                onkeydown="if(event.key==='Enter') saveProductCode(this, {{ data.item.id }}, '{{ data.item.item_name|escapejs }}')">
+                            <div class="prodcode-err text-danger" style="font-size:0.7rem;display:none;"></div>
+                        </div>
+                    </td>
                     <td data-col="name">
                         <div class="item-name">{{ data.item.item_name }}</div>
                     </td>
                     <td data-col="category">
-                        <span class="badge bg-light text-dark border">{{ data.item.category.category_name }}</span>
+                        <span class="editable-view badge bg-light text-dark border">{{ data.item.category.category_name|default:"—" }}</span>
+                        <input type="text" class="editable-input form-control form-control-sm" style="display:none;width:120px;"
+                            value="{{ data.item.category.category_name|default:'' }}"
+                            onblur="saveItemField(this, {{ data.item.id }}, 'category')"
+                            onkeydown="if(event.key==='Enter') saveItemField(this, {{ data.item.id }}, 'category')">
                     </td>
                     <td data-col="brand">
-                        <span class="badge bg-light text-dark border">{{ data.item.brand.brand_name }}</span>
+                        <span class="editable-view badge bg-light text-dark border">{{ data.item.brand.brand_name|default:"—" }}</span>
+                        <input type="text" class="editable-input form-control form-control-sm" style="display:none;width:120px;"
+                            value="{{ data.item.brand.brand_name|default:'' }}"
+                            onblur="saveItemField(this, {{ data.item.id }}, 'brand')"
+                            onkeydown="if(event.key==='Enter') saveItemField(this, {{ data.item.id }}, 'brand')">
                     </td>
                     <td data-col="stock" class="text-center"
                         data-available="{{ data.available_stock }}"
@@ -338,9 +380,13 @@
                     <td data-col="cost" class="text-center"
                         data-cpu="{% if data.cpu %}{{ data.cpu }}{% else %}0{% endif %}"
                         data-total-cost="{{ data.total_cost }}">
-                        <span class="badge-count cost-display">
+                        <span class="badge-count cost-display editable-view">
                             {% if data.cpu %}₹{{ data.cpu }}{% else %}—{% endif %}
                         </span>
+                        <input type="number" step="0.01" class="editable-input form-control form-control-sm" style="display:none;width:100px;"
+                            value="{{ data.cpu|default:'' }}"
+                            onblur="saveItemField(this, {{ data.item.id }}, 'cost')"
+                            onkeydown="if(event.key==='Enter') saveItemField(this, {{ data.item.id }}, 'cost')">
                     </td>
                     <td data-col="assigned" class="text-center">
                         <button class="btn btn-sm btn-outline-primary"
@@ -366,6 +412,7 @@
                 {% endfor %}
             </tbody>
         </table>
+        </div>
         {% else %}
         <div class="empty-state">
             <i class="bi bi-inbox"></i>
@@ -376,6 +423,22 @@
             </a>
         </div>
         {% endif %}
+    </div>
+    <!-- Asset Tag Modal -->
+    <div class="modal fade" id="assetTagModal" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content" style="border-radius:16px; border:none;">
+                <div class="modal-header" style="background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);color:white;border-radius:16px 16px 0 0;">
+                    <h5 class="modal-title fw-bold"><i class="bi bi-upc-scan me-2"></i>Asset Tags — <span id="tagModalItemName"></span></h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body p-4">
+                    <div id="tagModalContent">
+                        <div class="text-center py-4"><div class="spinner-border text-primary"></div></div>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
 </div>
 
@@ -473,13 +536,13 @@
 
 // ── COLUMN VISIBILITY ──
 function getSelectedFields() {
-    return [...document.querySelectorAll('#fieldCheckboxes .field-check-item.selected')]
+    return [...document.querySelectorAll('#fieldCheckboxes .fc-pill.selected')]
         .map(el => el.dataset.field);
 }
 
 function applyFieldVisibility() {
     const selected = getSelectedFields();
-    const allCols = ['name','category','brand','stock','cost','assigned', 'archived','compstatus'];
+    const allCols = ['prodcode','name','category','brand','stock','cost','assigned', 'archived','compstatus'];
     allCols.forEach(col => {
         const show = selected.includes(col);
         document.querySelectorAll(`[data-col="${col}"]`).forEach(el => {
@@ -488,7 +551,7 @@ function applyFieldVisibility() {
     });
 }
 
-document.querySelectorAll('.field-check-item').forEach(label => {
+document.querySelectorAll('.fc-pill').forEach(label => {
     label.addEventListener('click', function(e) {
         e.preventDefault();
         this.classList.toggle('selected');
@@ -653,6 +716,7 @@ const allStockData = [
         name: "{{ data.item.item_name|escapejs }}",
         category: "{{ data.item.category.category_name|escapejs }}",
         brand: "{{ data.item.brand.brand_name|escapejs }}",
+        product_code: "{{ data.item.product_code|default:''|escapejs }}",
         available: {{ data.available_stock }},
         assigned: {{ data.assigned_count }},
         total: {{ data.total_items }},
@@ -725,6 +789,7 @@ function applyStockFilter() {
     const rows = filtered.map(d => `
         <tr>
             <td class="fw-semibold">${d.name}</td>
+            <td>${d.product_code ? `<span style="font-family:monospace;font-weight:700;color:#5b21b6;background:#ede9fe;padding:3px 8px;border-radius:6px;font-size:0.8rem;">${d.product_code}</span>` : '<span class="text-muted">—</span>'}</td>
             <td><span class="badge bg-light text-dark border">${d.category}</span></td>
             <td><span class="badge bg-light text-dark border">${d.brand}</span></td>
             <td class="text-center"><span class="badge-count badge-available">${d.available}</span></td>
@@ -776,7 +841,7 @@ function applyStockFilter() {
             <table class="table table-hover" style="font-size:0.88rem;">
                 <thead style="background:#f8fafc;">
                     <tr>
-                        <th>Item</th><th>Category</th><th>Brand</th>
+                        <th>Item</th><th>Product Code</th><th>Category</th><th>Brand</th>
                         <th class="text-center">Available</th>
                         <th class="text-center">Assigned</th>
                         <th class="text-center">Total</th>
@@ -900,6 +965,165 @@ function cycleCompStatus(e) {
         span.textContent = val;
         span.style.cssText = compStatusStyles[compStatusState];
     });
+}
+
+// ── EDIT MODE ──
+let editModeOn = false;
+
+function toggleEditMode() {
+    editModeOn = !editModeOn;
+    const btn = document.getElementById('editModeBtn');
+
+    if (editModeOn) {
+        btn.innerHTML = '<i class="bi bi-check-lg" style="font-size:0.8rem;"></i> Done Editing';
+        btn.style.background = '#0d9488';
+        btn.style.color = 'white';
+        btn.style.borderColor = '#0d9488';
+    } else {
+        // When closing edit mode, sync all view elements from current input values
+        document.querySelectorAll('.prodcode-input').forEach(input => {
+            const td = input.closest('td');
+            const viewEl = td.querySelector('.prodcode-view');
+            const code = input.value.trim();
+            const itemId = input.closest('tr').dataset.itemId;
+            const itemName = input.closest('tr').dataset.itemName;
+            if (code) {
+                viewEl.innerHTML = `<span class="badge" style="background:#ede9fe;color:#5b21b6;font-size:0.8rem;padding:4px 10px;border-radius:8px;font-weight:700;cursor:pointer;"
+                    onclick="openTagModal('${itemName.replace(/'/g, "\\'")}')">${code}</span>`;
+            } else {
+                viewEl.innerHTML = `<span class="text-muted" style="font-size:0.8rem;">—</span>`;
+            }
+        });
+
+        document.querySelectorAll('.editable-input').forEach(input => {
+            const viewEl = input.previousElementSibling;
+            if (!viewEl) return;
+            const val = input.value.trim();
+            const field = input.getAttribute('onblur') || '';
+            if (field.includes('cost')) {
+                viewEl.textContent = val ? '₹' + parseFloat(val).toLocaleString('en-IN') : '—';
+            } else {
+                if (val) viewEl.textContent = val;
+            }
+        });
+
+        btn.innerHTML = '<i class="bi bi-pencil-square" style="font-size:0.8rem;"></i> Edit';
+        btn.style.background = 'white';
+        btn.style.color = '#0d9488';
+        btn.style.borderColor = '#0d9488';
+    }
+
+    document.querySelectorAll('.prodcode-view').forEach(el => el.style.display = editModeOn ? 'none' : '');
+    document.querySelectorAll('.prodcode-edit').forEach(el => el.style.display = editModeOn ? 'block' : 'none');
+    document.querySelectorAll('.editable-view').forEach(el => el.style.display = editModeOn ? 'none' : '');
+    document.querySelectorAll('.editable-input').forEach(el => el.style.display = editModeOn ? 'inline-block' : 'none');
+}
+
+function saveProductCode(input, itemId, itemName) {
+    const code = input.value.trim();
+    const errEl = input.parentElement.querySelector('.prodcode-err');
+    const pattern = /^[\w\-\.@#&*()\s]{0,12}$/;
+    if (code && !pattern.test(code)) {
+        errEl.textContent = 'Invalid chars or too long (max 12)';
+        errEl.style.display = 'block';
+        return;
+    }
+    errEl.style.display = 'none';
+    input.disabled = true;
+
+    fetch('{% url "central_admin:save_product_code" %}', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCsrf() },
+        body: JSON.stringify({ item_id: itemId, product_code: code }),
+    })
+    .then(r => r.json())
+    .then(data => {
+        input.disabled = false;
+        if (data.success) {
+            // Update view pill
+            const viewEl = input.closest('td').querySelector('.prodcode-view');
+            if (code) {
+                viewEl.innerHTML = `<span class="badge" style="background:#ede9fe;color:#5b21b6;font-size:0.8rem;padding:4px 10px;border-radius:8px;font-weight:700;cursor:pointer;"
+                    onclick="openTagModal('${itemName.replace(/'/g, "\\'")}')">${code}</span>`;
+            } else {
+                viewEl.innerHTML = `<span class="text-muted" style="font-size:0.8rem;">—</span>`;
+            }
+            input.style.borderColor = '#059669';
+            setTimeout(() => { input.style.borderColor = ''; }, 1500);
+        } else {
+            errEl.textContent = data.error || 'Save failed';
+            errEl.style.display = 'block';
+        }
+    })
+    .catch(() => {
+        input.disabled = false;
+        errEl.textContent = 'Network error';
+        errEl.style.display = 'block';
+    });
+}
+
+function saveItemField(input, itemId, field) {
+    const val = input.value.trim();
+    const payload = { item_id: itemId };
+    payload[field] = val;
+
+    fetch('{% url "central_admin:save_item_edit" %}', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCsrf() },
+        body: JSON.stringify(payload),
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.success) {
+            const viewEl = input.previousElementSibling;
+            if (viewEl) {
+                if (field === 'cost') {
+                    viewEl.textContent = val ? '₹' + parseFloat(val).toLocaleString('en-IN') : '—';
+                    // Update data attrs for toggle
+                    input.closest('td').setAttribute('data-cpu', val || 0);
+                } else {
+                    viewEl.textContent = val || '—';
+                }
+            }
+            input.style.borderColor = '#059669';
+            setTimeout(() => { input.style.borderColor = ''; }, 1500);
+        }
+    });
+}
+
+// ── ASSET TAG MODAL ──
+function openTagModal(itemName) {
+    document.getElementById('tagModalItemName').textContent = itemName;
+    document.getElementById('tagModalContent').innerHTML =
+        '<div class="text-center py-4"><div class="spinner-border text-primary"></div></div>';
+    new bootstrap.Modal(document.getElementById('assetTagModal')).show();
+
+    fetch(`{% url 'central_admin:get_asset_tags' %}?item_name=${encodeURIComponent(itemName)}`)
+        .then(r => r.json())
+        .then(data => {
+            if (!data.tags || !data.tags.length) {
+                document.getElementById('tagModalContent').innerHTML =
+                    '<div class="text-center text-muted py-4">No asset tags generated yet.</div>';
+                return;
+            }
+            const rows = data.tags.map(t => `
+                <tr>
+                    <td><span style="font-family:monospace;font-weight:700;color:#5b21b6;">${t.tag_id}</span></td>
+                    <td>${t.assigned_room}</td>
+                </tr>`).join('');
+            document.getElementById('tagModalContent').innerHTML = `
+                <div class="table-responsive">
+                    <table class="table table-hover" style="font-size:0.88rem;">
+                        <thead style="background:#f8fafc;">
+                            <tr>
+                                <th>Asset Tag ID</th>
+                                <th>Assigned Room</th>
+                            </tr>
+                        </thead>
+                        <tbody>${rows}</tbody>
+                    </table>
+                </div>`;
+        });
 }
 </script>
 

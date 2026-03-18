@@ -128,22 +128,23 @@
         <table class="dense">
             <!-- Added colgroup to fix spacing in PDF -->
             <colgroup>
+                <col style="width:5%">
                 <col style="width:9%">
-                <col style="width:14%">
-                <col style="width:10%">
-                <col style="width:10%">
-                <col style="width:14%">
-                <col style="width:10%">
-                <col style="width:8%">
-                <col style="width:8%">
-                <col style="width:8%">
+                <col style="width:12%">
                 <col style="width:9%">
                 <col style="width:9%">
+                <col style="width:9%">
+                <col style="width:8%">
+                <col style="width:7%">
+                <col style="width:7%">
+                <col style="width:8%">
+                <col style="width:8%">
                 <col style="width:9%">
             </colgroup>
             <thead>
                 <tr>
                     <th class="nowrap">Sl No</th>
+                    <th>Product Code</th>
                     <th>Date of Entry</th>
                     <th>Item Description</th>
                     <th>Category</th>
@@ -160,6 +161,7 @@
                 {% for item in items %}
                 <tr>
                     <td>{{ forloop.counter }}</td>
+                    <td>{{ item.product_code|default:"—" }}</td>
                     <td>{{ item.created_on|date:"M. d, Y" }}</td>
                     <td>{{ item.item_description }}</td>
                     <td>{{ item.category.category_name }}</td>
@@ -184,7 +186,6 @@
             <thead>
                 <tr>
                     <th>System Name</th>
-                    <th>Status</th>
                     <th>Created On</th>
                     <th>Updated On</th>
                 </tr>
@@ -193,7 +194,6 @@
                 {% for system in systems %}
                 <tr>
                     <td>{{ system.system_name }}</td>
-                    <td>{{ system.status }}</td>
                     <td>{{ system.created_on }}</td>
                     <td>{{ system.updated_on }}</td>
                 </tr>

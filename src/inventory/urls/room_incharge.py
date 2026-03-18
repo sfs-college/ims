@@ -47,6 +47,8 @@ urlpatterns = [
     path('rooms/<slug:room_slug>/systems/<slug:system_slug>/update/', room_incharge.SystemUpdateView.as_view(), name='system_update'),
     # path('rooms/<slug:room_slug>/systems/<slug:system_slug>/delete/', room_incharge.SystemDeleteView.as_view(), name='system_delete'),
     path('rooms/<slug:room_slug>/systems/<slug:system_slug>/components/', room_incharge.SystemComponentListView.as_view(), name='system_component_list'),
+    path('rooms/<slug:room_slug>/systems/configuration/', room_incharge.SystemConfigurationView.as_view(), name='system_configuration'),
+    path('rooms/<slug:room_slug>/systems/<slug:system_slug>/configuration/', room_incharge.SystemConfigurationDetailView.as_view(), name='system_configuration_detail'),
     path('rooms/<slug:room_slug>/systems/<slug:system_slug>/components/create/', room_incharge.SystemComponentCreateView.as_view(), name='system_component_create'),
     path('rooms/<slug:room_slug>/systems/<slug:system_slug>/components/<slug:component_slug>/update/', room_incharge.SystemComponentUpdateView.as_view(), name='system_component_update'),
     # path('rooms/<slug:room_slug>/systems/<slug:system_slug>/components/<slug:component_slug>/delete/', room_incharge.SystemComponentDeleteView.as_view(), name='system_component_delete'),
@@ -98,6 +100,6 @@ urlpatterns = [
     path('<slug:room_slug>/items/stock-request/', room_incharge.SubmitStockRequestView.as_view(), name='submit_stock_request'),
     path('rooms/<slug:room_slug>/notifications/', room_incharge.RoomInchargeNotificationsView.as_view(), name='notifications'),
     path('<slug:room_slug>/issues/<int:pk>/close/', room_incharge.CloseIssueView.as_view(), name='close_issue'),
-
+    path('rooms/<slug:room_slug>/asset-tags/', room_incharge.get_room_asset_tags, name='get_room_asset_tags'),
 
 ]

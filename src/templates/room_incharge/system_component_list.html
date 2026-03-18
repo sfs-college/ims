@@ -4,54 +4,277 @@
 {% block title %} | System Components{% endblock title %}
 
 {% block style %}
-<link rel="stylesheet" href="{% static 'styles/inventory/room_incharge/system_component_list/style.css' %}">
+<link rel="stylesheet" href="{% static 'styles/inventory/room_incharge/system_list/style.css' %}">
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600&display=swap');
+  :root {
+    --accent: #6c63ff; --accent-lt: #a89dff;
+    --surface: #ffffff; --surface-2: #f8f8fc;
+    --border: #ebebf5; --text: #1a1a2e; --text-muted: #7c7c9a;
+  }
+  body { background: #f4f4fb; font-family: 'DM Sans', sans-serif; }
+
+  .page-header {
+    display:flex; justify-content:space-between; align-items:center; margin:28px 0 20px; flex-wrap:wrap; gap:12px;
+  }
+  .page-title { font-size:20px; font-weight:700; color:var(--text); margin:0; }
+  .page-subtitle { font-size:13px; color:var(--text-muted); margin:2px 0 0; }
+
+  .btn-back {
+    display:inline-flex; align-items:center; gap:5px;
+    color:var(--text-muted); font-size:13px; text-decoration:none; margin-bottom:8px;
+  }
+  .btn-back:hover { color:var(--accent); }
+
+  .btn-primary {
+    display:inline-flex; align-items:center; gap:6px; padding:9px 18px;
+    background:linear-gradient(135deg,var(--accent),#8b7cf8); color:white;
+    border:none; border-radius:9px; font-size:13.5px; font-weight:600;
+    text-decoration:none; cursor:pointer; transition:all 0.18s;
+    box-shadow:0 2px 12px rgba(108,99,255,0.3); font-family:'DM Sans',sans-serif;
+  }
+  .btn-primary:hover { transform:translateY(-1px); color:white; }
+
+  .btn-secondary {
+    display:inline-flex; align-items:center; gap:6px; padding:9px 18px;
+    background:white; color:#0d9488; border:1.5px solid #0d9488;
+    border-radius:9px; font-size:13.5px; font-weight:600;
+    cursor:pointer; transition:all 0.18s; font-family:'DM Sans',sans-serif;
+  }
+  .btn-secondary:hover { background:#0d9488; color:white; }
+
+  .data-card {
+    background:var(--surface); border-radius:14px; border:1px solid var(--border);
+    overflow:hidden; box-shadow:0 1px 8px rgba(0,0,0,0.04);
+  }
+  .data-table { width:100%; border-collapse:collapse; }
+  .data-table thead tr { background:var(--surface-2); border-bottom:1px solid var(--border); }
+  .data-table thead th {
+    padding:12px 18px; font-size:11.5px; font-weight:700;
+    text-transform:uppercase; letter-spacing:0.07em; color:var(--text-muted); white-space:nowrap;
+  }
+  .data-table tbody tr { border-bottom:1px solid var(--border); transition:background 0.14s; }
+  .data-table tbody tr:last-child { border-bottom:none; }
+  .data-table tbody tr:hover { background:#f9f8ff; }
+  .data-table tbody td { padding:13px 18px; font-size:14px; color:var(--text); vertical-align:middle; }
+
+  .status-pill {
+    display:inline-flex; align-items:center; gap:5px; padding:3px 10px;
+    border-radius:20px; font-size:11.5px; font-weight:700;
+  }
+  .status-active   { background:rgba(16,185,129,0.1); color:#059669; border:1px solid rgba(16,185,129,0.2); }
+  .status-inactive { background:#f1f5f9; color:#64748b; border:1px solid #e2e8f0; }
+  .status-maintenance { background:rgba(245,158,11,0.1); color:#d97706; border:1px solid rgba(245,158,11,0.2); }
+  .status-disposed { background:#fef2f2; color:#991b1b; border:1px solid #fecaca; }
+
+  .btn-action {
+    display:inline-flex; align-items:center; gap:5px; padding:6px 12px;
+    background:#f0f0ff; color:var(--accent); border:1px solid #ddd8ff;
+    border-radius:7px; font-size:12.5px; font-weight:600; text-decoration:none; transition:all 0.14s;
+  }
+  .btn-action:hover { background:var(--accent); color:white; border-color:var(--accent); }
+
+  .empty-state { text-align:center; padding:60px 24px; color:var(--text-muted); }
+  .empty-state .material-symbols-outlined { font-size:48px; opacity:0.25; display:block; margin-bottom:12px; }
+
+  /* Config panel */
+  .config-panel {
+    display:none; background:#f0fdf4; border:1.5px solid #a7f3d0;
+    border-radius:12px; padding:16px 20px; margin-bottom:20px;
+    position:relative;
+  }
+  .config-panel.show { display:block; }
+  .config-panel-title { font-size:12px; font-weight:700; text-transform:uppercase;
+    letter-spacing:0.05em; color:#065f46; margin-bottom:8px; }
+  .config-panel-text { font-size:14px; color:#1a1a2e; line-height:1.6; white-space:pre-wrap; }
+  .config-panel-meta { font-size:11px; color:#6b7280; margin-top:8px; }
+  .config-edit-area {
+    display:none; width:100%; padding:10px; border:1.5px solid #6c63ff;
+    border-radius:8px; font-size:13.5px; font-family:'DM Sans',sans-serif;
+    resize:vertical; box-sizing:border-box; outline:none; margin-top:8px;
+  }
+</style>
 {% endblock style %}
 
-{% block navbar %}
-{% include "room_incharge/navbar.html" %}
-{% endblock navbar %}
-
-{% block sidebar %}
-{% include "room_incharge/sidebar.html" %}
-{% endblock sidebar %}
+{% block navbar %}{% include "room_incharge/navbar.html" %}{% endblock %}
+{% block sidebar %}{% include "room_incharge/sidebar.html" %}{% endblock %}
 
 {% block content %}
-<p class="my-4"><a href="{% url 'room_incharge:system_list' room_slug=room_slug %}" class="btn btn-dark btn-sm">Back to System List</a></p>
+<a href="{% url 'room_incharge:system_list' room_slug=room_slug %}" class="btn-back">
+  <span class="material-symbols-outlined" style="font-size:16px">arrow_back</span> Back to Systems
+</a>
 
-<div class="d-flex justify-content-between align-items-center my-3">
-    <h3 class="my-3">{{ system.system_name }}</h3>
-    <div>
-        <a href="{% url 'room_incharge:system_component_create' room_slug=room_slug system_slug=system_slug %}"
-            class="btn btn-primary">Add component</a>
+<div class="page-header">
+  <div>
+    <h4 class="page-title">{{ system.system_name }}</h4>
+    <p class="page-subtitle">System Components</p>
+  </div>
+  <div style="display:flex;gap:10px;align-items:center;">
+    <button class="btn-secondary" onclick="toggleConfig()">
+      <span class="material-symbols-outlined" style="font-size:16px">settings</span>
+      View Configuration
+    </button>
+    <a href="{% url 'room_incharge:system_component_create' room_slug=room_slug system_slug=system_slug %}"
+       class="btn-primary">
+      <span class="material-symbols-outlined" style="font-size:16px">add</span>
+      Add Component
+    </a>
+  </div>
+</div>
+
+<!-- Configuration Panel -->
+<div class="config-panel" id="configPanel">
+  <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+    <div style="flex:1;">
+      <div class="config-panel-title">
+        <span class="material-symbols-outlined" style="font-size:14px;vertical-align:middle;margin-right:4px;">settings</span>
+        Configuration — {{ system.system_name }}
+      </div>
+      <div class="config-panel-text" id="configDisplay">Loading...</div>
+      <textarea class="config-edit-area" id="configEditArea" rows="4"></textarea>
+      <div class="config-panel-meta" id="configMeta"></div>
     </div>
+    <div style="display:flex;gap:8px;margin-left:16px;flex-shrink:0;">
+      <button id="editConfigBtn" onclick="startEditConfig()"
+          style="display:inline-flex;align-items:center;gap:4px;padding:5px 12px;
+          background:white;color:#0d9488;border:1px solid #0d9488;border-radius:7px;
+          font-size:12px;font-weight:600;cursor:pointer;">
+        <span class="material-symbols-outlined" style="font-size:14px;">edit</span> Edit
+      </button>
+      <button id="saveConfigBtn" onclick="saveEditConfig()"
+          style="display:none;align-items:center;gap:4px;padding:5px 12px;
+          background:#0d9488;color:white;border:none;border-radius:7px;
+          font-size:12px;font-weight:600;cursor:pointer;">
+        <span class="material-symbols-outlined" style="font-size:14px;">check</span> Save
+      </button>
+    </div>
+  </div>
 </div>
-<div class="table-responsive">
-    <table class="table">
-        <thead>
-            <tr>
-                <th scope="col" class="text-muted">Sno.</th>
-                <th scope="col" class="text-muted">Component Type</th>
-                <th scope="col" class="text-muted">Component Item</th>
-                <th scope="col" class="text-muted">Serial Number</th>
-                <th scope="col" class="text-muted">Status</th>
-                <th scope="col" class="text-muted">Actions</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for component in components %}
-            <tr>
-                <td>{{ forloop.counter }}</td>
-                <td>{{ component.get_component_type_display }}</td>
-                <td>{{ component.component_item.item_name }}</td>
-                <td>{{ component.serial_number }}</td>
-                <td>{{ component.get_status_display }}</td>
-                <td>
-                    <a href="{% url 'room_incharge:system_component_update' room_slug=room_slug system_slug=system_slug component_slug=component.slug %}" class="btn btn-outline-dark btn-sm">Edit</a>
-                    {% comment %} <a href="{% url 'room_incharge:system_component_delete' room_slug=room_slug system_slug=system_slug component_slug=component.slug %}" class="btn btn-danger btn-sm">Delete</a> {% endcomment %}
-                </td>
-            </tr>
-            {% endfor %}
-        </tbody>
-    </table>
+
+<div class="data-card">
+  {% if components %}
+  <table class="data-table">
+    <thead>
+      <tr>
+        <th>No.</th>
+        <th>Component Type</th>
+        <th>Component Item</th>
+        <th>Serial Number</th>
+        <th>Status</th>
+        <th>Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for component in components %}
+      <tr>
+        <td style="color:var(--text-muted);font-size:13px;">{{ forloop.counter }}</td>
+        <td>{{ component.get_component_type_display }}</td>
+        <td style="font-weight:600;">{{ component.component_item.item_name }}</td>
+        <td style="font-family:monospace;font-size:13px;">{{ component.serial_number }}</td>
+        <td>
+          <span class="status-pill
+            {% if component.status == 'active' %}status-active
+            {% elif component.status == 'inactive' %}status-inactive
+            {% elif component.status == 'under_maintenance' %}status-maintenance
+            {% else %}status-disposed{% endif %}">
+            {{ component.get_status_display }}
+          </span>
+        </td>
+        <td>
+          <div style="display:flex;gap:6px;">
+            <a href="{% url 'room_incharge:system_component_update' room_slug=room_slug system_slug=system_slug component_slug=component.slug %}"
+               class="btn-action">
+              <span class="material-symbols-outlined" style="font-size:14px">edit</span> Edit
+            </a>
+            <a href="{% url 'room_incharge:system_component_archive' room_slug=room_slug system_slug=system_slug component_slug=component.slug %}"
+               class="btn-action" style="color:#e11d48;border-color:#fecaca;background:#fff5f5;">
+              <span class="material-symbols-outlined" style="font-size:14px">archive</span> Archive
+            </a>
+          </div>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <div class="empty-state">
+    <span class="material-symbols-outlined">memory</span>
+    <p>No components added yet.</p>
+  </div>
+  {% endif %}
 </div>
+
+<script>
+let configLoaded = false;
+let configPanelOpen = false;
+
+function toggleConfig() {
+    const panel = document.getElementById('configPanel');
+    configPanelOpen = !configPanelOpen;
+    panel.classList.toggle('show', configPanelOpen);
+    if (configPanelOpen && !configLoaded) loadConfig();
+}
+
+function loadConfig() {
+    fetch('{% url "room_incharge:system_configuration_detail" room_slug=room_slug system_slug=system_slug %}')
+    .then(r => r.json())
+    .then(data => {
+        configLoaded = true;
+        const display = document.getElementById('configDisplay');
+        const meta = document.getElementById('configMeta');
+        const editArea = document.getElementById('configEditArea');
+        if (data.configuration) {
+            display.textContent = data.configuration;
+            editArea.value = data.configuration;
+            meta.textContent = `Last updated: ${data.updated_on}`;
+        } else {
+            display.innerHTML = '<span style="color:#94a3b8;font-style:italic;">No configuration added yet. Click Edit to add one.</span>';
+            editArea.value = '';
+            meta.textContent = '';
+        }
+    })
+    .catch(() => {
+        document.getElementById('configDisplay').textContent = 'Failed to load configuration.';
+    });
+}
+
+function startEditConfig() {
+    document.getElementById('configDisplay').style.display = 'none';
+    document.getElementById('configEditArea').style.display = 'block';
+    document.getElementById('configEditArea').focus();
+    document.getElementById('editConfigBtn').style.display = 'none';
+    document.getElementById('saveConfigBtn').style.display = 'inline-flex';
+}
+
+function saveEditConfig() {
+    const text = document.getElementById('configEditArea').value.trim();
+    const csrf = document.cookie.split(';').find(x => x.trim().startsWith('csrftoken='));
+    const csrfToken = csrf ? decodeURIComponent(csrf.trim().split('=')[1]) : '';
+    const btn = document.getElementById('saveConfigBtn');
+    btn.textContent = 'Saving...';
+
+    fetch('{% url "room_incharge:system_configuration" room_slug=room_slug %}', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json', 'X-CSRFToken': csrfToken},
+        body: JSON.stringify({
+            system_slugs: ['{{ system_slug }}'],
+            configuration: text
+        }),
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.success) {
+            document.getElementById('configDisplay').textContent = text || '';
+            document.getElementById('configDisplay').style.display = 'block';
+            document.getElementById('configEditArea').style.display = 'none';
+            document.getElementById('editConfigBtn').style.display = 'inline-flex';
+            document.getElementById('saveConfigBtn').style.display = 'none';
+            document.getElementById('saveConfigBtn').innerHTML = '<span class="material-symbols-outlined" style="font-size:14px;">check</span> Save';
+            if (!text) {
+                document.getElementById('configDisplay').innerHTML = '<span style="color:#94a3b8;font-style:italic;">No configuration added yet. Click Edit to add one.</span>';
+            }
+        }
+    });
+}
+</script>
 {% endblock content %}
