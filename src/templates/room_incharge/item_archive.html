@@ -1,10 +1,145 @@
 {% extends "sidebar_base.html" %}
 {% load static %}
 
-{% block title %} | Create Room{% endblock title %}
+{% block title %} | Archive Item{% endblock title %}
 
 {% block style %}
 <link rel="stylesheet" href="{% static 'styles/inventory/room_incharge/forms_style/style.css' %}">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --rose:      #e11d48;
+    --rose-dim:  rgba(225,29,72,0.08);
+    --amber:     #f59e0b;
+    --surface:   #ffffff;
+    --border:    #f0f0f0;
+    --text:      #111827;
+    --text-muted:#9ca3af;
+    --font:      'Sora', sans-serif;
+  }
+  *, *::before, *::after { box-sizing: border-box; }
+  body { background: #f7f7f9; font-family: var(--font); -webkit-font-smoothing: antialiased; }
+
+  .arc-breadcrumb {
+    display: flex; align-items: center; gap: 6px;
+    margin: 28px 0 22px; font-size: 12.5px; font-weight: 500; color: var(--text-muted);
+  }
+  .arc-breadcrumb a { color: var(--text-muted); text-decoration: none; transition: color .15s; }
+  .arc-breadcrumb a:hover { color: var(--rose); }
+  .arc-breadcrumb .sep { font-size: 11px; opacity: .4; }
+  .arc-breadcrumb .current { color: var(--rose); font-weight: 600; }
+
+  .arc-card {
+    background: var(--surface); border-radius: 20px;
+    border: 1px solid var(--border); box-shadow: 0 2px 24px rgba(0,0,0,0.05);
+    overflow: hidden; max-width: 620px;
+  }
+
+  .arc-header {
+    padding: 28px 32px 22px; border-bottom: 1px solid var(--border);
+    background: linear-gradient(135deg, #fff5f6 0%, #fff 60%);
+    position: relative; overflow: hidden;
+  }
+  .arc-header::before {
+    content: ''; position: absolute; top: -30px; right: -30px;
+    width: 130px; height: 130px; border-radius: 50%;
+    background: radial-gradient(circle, rgba(225,29,72,0.07) 0%, transparent 70%);
+    pointer-events: none;
+  }
+  .arc-header-top { display: flex; align-items: center; gap: 14px; }
+  .arc-icon {
+    width: 42px; height: 42px; border-radius: 12px;
+    background: linear-gradient(135deg, #fecdd3, #fda4af);
+    display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+    box-shadow: 0 4px 14px rgba(225,29,72,0.2);
+  }
+  .arc-icon .material-symbols-outlined { font-size: 20px; color: var(--rose); }
+  .arc-title { font-size: 18px; font-weight: 800; color: var(--text); letter-spacing: -0.4px; margin: 0; }
+  .arc-subtitle { font-size: 12.5px; color: var(--text-muted); margin: 4px 0 0; }
+
+  .arc-warning {
+    display: flex; align-items: flex-start; gap: 10px; padding: 12px 16px;
+    background: rgba(245,158,11,0.08); border: 1px solid rgba(245,158,11,0.25);
+    border-radius: 10px; margin: 22px 32px 0;
+    font-size: 12.5px; color: #92400e; line-height: 1.55;
+  }
+  .arc-warning .material-symbols-outlined { font-size: 16px; color: var(--amber); flex-shrink: 0; margin-top: 1px; }
+
+  .arc-body { padding: 28px 32px 32px; }
+  .arc-field { margin-bottom: 22px; }
+
+  .arc-label {
+    display: block; font-size: 11px; font-weight: 700;
+    letter-spacing: 0.07em; text-transform: uppercase;
+    color: var(--text-muted); margin-bottom: 8px;
+  }
+  .arc-label .req { color: var(--rose); margin-left: 2px; }
+
+  .arc-select, .arc-input, .arc-textarea {
+    width: 100%; padding: 11px 16px;
+    border: 1.5px solid var(--border); border-radius: 11px;
+    font-size: 13.5px; font-family: var(--font); font-weight: 500;
+    color: var(--text); background: white; outline: none;
+    transition: border-color .18s, box-shadow .18s;
+  }
+  .arc-select:focus, .arc-input:focus, .arc-textarea:focus {
+    border-color: var(--rose); box-shadow: 0 0 0 3px var(--rose-dim);
+  }
+  .arc-select {
+    appearance: none; -webkit-appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%239ca3af' stroke-width='2.5'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+    background-repeat: no-repeat; background-position: right 14px center;
+    padding-right: 40px; cursor: pointer;
+  }
+  .arc-textarea { resize: vertical; min-height: 96px; line-height: 1.6; }
+  .arc-input::placeholder, .arc-textarea::placeholder { color: var(--text-muted); }
+
+  .arc-error {
+    font-size: 12px; color: var(--rose); font-weight: 500;
+    margin-top: 6px; display: flex; align-items: center; gap: 5px;
+  }
+  .arc-error::before {
+    content: '!'; display: inline-flex; align-items: center; justify-content: center;
+    width: 14px; height: 14px; border-radius: 50%;
+    background: var(--rose); color: white; font-size: 9px; font-weight: 800; flex-shrink: 0;
+  }
+
+  .arc-divider { height: 1px; background: var(--border); margin: 24px 0; }
+  .arc-actions { display: flex; gap: 10px; align-items: center; }
+
+  .btn-archive {
+    display: inline-flex; align-items: center; gap: 7px; padding: 11px 22px;
+    background: linear-gradient(135deg, #e11d48, #be123c); color: white;
+    border: none; border-radius: 11px; font-size: 13.5px; font-weight: 700;
+    font-family: var(--font); cursor: pointer; transition: all .18s;
+    box-shadow: 0 3px 14px rgba(225,29,72,0.3);
+  }
+  .btn-archive:hover { transform: translateY(-1px); box-shadow: 0 5px 20px rgba(225,29,72,0.4); }
+  .btn-archive .material-symbols-outlined { font-size: 17px; }
+
+  .btn-cancel {
+    display: inline-flex; align-items: center; gap: 6px; padding: 11px 18px;
+    background: white; color: var(--text-muted); border: 1.5px solid var(--border);
+    border-radius: 11px; font-size: 13.5px; font-weight: 600;
+    font-family: var(--font); text-decoration: none; cursor: pointer; transition: all .18s;
+  }
+  .btn-cancel:hover { border-color: #d1d5db; color: var(--text); background: #f9f9f9; }
+  .btn-cancel .material-symbols-outlined { font-size: 16px; }
+
+  @media (max-width: 600px) {
+    .arc-header, .arc-body { padding-left: 20px; padding-right: 20px; }
+    .arc-warning { margin-left: 20px; margin-right: 20px; }
+    .arc-card { border-radius: 16px; }
+    .arc-actions { flex-direction: column-reverse; }
+    .btn-archive, .btn-cancel { width: 100%; justify-content: center; }
+  }
+  @media (max-width: 400px) {
+    .arc-header, .arc-body { padding-left: 14px; padding-right: 14px; }
+    .arc-warning { margin-left: 14px; margin-right: 14px; }
+    .arc-title { font-size: 16px; }
+  }
+</style>
 {% endblock style %}
 
 {% block navbar %}
@@ -16,11 +151,118 @@
 {% endblock sidebar %}
 
 {% block content %}
-    <h1>Archive Item</h1>
+
+<nav class="arc-breadcrumb">
+  <a href="{% url 'room_incharge:item_list' room_slug=room_slug %}">Items</a>
+  <span class="sep">›</span>
+  <span class="current">Archive Item</span>
+</nav>
+
+<div class="arc-card">
+
+  <div class="arc-header">
+    <div class="arc-header-top">
+      <div class="arc-icon">
+        <span class="material-symbols-outlined">inventory</span>
+      </div>
+      <div>
+        <h4 class="arc-title">Archive Item</h4>
+        <p class="arc-subtitle">Remove this item from active inventory and log it as archived.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="arc-warning">
+    <span class="material-symbols-outlined">warning</span>
+    <span>Archiving reduces the item's available stock count. Please confirm the quantity and reason before proceeding.</span>
+  </div>
+
+  <div class="arc-body">
     <form method="post">
-        {% csrf_token %}
-        {{ form.as_p | safe}}
-        <button type="submit" class="btn btn-primary">Archive Item</button>
+      {% csrf_token %}
+
+      <!-- Archive Type -->
+      <div class="arc-field">
+        <label class="arc-label" for="{{ form.archive_type.id_for_label }}">
+          Archive Type <span class="req">*</span>
+        </label>
+        <select
+          name="{{ form.archive_type.html_name }}"
+          id="{{ form.archive_type.id_for_label }}"
+          class="arc-select"
+          required
+        >
+          {% for value, display in form.archive_type.field.choices %}
+            <option value="{{ value }}"
+              {% if form.archive_type.value == value %}selected{% endif %}
+            >{{ display }}</option>
+          {% endfor %}
+        </select>
+        {% for error in form.archive_type.errors %}
+          <div class="arc-error">{{ error }}</div>
+        {% endfor %}
+      </div>
+
+      <!-- Remark -->
+      <div class="arc-field">
+        <label class="arc-label" for="{{ form.remark.id_for_label }}">
+          Remark <span class="req">*</span>
+        </label>
+        <textarea
+          name="{{ form.remark.html_name }}"
+          id="{{ form.remark.id_for_label }}"
+          class="arc-textarea"
+          placeholder="Describe the reason for archiving this item…"
+          required
+        >{{ form.remark.value|default:'' }}</textarea>
+        {% for error in form.remark.errors %}
+          <div class="arc-error">{{ error }}</div>
+        {% endfor %}
+      </div>
+
+      <!-- Count -->
+      <div class="arc-field">
+        <label class="arc-label" for="{{ form.count.id_for_label }}">
+          Count <span class="req">*</span>
+        </label>
+        <input
+          type="number"
+          name="{{ form.count.html_name }}"
+          id="{{ form.count.id_for_label }}"
+          class="arc-input"
+          min="1"
+          value="{{ form.count.value|default:'' }}"
+          placeholder="Enter quantity to archive…"
+          required
+        >
+        {% for error in form.count.errors %}
+          <div class="arc-error">{{ error }}</div>
+        {% endfor %}
+      </div>
+
+      {% if form.non_field_errors %}
+        <div style="margin-bottom:16px;">
+          {% for error in form.non_field_errors %}
+            <div class="arc-error">{{ error }}</div>
+          {% endfor %}
+        </div>
+      {% endif %}
+
+      <div class="arc-divider"></div>
+
+      <div class="arc-actions">
+        <button type="submit" class="btn-archive">
+          <span class="material-symbols-outlined">inventory</span>
+          Archive Item
+        </button>
+        <a href="{% url 'room_incharge:item_list' room_slug=room_slug %}" class="btn-cancel">
+          <span class="material-symbols-outlined">arrow_back</span>
+          Cancel
+        </a>
+      </div>
     </form>
+  </div>
+
+</div>
 
 {% endblock content %}

@@ -503,10 +503,19 @@ def aura_generate_report_pdf(request):
                 assigned = obj.assigned_to.user.get_full_name() if obj.assigned_to else "N/A"
                 detail = f"Email: {obj.reporter_email}<br/>Ticket ID: {obj.ticket_id}<br/>Status: {obj.status}<br/>Room: {obj.room.room_name}<br/>Assigned: {assigned}"
             elif model_name == 'items':
+                from inventory.models import AssetTag
                 label = f"{obj.item_name}"
-                detail = f"Room: {obj.room.room_name}<br/>Qty: {obj.total_count}<br/>Available: {obj.available_count}<br/>In Use: {obj.in_use}"
                 room_name = obj.room.room_name if obj.room else 'Master Inventory'
                 prod_code = obj.product_code or '—'
+                tag_range = '—'
+                if obj.room and obj.product_code:
+                    tags = AssetTag.objects.filter(
+                        item_name=obj.item_name,
+                        assigned_room=obj.room
+                    ).order_by('tag_id')
+                    if tags.exists():
+                        tag_range = f"{tags.first().tag_id} → {tags.last().tag_id}"
+                detail = f"Room: {room_name}<br/>Product Code: {prod_code}<br/>Asset Tags: {tag_range}<br/>Qty: {obj.total_count}<br/>Available: {obj.available_count}<br/>In Use: {obj.in_use}"
             elif model_name == 'purchases':
                 label = f"{obj.purchase_id or 'Pending ID'}<br/>Room: {obj.room.room_name if obj.room else 'No Room'}"
                 item_name = obj.item.item_name if obj.item else 'N/A'
@@ -1344,10 +1353,19 @@ def aura_generate_report_excel(request):
                 detail = f"Email: {obj.reporter_email}\nTicket ID: {obj.ticket_id}\nStatus: {obj.status}\nRoom: {obj.room.room_name}\nAssigned: {assigned}"
                 
             elif model_name == 'items':
+                from inventory.models import AssetTag
                 label = obj.item_name
-                detail = f"Room: {obj.room.room_name}\nQty: {obj.total_count}\nAvailable: {obj.available_count}\nIn Use: {obj.in_use}"
                 room_name = obj.room.room_name if obj.room else 'Master Inventory'
                 prod_code = obj.product_code or '—'
+                tag_range = '—'
+                if obj.room and obj.product_code:
+                    tags = AssetTag.objects.filter(
+                        item_name=obj.item_name,
+                        assigned_room=obj.room
+                    ).order_by('tag_id')
+                    if tags.exists():
+                        tag_range = f"{tags.first().tag_id} → {tags.last().tag_id}"
+                detail = f"Room: {room_name}\nProduct Code: {prod_code}\nAsset Tags: {tag_range}\nQty: {obj.total_count}\nAvailable: {obj.available_count}\nIn Use: {obj.in_use}"
 
             elif model_name == 'purchases':
                 label = f"{obj.purchase_id or 'Pending ID'}<br/>Room: {obj.room.room_name if obj.room else 'No Room'}"
@@ -1367,7 +1385,7 @@ def aura_generate_report_excel(request):
         except Exception as e:
             detail = f"Data Error: {str(e)}"
         
-        # Append row
+        # Append row — uniform 3 columns for all modules
         ws.append([obj.id, label, detail])
     
     # Style data rows
@@ -1378,7 +1396,7 @@ def aura_generate_report_excel(request):
     # Set column widths
     ws.column_dimensions['A'].width = 8   # ID
     ws.column_dimensions['B'].width = 40  # Label
-    ws.column_dimensions['C'].width = 60  # Details
+    ws.column_dimensions['C'].width = 60  # Details / Metadata
     
     # Set row heights for better readability
     for row in range(2, ws.max_row + 1):
@@ -1561,50 +1579,50 @@ class MasterInventoryListView(LoginRequiredMixin, CentralAdminRequiredMixin, Tem
             is_listed=True
         ).select_related('category', 'brand').order_by('item_name')
 
+        # ── Bulk aggregations (4 queries total, no per-item DB hits) ──
+        assigned_map = {
+            row['item_name']: row['total'] or 0
+            for row in Item.objects.filter(organisation=org, room__isnull=False)
+            .values('item_name').annotate(total=models.Sum('total_count'))
+        }
+        archived_map = {
+            row['item_name']: row['total'] or 0
+            for row in Item.objects.filter(organisation=org)
+            .values('item_name').annotate(total=models.Sum('archived_count'))
+        }
+        sc_map = {}
+        for row in (
+            SC.objects.filter(
+                component_item__organisation=org,
+                component_item__room__isnull=False,
+                status__in=['inactive', 'under_maintenance', 'disposed'],
+            )
+            .values('component_item__item_name', 'status')
+            .annotate(cnt=models.Count('id'))
+        ):
+            sc_map.setdefault(row['component_item__item_name'], {})[row['status']] = row['cnt']
+
         items_data = []
         for item in master_items:
-            assigned = Item.objects.filter(
-                organisation=org,
-                item_name=item.item_name,
-                room__isnull=False
-            ).aggregate(total=models.Sum('total_count'))['total'] or 0
-
+            name = item.item_name
+            assigned = assigned_map.get(name, 0)
             available = item.total_count
             total_items = available + assigned
             cpu = item.cost or 0
-            total_cost = float(cpu) * total_items if cpu else 0
-
-            room_items = Item.objects.filter(
-                organisation=org,
-                item_name=item.item_name,
-                room__isnull=False
-            )
-            inactive_count = 0
-            under_maintenance_count = 0
-            disposed_count = 0
-            for room_item in room_items:
-                comps = SC.objects.filter(component_item=room_item)
-                inactive_count += comps.filter(status='inactive').count()
-                under_maintenance_count += comps.filter(status='under_maintenance').count()
-                disposed_count += comps.filter(status='disposed').count()
-
-
+            sc = sc_map.get(name, {})
             items_data.append({
                 'item': item,
                 'available_stock': available,
                 'assigned_count': assigned,
                 'total_items': total_items,
                 'cpu': cpu,
-                'total_cost': round(total_cost, 2),
-                'archived_count': Item.objects.filter(
-                    organisation=org,
-                    item_name=item.item_name,
-                ).aggregate(total=models.Sum('archived_count'))['total'] or 0,
-                'inactive_count': inactive_count,
-                'under_maintenance_count': under_maintenance_count,
-                'disposed_count': disposed_count,
+                'total_cost': round(float(cpu) * total_items, 2) if cpu else 0,
+                'archived_count': archived_map.get(name, 0),
+                'inactive_count': sc.get('inactive', 0),
+                'under_maintenance_count': sc.get('under_maintenance', 0),
+                'disposed_count': sc.get('disposed', 0),
             })
-            
+
         context['items_data'] = items_data
         context['total_items'] = len(items_data)
         return context
@@ -1624,6 +1642,29 @@ def master_inventory_export_pdf(request):
         room__isnull=True,
         is_listed=True
     ).select_related('category', 'brand').order_by('item_name')
+
+    # ── Bulk aggregations — same pattern as MasterInventoryListView ──
+    assigned_map = {
+        row['item_name']: row['total'] or 0
+        for row in Item.objects.filter(organisation=org, room__isnull=False)
+        .values('item_name').annotate(total=models.Sum('total_count'))
+    }
+    archived_map = {
+        row['item_name']: row['total'] or 0
+        for row in Item.objects.filter(organisation=org)
+        .values('item_name').annotate(total=models.Sum('archived_count'))
+    }
+    sc_map = {}
+    for row in (
+        SC.objects.filter(
+            component_item__organisation=org,
+            component_item__room__isnull=False,
+            status__in=['inactive', 'under_maintenance', 'disposed'],
+        )
+        .values('component_item__item_name', 'status')
+        .annotate(cnt=models.Count('id'))
+    ):
+        sc_map.setdefault(row['component_item__item_name'], {})[row['status']] = row['cnt']
 
     buffer = io.BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=landscape(A4),
@@ -1665,30 +1706,17 @@ def master_inventory_export_pdf(request):
     table_data = [headers]
 
     for item in master_items:
-        assigned = Item.objects.filter(
-            organisation=org,
-            item_name=item.item_name,
-            room__isnull=False
-        ).aggregate(total=models.Sum('total_count'))['total'] or 0
-
+        name = item.item_name
+        assigned = assigned_map.get(name, 0)
         available = item.total_count
         total_items = available + assigned
         cpu = item.cost or 0
         total_cost = (cpu * total_items) if cpu else 0
-
-        room_items_pdf = Item.objects.filter(
-            organisation=org,
-            item_name=item.item_name,
-            room__isnull=False
-        )
-        inactive_c = 0
-        under_maintenance_c = 0
-        disposed_c = 0
-        for ri in room_items_pdf:
-            comps = SC.objects.filter(component_item=ri)
-            inactive_c += comps.filter(status='inactive').count()
-            under_maintenance_c += comps.filter(status='under_maintenance').count()
-            disposed_c += comps.filter(status='disposed').count()
+        archived_c = archived_map.get(name, 0)
+        sc = sc_map.get(name, {})
+        inactive_c = sc.get('inactive', 0)
+        under_maintenance_c = sc.get('under_maintenance', 0)
+        disposed_c = sc.get('disposed', 0)
 
         row = []
         if 'prodcode' in selected_text:
@@ -1699,11 +1727,6 @@ def master_inventory_export_pdf(request):
             row.append(Paragraph(item.category.category_name, styles['Normal']))
         if 'brand' in selected_text:
             row.append(Paragraph(item.brand.brand_name, styles['Normal']))
-
-        archived_c = Item.objects.filter(
-            organisation=org,
-            item_name=item.item_name,
-        ).aggregate(total=models.Sum('archived_count'))['total'] or 0
 
         row += [
             Paragraph(str(assigned), styles['Normal']),
@@ -1798,43 +1821,47 @@ def master_inventory_export_excel(request):
 
     ws.row_dimensions[1].height = 30
 
-    for item in master_items:
-        assigned = Item.objects.filter(
-            organisation=org,
-            item_name=item.item_name,
-            room__isnull=False
-        ).aggregate(total=models.Sum('total_count'))['total'] or 0
+    # ── Bulk aggregations — no per-item DB hits ──
+    assigned_map_xl = {
+        row['item_name']: row['total'] or 0
+        for row in Item.objects.filter(organisation=org, room__isnull=False)
+        .values('item_name').annotate(total=models.Sum('total_count'))
+    }
+    archived_map_xl = {
+        row['item_name']: row['total'] or 0
+        for row in Item.objects.filter(organisation=org)
+        .values('item_name').annotate(total=models.Sum('archived_count'))
+    }
+    sc_map_xl = {}
+    for row in (
+        SC.objects.filter(
+            component_item__organisation=org,
+            component_item__room__isnull=False,
+            status__in=['inactive', 'under_maintenance', 'disposed'],
+        )
+        .values('component_item__item_name', 'status')
+        .annotate(cnt=models.Count('id'))
+    ):
+        sc_map_xl.setdefault(row['component_item__item_name'], {})[row['status']] = row['cnt']
 
+    for item in master_items:
+        name = item.item_name
+        assigned = assigned_map_xl.get(name, 0)
         available = item.total_count
         total_items = available + assigned
         cpu = float(item.cost) if item.cost else 0
         total_cost = round(cpu * total_items, 2)
-
-        room_items_xl = Item.objects.filter(
-            organisation=org,
-            item_name=item.item_name,
-            room__isnull=False
-        )
-        inactive_xl = 0
-        under_maintenance_xl = 0
-        disposed_xl = 0
-        for ri in room_items_xl:
-            comps = SC.objects.filter(component_item=ri)
-            inactive_xl += comps.filter(status='inactive').count()
-            under_maintenance_xl += comps.filter(status='under_maintenance').count()
-            disposed_xl += comps.filter(status='disposed').count()
+        archived_xl = archived_map_xl.get(name, 0)
+        sc = sc_map_xl.get(name, {})
+        inactive_xl = sc.get('inactive', 0)
+        under_maintenance_xl = sc.get('under_maintenance', 0)
+        disposed_xl = sc.get('disposed', 0)
 
         row = []
         if 'prodcode' in selected_text:    row.append(item.product_code or '—')
-        if 'name' in selected_text:     row.append(item.item_name)
-        if 'category' in selected_text: row.append(item.category.category_name)
-        if 'brand' in selected_text:    row.append(item.brand.brand_name)
-
-        archived_xl = Item.objects.filter(
-            organisation=org,
-            item_name=item.item_name,
-        ).aggregate(total=models.Sum('archived_count'))['total'] or 0
-
+        if 'name' in selected_text:        row.append(item.item_name)
+        if 'category' in selected_text:    row.append(item.category.category_name)
+        if 'brand' in selected_text:       row.append(item.brand.brand_name)
 
         row += [assigned, available, total_items, cpu, total_cost, archived_xl,
                 inactive_xl, under_maintenance_xl, disposed_xl]

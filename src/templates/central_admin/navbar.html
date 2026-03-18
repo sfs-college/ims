@@ -1,26 +1,157 @@
 {% load static %}
 
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600&display=swap');
+
+  :root {
+    --nb-h: 58px;
+    --nb-bg: #ffffff;
+    --nb-border: rgba(0, 0, 0, 0.07);
+    --nb-shadow: 0 1px 0 rgba(0,0,0,0.06), 0 2px 12px rgba(0,0,0,0.04);
+    --nb-accent: #6c63ff;
+  }
+
+  /* ── Fixed topbar shell ──────────────────────────────────────────── */
+  .header {
+    position: fixed;
+    top: 0; left: 0; right: 0;
+    height: var(--nb-h);
+    background: var(--nb-bg);
+    border-bottom: 1px solid var(--nb-border);
+    box-shadow: var(--nb-shadow);
+    z-index: 1001;
+    font-family: 'DM Sans', sans-serif;
+  }
+
+  .header-content {
+    height: 100%;
+    display: flex;
+    align-items: center;
+    padding: 0 18px 0 14px;
+    gap: 12px;
+  }
+
+  /* ── Hamburger ───────────────────────────────────────────────────── */
+  .nb-menu-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px; height: 36px;
+    background: #f4f6fb;
+    border: 1px solid rgba(108, 99, 255, 0.16);
+    border-radius: 9px;
+    cursor: pointer;
+    color: var(--nb-accent);
+    flex-shrink: 0;
+    transition: background 0.16s, box-shadow 0.16s, transform 0.14s;
+    padding: 0;
+  }
+  .nb-menu-btn:hover {
+    background: rgba(108, 99, 255, 0.09);
+    box-shadow: 0 0 0 3px rgba(108, 99, 255, 0.11);
+    transform: scale(1.04);
+  }
+  .nb-menu-btn:active { transform: scale(0.96); }
+  .nb-menu-btn .material-symbols-outlined {
+    font-size: 20px;
+    line-height: 1;
+    user-select: none;
+  }
+
+  /* ── Logo ────────────────────────────────────────────────────────── */
+  .logo {
+    display: flex;
+    align-items: center;
+    flex-shrink: 0;
+  }
+  .logo img {
+    height: 26px;
+    width: auto;
+    display: block;
+  }
+
+  /* ── Spacer ──────────────────────────────────────────────────────── */
+  .nb-spacer { flex: 1; }
+
+  /* ── Right-side actions ──────────────────────────────────────────── */
+  .nb-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  /* ── Avatar / profile dropdown ───────────────────────────────────── */
+  .nb-avatar-btn {
+    display: flex;
+    align-items: center;
+    background: none;
+    border: none;
+    padding: 0;
+    cursor: pointer;
+    border-radius: 50%;
+    transition: box-shadow 0.16s;
+  }
+  .nb-avatar-btn:hover {
+    box-shadow: 0 0 0 3px rgba(1, 49, 152, 0.18);
+  }
+  .nb-avatar-btn img {
+    width: 36px; height: 36px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 2.5px solid #013198;
+    display: block;
+  }
+
+  .profile .dropdown-menu {
+    border-radius: 12px;
+    border: 1px solid rgba(0,0,0,0.08);
+    box-shadow: 0 10px 28px rgba(0,0,0,0.1);
+    padding: 6px 0;
+    min-width: 140px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.82rem;
+  }
+  .profile .dropdown-item {
+    padding: 8px 16px;
+    font-weight: 500;
+  }
+  .profile .dropdown-item.text-danger:hover {
+    background: #fef2f2;
+    color: #dc2626 !important;
+  }
+
+  /* ── Body offset so content isn't hidden under fixed header ─────── */
+  body { padding-top: var(--nb-h) !important; }
+</style>
+
 <header class="header">
-    <div class="header-content w-100">
-        <div class="logo d-flex align-items-center">
-            <button class="btn me-2 d-flex">
-                <span class="material-symbols-outlined">
-                    menu
-                </span>
-            </button>
-            <img src="{% static 'images/logo.svg' %}" alt="">
-        </div>
-        <div class="profile">
-            <div class="dropdown">
-                <div class="dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
-                    <img src="https://images.unsplash.com/photo-1605106702734-205df224ecce?q=80&w=3000&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D"
-                        height="40px" width="40px"
-                        style="border-radius: 50%; object-fit: cover; border: 3px solid #013198;" alt="">
-                </div>
-                <ul class="dropdown-menu">
-                    <li><a class="dropdown-item text-danger" href="{% url 'core:logout' %}">Logout</a></li>
-                </ul>
-            </div>
-        </div>
+  <div class="header-content w-100">
+
+    <button class="nb-menu-btn" onclick="if(typeof toggleSidebar==='function') toggleSidebar();" aria-label="Toggle sidebar">
+      <span class="material-symbols-outlined">menu</span>
+    </button>
+
+    <!-- Logo -->
+    <div class="logo">
+      <img src="{% static 'images/logo.svg' %}" alt="Blixtro">
     </div>
+
+    <div class="nb-spacer"></div>
+
+    <!-- Right side -->
+    <div class="nb-actions">
+      <div class="profile">
+        <div class="dropdown">
+          <div class="dropdown-toggle nb-avatar-btn" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+            <img src="https://images.unsplash.com/photo-1605106702734-205df224ecce?q=80&w=3000&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D"
+                 alt="Profile">
+          </div>
+          <ul class="dropdown-menu dropdown-menu-end">
+            <li><a class="dropdown-item text-danger" href="{% url 'core:logout' %}">Logout</a></li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+  </div>
 </header>

@@ -10,22 +10,30 @@
     --text-dim: rgba(255,255,255,0.4);
     --text-hover: rgba(255,255,255,0.88);
     --border: rgba(255,255,255,0.06);
+    /* must match --nb-h in navbar.html */
+    --nb-h: 58px;
   }
 
+  /* ── Sidebar shell ───────────────────────────────────────────────── */
   .sidebar {
     width: var(--sb-w);
-    height: 100vh;
+    /* sit below the fixed navbar */
+    height: calc(100vh - var(--nb-h));
+    top: var(--nb-h);
     background: var(--sb-bg);
     display: flex;
     flex-direction: column;
     padding: 14px 0 10px;
-    position: relative;
+    position: fixed;
+    left: 0;
     font-family: 'DM Sans', sans-serif;
     border-right: 1px solid var(--border);
     overflow-y: auto;
     overflow-x: hidden;
     scrollbar-width: none;
     flex-shrink: 0;
+    z-index: 999;
+    transition: transform 0.28s cubic-bezier(0.4,0,0.2,1);
   }
   .sidebar::-webkit-scrollbar { display: none; }
 
@@ -38,6 +46,7 @@
     pointer-events: none;
   }
 
+  /* ── Nav items ───────────────────────────────────────────────────── */
   .sidebar .nav {
     display: flex;
     flex-direction: column;
@@ -108,40 +117,35 @@
     margin: 4px 2px;
   }
 
-  .sidebar-toggle {
-    display: none;
-    position: fixed;
-    top: 14px; left: 14px;
-    z-index: 1000;
-    background: var(--sb-bg);
-    border: 1px solid rgba(108,99,255,0.35);
-    border-radius: 8px;
-    padding: 7px;
-    cursor: pointer;
-    color: var(--accent-lt);
-    align-items: center;
-    justify-content: center;
+  /* ── Main content offset (desktop) ──────────────────────────────── */
+  .main-content {
+    margin-left: var(--sb-w);
+    transition: margin-left 0.28s cubic-bezier(0.4,0,0.2,1);
   }
+
+  /* ── Overlay (mobile dim) ────────────────────────────────────────── */
   .sidebar-overlay {
     display: none;
-    position: fixed; inset: 0;
-    background: rgba(0,0,0,0.55);
+    position: fixed;
+    inset: 0;
+    top: var(--nb-h);
+    background: rgba(0,0,0,0.52);
     backdrop-filter: blur(2px);
     z-index: 998;
   }
   .sidebar-overlay.open { display: block; }
 
-  @media (max-width: 768px) {
-    .sidebar-toggle { display: flex; }
+  /* ── Old floating toggle — hidden; navbar button handles this now ── */
+  .sidebar-toggle { display: none !important; }
+
+  /* ── Mobile breakpoint ───────────────────────────────────────────── */
+  @media (max-width: 900px) {
     .sidebar {
-      position: fixed; left: 0; top: 0; bottom: 0;
-      z-index: 999;
       transform: translateX(-100%);
-      transition: transform 0.28s cubic-bezier(0.4,0,0.2,1);
       box-shadow: 4px 0 28px rgba(0,0,0,0.5);
-      height: 100%;
     }
     .sidebar.open { transform: translateX(0); }
+    .main-content { margin-left: 0 !important; }
   }
 </style>
 
@@ -233,9 +237,24 @@
 </section>
 
 <script>
-  const toggle = document.getElementById('sidebarToggle');
-  const sidebar = document.getElementById('mainSidebar');
-  const overlay = document.getElementById('sidebarOverlay');
-  toggle?.addEventListener('click', () => { sidebar.classList.toggle('open'); overlay.classList.toggle('open'); });
-  overlay?.addEventListener('click', () => { sidebar.classList.remove('open'); overlay.classList.remove('open'); });
+  // ── Global toggle — ──────────────
+  function toggleSidebar() {
+    var sidebar = document.getElementById('mainSidebar');
+    var overlay = document.getElementById('sidebarOverlay');
+    if (!sidebar) return;
+    var isOpen = sidebar.classList.toggle('open');
+    if (overlay) overlay.classList.toggle('open', isOpen);
+  }
+
+  // Old floating button
+  var _sbToggleBtn = document.getElementById('sidebarToggle');
+  if (_sbToggleBtn) _sbToggleBtn.addEventListener('click', toggleSidebar);
+
+  // Overlay click closes sidebar
+  var _sbOverlay = document.getElementById('sidebarOverlay');
+  if (_sbOverlay) _sbOverlay.addEventListener('click', function() {
+    var sidebar = document.getElementById('mainSidebar');
+    if (sidebar) sidebar.classList.remove('open');
+    _sbOverlay.classList.remove('open');
+  });
 </script>

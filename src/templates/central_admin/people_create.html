@@ -5,58 +5,159 @@
 
 {% block style %}
 <link rel="stylesheet" href="{% static 'styles/inventory/central_admin/people_create/style.css' %}">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&display=swap');
+
+  .form-page-wrap {
+    max-width: 560px;
+    margin: 36px auto 60px;
+    font-family: 'DM Sans', sans-serif;
+  }
+
+  /* ── Page header ────────────────────────────────────────── */
+  .form-page-header {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin-bottom: 26px;
+  }
+  .form-page-icon {
+    width: 48px; height: 48px;
+    border-radius: 14px;
+    background: linear-gradient(135deg, #6366f1, #a855f7);
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+    box-shadow: 0 4px 12px rgba(99,102,241,0.3);
+  }
+  .form-page-icon i   { color: #fff; font-size: 1.3rem; }
+  .form-page-title    { font-size: 1.4rem; font-weight: 800; color: #0f172a; margin: 0; line-height: 1.2; }
+  .form-page-sub      { font-size: 0.81rem; color: #94a3b8; margin: 3px 0 0; }
+
+  /* ── Card ───────────────────────────────────────────────── */
+  .form-card {
+    background: #fff;
+    border: 1px solid #e2e8f0;
+    border-radius: 20px;
+    padding: 32px 34px;
+    box-shadow: 0 4px 24px rgba(0,0,0,0.05);
+  }
+
+  /* ── Two-col layout ─────────────────────────────────────── */
+  .field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+
+  /* ── Individual field ───────────────────────────────────── */
+  .field-group { margin-bottom: 20px; }
+  .field-label {
+    display: block;
+    font-size: 0.72rem; font-weight: 700;
+    text-transform: uppercase; letter-spacing: 0.55px;
+    color: #64748b; margin-bottom: 6px;
+  }
+  .field-group input,
+  .field-group select {
+    width: 100%; padding: 10px 13px;
+    border: 1.5px solid #e2e8f0; border-radius: 10px;
+    font-size: 0.88rem; font-family: 'DM Sans', sans-serif;
+    color: #1e293b; background: #f8fafc;
+    transition: border-color 0.15s, box-shadow 0.15s, background 0.15s;
+    outline: none;
+  }
+  .field-group input:focus,
+  .field-group select:focus {
+    border-color: #6366f1; background: #fff;
+    box-shadow: 0 0 0 3px rgba(99,102,241,0.11);
+  }
+  .field-group .errorlist {
+    list-style: none; padding: 0; margin: 5px 0 0;
+    font-size: 0.77rem; color: #ef4444;
+  }
+  .field-help {
+    font-size: 0.75rem; color: #94a3b8; margin-top: 5px;
+  }
+
+  /* ── Divider ────────────────────────────────────────────── */
+  .form-divider { height: 1px; background: #f1f5f9; margin: 20px 0; }
+
+  /* ── Submit ─────────────────────────────────────────────── */
+  .btn-form-submit {
+    width: 100%; margin-top: 24px; padding: 12px;
+    border: none; border-radius: 12px;
+    background: linear-gradient(135deg, #6366f1, #8b5cf6);
+    color: #fff; font-size: 0.92rem; font-weight: 700;
+    font-family: 'DM Sans', sans-serif; cursor: pointer;
+    box-shadow: 0 4px 14px rgba(99,102,241,0.28);
+    transition: opacity 0.17s, transform 0.13s, box-shadow 0.17s;
+    letter-spacing: 0.15px;
+  }
+  .btn-form-submit:hover {
+    opacity: 0.91; transform: translateY(-1px);
+    box-shadow: 0 8px 20px rgba(99,102,241,0.34);
+  }
+  .btn-form-submit:active { transform: scale(0.98); }
+
+  @media (max-width: 600px) {
+    .form-card { padding: 22px 16px; }
+    .field-row  { grid-template-columns: 1fr; }
+    .form-page-wrap { margin: 20px auto 40px; }
+  }
+</style>
 {% endblock style %}
 
-{% block navbar %}
-{% include "central_admin/navbar.html" %}
-{% endblock navbar %}
-
-{% block sidebar %}
-{% include "central_admin/sidebar.html" %}
-{% endblock sidebar %}
+{% block navbar %}{% include "central_admin/navbar.html" %}{% endblock navbar %}
+{% block sidebar %}{% include "central_admin/sidebar.html" %}{% endblock sidebar %}
 
 {% block content %}
+<div class="form-page-wrap">
 
-<h3 class="mb-4">Add New User</h3>
-
-<form method="post">
-    {% csrf_token %}
-
-    <!-- First Name -->
-    <div class="mb-3">
-        <label class="form-label">First Name</label>
-        {{ form.first_name }}
-        {{ form.first_name.errors }}
+  <div class="form-page-header">
+    <div class="form-page-icon"><i class="bi bi-person-plus-fill"></i></div>
+    <div>
+      <h1 class="form-page-title">Add New User</h1>
+      <p class="form-page-sub">Create an account and assign a system role</p>
     </div>
+  </div>
 
-    <!-- Last Name -->
-    <div class="mb-3">
-        <label class="form-label">Last Name</label>
-        {{ form.last_name }}
-        {{ form.last_name.errors }}
-    </div>
+  <div class="form-card">
+    <form method="post">
+      {% csrf_token %}
 
-    <!-- Email -->
-    <div class="mb-3">
-        <label class="form-label">Email (must be @sfscollege.in)</label>
-        {{ form.email }}
-        {{ form.email.errors }}
-    </div>
-
-
-    <!-- Role Selection -->
-    <div class="mb-3">
-        <label class="form-label">Select Role</label>
-            {{ form.role }}
-
-        <div class="form-text">
-            Choose whether this user is a Central Admin, Sub Admin, or Room Incharge.
+      <div class="field-row">
+        <div class="field-group">
+          <label class="field-label">First Name</label>
+          {{ form.first_name }}
+          {{ form.first_name.errors }}
         </div>
+        <div class="field-group">
+          <label class="field-label">Last Name</label>
+          {{ form.last_name }}
+          {{ form.last_name.errors }}
+        </div>
+      </div>
 
+      <div class="form-divider"></div>
+
+      <div class="field-group">
+        <label class="field-label">Email Address</label>
+        {{ form.email }}
+        <p class="field-help">Must be a valid <strong>@sfscollege.in</strong> address.</p>
+        {{ form.email.errors }}
+      </div>
+
+      <div class="form-divider"></div>
+
+      <div class="field-group" style="margin-bottom:0;">
+        <label class="field-label">Role</label>
+        {{ form.role }}
+        <p class="field-help">Choose whether this user is a Central Admin, Sub Admin, or Room Incharge.</p>
         {{ form.role.errors }}
-    </div>
+      </div>
 
-    <button type="submit" class="btn btn-primary w-100 mt-2">Create User</button>
-</form>
+      <button type="submit" class="btn-form-submit">
+        <i class="bi bi-person-check me-2"></i>Create User
+      </button>
+    </form>
+  </div>
 
+</div>
 {% endblock content %}

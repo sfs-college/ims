@@ -5,64 +5,281 @@
 
 {% block style %}
 <link rel="stylesheet" href="{% static 'styles/inventory/room_incharge/archive_list/style.css' %}">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&display=swap');
+
+  .archive-wrap {
+    font-family: 'DM Sans', sans-serif;
+    padding-bottom: 48px;
+  }
+
+  /* ── Page header ─────────────────────────────────────── */
+  .archive-page-header {
+    display: flex; align-items: center; gap: 14px;
+    margin: 28px 0 22px;
+  }
+  .archive-page-icon {
+    width: 46px; height: 46px; border-radius: 13px;
+    background: linear-gradient(135deg, #64748b, #475569);
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0; box-shadow: 0 4px 12px rgba(100,116,139,0.24);
+  }
+  .archive-page-icon i { color: #fff; font-size: 1.2rem; }
+  .archive-page-title  { font-size: 1.35rem; font-weight: 800; color: #0f172a; margin: 0; }
+  .archive-page-sub    { font-size: 0.8rem; color: #94a3b8; margin: 2px 0 0; }
+
+  /* ── Table card ──────────────────────────────────────── */
+  .archive-card {
+    background: #fff;
+    border: 1px solid #e2e8f0;
+    border-radius: 18px;
+    overflow: hidden;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.05);
+  }
+
+  .archive-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.875rem;
+  }
+
+  .archive-table thead tr {
+    background: #0f172a;
+  }
+  .archive-table thead th {
+    padding: 13px 16px;
+    font-size: 0.72rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.55px;
+    color: #94a3b8;
+    white-space: nowrap;
+    border: none;
+  }
+
+  .archive-table tbody tr {
+    border-bottom: 1px solid #f1f5f9;
+    transition: background 0.13s;
+  }
+  .archive-table tbody tr:last-child { border-bottom: none; }
+  .archive-table tbody tr:hover { background: #f8fafc; }
+
+  .archive-table tbody td {
+    padding: 13px 16px;
+    color: #334155;
+    vertical-align: middle;
+    border: none;
+  }
+
+  /* Serial number */
+  .sno-cell {
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: #94a3b8;
+    width: 52px;
+  }
+
+  /* Item name link */
+  .item-link {
+    font-weight: 700;
+    color: #1e293b;
+    text-decoration: none;
+    display: inline-flex; align-items: center; gap: 6px;
+    transition: color 0.14s;
+  }
+  .item-link:hover { color: #6366f1; }
+  .item-link i { font-size: 0.75rem; opacity: 0.5; }
+
+  /* Count pill */
+  .count-pill {
+    display: inline-flex; align-items: center; justify-content: center;
+    background: #f1f5f9;
+    color: #334155;
+    font-weight: 700;
+    font-size: 0.82rem;
+    border-radius: 8px;
+    padding: 3px 12px;
+    min-width: 36px;
+  }
+
+  /* Archive type badges */
+  .badge-archive {
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 4px 10px; border-radius: 20px;
+    font-size: 0.72rem; font-weight: 700;
+    letter-spacing: 0.2px;
+  }
+  .badge-archive.type-default {
+    background: #ede9fe; color: #5b21b6;
+  }
+  .badge-archive.type-damaged {
+    background: #fee2e2; color: #991b1b;
+  }
+  .badge-archive.type-disposed {
+    background: #fef3c7; color: #92400e;
+  }
+  .badge-archive.type-returned {
+    background: #d1fae5; color: #065f46;
+  }
+
+  /* Date cell */
+  .date-cell {
+    font-size: 0.82rem; color: #64748b;
+    white-space: nowrap;
+  }
+
+  /* Empty state */
+  .archive-empty {
+    text-align: center; padding: 56px 24px; color: #94a3b8;
+  }
+  .archive-empty i   { font-size: 2.5rem; display: block; margin-bottom: 10px; opacity: 0.4; }
+  .archive-empty p   { font-size: 0.88rem; margin: 0; }
+
+  /* ── Modal polish ────────────────────────────────────── */
+  .remark-modal .modal-content {
+    border: none; border-radius: 18px;
+    box-shadow: 0 20px 48px rgba(0,0,0,0.14);
+    font-family: 'DM Sans', sans-serif;
+    overflow: hidden;
+  }
+  .remark-modal .modal-header {
+    background: #0f172a;
+    border-bottom: none; padding: 18px 22px;
+  }
+  .remark-modal .modal-title {
+    color: #fff; font-weight: 700; font-size: 0.95rem;
+  }
+  .remark-modal .btn-close {
+    filter: invert(1) grayscale(100%) brightness(200%);
+  }
+  .remark-modal .modal-body {
+    padding: 22px 24px;
+    font-size: 0.88rem; color: #334155; line-height: 1.65;
+    background: #f8fafc; min-height: 60px;
+  }
+  .remark-modal .modal-footer {
+    border-top: 1px solid #f1f5f9; padding: 14px 22px;
+    background: #fff;
+  }
+  .remark-modal .btn-secondary {
+    background: #f1f5f9; color: #475569;
+    border: 1.5px solid #e2e8f0; border-radius: 10px;
+    font-weight: 600; font-size: 0.84rem;
+    font-family: 'DM Sans', sans-serif;
+    padding: 7px 20px;
+    transition: background 0.14s;
+  }
+  .remark-modal .btn-secondary:hover { background: #e2e8f0; color: #1e293b; }
+
+  @media (max-width: 640px) {
+    .archive-table thead th:nth-child(3),
+    .archive-table tbody td:nth-child(3) { display: none; }
+  }
+</style>
 {% endblock style %}
 
-{% block navbar %}
-{% include "room_incharge/navbar.html" %}
-{% endblock navbar %}
-
-{% block sidebar %}
-{% include "room_incharge/sidebar.html" %}
-{% endblock sidebar %}
+{% block navbar %}{% include "room_incharge/navbar.html" %}{% endblock navbar %}
+{% block sidebar %}{% include "room_incharge/sidebar.html" %}{% endblock sidebar %}
 
 {% block content %}
-<h3 class="my-3">Archives</h3>
-<div class="table-responsive">
-  <table class="table">
-    <thead>
-      <tr>
-        <th scope="col" class="text-muted">Sno.</th>
-        <th scope="col" class="text-muted">Item Name</th>
-        <th scope="col" class="text-muted">Count</th>
-        <th scope="col" class="text-muted">Type</th>
-        <th scope="col" class="text-muted">Archived On</th>
-      </tr>
-    </thead>
-    <tbody>
-      {% for archive in archives %}
-      <tr>
-        <td>{{ forloop.counter }}</td>
-        <td>
-          <a href="#" data-bs-toggle="modal" data-bs-target="#remarkModal{{ forloop.counter }}" class="fw-semibold">
-            {{ archive.item.item_name }}
-          </a>
-        </td>
-        <td>{{ archive.count }}</td>
-        <td>
-          <span class="badge bg-primary rounded-pill">{{ archive.get_archive_type_display }}</span>
-        </td>
-        <td>{{ archive.archived_on.date }}</td>
-      </tr>
-      <!-- Modal -->
-      <div class="modal fade" id="remarkModal{{ forloop.counter }}" tabindex="-1"
-        aria-labelledby="remarkModalLabel{{ forloop.counter }}" aria-hidden="true">
-        <div class="modal-dialog">
-          <div class="modal-content">
-            <div class="modal-header">
-              <h5 class="modal-title" id="remarkModalLabel{{ forloop.counter }}">Remarks for {{ archive.item.item_name }}</h5>
-            </div>
-            <div class="modal-body">
-              {{ archive.remark }}
-            </div>
-            <div class="modal-footer">
-              <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+<div class="archive-wrap">
+
+  <!-- Page header -->
+  <div class="archive-page-header">
+    <div class="archive-page-icon"><i class="bi bi-archive-fill"></i></div>
+    <div>
+      <h1 class="archive-page-title">Archives</h1>
+      <p class="archive-page-sub">Archived item records for this room</p>
+    </div>
+  </div>
+
+  <!-- Table card -->
+  <div class="archive-card">
+    <div class="table-responsive">
+      <table class="archive-table">
+        <thead>
+          <tr>
+            <th class="sno-cell">#</th>
+            <th>Item Name</th>
+            <th>Count</th>
+            <th>Type</th>
+            <th>Archived On</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for archive in archives %}
+          <tr>
+            <td class="sno-cell">{{ forloop.counter }}</td>
+            <td>
+              <a href="#" class="item-link"
+                 data-bs-toggle="modal"
+                 data-bs-target="#remarkModal{{ forloop.counter }}">
+                {{ archive.item.item_name }}
+                <i class="bi bi-chat-square-text"></i>
+              </a>
+            </td>
+            <td>
+              <span class="count-pill">{{ archive.count }}</span>
+            </td>
+            <td>
+              <span class="badge-archive
+                {% if 'damage' in archive.get_archive_type_display|lower %}type-damaged
+                {% elif 'dispos' in archive.get_archive_type_display|lower %}type-disposed
+                {% elif 'return' in archive.get_archive_type_display|lower %}type-returned
+                {% else %}type-default{% endif %}">
+                <i class="bi bi-tag-fill" style="font-size:0.65rem;"></i>
+                {{ archive.get_archive_type_display }}
+              </span>
+            </td>
+            <td class="date-cell">
+              <i class="bi bi-calendar3 me-1 opacity-50"></i>
+              {{ archive.archived_on.date }}
+            </td>
+          </tr>
+
+          <!-- Remark Modal -->
+          <div class="modal fade remark-modal" id="remarkModal{{ forloop.counter }}" tabindex="-1"
+               aria-labelledby="remarkModalLabel{{ forloop.counter }}" aria-hidden="true">
+            <div class="modal-dialog modal-dialog-centered">
+              <div class="modal-content">
+                <div class="modal-header">
+                  <h5 class="modal-title" id="remarkModalLabel{{ forloop.counter }}">
+                    <i class="bi bi-chat-left-text me-2" style="opacity:0.7;"></i>
+                    Remarks — {{ archive.item.item_name }}
+                  </h5>
+                  <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                  {% if archive.remark %}
+                    {{ archive.remark }}
+                  {% else %}
+                    <span class="text-muted fst-italic">No remarks recorded for this archive entry.</span>
+                  {% endif %}
+                </div>
+                <div class="modal-footer">
+                  <button type="button" class="btn-secondary" data-bs-dismiss="modal">Close</button>
+                </div>
+              </div>
             </div>
           </div>
-        </div>
-      </div>
-      {% endfor %}
-    </tbody>
-  </table>
+          <!-- /Remark Modal -->
+
+          {% empty %}
+          <tr>
+            <td colspan="5">
+              <div class="archive-empty">
+                <i class="bi bi-archive"></i>
+                <p>No archived items found for this room.</p>
+              </div>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
 </div>
 {% endblock content %}
 

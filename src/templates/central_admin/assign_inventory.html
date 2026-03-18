@@ -946,6 +946,42 @@
         .assign-page { padding: 16px; }
         .internal-nav { padding: 0 16px; }
         .nav-breadcrumb { display: none; }
+        .selectors-grid { grid-template-columns: 1fr; gap: 10px; }
+        .steps-row { width: 100%; justify-content: center; }
+        .step-item { padding: 8px 14px; font-size: 0.78rem; }
+        .page-header { padding: 18px; flex-direction: column; align-items: flex-start; gap: 10px; }
+        .page-title { font-size: 1.5rem; }
+    }
+    @media (max-width: 600px) {
+        .assign-page { padding: 10px; }
+        .internal-nav { padding: 0 10px; height: 54px; gap: 8px; }
+        .nav-brand-text { display: none; }
+        .nav-divider { display: none; }
+        .nav-actions { gap: 5px; }
+        .nav-btn-ghost, .nav-btn-primary { padding: 6px 10px; font-size: 0.75rem; }
+        .steps-row { padding: 4px; gap: 0; }
+        .step-item { padding: 7px 10px; font-size: 0.72rem; gap: 5px; }
+        .step-sep { width: 16px; }
+        .card-header { padding: 14px 16px; }
+        .card-body { padding: 14px 16px; }
+        .modal-box { padding: 22px; border-radius: 14px; }
+        .info-cards { gap: 8px; }
+        .info-card { padding: 10px; }
+        .info-card .val { font-size: 1.3rem; }
+        .dropzone-head { padding: 12px 16px; flex-wrap: wrap; gap: 8px; }
+        .toast { min-width: 260px; font-size: 0.8rem; padding: 10px 14px; }
+        .toast-wrap { right: 10px; top: 14px; }
+        .page-header { padding: 14px; border-radius: 12px; }
+        .page-title { font-size: 1.25rem; }
+    }
+    @media (max-width: 400px) {
+        .assign-page { padding: 8px; }
+        .step-item { padding: 6px 8px; font-size: 0.68rem; }
+        .step-item .num { width: 18px; height: 18px; font-size: 0.65rem; }
+        .nav-actions .nav-btn-ghost { display: none; }
+        .items-scroll { max-height: 320px; }
+        .modal-box { padding: 16px; }
+        .modal-title { font-size: 1.05rem; }
     }
 </style>
 {% endblock style %}

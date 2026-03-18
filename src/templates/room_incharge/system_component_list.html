@@ -224,9 +224,19 @@ function loadConfig() {
         const meta = document.getElementById('configMeta');
         const editArea = document.getElementById('configEditArea');
         if (data.configuration) {
-            display.textContent = data.configuration;
             editArea.value = data.configuration;
             meta.textContent = `Last updated: ${data.updated_on}`;
+            // Try to parse as JSON column-based config and render as table
+            try {
+                const rows = JSON.parse(data.configuration);
+                if (Array.isArray(rows) && rows.length) {
+                    display.innerHTML = renderCfgTable(rows);
+                } else {
+                    display.textContent = data.configuration;
+                }
+            } catch(e) {
+                display.textContent = data.configuration;
+            }
         } else {
             display.innerHTML = '<span style="color:#94a3b8;font-style:italic;">No configuration added yet. Click Edit to add one.</span>';
             editArea.value = '';
@@ -236,6 +246,24 @@ function loadConfig() {
     .catch(() => {
         document.getElementById('configDisplay').textContent = 'Failed to load configuration.';
     });
+}
+
+function renderCfgTable(rows) {
+    const rowsHtml = rows.map(r => `
+        <tr>
+            <td style="padding:7px 12px;font-weight:600;color:#065f46;border:1px solid #a7f3d0;font-size:13px;width:40%;">${r.spec || ''}</td>
+            <td style="padding:7px 12px;color:#1a1a2e;border:1px solid #a7f3d0;font-size:13px;">${r.value || '<span style="color:#94a3b8;font-style:italic;">—</span>'}</td>
+        </tr>`).join('');
+    return `
+        <table style="width:100%;border-collapse:collapse;margin-top:6px;border-radius:8px;overflow:hidden;">
+            <thead>
+                <tr>
+                    <th style="padding:8px 12px;background:rgba(13,148,136,0.08);color:#065f46;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;border:1px solid #a7f3d0;text-align:left;width:40%;">Specification</th>
+                    <th style="padding:8px 12px;background:rgba(13,148,136,0.08);color:#065f46;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;border:1px solid #a7f3d0;text-align:left;">Value / Details</th>
+                </tr>
+            </thead>
+            <tbody>${rowsHtml}</tbody>
+        </table>`;
 }
 
 function startEditConfig() {
@@ -264,15 +292,26 @@ function saveEditConfig() {
     .then(r => r.json())
     .then(data => {
         if (data.success) {
-            document.getElementById('configDisplay').textContent = text || '';
-            document.getElementById('configDisplay').style.display = 'block';
+            const display = document.getElementById('configDisplay');
+            if (text) {
+                try {
+                    const rows = JSON.parse(text);
+                    if (Array.isArray(rows) && rows.length) {
+                        display.innerHTML = renderCfgTable(rows);
+                    } else {
+                        display.textContent = text;
+                    }
+                } catch(e) {
+                    display.textContent = text;
+                }
+            } else {
+                display.innerHTML = '<span style="color:#94a3b8;font-style:italic;">No configuration added yet. Click Edit to add one.</span>';
+            }
+            display.style.display = 'block';
             document.getElementById('configEditArea').style.display = 'none';
             document.getElementById('editConfigBtn').style.display = 'inline-flex';
             document.getElementById('saveConfigBtn').style.display = 'none';
             document.getElementById('saveConfigBtn').innerHTML = '<span class="material-symbols-outlined" style="font-size:14px;">check</span> Save';
-            if (!text) {
-                document.getElementById('configDisplay').innerHTML = '<span style="color:#94a3b8;font-style:italic;">No configuration added yet. Click Edit to add one.</span>';
-            }
         }
     });
 }

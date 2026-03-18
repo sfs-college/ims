@@ -5,6 +5,8 @@
 
 {% block style %}
 <link rel="stylesheet" href="{% static 'styles/inventory/room_incharge/system_list/style.css' %}">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700;9..40,800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
   @import url('https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600&display=swap');
 
@@ -119,30 +121,6 @@
   }
   .system-icon .material-symbols-outlined { font-size: 14px; color: var(--accent); }
 
-  .status-pill {
-    display: inline-flex;
-    align-items: center;
-    gap: 5px;
-    padding: 3px 10px;
-    border-radius: 20px;
-    font-size: 11.5px;
-    font-weight: 700;
-    letter-spacing: 0.02em;
-  }
-
-  .status-pill::before {
-    content: '';
-    width: 5px; height: 5px;
-    border-radius: 50%;
-    background: currentColor;
-    opacity: 0.7;
-    flex-shrink: 0;
-  }
-
-  .status-pill-active   { background: rgba(16,185,129,0.1); color: #059669; border: 1px solid rgba(16,185,129,0.2); }
-  .status-pill-inactive { background: #f1f5f9; color: #64748b; border: 1px solid #e2e8f0; }
-  .status-pill-repair   { background: rgba(245,158,11,0.1); color: #d97706; border: 1px solid rgba(245,158,11,0.2); }
-
   .date-cell { color: var(--text-muted); font-size: 12.5px; }
 
   .btn-action-edit {
@@ -176,6 +154,266 @@
     display: block;
     margin-bottom: 12px;
   }
+
+  /* ═══════════════════════════════════════════════
+     CONFIGURATION MODAL — Column-based spec grid
+  ═══════════════════════════════════════════════ */
+  .cfg-overlay {
+    display: none;
+    position: fixed; inset: 0; z-index: 1050;
+    background: rgba(15,23,42,0.55);
+    backdrop-filter: blur(6px);
+    align-items: center; justify-content: center;
+    padding: 20px;
+  }
+  .cfg-overlay.open { display: flex; }
+
+  .cfg-modal {
+    background: #fff;
+    border-radius: 20px;
+    width: 100%;
+    max-width: 780px;
+    max-height: 90vh;
+    display: flex;
+    flex-direction: column;
+    position: relative;
+    box-shadow: 0 25px 50px -10px rgba(0,0,0,0.25);
+    overflow: hidden;
+  }
+
+  .cfg-modal-header {
+    padding: 24px 28px 20px;
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+  .cfg-modal-header h5 {
+    font-weight: 800; color: #1a1a2e; margin: 0 0 4px;
+    font-size: 17px; letter-spacing: -0.3px;
+  }
+  .cfg-modal-header p {
+    font-size: 13px; color: #7c7c9a; margin: 0;
+  }
+  .cfg-close-btn {
+    position: absolute; top: 16px; right: 20px;
+    background: #f1f5f9; border: none; border-radius: 50%;
+    width: 28px; height: 28px; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    color: #64748b; font-size: 15px; transition: background .14s;
+  }
+  .cfg-close-btn:hover { background: #e2e8f0; color: #1a1a2e; }
+
+  .cfg-modal-body {
+    display: flex;
+    flex: 1;
+    overflow: hidden;
+    min-height: 0;
+  }
+
+  /* Left pane — system selector */
+  .cfg-pane-left {
+    width: 220px;
+    flex-shrink: 0;
+    border-right: 1px solid var(--border);
+    padding: 16px 14px;
+    overflow-y: auto;
+    background: #fafafa;
+  }
+  .cfg-pane-left-title {
+    font-size: 10.5px; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 0.08em; color: #94a3b8; margin-bottom: 10px; padding-left: 4px;
+  }
+  .cfg-sys-item {
+    display: flex; align-items: center; gap: 9px;
+    padding: 9px 10px; border-radius: 9px;
+    cursor: pointer; transition: background .12s;
+    margin-bottom: 2px;
+  }
+  .cfg-sys-item:hover { background: #f0f0ff; }
+  .cfg-sys-item input[type="checkbox"] {
+    accent-color: #6c63ff; width: 14px; height: 14px; cursor: pointer; flex-shrink: 0;
+  }
+  .cfg-sys-item span { font-size: 13px; font-weight: 500; color: #1a1a2e; line-height: 1.3; }
+
+  /* Right pane — spec table */
+  .cfg-pane-right {
+    flex: 1;
+    overflow-y: auto;
+    padding: 20px 24px;
+    min-width: 0;
+  }
+  .cfg-pane-right-title {
+    font-size: 10.5px; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 0.08em; color: #94a3b8; margin-bottom: 14px;
+  }
+
+  /* Spec table */
+  .spec-table {
+    width: 100%;
+    border-collapse: collapse;
+    border-radius: 11px;
+    overflow: hidden;
+    border: 1.5px solid var(--border);
+  }
+  .spec-table thead tr {
+    background: var(--surface-2);
+  }
+  .spec-table thead th {
+    padding: 10px 14px;
+    font-size: 11px; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 0.07em; color: var(--text-muted); text-align: left;
+    border-bottom: 1.5px solid var(--border);
+  }
+  .spec-table thead th:first-child { width: 46%; }
+  .spec-table thead th:last-child  { width: 54%; }
+
+  .spec-table tbody tr {
+    border-bottom: 1px solid var(--border);
+    transition: background .12s;
+  }
+  .spec-table tbody tr:last-child { border-bottom: none; }
+  .spec-table tbody tr:hover { background: #f9f8ff; }
+
+  .spec-table tbody td {
+    padding: 0;
+    vertical-align: middle;
+  }
+
+  /* Spec key (left cell) */
+  .spec-key-cell {
+    padding: 11px 14px;
+    border-right: 1px solid var(--border);
+  }
+  .spec-key {
+    font-size: 13px; font-weight: 600; color: var(--text);
+  }
+  .spec-key-hint {
+    font-size: 11px; color: var(--text-muted); margin-top: 1px;
+    font-family: 'JetBrains Mono', monospace;
+  }
+
+  /* Spec value (right cell) */
+  .spec-value-cell { padding: 8px 10px; }
+  .spec-value-wrap {
+    display: flex; align-items: center; gap: 6px;
+  }
+  .spec-value-text {
+    flex: 1; font-size: 13px; color: var(--text);
+    padding: 6px 10px; border-radius: 7px;
+    border: 1.5px solid transparent;
+    background: transparent;
+    font-family: 'DM Sans', sans-serif;
+    transition: border-color .15s, background .15s;
+    min-width: 0; width: 100%;
+    pointer-events: none;
+    user-select: none;
+  }
+  .spec-value-text.editable {
+    border-color: #6c63ff;
+    background: #f7f6ff;
+    pointer-events: auto;
+    user-select: text;
+  }
+  .spec-value-text::placeholder { color: #c4c4d4; font-style: italic; font-size: 12.5px; }
+
+  .spec-edit-btn {
+    flex-shrink: 0;
+    width: 28px; height: 28px;
+    border-radius: 7px;
+    border: 1px solid var(--border);
+    background: white;
+    color: #94a3b8;
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer; transition: all .14s;
+  }
+  .spec-edit-btn:hover { border-color: #6c63ff; color: #6c63ff; background: #f0f0ff; }
+  .spec-edit-btn.active { border-color: #6c63ff; color: #6c63ff; background: #f0f0ff; }
+  .spec-edit-btn .material-symbols-outlined { font-size: 14px; }
+
+  /* Add row button */
+  .btn-add-row {
+    display: inline-flex; align-items: center; gap: 5px;
+    margin-top: 12px;
+    padding: 7px 14px;
+    background: white; color: var(--accent);
+    border: 1.5px dashed #c4bfff;
+    border-radius: 8px; font-size: 12.5px; font-weight: 600;
+    cursor: pointer; transition: all .15s; font-family: 'DM Sans', sans-serif;
+  }
+  .btn-add-row:hover { background: #f0f0ff; border-color: var(--accent); }
+  .btn-add-row .material-symbols-outlined { font-size: 14px; }
+
+  /* Delete row button (inside row) */
+  .spec-del-btn {
+    flex-shrink: 0;
+    width: 24px; height: 24px;
+    border-radius: 6px;
+    border: none; background: none;
+    color: #fca5a5; display: flex; align-items: center; justify-content: center;
+    cursor: pointer; transition: all .14s; padding: 0;
+    opacity: 0;
+  }
+  .spec-table tbody tr:hover .spec-del-btn { opacity: 1; }
+  .spec-del-btn:hover { background: #fef2f2; color: #e11d48; }
+  .spec-del-btn .material-symbols-outlined { font-size: 13px; }
+
+  /* Lab presets */
+  .cfg-presets {
+    display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 16px;
+  }
+  .preset-chip {
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 5px 12px;
+    background: white; border: 1.5px solid var(--border);
+    border-radius: 20px; font-size: 12px; font-weight: 600;
+    color: var(--text-muted); cursor: pointer; transition: all .14s;
+  }
+  .preset-chip:hover { border-color: var(--accent); color: var(--accent); background: #f7f6ff; }
+  .preset-chip.active { border-color: var(--accent); color: var(--accent); background: #f0f0ff; }
+  .preset-chip .material-symbols-outlined { font-size: 13px; }
+
+  /* Alert strip */
+  #cfgAlert {
+    display: none;
+    margin: 0 24px 12px;
+    padding: 9px 14px;
+    border-radius: 9px;
+    font-size: 13px; font-weight: 600;
+    flex-shrink: 0;
+  }
+
+  /* Footer */
+  .cfg-modal-footer {
+    padding: 16px 24px;
+    border-top: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between;
+    flex-shrink: 0; gap: 10px;
+    flex-wrap: wrap;
+  }
+  .cfg-footer-hint {
+    font-size: 12px; color: var(--text-muted);
+  }
+  .cfg-footer-hint b { color: var(--text); }
+
+  .btn-cfg-save {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 10px 22px;
+    background: linear-gradient(135deg, #6c63ff, #8b7cf8);
+    color: white; border: none; border-radius: 10px;
+    font-weight: 800; font-size: 13.5px; cursor: pointer;
+    font-family: 'DM Sans', sans-serif; transition: all .18s;
+    box-shadow: 0 2px 12px rgba(108,99,255,0.3);
+  }
+  .btn-cfg-save:hover { transform: translateY(-1px); box-shadow: 0 4px 18px rgba(108,99,255,0.4); }
+  .btn-cfg-save .material-symbols-outlined { font-size: 16px; }
+
+  /* Responsive */
+  @media (max-width: 640px) {
+    .cfg-modal-body { flex-direction: column; }
+    .cfg-pane-left { width: 100%; border-right: none; border-bottom: 1px solid var(--border); max-height: 160px; }
+  }
+  @media (max-width: 520px) {
+    .page-header { flex-wrap: wrap; gap: 10px; }
+  }
 </style>
 {% endblock style %}
 
@@ -190,7 +428,7 @@
 {% block content %}
 <div class="page-header">
   <h4 class="page-title">Systems</h4>
-  <div style="display:flex; gap:10px; align-items:center;">
+  <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
     <button onclick="openConfigModal()"
        style="display:inline-flex;align-items:center;gap:6px;padding:9px 18px;
               background:white;color:#0d9488;border:1.5px solid #0d9488;
@@ -241,7 +479,6 @@
             <span class="material-symbols-outlined" style="font-size:14px">edit</span>
             Edit
           </a>
-          {% comment %} <a href="{% url 'room_incharge:system_delete' room_slug=system.room.slug system_slug=system.slug %}" class="btn btn-danger btn-sm">Delete</a> {% endcomment %}
         </td>
       </tr>
       {% endfor %}
@@ -255,135 +492,358 @@
   {% endif %}
 </div>
 
-<!-- Configuration Modal -->
-<div id="configOverlay" style="display:none;position:fixed;inset:0;z-index:1050;
-    background:rgba(15,23,42,0.55);backdrop-filter:blur(6px);
-    align-items:center;justify-content:center;padding:20px;"
-    onclick="if(event.target===this)closeConfigModal()">
-  <div style="background:#fff;border-radius:20px;padding:32px;max-width:500px;
-      width:100%;position:relative;box-shadow:0 25px 50px -10px rgba(0,0,0,0.25);">
-    <button onclick="closeConfigModal()" style="position:absolute;top:14px;right:18px;
-        background:none;border:none;font-size:1.2rem;cursor:pointer;color:#94a3b8;">✕</button>
 
-    <h5 style="font-weight:800;color:#1a1a2e;margin:0 0 6px;">Add Configuration</h5>
-    <p style="font-size:0.85rem;color:#7c7c9a;margin:0 0 20px;">
-      Select systems and enter configuration details. Same text will be applied to all selected systems.
-    </p>
+<!-- ══════════════════════════════════════════════
+     CONFIGURATION MODAL — Column-based spec grid
+══════════════════════════════════════════════ -->
+<div id="configOverlay" class="cfg-overlay" onclick="if(event.target===this)closeConfigModal()">
+  <div class="cfg-modal">
 
-    <label style="display:block;font-weight:700;font-size:0.78rem;color:#64748b;
-        text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;">
-      Select Systems
-    </label>
-    <div style="border:1.5px solid #ebebf5;border-radius:10px;max-height:180px;
-        overflow-y:auto;margin-bottom:16px;padding:8px;">
-      {% for system in systems %}
-      <label style="display:flex;align-items:center;gap:8px;padding:6px 8px;
-          border-radius:7px;cursor:pointer;transition:background 0.12s;"
-          onmouseover="this.style.background='#f9f8ff'"
-          onmouseout="this.style.background='transparent'">
-        <input type="checkbox" class="sys-checkbox" value="{{ system.slug }}"
-            style="accent-color:#6c63ff;width:15px;height:15px;cursor:pointer;">
-        <span style="font-size:13.5px;font-weight:500;color:#1a1a2e;">{{ system.system_name }}</span>
-      </label>
-      {% empty %}
-      <p style="text-align:center;color:#94a3b8;font-size:13px;padding:10px 0;">No systems found.</p>
-      {% endfor %}
+    <!-- Header -->
+    <div class="cfg-modal-header">
+      <h5>Add Configuration</h5>
+      <p>Select systems on the left, then fill in specification rows on the right. The same specs will be applied to all selected systems.</p>
+      <button class="cfg-close-btn" onclick="closeConfigModal()">✕</button>
     </div>
 
-    <label style="display:block;font-weight:700;font-size:0.78rem;color:#64748b;
-        text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;">
-      Configuration Details
-    </label>
-    <textarea id="configText" rows="5"
-        placeholder="Enter configuration details, specs, or notes for the selected systems..."
-        style="width:100%;padding:12px;border:1.5px solid #ebebf5;border-radius:10px;
-        font-size:13.5px;font-family:'DM Sans',sans-serif;resize:vertical;
-        outline:none;box-sizing:border-box;color:#1a1a2e;"
-        onfocus="this.style.borderColor='#6c63ff'"
-        onblur="this.style.borderColor='#ebebf5'"></textarea>
+    <!-- Body -->
+    <div class="cfg-modal-body">
 
-    <div id="configAlert" style="display:none;margin-top:10px;padding:8px 12px;
-        border-radius:8px;font-size:13px;font-weight:600;"></div>
+      <!-- Left — System Selector -->
+      <div class="cfg-pane-left">
+        <div class="cfg-pane-left-title">Systems</div>
+        {% for system in systems %}
+        <label class="cfg-sys-item">
+          <input type="checkbox" class="sys-checkbox" value="{{ system.slug }}">
+          <span>{{ system.system_name }}</span>
+        </label>
+        {% empty %}
+        <p style="text-align:center;color:#94a3b8;font-size:13px;padding:10px 0;">No systems found.</p>
+        {% endfor %}
+      </div>
 
-    <button onclick="saveConfiguration()"
-        style="width:100%;margin-top:16px;padding:12px;background:linear-gradient(135deg,#6c63ff,#8b7cf8);
-        color:white;border:none;border-radius:11px;font-weight:800;font-size:0.9rem;
-        cursor:pointer;font-family:'DM Sans',sans-serif;" id="saveConfigBtn">
-      Save Configuration
-    </button>
+      <!-- Right — Spec Table -->
+      <div class="cfg-pane-right">
+        <div class="cfg-pane-right-title">Configuration Specifications</div>
+
+        <!-- Lab presets -->
+        <div class="cfg-presets">
+          <button class="preset-chip" onclick="applyPreset('computer')" title="Computer Lab">
+            <span class="material-symbols-outlined">computer</span> Computer
+          </button>
+          <button class="preset-chip" onclick="applyPreset('chemistry')" title="Chemistry Lab">
+            <span class="material-symbols-outlined">science</span> Chemistry
+          </button>
+          <button class="preset-chip" onclick="applyPreset('physics')" title="Physics Lab">
+            <span class="material-symbols-outlined">bolt</span> Physics
+          </button>
+          <button class="preset-chip" onclick="applyPreset('electronics')" title="Electronics Lab">
+            <span class="material-symbols-outlined">memory</span> Electronics
+          </button>
+          <button class="preset-chip" onclick="applyPreset('general')" title="General">
+            <span class="material-symbols-outlined">list_alt</span> General
+          </button>
+        </div>
+
+        <!-- Spec Rows Table -->
+        <table class="spec-table" id="specTable">
+          <thead>
+            <tr>
+              <th>Specification</th>
+              <th>Value / Details</th>
+            </tr>
+          </thead>
+          <tbody id="specRows">
+            <!-- Rows injected by JS -->
+          </tbody>
+        </table>
+
+        <button class="btn-add-row" onclick="addSpecRow()">
+          <span class="material-symbols-outlined">add</span>
+          Add Row
+        </button>
+      </div>
+
+    </div>
+
+    <!-- Alert strip -->
+    <div id="cfgAlert"></div>
+
+    <!-- Footer -->
+    <div class="cfg-modal-footer">
+      <span class="cfg-footer-hint">
+        <b id="selectedCount">0</b> system(s) selected
+      </span>
+      <button class="btn-cfg-save" id="saveConfigBtn" onclick="saveConfiguration()">
+        <span class="material-symbols-outlined">check</span>
+        Save Configuration
+      </button>
+    </div>
+
   </div>
 </div>
 
 <script>
+/* ──────────────────────────────────────────────────────────────
+   Lab Presets  –  each preset is an array of [spec, hint] pairs
+────────────────────────────────────────────────────────────── */
+const PRESETS = {
+  computer: [
+    ['Processor',         'e.g. Intel Core i5-12400'],
+    ['RAM',               'e.g. 8 GB DDR4'],
+    ['Storage',           'e.g. 256 GB SSD'],
+    ['Operating System',  'e.g. Windows 11 Pro'],
+    ['Monitor Size',      'e.g. 21.5 inch FHD'],
+    ['GPU',               'e.g. Intel UHD 730 (Integrated)'],
+    ['Network',           'e.g. Gigabit Ethernet + Wi-Fi 6'],
+  ],
+  chemistry: [
+    ['Instrument Name',   'e.g. Spectrophotometer'],
+    ['Model / Make',      'e.g. Shimadzu UV-1800'],
+    ['Measurement Range', 'e.g. 190–1100 nm'],
+    ['Power Supply',      'e.g. 220V AC 50 Hz'],
+    ['Calibration Due',   'e.g. 2025-06-01'],
+    ['Reagents Used',     'e.g. HCl, NaOH standard solutions'],
+  ],
+  physics: [
+    ['Equipment Name',    'e.g. Vernier Caliper'],
+    ['Make / Brand',      'e.g. Mitutoyo'],
+    ['Least Count',       'e.g. 0.02 mm'],
+    ['Range',             'e.g. 0–150 mm'],
+    ['Calibrated On',     'e.g. 2024-09-15'],
+    ['Condition',         'e.g. Good'],
+  ],
+  electronics: [
+    ['Component / Board', 'e.g. Arduino Uno Rev3'],
+    ['Microcontroller',   'e.g. ATmega328P'],
+    ['Operating Voltage', 'e.g. 5V'],
+    ['Clock Speed',       'e.g. 16 MHz'],
+    ['I/O Pins',          'e.g. 14 Digital, 6 Analog'],
+    ['Interface',         'e.g. USB Type-B, UART, SPI, I2C'],
+    ['Power Input',       'e.g. 7–12V DC jack or USB'],
+  ],
+  general: [
+    ['Item Name',         'Enter item name'],
+    ['Make / Brand',      'Enter brand or manufacturer'],
+    ['Model Number',      'Enter model/serial number'],
+    ['Quantity',          'Enter quantity'],
+    ['Condition',         'e.g. Good / Fair / Poor'],
+    ['Remarks',           'Any additional notes'],
+  ],
+};
+
+let activePreset = null;
+
+function applyPreset(key) {
+  /* Toggle off if same preset clicked again */
+  if (activePreset === key) {
+    activePreset = null;
+    document.querySelectorAll('.preset-chip').forEach(c => c.classList.remove('active'));
+    clearRows();
+    addSpecRow(); /* leave one blank row */
+    return;
+  }
+  activePreset = key;
+  document.querySelectorAll('.preset-chip').forEach(c => c.classList.remove('active'));
+  event.currentTarget.classList.add('active');
+  clearRows();
+  PRESETS[key].forEach(([spec, hint]) => addSpecRow(spec, '', hint));
+}
+
+function clearRows() {
+  document.getElementById('specRows').innerHTML = '';
+}
+
+/* ──────────────────────────────────────────────────────────────
+   Row Management
+────────────────────────────────────────────────────────────── */
+let rowCounter = 0;
+
+function addSpecRow(specVal = '', valueVal = '', hintText = '') {
+  rowCounter++;
+  const id = rowCounter;
+  const tbody = document.getElementById('specRows');
+  const tr = document.createElement('tr');
+  tr.id = `spec-row-${id}`;
+  tr.innerHTML = `
+    <td class="spec-key-cell">
+      <div class="spec-key">
+        <input type="text" class="spec-value-text editable" style="border-color:#ebebf5;background:#fafafa;"
+               placeholder="e.g. Processor, RAM…"
+               value="${escHtml(specVal)}"
+               onfocus="this.style.borderColor='#6c63ff';this.style.background='#f7f6ff';"
+               onblur="this.style.borderColor='#ebebf5';this.style.background='#fafafa';">
+      </div>
+      ${hintText ? `<div class="spec-key-hint">${escHtml(hintText)}</div>` : ''}
+    </td>
+    <td class="spec-value-cell">
+      <div class="spec-value-wrap">
+        <input type="text" id="val-${id}" class="spec-value-text"
+               placeholder="Enter value…"
+               value="${escHtml(valueVal)}">
+        <button class="spec-edit-btn" id="editBtn-${id}" onclick="toggleEdit(${id})" title="Edit value">
+          <span class="material-symbols-outlined">edit</span>
+        </button>
+        <button class="spec-del-btn" onclick="deleteRow(${id})" title="Remove row">
+          <span class="material-symbols-outlined">close</span>
+        </button>
+      </div>
+    </td>
+  `;
+  tbody.appendChild(tr);
+
+  /* If preset row, auto-enable edit */
+  if (specVal) {
+    const valInput = tr.querySelector(`#val-${id}`);
+    const editBtn  = tr.querySelector(`#editBtn-${id}`);
+    /* Keep locked initially — user clicks edit icon to type */
+  } else {
+    /* New blank row — unlock value field immediately */
+    const valInput = tr.querySelector(`#val-${id}`);
+    enableEdit(valInput, tr.querySelector(`#editBtn-${id}`));
+  }
+}
+
+function enableEdit(input, btn) {
+  input.classList.add('editable');
+  input.removeAttribute('readonly');
+  input.focus();
+  if (btn) btn.classList.add('active');
+}
+
+function disableEdit(input, btn) {
+  input.classList.remove('editable');
+  if (btn) btn.classList.remove('active');
+}
+
+function toggleEdit(id) {
+  const input = document.getElementById(`val-${id}`);
+  const btn   = document.getElementById(`editBtn-${id}`);
+  if (input.classList.contains('editable')) {
+    disableEdit(input, btn);
+  } else {
+    enableEdit(input, btn);
+  }
+}
+
+function deleteRow(id) {
+  const row = document.getElementById(`spec-row-${id}`);
+  if (row) row.remove();
+}
+
+function escHtml(str) {
+  return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+/* ──────────────────────────────────────────────────────────────
+   System selection counter
+────────────────────────────────────────────────────────────── */
+document.addEventListener('change', function(e) {
+  if (e.target.classList.contains('sys-checkbox')) {
+    const count = document.querySelectorAll('.sys-checkbox:checked').length;
+    document.getElementById('selectedCount').textContent = count;
+  }
+});
+
+/* ──────────────────────────────────────────────────────────────
+   Modal open / close
+────────────────────────────────────────────────────────────── */
 function openConfigModal() {
-    document.getElementById('configOverlay').style.display = 'flex';
-    document.getElementById('configText').value = '';
-    document.getElementById('configAlert').style.display = 'none';
-    document.querySelectorAll('.sys-checkbox').forEach(c => c.checked = false);
+  document.getElementById('configOverlay').classList.add('open');
+  document.getElementById('cfgAlert').style.display = 'none';
+  document.querySelectorAll('.sys-checkbox').forEach(c => c.checked = false);
+  document.getElementById('selectedCount').textContent = '0';
+  document.querySelectorAll('.preset-chip').forEach(c => c.classList.remove('active'));
+  activePreset = null;
+  clearRows();
+  addSpecRow(); /* Start with one blank row */
+  const btn = document.getElementById('saveConfigBtn');
+  btn.disabled = false;
+  btn.innerHTML = '<span class="material-symbols-outlined">check</span> Save Configuration';
 }
 
 function closeConfigModal() {
-    document.getElementById('configOverlay').style.display = 'none';
+  document.getElementById('configOverlay').classList.remove('open');
+}
+
+/* ──────────────────────────────────────────────────────────────
+   Collect rows → JSON string for backend
+   Format stored: JSON array of {spec, value} objects
+────────────────────────────────────────────────────────────── */
+function collectRows() {
+  const rows = [];
+  document.querySelectorAll('#specRows tr').forEach(tr => {
+    const inputs = tr.querySelectorAll('input[type="text"]');
+    const spec   = inputs[0] ? inputs[0].value.trim() : '';
+    const val    = inputs[1] ? inputs[1].value.trim() : '';
+    if (spec || val) rows.push({ spec, value: val });
+  });
+  return rows;
 }
 
 function saveConfiguration() {
-    const selected = [...document.querySelectorAll('.sys-checkbox:checked')].map(c => c.value);
-    const text = document.getElementById('configText').value.trim();
-    const alertEl = document.getElementById('configAlert');
-    const btn = document.getElementById('saveConfigBtn');
+  const selected = [...document.querySelectorAll('.sys-checkbox:checked')].map(c => c.value);
+  const rows     = collectRows();
+  const alertEl  = document.getElementById('cfgAlert');
+  const btn      = document.getElementById('saveConfigBtn');
 
-    if (!selected.length) {
-        alertEl.style.display = 'block';
-        alertEl.style.background = '#fef2f2';
-        alertEl.style.color = '#dc2626';
-        alertEl.textContent = 'Please select at least one system.';
-        return;
+  alertEl.style.display = 'none';
+
+  if (!selected.length) {
+    showAlert('Please select at least one system.', 'error');
+    return;
+  }
+  if (!rows.length) {
+    showAlert('Please add at least one specification row.', 'error');
+    return;
+  }
+
+  btn.disabled = true;
+  btn.innerHTML = '<span class="material-symbols-outlined" style="animation:spin 1s linear infinite">progress_activity</span> Saving…';
+
+  const configuration = JSON.stringify(rows);
+  const csrf = document.cookie.split(';').find(x => x.trim().startsWith('csrftoken='));
+  const csrfToken = csrf ? decodeURIComponent(csrf.trim().split('=')[1]) : '';
+
+  fetch('{% url "room_incharge:system_configuration" room_slug=room_slug %}', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json', 'X-CSRFToken': csrfToken},
+    body: JSON.stringify({ system_slugs: selected, configuration }),
+  })
+  .then(r => r.json())
+  .then(data => {
+    btn.disabled = false;
+    if (data.success) {
+      btn.innerHTML = '<span class="material-symbols-outlined">check_circle</span> Saved!';
+      showAlert(`Saved for: ${data.updated.join(', ')}`, 'success');
+      setTimeout(() => closeConfigModal(), 1600);
+    } else {
+      btn.innerHTML = '<span class="material-symbols-outlined">check</span> Save Configuration';
+      showAlert(data.error || 'Save failed. Try again.', 'error');
     }
-    if (!text) {
-        alertEl.style.display = 'block';
-        alertEl.style.background = '#fef2f2';
-        alertEl.style.color = '#dc2626';
-        alertEl.textContent = 'Please enter configuration details.';
-        return;
-    }
-
-    btn.disabled = true;
-    btn.textContent = 'Saving...';
-
-    const csrf = document.cookie.split(';').find(x => x.trim().startsWith('csrftoken='));
-    const csrfToken = csrf ? decodeURIComponent(csrf.trim().split('=')[1]) : '';
-
-    fetch('{% url "room_incharge:system_configuration" room_slug=room_slug %}', {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json', 'X-CSRFToken': csrfToken},
-        body: JSON.stringify({system_slugs: selected, configuration: text}),
-    })
-    .then(r => r.json())
-    .then(data => {
-        btn.disabled = false;
-        if (data.success) {
-            alertEl.style.display = 'block';
-            alertEl.style.background = '#f0fdf4';
-            alertEl.style.color = '#166534';
-            alertEl.textContent = `Saved for: ${data.updated.join(', ')}`;
-            btn.textContent = '✓ Saved';
-            setTimeout(() => closeConfigModal(), 1500);
-        } else {
-            alertEl.style.display = 'block';
-            alertEl.style.background = '#fef2f2';
-            alertEl.style.color = '#dc2626';
-            alertEl.textContent = data.error || 'Save failed.';
-            btn.textContent = 'Save Configuration';
-        }
-    })
-    .catch(() => {
-        btn.disabled = false;
-        btn.textContent = 'Save Configuration';
-        alertEl.style.display = 'block';
-        alertEl.style.background = '#fef2f2';
-        alertEl.style.color = '#dc2626';
-        alertEl.textContent = 'Network error. Try again.';
-    });
+  })
+  .catch(() => {
+    btn.disabled = false;
+    btn.innerHTML = '<span class="material-symbols-outlined">check</span> Save Configuration';
+    showAlert('Network error. Please try again.', 'error');
+  });
 }
+
+function showAlert(msg, type) {
+  const el = document.getElementById('cfgAlert');
+  el.style.display = 'block';
+  el.style.background = type === 'success' ? '#f0fdf4' : '#fef2f2';
+  el.style.color      = type === 'success' ? '#166534' : '#dc2626';
+  el.style.border     = `1px solid ${type === 'success' ? '#bbf7d0' : '#fecaca'}`;
+  el.textContent = msg;
+}
+
+/* Spinner keyframe */
+const style = document.createElement('style');
+style.textContent = `@keyframes spin { to { transform: rotate(360deg); } }`;
+document.head.appendChild(style);
+
+/* Init with one blank row on load */
+document.addEventListener('DOMContentLoaded', () => { /* rows added on modal open */ });
 </script>
 {% endblock content %}
