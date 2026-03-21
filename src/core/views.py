@@ -116,27 +116,44 @@ class UserRegisterView(CreateView):
     form_class = UserRegisterForm
     template_name = 'core/register.html'
     success_url = reverse_lazy('core:login')
-    
+
+    def _central_admin_exists(self):
+        """Return True if at least one central admin account already exists."""
+        return UserProfile.objects.filter(is_central_admin=True).exists()
+
+    def dispatch(self, request, *args, **kwargs):
+        """
+        If a central admin already exists, skip normal dispatch entirely
+        and render the locked page immediately — for both GET and POST.
+        """
+        if self._central_admin_exists():
+            return render(request, self.template_name, {'registration_locked': True})
+        return super().dispatch(request, *args, **kwargs)
+
     @transaction.atomic
     def form_valid(self, form):
+        # Double-check at commit time in case of a race condition
+        if self._central_admin_exists():
+            return render(self.request, self.template_name, {'registration_locked': True})
+
         user = form.save()
-        
+
         org_name = form.cleaned_data.get('org_name')
         org = Organisation.objects.create(
-            name = org_name,
+            name=org_name,
         )
-        
+
         # Create user profile
         first_name = form.cleaned_data.get('first_name')
         last_name = form.cleaned_data.get('last_name')
         UserProfile.objects.create(
-            user=user, 
-            org = org,
-            first_name=first_name, 
-            last_name=last_name, 
+            user=user,
+            org=org,
+            first_name=first_name,
+            last_name=last_name,
             is_central_admin=True
-            )
-        
+        )
+
         login(self.request, user)
         return redirect('landing_page')
     

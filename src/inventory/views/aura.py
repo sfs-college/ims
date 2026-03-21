@@ -1439,10 +1439,11 @@ class MasterInventoryImportView(LoginRequiredMixin, CentralAdminRequiredMixin, F
         else:
             df = excel.parse('Items')
             df.columns = [str(c).strip() for c in df.columns]
-            
-            mandatory = ["Item Name","Total Count"]
+
+            # Only Item Name is strictly required as a column
+            mandatory = ["Item Name"]
             missing = [c for c in mandatory if c not in df.columns]
-            
+
             if missing:
                 preview['errors'].append(f"Excel is missing mandatory columns: {missing}")
             else:
@@ -1450,37 +1451,52 @@ class MasterInventoryImportView(LoginRequiredMixin, CentralAdminRequiredMixin, F
                     rownum = idx + 2
                     row_errors = []
 
+                    # ── Item Name (required) ──────────────────────────────────
                     name = str(row.get('Item Name', '')).strip()
-                    cat_name = str(row.get('Category', '')).strip()
-                    brand_name = str(row.get('Brand', '')).strip()
-                    
                     if not name or name.lower() == 'nan':
-                        row_errors.append('Item Name is missing.')
-                    if not cat_name or cat_name.lower() == 'nan':
-                        row_errors.append('Category is missing.')
-                    if not brand_name or brand_name.lower() == 'nan':
-                        row_errors.append('Brand is missing.')
+                        row_errors.append('Item Name is required and cannot be empty.')
+                        name = '—'
 
-                    try:
-                        total_count = int(row.get('Total Count', 0))
-                    except (ValueError, TypeError):
-                        total_count = 0
-                        row_errors.append('Total Count must be a whole number.')
+                    # ── Category (optional) ───────────────────────────────────
+                    cat_raw = row.get('Category', None)
+                    cat_str = str(cat_raw).strip() if cat_raw is not None else ''
+                    cat_display = cat_str if (cat_str and cat_str.lower() != 'nan') else '-'
 
-                    try:
-                        from decimal import Decimal, InvalidOperation
-                        cost = Decimal(str(row.get('Cost', 0)))
-                    except (ValueError, TypeError, InvalidOperation):
-                        cost = Decimal('0.00')
-                        row_errors.append('Cost must be a valid decimal number.')
+                    # ── Brand (optional) ──────────────────────────────────────
+                    brand_raw = row.get('Brand', None)
+                    brand_str = str(brand_raw).strip() if brand_raw is not None else ''
+                    brand_display = brand_str if (brand_str and brand_str.lower() != 'nan') else '-'
+
+                    # ── Total Count (optional) ────────────────────────────────
+                    tc_raw = row.get('Total Count', None)
+                    if tc_raw is None or str(tc_raw).strip() == '' or str(tc_raw).lower() == 'nan':
+                        total_count_display = '-'
+                    else:
+                        try:
+                            total_count_display = int(tc_raw)
+                        except (ValueError, TypeError):
+                            total_count_display = '-'
+                            row_errors.append('Total Count must be a whole number if provided.')
+
+                    # ── Cost (optional) ───────────────────────────────────────
+                    cost_raw = row.get('Cost', None)
+                    if cost_raw is None or str(cost_raw).strip() == '' or str(cost_raw).lower() == 'nan':
+                        cost_display = '-'
+                    else:
+                        try:
+                            from decimal import Decimal, InvalidOperation
+                            cost_display = Decimal(str(cost_raw))
+                        except (ValueError, TypeError, InvalidOperation):
+                            cost_display = '-'
+                            row_errors.append('Cost must be a valid decimal number if provided.')
 
                     preview['items'].append({
                         'rownum': rownum,
                         'name': name,
-                        'category': cat_name,
-                        'brand': brand_name,
-                        'total_count': total_count,
-                        'cost': cost,
+                        'category': cat_display,
+                        'brand': brand_display,
+                        'total_count': total_count_display,
+                        'cost': cost_display,
                         'errors': row_errors
                     })
 
@@ -1513,38 +1529,53 @@ class MasterInventoryImportConfirmView(LoginRequiredMixin, CentralAdminRequiredM
 
         import_count = 0
         from decimal import Decimal
-        
+        from inventory.models import Category, Brand
+
         for _, row in df.iterrows():
             name = str(row.get('Item Name', '')).strip()
-            cat_name = str(row.get('Category', '')).strip()
-            brand_name = str(row.get('Brand', '')).strip()
-
             if not name or name.lower() == 'nan':
                 continue
 
-            # Create unassigned category and brand (no room)
-            from inventory.models import Category, Brand
+            # ── Category (optional — fall back to 'Uncategorised') ────────────
+            cat_raw = row.get('Category', None)
+            cat_name = str(cat_raw).strip() if cat_raw is not None else ''
             if cat_name and cat_name.lower() != 'nan':
                 category, _ = Category.objects.get_or_create(
                     organisation=org, room=None, category_name=cat_name)
             else:
+                cat_name = 'Uncategorised'
                 category, _ = Category.objects.get_or_create(
                     organisation=org, room=None, category_name='Uncategorised')
 
+            # ── Brand (optional — fall back to 'Unknown') ─────────────────────
+            brand_raw = row.get('Brand', None)
+            brand_name = str(brand_raw).strip() if brand_raw is not None else ''
             if brand_name and brand_name.lower() != 'nan':
                 brand, _ = Brand.objects.get_or_create(
                     organisation=org, room=None, brand_name=brand_name)
             else:
+                brand_name = 'Unknown'
                 brand, _ = Brand.objects.get_or_create(
                     organisation=org, room=None, brand_name='Unknown')
-                
-            cost_val = row.get('Cost')
+
+            # ── Total Count (optional — fall back to 0) ───────────────────────
+            tc_raw = row.get('Total Count', None)
+            if tc_raw is None or str(tc_raw).strip() == '' or str(tc_raw).lower() == 'nan':
+                total_count = 0
+            else:
+                try:
+                    total_count = int(tc_raw)
+                except (ValueError, TypeError):
+                    total_count = 0
+
+            # ── Cost (optional — stored as None if absent) ────────────────────
+            cost_raw = row.get('Cost', None)
             try:
-                cost = Decimal(str(cost_val)) if cost_val and str(cost_val).lower() not in ('nan','') else None
+                cost = Decimal(str(cost_raw)) if cost_raw is not None and str(cost_raw).lower() not in ('nan', '') else None
             except Exception:
                 cost = None
 
-            # Create unassigned item
+            # ── Create / update unassigned master item ────────────────────────
             Item.objects.update_or_create(
                 organisation=org,
                 room=None,  # Master inventory - unassigned
@@ -1552,7 +1583,7 @@ class MasterInventoryImportConfirmView(LoginRequiredMixin, CentralAdminRequiredM
                 defaults={
                     'category': category,
                     'brand': brand,
-                    'total_count': int(row.get('Total Count', 0)),
+                    'total_count': total_count,
                     'cost': cost,
                     'is_listed': True,
                     'item_description': f"{brand_name} {name} - Master Inventory"
