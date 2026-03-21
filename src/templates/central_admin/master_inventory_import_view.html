@@ -221,7 +221,7 @@
                     <div class="col-6">
                         <div class="info-pill w-100">
                             <span class="label-meta">Cost</span>
-                            <span class="val-meta">₹{{ r.cost }}</span>
+                            <span class="val-meta">{% if r.cost == '-' %}-{% else %}₹{{ r.cost }}{% endif %}</span>
                         </div>
                     </div>
                 </div>
