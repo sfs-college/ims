@@ -392,6 +392,50 @@
     </div>
 </div>
 
+<!-- ═══════════════════════════════════════════════════════════════
+     FORWARD REQUIREMENTS OVERLAY  (multi-step)
+     NOTE: This overlay must live OUTSIDE #bookingFilesModal so that
+     Bootstrap's focus-trap does not intercept button/input events.
+════════════════════════════════════════════════════════════════ -->
+<div id="fwdOverlay" aria-modal="true" role="dialog" aria-label="Forward Requirements">
+    <div id="fwdBox">
+        <!-- Header -->
+        <div id="fwdHeader">
+            <h5>
+                <i class="bi bi-send-fill" style="color:#38bdf8;"></i>
+                Forward Requirements
+                <span id="fwdRoomLabel" style="font-weight:400;opacity:0.7;font-size:0.85rem;"></span>
+            </h5>
+            <button id="fwdCloseBtn" onclick="closeFwdOverlay()" title="Close">&#x2715;</button>
+        </div>
+
+        <!-- Step indicator -->
+        <div class="fwd-steps" id="fwdStepIndicator">
+            <div class="fwd-step-dot active" id="fwd-dot-1">1</div>
+            <div class="fwd-step-line" id="fwd-line-1"></div>
+            <div class="fwd-step-dot" id="fwd-dot-2">2</div>
+            <div class="fwd-step-line" id="fwd-line-2"></div>
+            <div class="fwd-step-dot" id="fwd-dot-3">3</div>
+            <span class="fwd-step-label" id="fwdStepLabel">Recipient Details</span>
+        </div>
+
+        <!-- Body -->
+        <div id="fwdBody"></div>
+
+        <!-- Footer -->
+        <div id="fwdFooter">
+            <button class="fwd-btn-secondary" id="fwdBackBtn" onclick="fwdBack()" style="display:none;">
+                <i class="bi bi-arrow-left me-1"></i> Back
+            </button>
+            <div style="margin-left:auto;">
+                <button class="fwd-btn-primary" id="fwdNextBtn" onclick="fwdNext()">
+                    Next <i class="bi bi-arrow-right ms-1"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- File Detail Popup (in-page overlay) -->
 <div id="fileDetailOverlay" style="display:none;position:fixed;inset:0;z-index:2000;background:rgba(15,23,42,0.65);backdrop-filter:blur(6px);align-items:center;justify-content:center;padding:20px;">
     <div id="fileDetailBox" style="background:#fff;border-radius:24px;padding:40px;max-width:560px;width:100%;position:relative;box-shadow:0 30px 60px -10px rgba(0,0,0,0.3);animation:fdSlideUp 0.3s ease;">
@@ -419,10 +463,10 @@
     .doc-text-panel.open { display:block; }
     .doc-text-content { font-size:0.82rem; color:#334155; line-height:1.65; max-height:300px; overflow-y:auto; }
     .doc-para { margin-bottom:6px; }
-    .doc-table-wrap { overflow-x:auto; margin-bottom:10px; }
-    .doc-table { width:100%; border-collapse:collapse; font-size:0.8rem; }
-    .doc-table th { background:linear-gradient(135deg,#6366f1,#7c3aed); color:#fff; font-weight:700; padding:7px 10px; text-align:left; }
-    .doc-table td { padding:6px 10px; border-bottom:1px solid #e2e8f0; color:#1e293b; }
+    .doc-table-wrap { overflow-x:auto; margin-bottom:10px; border-radius:8px; border:1px solid #e2e8f0; }
+    .doc-table { min-width:100%; border-collapse:collapse; font-size:0.8rem; }
+    .doc-table th { background:linear-gradient(135deg,#6366f1,#7c3aed); color:#fff; font-weight:700; padding:7px 10px; text-align:left; white-space:nowrap; }
+    .doc-table td { padding:6px 10px; border-bottom:1px solid #e2e8f0; color:#1e293b; white-space:nowrap; }
     .doc-table tr:nth-child(even) td { background:#f0f4ff; }
     .doc-table tr:hover td { background:#e0e7ff; }
     .btn-dl-pdf { background:linear-gradient(135deg,#10b981,#059669);color:#fff;border:none;border-radius:10px;padding:7px 14px;font-weight:700;font-size:0.82rem;cursor:pointer;text-decoration:none;display:inline-flex;align-items:center;gap:5px;transition:opacity 0.2s; }
@@ -1367,6 +1411,7 @@
     var _bfcIsCentralAdmin = false;
     var _bfcDeleteUrl      = null;
     var _bfcBulkDeleteUrl  = null;
+    var _bfcDataMap        = {};   // id → booking data object, populated by loadBookingFiles
 
     function loadBookingFiles() {
         const body    = document.getElementById('bookingFilesBody');
@@ -1389,6 +1434,7 @@
             return;
         }
 
+        _bfcDataMap = {};   // clear stale entries before each load
         body.innerHTML = '<div class="text-center py-5"><div class="spinner-border text-primary"></div><p class="mt-2 text-muted small">Loading confirmed bookings…</p></div>';
 
         fetch(fileUrl, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
@@ -1462,12 +1508,12 @@
                 }
 
                 // ── Forward button (only when doc or inline text exists) ────────
-                const _fwdModal = document.getElementById('bookingFilesModal');
-                const _fwdUrlTpl = _fwdModal ? _fwdModal.dataset.forwardUrl : null;
                 const hasContent = b.has_doc_text || b.has_inline_text;
+                // Store booking data in the safe lookup map so onclick only passes the id
+                _bfcDataMap[b.id] = b;
                 const forwardBtn = hasContent
                     ? `<button class="btn-forward-booking" title="Forward requirements by email"
-                               onclick="openForwardOverlay(${b.id}, ${JSON.stringify(b).replace(/</g,'\u003c')})">
+                               onclick="openForwardOverlay(${b.id})">
                            <i class="bi bi-send-fill me-1"></i>Forward
                        </button>`
                     : '';
@@ -1912,48 +1958,8 @@
         refreshAdminBellBadge();
         setInterval(refreshAdminBellBadge, 60000); // refresh every 60 seconds
     });
+</script>
 
-<!-- ═══════════════════════════════════════════════════════════════
-     FORWARD REQUIREMENTS OVERLAY  (multi-step)
-════════════════════════════════════════════════════════════════ -->
-<div id="fwdOverlay" aria-modal="true" role="dialog" aria-label="Forward Requirements">
-    <div id="fwdBox">
-        <!-- Header -->
-        <div id="fwdHeader">
-            <h5>
-                <i class="bi bi-send-fill" style="color:#38bdf8;"></i>
-                Forward Requirements
-                <span id="fwdRoomLabel" style="font-weight:400;opacity:0.7;font-size:0.85rem;"></span>
-            </h5>
-            <button id="fwdCloseBtn" onclick="closeFwdOverlay()" title="Close">&#x2715;</button>
-        </div>
-
-        <!-- Step indicator -->
-        <div class="fwd-steps" id="fwdStepIndicator">
-            <div class="fwd-step-dot active" id="fwd-dot-1">1</div>
-            <div class="fwd-step-line" id="fwd-line-1"></div>
-            <div class="fwd-step-dot" id="fwd-dot-2">2</div>
-            <div class="fwd-step-line" id="fwd-line-2"></div>
-            <div class="fwd-step-dot" id="fwd-dot-3">3</div>
-            <span class="fwd-step-label" id="fwdStepLabel">Recipient Details</span>
-        </div>
-
-        <!-- Body -->
-        <div id="fwdBody"></div>
-
-        <!-- Footer -->
-        <div id="fwdFooter">
-            <button class="fwd-btn-secondary" id="fwdBackBtn" onclick="fwdBack()" style="display:none;">
-                <i class="bi bi-arrow-left me-1"></i> Back
-            </button>
-            <div style="margin-left:auto;">
-                <button class="fwd-btn-primary" id="fwdNextBtn" onclick="fwdNext()">
-                    Next <i class="bi bi-arrow-right ms-1"></i>
-                </button>
-            </div>
-        </div>
-    </div>
-</div>
 
 <script>
 
@@ -1985,19 +1991,48 @@
         localStorage.setItem(fwdHistoryKey(bookingId), JSON.stringify(hist));
     }
 
+    // ── Bootstrap focus-trap helper ───────────────────────────────────────
+    // Bootstrap 5's modal keeps an active _focustrap that calls .focus() on
+    // the modal whenever anything outside it receives focus — so text inputs
+    // in the overlay can never hold focus long enough to accept keystrokes.
+    // We directly deactivate/_activate the trap via Bootstrap's own API.
+    function _fwdSetModalFocusTrap(enable) {
+        try {
+            var modalEl = document.getElementById('bookingFilesModal');
+            if (!modalEl) return;
+            var instance = bootstrap.Modal.getInstance(modalEl);
+            if (!instance) return;
+            if (instance._focustrap) {
+                if (enable) {
+                    instance._focustrap.activate();
+                } else {
+                    instance._focustrap.deactivate();
+                }
+            }
+        } catch(e) { /* Bootstrap version without _focustrap — safe to ignore */ }
+    }
+
     // ── Open / close ──────────────────────────────────────────────────────
-    function openForwardOverlay(bookingId, b) {
+    function openForwardOverlay(bookingId) {
+        var b = _bfcDataMap[bookingId];
+        if (!b) { console.error('openForwardOverlay: no data for id', bookingId); return; }
         _fwdState = {
             step: 1, bookingId: bookingId, bookingData: b,
             blocks: [], email: '', department: '',
         };
         document.getElementById('fwdRoomLabel').textContent = '– ' + (b.room || '');
+        document.getElementById('fwdFooter').style.display = 'flex';
         document.getElementById('fwdOverlay').classList.add('open');
+        // Disable Bootstrap's focus trap so overlay inputs can receive focus
+        _fwdSetModalFocusTrap(false);
         fwdRenderStep(1);
     }
 
     function closeFwdOverlay() {
         document.getElementById('fwdOverlay').classList.remove('open');
+        document.getElementById('fwdFooter').style.display = 'flex';
+        // Re-enable Bootstrap's focus trap when overlay is dismissed
+        _fwdSetModalFocusTrap(true);
     }
 
     document.addEventListener('DOMContentLoaded', function() {
@@ -2186,21 +2221,59 @@
             return;
         }
         list.innerHTML = _fwdState.blocks.map(function(blk, idx) {
-            var label = blk.type === 'table'
-                ? '<span class="fwd-block-badge table"><i class="bi bi-table me-1"></i>Table</span>'
-                : '<span class="fwd-block-badge para"><i class="bi bi-paragraph me-1"></i>Text</span>';
-            var preview = '';
-            if (blk.type === 'table' && blk.rows && blk.rows.length) {
-                preview = '[Table: ' + blk.rows.length + ' row(s), ' + (blk.rows[0] || []).length + ' column(s)]';
-                if (blk.rows[0] && blk.rows[0].length) preview += ' — ' + blk.rows[0].slice(0,3).join(' | ');
+            var isTable = blk.type === 'table' && blk.rows && blk.rows.length;
+
+            if (isTable) {
+                // ── TABLE block: vertical layout (header row on top, table below) ──
+                // This avoids forcing a wide table into a constrained flex column,
+                // which causes invisible/overflow rendering.
+                var headerRow = blk.rows[0] || [];
+                var bodyRows  = blk.rows.slice(1);
+                var thCells = headerRow.map(function(c) {
+                    return '<th style="background:#0f172a;color:#fff;padding:6px 12px;font-size:0.75rem;font-weight:700;text-align:left;white-space:nowrap;border-right:1px solid #1e3a5f;">' + escHtml(c) + '</th>';
+                }).join('');
+                var tbodyRows = bodyRows.map(function(row, ri) {
+                    var bg = ri % 2 === 0 ? '#f8fafc' : '#fff';
+                    var tds = row.map(function(c) {
+                        return '<td style="padding:5px 12px;font-size:0.8rem;color:#1e293b;border-bottom:1px solid #e2e8f0;border-right:1px solid #e2e8f0;background:' + bg + ';white-space:nowrap;">' + escHtml(c) + '</td>';
+                    }).join('');
+                    return '<tr>' + tds + '</tr>';
+                }).join('');
+
+                return '<div class="fwd-block-item' + (blk.selected ? ' selected' : '') + '" '
+                    + 'id="fwd-block-' + idx + '" '
+                    + 'onclick="fwdToggleBlock(' + idx + ')" '
+                    + 'style="flex-direction:column;gap:8px;">'
+                    // top row: checkbox + label badge
+                    + '<div style="display:flex;align-items:center;gap:10px;">'
+                    +   '<input type="checkbox" class="fwd-block-cb" ' + (blk.selected ? 'checked' : '') + ' '
+                    +     'onclick="event.stopPropagation();fwdToggleBlock(' + idx + ')">'
+                    +   '<span class="fwd-block-badge table"><i class="bi bi-table me-1"></i>Table</span>'
+                    +   '<span style="font-size:0.75rem;color:#64748b;">'
+                    +     blk.rows.length + ' row(s) &times; ' + (headerRow.length) + ' col(s)'
+                    +   '</span>'
+                    + '</div>'
+                    // table itself — overflow-x:auto on a block-level container constrains it correctly
+                    + '<div style="width:100%;overflow-x:auto;border-radius:8px;border:1px solid #cbd5e1;">'
+                    +   '<table style="border-collapse:collapse;white-space:nowrap;">'
+                    +     '<thead><tr>' + thCells + '</tr></thead>'
+                    +     '<tbody>' + tbodyRows + '</tbody>'
+                    +   '</table>'
+                    + '</div>'
+                + '</div>';
+
             } else {
-                preview = (blk.text || '').substring(0, 160) + ((blk.text || '').length > 160 ? '…' : '');
+                // ── TEXT block: original horizontal layout (checkbox | text | badge) ──
+                var text = (blk.text || '').substring(0, 200) + ((blk.text || '').length > 200 ? '\u2026' : '');
+                return '<div class="fwd-block-item' + (blk.selected ? ' selected' : '') + '" '
+                    + 'id="fwd-block-' + idx + '" '
+                    + 'onclick="fwdToggleBlock(' + idx + ')">'
+                    + '<input type="checkbox" class="fwd-block-cb" ' + (blk.selected ? 'checked' : '') + ' '
+                    +   'onclick="event.stopPropagation();fwdToggleBlock(' + idx + ')">'
+                    + '<div class="fwd-block-text">' + escHtml(text) + '</div>'
+                    + '<span class="fwd-block-badge para"><i class="bi bi-paragraph me-1"></i>Text</span>'
+                + '</div>';
             }
-            return '<div class="fwd-block-item' + (blk.selected ? ' selected' : '') + '" onclick="fwdToggleBlock(' + idx + ')" id="fwd-block-' + idx + '">' +
-                '<input type="checkbox" class="fwd-block-cb" ' + (blk.selected ? 'checked' : '') + ' onclick="event.stopPropagation();fwdToggleBlock(' + idx + ')">' +
-                '<div class="fwd-block-text">' + escHtml(preview) + '</div>' +
-                label +
-            '</div>';
         }).join('');
     }
 
@@ -2348,19 +2421,6 @@
         _fwdState.email      = entry.email;
         _fwdState.department = entry.department;
         fwdRenderStep1(entry.email, entry.department, 'new');
-    }
-
-    // ── Footer visibility reset when overlay is reopened ─────────────────
-    var _fwdOriginalRenderStep1 = fwdRenderStep;
-    function openForwardOverlay(bookingId, b) {
-        _fwdState = {
-            step: 1, bookingId: bookingId, bookingData: b,
-            blocks: [], email: '', department: '',
-        };
-        document.getElementById('fwdRoomLabel').textContent = '– ' + (b.room || '');
-        document.getElementById('fwdFooter').style.display = 'flex';
-        document.getElementById('fwdOverlay').classList.add('open');
-        fwdRenderStep(1);
     }
 
 </script>
