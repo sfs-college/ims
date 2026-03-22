@@ -392,6 +392,50 @@
     </div>
 </div>
 
+<!-- ═══════════════════════════════════════════════════════════════
+     FORWARD REQUIREMENTS OVERLAY  (multi-step)
+     NOTE: This overlay must live OUTSIDE #bookingFilesModal so that
+     Bootstrap's focus-trap does not intercept button/input events.
+════════════════════════════════════════════════════════════════ -->
+<div id="fwdOverlay" aria-modal="true" role="dialog" aria-label="Forward Requirements">
+    <div id="fwdBox">
+        <!-- Header -->
+        <div id="fwdHeader">
+            <h5>
+                <i class="bi bi-send-fill" style="color:#38bdf8;"></i>
+                Forward Requirements
+                <span id="fwdRoomLabel" style="font-weight:400;opacity:0.7;font-size:0.85rem;"></span>
+            </h5>
+            <button id="fwdCloseBtn" onclick="closeFwdOverlay()" title="Close">&#x2715;</button>
+        </div>
+
+        <!-- Step indicator -->
+        <div class="fwd-steps" id="fwdStepIndicator">
+            <div class="fwd-step-dot active" id="fwd-dot-1">1</div>
+            <div class="fwd-step-line" id="fwd-line-1"></div>
+            <div class="fwd-step-dot" id="fwd-dot-2">2</div>
+            <div class="fwd-step-line" id="fwd-line-2"></div>
+            <div class="fwd-step-dot" id="fwd-dot-3">3</div>
+            <span class="fwd-step-label" id="fwdStepLabel">Recipient Details</span>
+        </div>
+
+        <!-- Body -->
+        <div id="fwdBody"></div>
+
+        <!-- Footer -->
+        <div id="fwdFooter">
+            <button class="fwd-btn-secondary" id="fwdBackBtn" onclick="fwdBack()" style="display:none;">
+                <i class="bi bi-arrow-left me-1"></i> Back
+            </button>
+            <div style="margin-left:auto;">
+                <button class="fwd-btn-primary" id="fwdNextBtn" onclick="fwdNext()">
+                    Next <i class="bi bi-arrow-right ms-1"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- File Detail Popup (in-page overlay) -->
 <div id="fileDetailOverlay" style="display:none;position:fixed;inset:0;z-index:2000;background:rgba(15,23,42,0.65);backdrop-filter:blur(6px);align-items:center;justify-content:center;padding:20px;">
     <div id="fileDetailBox" style="background:#fff;border-radius:24px;padding:40px;max-width:560px;width:100%;position:relative;box-shadow:0 30px 60px -10px rgba(0,0,0,0.3);animation:fdSlideUp 0.3s ease;">
@@ -419,10 +463,10 @@
     .doc-text-panel.open { display:block; }
     .doc-text-content { font-size:0.82rem; color:#334155; line-height:1.65; max-height:300px; overflow-y:auto; }
     .doc-para { margin-bottom:6px; }
-    .doc-table-wrap { overflow-x:auto; margin-bottom:10px; }
-    .doc-table { width:100%; border-collapse:collapse; font-size:0.8rem; }
-    .doc-table th { background:linear-gradient(135deg,#6366f1,#7c3aed); color:#fff; font-weight:700; padding:7px 10px; text-align:left; }
-    .doc-table td { padding:6px 10px; border-bottom:1px solid #e2e8f0; color:#1e293b; }
+    .doc-table-wrap { overflow-x:auto; margin-bottom:10px; border-radius:8px; border:1px solid #e2e8f0; }
+    .doc-table { min-width:100%; border-collapse:collapse; font-size:0.8rem; }
+    .doc-table th { background:linear-gradient(135deg,#6366f1,#7c3aed); color:#fff; font-weight:700; padding:7px 10px; text-align:left; white-space:nowrap; }
+    .doc-table td { padding:6px 10px; border-bottom:1px solid #e2e8f0; color:#1e293b; white-space:nowrap; }
     .doc-table tr:nth-child(even) td { background:#f0f4ff; }
     .doc-table tr:hover td { background:#e0e7ff; }
     .btn-dl-pdf { background:linear-gradient(135deg,#10b981,#059669);color:#fff;border:none;border-radius:10px;padding:7px 14px;font-weight:700;font-size:0.82rem;cursor:pointer;text-decoration:none;display:inline-flex;align-items:center;gap:5px;transition:opacity 0.2s; }
@@ -1367,6 +1411,7 @@
     var _bfcIsCentralAdmin = false;
     var _bfcDeleteUrl      = null;
     var _bfcBulkDeleteUrl  = null;
+    var _bfcDataMap        = {};   // id → booking data object, populated by loadBookingFiles
 
     function loadBookingFiles() {
         const body    = document.getElementById('bookingFilesBody');
@@ -1389,6 +1434,7 @@
             return;
         }
 
+        _bfcDataMap = {};   // clear stale entries before each load
         body.innerHTML = '<div class="text-center py-5"><div class="spinner-border text-primary"></div><p class="mt-2 text-muted small">Loading confirmed bookings…</p></div>';
 
         fetch(fileUrl, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
@@ -1462,12 +1508,12 @@
                 }
 
                 // ── Forward button (only when doc or inline text exists) ────────
-                const _fwdModal = document.getElementById('bookingFilesModal');
-                const _fwdUrlTpl = _fwdModal ? _fwdModal.dataset.forwardUrl : null;
                 const hasContent = b.has_doc_text || b.has_inline_text;
+                // Store booking data in the safe lookup map so onclick only passes the id
+                _bfcDataMap[b.id] = b;
                 const forwardBtn = hasContent
                     ? `<button class="btn-forward-booking" title="Forward requirements by email"
-                               onclick="openForwardOverlay(${b.id}, ${JSON.stringify(b).replace(/</g,'\u003c')})">
+                               onclick="openForwardOverlay(${b.id})">
                            <i class="bi bi-send-fill me-1"></i>Forward
                        </button>`
                     : '';
@@ -2361,6 +2407,471 @@
         document.getElementById('fwdFooter').style.display = 'flex';
         document.getElementById('fwdOverlay').classList.add('open');
         fwdRenderStep(1);
+    }
+
+</script>
+
+
+<script>
+
+    // ══════════════════════════════════════════════════════════════════════
+    //  FORWARD REQUIREMENTS  —  full multi-step flow
+    // ══════════════════════════════════════════════════════════════════════
+    var _fwdState = {
+        step: 1,           // 1=recipient, 2=content, 3=preview
+        bookingId: null,
+        bookingData: null, // raw b object from confirmed_booking_files
+        blocks: [],        // [{type,text/rows,selected}]
+        email: '',
+        department: '',
+    };
+
+    // ── localStorage helpers ─────────────────────────────────────────────
+    function fwdHistoryKey(id) { return 'blixtro_fwd_' + id; }
+
+    function fwdLoadHistory(bookingId) {
+        try { return JSON.parse(localStorage.getItem(fwdHistoryKey(bookingId)) || '[]'); }
+        catch(e) { return []; }
+    }
+
+    function fwdSaveHistory(bookingId, entry) {
+        var hist = fwdLoadHistory(bookingId);
+        // newest first, cap at 20
+        hist.unshift(entry);
+        if (hist.length > 20) hist = hist.slice(0, 20);
+        localStorage.setItem(fwdHistoryKey(bookingId), JSON.stringify(hist));
+    }
+
+    // ── Bootstrap focus-trap helper ───────────────────────────────────────
+    // Bootstrap 5's modal keeps an active _focustrap that calls .focus() on
+    // the modal whenever anything outside it receives focus — so text inputs
+    // in the overlay can never hold focus long enough to accept keystrokes.
+    // We directly deactivate/_activate the trap via Bootstrap's own API.
+    function _fwdSetModalFocusTrap(enable) {
+        try {
+            var modalEl = document.getElementById('bookingFilesModal');
+            if (!modalEl) return;
+            var instance = bootstrap.Modal.getInstance(modalEl);
+            if (!instance) return;
+            if (instance._focustrap) {
+                if (enable) {
+                    instance._focustrap.activate();
+                } else {
+                    instance._focustrap.deactivate();
+                }
+            }
+        } catch(e) { /* Bootstrap version without _focustrap — safe to ignore */ }
+    }
+
+    // ── Open / close ──────────────────────────────────────────────────────
+    function openForwardOverlay(bookingId) {
+        var b = _bfcDataMap[bookingId];
+        if (!b) { console.error('openForwardOverlay: no data for id', bookingId); return; }
+        _fwdState = {
+            step: 1, bookingId: bookingId, bookingData: b,
+            blocks: [], email: '', department: '',
+        };
+        document.getElementById('fwdRoomLabel').textContent = '– ' + (b.room || '');
+        document.getElementById('fwdFooter').style.display = 'flex';
+        document.getElementById('fwdOverlay').classList.add('open');
+        // Disable Bootstrap's focus trap so overlay inputs can receive focus
+        _fwdSetModalFocusTrap(false);
+        fwdRenderStep(1);
+    }
+
+    function closeFwdOverlay() {
+        document.getElementById('fwdOverlay').classList.remove('open');
+        document.getElementById('fwdFooter').style.display = 'flex';
+        // Re-enable Bootstrap's focus trap when overlay is dismissed
+        _fwdSetModalFocusTrap(true);
+    }
+
+    document.addEventListener('DOMContentLoaded', function() {
+        var ov = document.getElementById('fwdOverlay');
+        if (ov) ov.addEventListener('click', function(e) {
+            if (e.target === ov) closeFwdOverlay();
+        });
+    });
+
+    // ── Step navigation ───────────────────────────────────────────────────
+    function fwdSetStep(n) {
+        _fwdState.step = n;
+        [1,2,3].forEach(function(i) {
+            var dot  = document.getElementById('fwd-dot-' + i);
+            var line = document.getElementById('fwd-line-' + i);
+            if (!dot) return;
+            dot.className = 'fwd-step-dot' + (i < n ? ' done' : i === n ? ' active' : '');
+            if (line) line.className = 'fwd-step-line' + (i < n ? ' done' : '');
+        });
+        var labels = {1:'Recipient Details', 2:'Select Content', 3:'Preview & Send'};
+        document.getElementById('fwdStepLabel').textContent = labels[n] || '';
+        document.getElementById('fwdBackBtn').style.display  = n > 1 ? 'block' : 'none';
+        document.getElementById('fwdNextBtn').innerHTML =
+            n < 3 ? 'Next <i class="bi bi-arrow-right ms-1"></i>'
+                  : '<i class="bi bi-send-fill me-1"></i> Send Email';
+    }
+
+    function fwdNext() {
+        if (_fwdState.step === 1) {
+            if (!fwdValidateStep1()) return;
+            fwdRenderStep(2);
+        } else if (_fwdState.step === 2) {
+            if (!fwdValidateStep2()) return;
+            fwdRenderStep(3);
+        } else if (_fwdState.step === 3) {
+            fwdSubmit();
+        }
+    }
+
+    function fwdBack() {
+        if (_fwdState.step > 1) fwdRenderStep(_fwdState.step - 1);
+    }
+
+    // ── Step 1: Recipient ─────────────────────────────────────────────────
+    function fwdRenderStep1(preEmail, preDept, activeTab) {
+        fwdSetStep(1);
+        var history  = fwdLoadHistory(_fwdState.bookingId);
+        var tab      = activeTab || (history.length ? 'new' : 'new');
+        var histHtml = '';
+        if (history.length) {
+            histHtml = history.map(function(h, idx) {
+                return '<div class="fwd-history-item">' +
+                    '<div class="fwd-history-icon"><i class="bi bi-send-check-fill"></i></div>' +
+                    '<div class="fwd-history-body">' +
+                        '<div class="fwd-history-email">' + escHtml(h.email) + '</div>' +
+                        '<div class="fwd-history-meta">' +
+                            escHtml(h.department) + ' &bull; ' + escHtml(h.sentAt) +
+                            ' &bull; ' + h.blockCount + ' block(s)' +
+                        '</div>' +
+                    '</div>' +
+                    '<button class="fwd-history-resend" onclick="fwdResend(' + idx + ')">Resend</button>' +
+                '</div>';
+            }).join('');
+        } else {
+            histHtml = '<div class="text-center py-4 text-muted" style="font-size:0.85rem;">' +
+                '<i class="bi bi-clock-history fs-3 d-block mb-2 opacity-25"></i>' +
+                'No forward history yet for this booking.' +
+            '</div>';
+        }
+
+        document.getElementById('fwdBody').innerHTML =
+            '<div class="fwd-tab-strip">' +
+                '<div class="fwd-tab' + (tab !== 'history' ? ' active' : '') + '" onclick="fwdRenderStep1(\'\',\'\',\'new\')">New Forward</div>' +
+                '<div class="fwd-tab' + (tab === 'history' ? ' active' : '') + '" onclick="fwdRenderStep1(\'\',\'\',\'history\')">History (' + history.length + ')</div>' +
+            '</div>' +
+            (tab === 'history'
+                ? '<div id="fwdHistoryList">' + histHtml + '</div>'
+                : '<div id="fwdStep1Form">' +
+                    '<div id="fwdAlert1" class="fwd-alert error"></div>' +
+                    '<div class="fwd-field">' +
+                        '<label class="fwd-label">Recipient Email <span style="color:#ef4444;">*</span></label>' +
+                        '<input type="email" id="fwdEmail" class="fwd-input" placeholder="recipient@sfscollege.in" value="' + escHtml(preEmail || '') + '">' +
+                        '<div style="font-size:0.74rem;color:#94a3b8;margin-top:4px;">Only @sfscollege.in email addresses accepted.</div>' +
+                    '</div>' +
+                    '<div class="fwd-field">' +
+                        '<label class="fwd-label">Department / Team <span style="color:#ef4444;">*</span></label>' +
+                        '<input type="text" id="fwdDept" class="fwd-input" placeholder="e.g. Tech, Maintenance, Admin, Labs…" value="' + escHtml(preDept || '') + '">' +
+                        '<div style="font-size:0.74rem;color:#94a3b8;margin-top:4px;">Type the recipient\'s department freely — this appears in the email.</div>' +
+                    '</div>' +
+                    '<div style="background:#f0f9ff;border:1px solid #bae6fd;border-radius:12px;padding:12px 16px;margin-top:4px;">' +
+                        '<div style="font-weight:700;font-size:0.8rem;color:#0284c7;margin-bottom:6px;"><i class="bi bi-info-circle-fill me-1"></i>Booking Context</div>' +
+                        '<div style="font-size:0.82rem;color:#334155;">' +
+                            '<b>Room:</b> ' + escHtml(_fwdState.bookingData.room || '—') + '<br>' +
+                            '<b>Faculty:</b> ' + escHtml(_fwdState.bookingData.faculty || '—') + '<br>' +
+                            '<b>Schedule:</b> ' + escHtml(_fwdState.bookingData.from || '—') + ' → ' + escHtml(_fwdState.bookingData.to || '—') +
+                        '</div>' +
+                    '</div>' +
+                  '</div>'
+            );
+
+        document.getElementById('fwdNextBtn').style.display = tab === 'history' ? 'none' : 'inline-flex';
+    }
+
+    function fwdRenderStep(n) {
+        if      (n === 1) fwdRenderStep1('', '');
+        else if (n === 2) fwdRenderStep2();
+        else if (n === 3) fwdRenderStep3();
+    }
+
+    function fwdValidateStep1() {
+        var email = (document.getElementById('fwdEmail').value || '').trim().toLowerCase();
+        var dept  = (document.getElementById('fwdDept').value  || '').trim();
+        var alert = document.getElementById('fwdAlert1');
+        function showErr(msg) {
+            alert.textContent = msg; alert.style.display = 'block'; return false;
+        }
+        if (!email) return showErr('Please enter a recipient email address.');
+        if (!email.endsWith('@sfscollege.in')) return showErr('Only @sfscollege.in email addresses are accepted.');
+        var emailRe = /^[^\s@]+@sfscollege\.in$/i;
+        if (!emailRe.test(email)) return showErr('Please enter a valid @sfscollege.in email address.');
+        if (!dept) return showErr('Please enter the recipient\'s department or team.');
+        _fwdState.email = email;
+        _fwdState.department = dept;
+        alert.style.display = 'none';
+        return true;
+    }
+
+    // ── Step 2: Content selection ─────────────────────────────────────────
+    function fwdRenderStep2() {
+        fwdSetStep(2);
+        document.getElementById('fwdBody').innerHTML =
+            '<div id="fwdAlert2" class="fwd-alert error"></div>' +
+            '<div style="font-size:0.83rem;color:#64748b;margin-bottom:12px;">' +
+                '<i class="bi bi-hand-index-fill me-1 text-primary"></i>' +
+                'Select the content blocks to include in the forwarded email. Click any block to toggle.' +
+            '</div>' +
+            '<div id="fwdBlockList"><div class="text-center py-4"><div class="spinner-border spinner-border-sm text-primary"></div> Loading content…</div></div>' +
+            '<div style="margin-top:10px;display:flex;gap:8px;padding-bottom:16px;">' +
+                '<button class="fwd-btn-secondary" style="font-size:0.8rem;padding:6px 14px;" onclick="fwdSelectAll(true)"><i class="bi bi-check-all me-1"></i>Select All</button>' +
+                '<button class="fwd-btn-secondary" style="font-size:0.8rem;padding:6px 14px;" onclick="fwdSelectAll(false)"><i class="bi bi-x-lg me-1"></i>Deselect All</button>' +
+            '</div>';
+
+        var b = _fwdState.bookingData;
+        if (b.has_doc_text) {
+            // Fetch doc blocks from server
+            var modal = document.getElementById('bookingFilesModal');
+            var textUrlTpl = modal ? modal.dataset.docTextUrl : null;
+            var textUrl = textUrlTpl ? textUrlTpl.replace('/0/', '/' + _fwdState.bookingId + '/') : null;
+            if (!textUrl) {
+                document.getElementById('fwdBlockList').innerHTML = '<div class="text-danger small">URL not configured.</div>';
+                return;
+            }
+            fetch(textUrl, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+                .then(function(r) { return r.json(); })
+                .then(function(d) {
+                    if (d.error) {
+                        document.getElementById('fwdBlockList').innerHTML = '<div class="text-danger small">' + escHtml(d.error) + '</div>';
+                        return;
+                    }
+                    _fwdState.blocks = (d.blocks || []).map(function(blk) {
+                        return { type: blk.type, text: blk.text || '', rows: blk.rows || [], selected: true };
+                    });
+                    fwdRenderBlocks();
+                })
+                .catch(function() {
+                    document.getElementById('fwdBlockList').innerHTML = '<div class="text-danger small">Failed to load document content.</div>';
+                });
+        } else if (b.has_inline_text) {
+            // Split inline text into paragraph blocks
+            var lines = (b.inline_text || '').split(/\n+/).filter(function(l) { return l.trim(); });
+            _fwdState.blocks = lines.map(function(line) {
+                return { type: 'paragraph', text: line.trim(), selected: true };
+            });
+            if (!_fwdState.blocks.length) {
+                _fwdState.blocks = [{ type: 'paragraph', text: b.inline_text || '', selected: true }];
+            }
+            fwdRenderBlocks();
+        }
+    }
+
+    function fwdRenderBlocks() {
+        var list = document.getElementById('fwdBlockList');
+        if (!list) return;
+        if (!_fwdState.blocks.length) {
+            list.innerHTML = '<div class="text-muted small text-center py-3">No content blocks found.</div>';
+            return;
+        }
+        list.innerHTML = _fwdState.blocks.map(function(blk, idx) {
+            var isTable = blk.type === 'table' && blk.rows && blk.rows.length;
+
+            if (isTable) {
+                // ── TABLE block: vertical layout (header row on top, table below) ──
+                // This avoids forcing a wide table into a constrained flex column,
+                // which causes invisible/overflow rendering.
+                var headerRow = blk.rows[0] || [];
+                var bodyRows  = blk.rows.slice(1);
+                var thCells = headerRow.map(function(c) {
+                    return '<th style="background:#0f172a;color:#fff;padding:6px 12px;font-size:0.75rem;font-weight:700;text-align:left;white-space:nowrap;border-right:1px solid #1e3a5f;">' + escHtml(c) + '</th>';
+                }).join('');
+                var tbodyRows = bodyRows.map(function(row, ri) {
+                    var bg = ri % 2 === 0 ? '#f8fafc' : '#fff';
+                    var tds = row.map(function(c) {
+                        return '<td style="padding:5px 12px;font-size:0.8rem;color:#1e293b;border-bottom:1px solid #e2e8f0;border-right:1px solid #e2e8f0;background:' + bg + ';white-space:nowrap;">' + escHtml(c) + '</td>';
+                    }).join('');
+                    return '<tr>' + tds + '</tr>';
+                }).join('');
+
+                return '<div class="fwd-block-item' + (blk.selected ? ' selected' : '') + '" '
+                    + 'id="fwd-block-' + idx + '" '
+                    + 'onclick="fwdToggleBlock(' + idx + ')" '
+                    + 'style="flex-direction:column;gap:8px;">'
+                    // top row: checkbox + label badge
+                    + '<div style="display:flex;align-items:center;gap:10px;">'
+                    +   '<input type="checkbox" class="fwd-block-cb" ' + (blk.selected ? 'checked' : '') + ' '
+                    +     'onclick="event.stopPropagation();fwdToggleBlock(' + idx + ')">'
+                    +   '<span class="fwd-block-badge table"><i class="bi bi-table me-1"></i>Table</span>'
+                    +   '<span style="font-size:0.75rem;color:#64748b;">'
+                    +     blk.rows.length + ' row(s) &times; ' + (headerRow.length) + ' col(s)'
+                    +   '</span>'
+                    + '</div>'
+                    // table itself — overflow-x:auto on a block-level container constrains it correctly
+                    + '<div style="width:100%;overflow-x:auto;border-radius:8px;border:1px solid #cbd5e1;">'
+                    +   '<table style="border-collapse:collapse;white-space:nowrap;">'
+                    +     '<thead><tr>' + thCells + '</tr></thead>'
+                    +     '<tbody>' + tbodyRows + '</tbody>'
+                    +   '</table>'
+                    + '</div>'
+                + '</div>';
+
+            } else {
+                // ── TEXT block: original horizontal layout (checkbox | text | badge) ──
+                var text = (blk.text || '').substring(0, 200) + ((blk.text || '').length > 200 ? '\u2026' : '');
+                return '<div class="fwd-block-item' + (blk.selected ? ' selected' : '') + '" '
+                    + 'id="fwd-block-' + idx + '" '
+                    + 'onclick="fwdToggleBlock(' + idx + ')">'
+                    + '<input type="checkbox" class="fwd-block-cb" ' + (blk.selected ? 'checked' : '') + ' '
+                    +   'onclick="event.stopPropagation();fwdToggleBlock(' + idx + ')">'
+                    + '<div class="fwd-block-text">' + escHtml(text) + '</div>'
+                    + '<span class="fwd-block-badge para"><i class="bi bi-paragraph me-1"></i>Text</span>'
+                + '</div>';
+            }
+        }).join('');
+    }
+
+    function fwdToggleBlock(idx) {
+        _fwdState.blocks[idx].selected = !_fwdState.blocks[idx].selected;
+        var item = document.getElementById('fwd-block-' + idx);
+        if (item) item.classList.toggle('selected', _fwdState.blocks[idx].selected);
+        var cb = item ? item.querySelector('.fwd-block-cb') : null;
+        if (cb) cb.checked = _fwdState.blocks[idx].selected;
+    }
+
+    function fwdSelectAll(val) {
+        _fwdState.blocks.forEach(function(blk, idx) {
+            blk.selected = val;
+            var item = document.getElementById('fwd-block-' + idx);
+            if (item) item.classList.toggle('selected', val);
+            var cb = item ? item.querySelector('.fwd-block-cb') : null;
+            if (cb) cb.checked = val;
+        });
+    }
+
+    function fwdValidateStep2() {
+        var selected = _fwdState.blocks.filter(function(b) { return b.selected; });
+        if (!selected.length) {
+            var a = document.getElementById('fwdAlert2');
+            if (a) { a.textContent = 'Please select at least one content block to forward.'; a.style.display = 'block'; }
+            return false;
+        }
+        return true;
+    }
+
+    // ── Step 3: Preview + Send ────────────────────────────────────────────
+    function fwdRenderStep3() {
+        fwdSetStep(3);
+        var b        = _fwdState.bookingData;
+        var selected = _fwdState.blocks.filter(function(blk) { return blk.selected; });
+
+        var contentHtml = selected.map(function(blk) {
+            if (blk.type === 'table' && blk.rows && blk.rows.length) {
+                var th = blk.rows[0].map(function(c) { return '<th style="background:#0f172a;color:#fff;padding:6px 10px;text-align:left;">' + escHtml(c) + '</th>'; }).join('');
+                var body = blk.rows.slice(1).map(function(row, ri) {
+                    var bg = ri % 2 === 0 ? '#f8fafc' : '#fff';
+                    return '<tr>' + row.map(function(c) { return '<td style="padding:6px 10px;border-bottom:1px solid #e2e8f0;background:' + bg + ';">' + escHtml(c) + '</td>'; }).join('') + '</tr>';
+                }).join('');
+                return '<div class="fwd-preview-section"><table style="width:100%;border-collapse:collapse;font-size:0.8rem;"><thead><tr>' + th + '</tr></thead><tbody>' + body + '</tbody></table></div>';
+            } else {
+                return '<div class="fwd-preview-section" style="white-space:pre-line;">' + escHtml(blk.text) + '</div>';
+            }
+        }).join('');
+
+        document.getElementById('fwdBody').innerHTML =
+            '<div id="fwdAlert3" class="fwd-alert error"></div>' +
+            '<div style="font-size:0.83rem;color:#64748b;margin-bottom:14px;">' +
+                '<i class="bi bi-eye-fill me-1 text-primary"></i>' +
+                'Review the email preview below, then click <b>Send Email</b>.' +
+            '</div>' +
+            '<div id="fwdPreviewPane">' +
+                '<div class="fwd-preview-header">' +
+                    '<div style="margin-bottom:6px;"><b>To:</b> ' + escHtml(_fwdState.email) + '</div>' +
+                    '<div style="margin-bottom:6px;"><b>Dept:</b> ' + escHtml(_fwdState.department) + '</div>' +
+                    '<div style="margin-bottom:6px;"><b>Subject:</b> Room Booking Requirements — ' + escHtml(b.room || '') + ' | ' + escHtml(b.from || '') + '</div>' +
+                    '<div><b>Selected blocks:</b> ' + selected.length + ' of ' + _fwdState.blocks.length + '</div>' +
+                '</div>' +
+                '<div style="font-weight:700;font-size:0.78rem;color:#64748b;text-transform:uppercase;letter-spacing:0.4px;margin-bottom:10px;">Content Preview</div>' +
+                contentHtml +
+            '</div>';
+    }
+
+    // ── Submit ────────────────────────────────────────────────────────────
+    function fwdSubmit() {
+        var nextBtn = document.getElementById('fwdNextBtn');
+        nextBtn.disabled = true;
+        nextBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2" style="width:14px;height:14px;border-width:2px;"></span>Sending…';
+
+        var selected = _fwdState.blocks.filter(function(blk) { return blk.selected; });
+        var modal    = document.getElementById('bookingFilesModal');
+        var fwdUrlTpl = modal ? modal.dataset.forwardUrl : null;
+        if (!fwdUrlTpl) {
+            fwdShowAlert3('Forward URL not configured. Please add the URL mapping.');
+            nextBtn.disabled = false;
+            nextBtn.innerHTML = '<i class="bi bi-send-fill me-1"></i> Send Email';
+            return;
+        }
+        var url = fwdUrlTpl.replace('/0/', '/' + _fwdState.bookingId + '/');
+
+        fetch(url, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCsrfToken(),
+                'X-Requested-With': 'XMLHttpRequest',
+            },
+            body: JSON.stringify({
+                email:      _fwdState.email,
+                department: _fwdState.department,
+                blocks:     selected,
+                booking_id: _fwdState.bookingId,
+            }),
+        })
+        .then(function(r) { return r.json(); })
+        .then(function(d) {
+            if (d.status === 'success') {
+                // Save to history
+                fwdSaveHistory(_fwdState.bookingId, {
+                    email:      _fwdState.email,
+                    department: _fwdState.department,
+                    sentAt:     new Date().toLocaleString(),
+                    blockCount: selected.length,
+                });
+                // Show success inside the overlay
+                document.getElementById('fwdBody').innerHTML =
+                    '<div style="text-align:center;padding:40px 20px;">' +
+                        '<div style="width:64px;height:64px;background:linear-gradient(135deg,#10b981,#059669);border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 18px;">' +
+                            '<i class="bi bi-check-lg" style="color:#fff;font-size:1.8rem;"></i>' +
+                        '</div>' +
+                        '<h5 style="font-weight:800;color:#1e293b;margin-bottom:8px;">Email Sent!</h5>' +
+                        '<p style="color:#64748b;font-size:0.9rem;margin-bottom:24px;">The requirements have been forwarded to <b>' + escHtml(_fwdState.email) + '</b> (' + escHtml(_fwdState.department) + ').</p>' +
+                        '<button class="fwd-btn-secondary" onclick="closeFwdOverlay()">Close</button>' +
+                    '</div>';
+                document.getElementById('fwdFooter').style.display = 'none';
+            } else {
+                fwdShowAlert3(d.error || 'Failed to send. Please try again.');
+                nextBtn.disabled = false;
+                nextBtn.innerHTML = '<i class="bi bi-send-fill me-1"></i> Send Email';
+            }
+        })
+        .catch(function() {
+            fwdShowAlert3('Network error. Please check your connection and try again.');
+            nextBtn.disabled = false;
+            nextBtn.innerHTML = '<i class="bi bi-send-fill me-1"></i> Send Email';
+        });
+    }
+
+    function fwdShowAlert3(msg) {
+        var a = document.getElementById('fwdAlert3');
+        if (a) { a.textContent = msg; a.style.display = 'block'; }
+    }
+
+    // ── Resend from history ───────────────────────────────────────────────
+    function fwdResend(histIdx) {
+        var hist = fwdLoadHistory(_fwdState.bookingId);
+        var entry = hist[histIdx];
+        if (!entry) return;
+        // Pre-fill step 1 with previous recipient and go to step 2
+        _fwdState.email      = entry.email;
+        _fwdState.department = entry.department;
+        fwdRenderStep1(entry.email, entry.department, 'new');
     }
 
 </script>

@@ -2442,18 +2442,20 @@ def forward_booking_requirements(request, booking_id):
             rows = blk.get('rows', [])
             if rows:
                 table_html = (
-                    '<div style="overflow-x:auto;margin-bottom:14px;">'
-                    '<table style="width:100%;border-collapse:collapse;font-size:0.85rem;">'
+                    '<div style="overflow-x:auto;margin-bottom:14px;border-radius:8px;border:1px solid #e2e8f0;">'
+                    '<table style="min-width:100%;width:auto;border-collapse:collapse;font-size:0.85rem;">'
                 )
                 for ri, row in enumerate(rows):
                     tag = 'th' if ri == 0 else 'td'
                     bg  = '#0f172a' if ri == 0 else ('#f8fafc' if ri % 2 == 0 else '#ffffff')
                     col = '#ffffff' if ri == 0 else '#334155'
+                    fw  = '700' if ri == 0 else '400'
                     table_html += '<tr>'
                     for cell in row:
                         table_html += (
-                            f'<{tag} style="padding:8px 12px;border:1px solid #e2e8f0;'
-                            f'background:{bg};color:{col};text-align:left;">'
+                            f'<{tag} style="padding:8px 12px;border-bottom:1px solid #e2e8f0;'
+                            f'border-right:1px solid #e2e8f0;background:{bg};color:{col};'
+                            f'font-weight:{fw};text-align:left;white-space:nowrap;">'
                             f'{_esc(cell)}</{tag}>'
                         )
                     table_html += '</tr>'
@@ -2481,15 +2483,44 @@ def forward_booking_requirements(request, booking_id):
         <tr>
           <td style="background:linear-gradient(135deg,#0f172a 0%,#1e3a5f 100%);
                      padding:32px 36px;text-align:center;">
-            <div style="display:inline-flex;align-items:center;gap:12px;margin-bottom:10px;">
-              <div style="width:44px;height:44px;background:rgba(247,254,94,0.15);border-radius:12px;
-                          display:inline-flex;align-items:center;justify-content:center;">
-                <span style="font-size:1.5rem;">&#9889;</span>
-              </div>
-              <span style="color:#ffffff;font-size:1.3rem;font-weight:800;letter-spacing:0.5px;">Blixtro</span>
-            </div>
+
+            <!-- Pure-CSS logo mark: works in Gmail, Outlook, Apple Mail -->
+            <table cellpadding="0" cellspacing="0" style="margin:0 auto 10px;">
+              <tr>
+                <!-- Lightning bolt shape via border-trick polygon -->
+                <td style="padding:0 12px 0 0;vertical-align:middle;">
+                  <table cellpadding="0" cellspacing="0">
+                    <tr>
+                      <!-- Outer dark-blue badge -->
+                      <td style="width:46px;height:46px;background:#013198;border-radius:10px;
+                                 text-align:center;vertical-align:middle;line-height:1;">
+                        <!-- Inner yellow lightning bolt rendered as styled text -->
+                        <span style="font-size:1.6rem;font-weight:900;color:#F7FE5E;
+                                     font-family:Arial,sans-serif;line-height:46px;
+                                     display:block;letter-spacing:-2px;">&#9889;</span>
+                      </td>
+                    </tr>
+                  </table>
+                </td>
+                <!-- Brand text column -->
+                <td style="vertical-align:middle;text-align:left;">
+                  <!-- SFS label -->
+                  <div style="font-size:0.6rem;font-weight:800;letter-spacing:3px;
+                               text-transform:uppercase;color:rgba(247,254,94,0.85);
+                               font-family:Arial,sans-serif;line-height:1;margin-bottom:3px;">
+                    SFS College
+                  </div>
+                  <!-- Blixtro wordmark -->
+                  <div style="font-size:1.45rem;font-weight:900;letter-spacing:0.5px;
+                               color:#ffffff;font-family:Arial,sans-serif;line-height:1;">
+                    Blixtro
+                  </div>
+                </td>
+              </tr>
+            </table>
+
             <div style="color:rgba(255,255,255,0.55);font-size:0.75rem;letter-spacing:1px;
-                        text-transform:uppercase;margin-top:4px;">
+                        text-transform:uppercase;margin-top:4px;font-family:Arial,sans-serif;">
               Inventory &bull; Booking &bull; Reporting
             </div>
           </td>
