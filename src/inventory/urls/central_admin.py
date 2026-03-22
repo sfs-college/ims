@@ -90,6 +90,7 @@ urlpatterns = [
     
     path('booking-delete/<int:booking_id>/', aura.delete_confirmed_booking,    name='delete_confirmed_booking'),
     path('booking-bulk-delete/', aura.bulk_delete_confirmed_bookings, name='bulk_delete_confirmed_bookings'),
+    path('aura/forward/<int:booking_id>/', aura.forward_booking_requirements, name='forward_booking_requirements'),
 
     path('api/save-product-code/', aura.save_product_code, name='save_product_code'),
     path('api/save-item-edit/', aura.save_item_edit, name='save_item_edit'),

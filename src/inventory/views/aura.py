@@ -2347,3 +2347,325 @@ def get_room_asset_tags(request):
     ).order_by('tag_id')
 
     return JsonResponse({'tags': [{'tag_id': t.tag_id} for t in tags]})
+
+# ─────────────────────────────────────────────────────────────────────────────
+# FORWARD BOOKING REQUIREMENTS  (AURA — Confirmed Booking Files)
+# ─────────────────────────────────────────────────────────────────────────────
+
+@require_POST
+def forward_booking_requirements(request, booking_id):
+    """
+    Receives a JSON payload from the Forward overlay and sends a
+    professional HTML email to the specified recipient.
+
+    Payload  (application/json):
+    {
+        "email":      "recipient@sfscollege.in",
+        "department": "Tech",
+        "blocks": [
+            {"type": "paragraph", "text": "..."},
+            {"type": "table",     "rows": [["h1","h2"], ["v1","v2"]]},
+            ...
+        ]
+    }
+
+    Returns:
+        {"status": "success"}   on success
+        {"error":  "..."}       on failure
+    """
+    from django.core.mail import EmailMultiAlternatives
+    from django.conf import settings as _s
+    import re as _re
+
+    # ── Auth ─────────────────────────────────────────────────────────────────
+    profile = getattr(request.user, 'profile', None)
+    if not profile or not (profile.is_central_admin or profile.is_sub_admin):
+        return JsonResponse({'error': 'Unauthorized'}, status=403)
+
+    # ── Parse body ────────────────────────────────────────────────────────────
+    try:
+        data = json.loads(request.body)
+    except Exception:
+        return JsonResponse({'error': 'Invalid JSON body.'}, status=400)
+
+    email      = (data.get('email') or '').strip().lower()
+    department = (data.get('department') or '').strip()
+    blocks     = data.get('blocks', [])
+
+    # ── Validate email ────────────────────────────────────────────────────────
+    if not email:
+        return JsonResponse({'error': 'Recipient email is required.'}, status=400)
+    if not email.endswith('@sfscollege.in'):
+        return JsonResponse({'error': 'Only @sfscollege.in email addresses are allowed.'}, status=400)
+    email_re = _re.compile(r'^[^\s@]+@sfscollege\.in$', _re.IGNORECASE)
+    if not email_re.match(email):
+        return JsonResponse({'error': 'Please provide a valid @sfscollege.in email address.'}, status=400)
+    if not department:
+        return JsonResponse({'error': 'Department is required.'}, status=400)
+    if not blocks:
+        return JsonResponse({'error': 'No content blocks selected.'}, status=400)
+
+    # ── Fetch booking ─────────────────────────────────────────────────────────
+    booking = get_object_or_404(RoomBooking, id=booking_id)
+
+    try:
+        from django.utils import timezone as _tz
+        start_local = _tz.localtime(booking.start_datetime).strftime('%d %B %Y, %I:%M %p')
+        end_local   = _tz.localtime(booking.end_datetime).strftime('%I:%M %p')
+    except Exception:
+        start_local = str(booking.start_datetime)
+        end_local   = str(booking.end_datetime)
+
+    room_name    = booking.room.room_name if booking.room else '—'
+    faculty_name = booking.faculty_name   or '—'
+    faculty_email= booking.faculty_email  or '—'
+    purpose      = booking.purpose        or '—'
+    sender_name  = str(profile)
+    sender_role  = 'Central Admin' if (profile.is_central_admin and not profile.is_sub_admin) else 'Sub Admin'
+
+    subject = f'Room Booking Requirements — {room_name} | {start_local}'
+
+    # ── Build HTML content blocks ─────────────────────────────────────────────
+    def _esc(s):
+        return str(s).replace('&','&amp;').replace('<','&lt;').replace('>','&gt;').replace('"','&quot;')
+
+    content_html_parts = []
+    for blk in blocks:
+        btype = blk.get('type', 'paragraph')
+        if btype == 'paragraph':
+            text = blk.get('text', '')
+            if text:
+                content_html_parts.append(
+                    f'<p style="margin:0 0 10px;color:#334155;line-height:1.7;">{_esc(text)}</p>'
+                )
+        elif btype == 'table':
+            rows = blk.get('rows', [])
+            if rows:
+                table_html = (
+                    '<div style="overflow-x:auto;margin-bottom:14px;">'
+                    '<table style="width:100%;border-collapse:collapse;font-size:0.85rem;">'
+                )
+                for ri, row in enumerate(rows):
+                    tag = 'th' if ri == 0 else 'td'
+                    bg  = '#0f172a' if ri == 0 else ('#f8fafc' if ri % 2 == 0 else '#ffffff')
+                    col = '#ffffff' if ri == 0 else '#334155'
+                    table_html += '<tr>'
+                    for cell in row:
+                        table_html += (
+                            f'<{tag} style="padding:8px 12px;border:1px solid #e2e8f0;'
+                            f'background:{bg};color:{col};text-align:left;">'
+                            f'{_esc(cell)}</{tag}>'
+                        )
+                    table_html += '</tr>'
+                table_html += '</table></div>'
+                content_html_parts.append(table_html)
+
+    content_html = '\n'.join(content_html_parts) or '<p style="color:#94a3b8;">No content provided.</p>'
+
+    # ── Full professional HTML email ───────────────────────────────────────────
+    html_body = f"""<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{_esc(subject)}</title>
+</head>
+<body style="margin:0;padding:0;background:#f1f5f9;font-family:'Segoe UI',Arial,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f1f5f9;padding:40px 20px;">
+    <tr><td align="center">
+      <table width="600" cellpadding="0" cellspacing="0"
+             style="background:#ffffff;border-radius:16px;overflow:hidden;
+                    box-shadow:0 4px 24px rgba(0,0,0,0.07);max-width:600px;">
+
+        <!-- Header -->
+        <tr>
+          <td style="background:linear-gradient(135deg,#0f172a 0%,#1e3a5f 100%);
+                     padding:32px 36px;text-align:center;">
+            <div style="display:inline-flex;align-items:center;gap:12px;margin-bottom:10px;">
+              <div style="width:44px;height:44px;background:rgba(247,254,94,0.15);border-radius:12px;
+                          display:inline-flex;align-items:center;justify-content:center;">
+                <span style="font-size:1.5rem;">&#9889;</span>
+              </div>
+              <span style="color:#ffffff;font-size:1.3rem;font-weight:800;letter-spacing:0.5px;">Blixtro</span>
+            </div>
+            <div style="color:rgba(255,255,255,0.55);font-size:0.75rem;letter-spacing:1px;
+                        text-transform:uppercase;margin-top:4px;">
+              Inventory &bull; Booking &bull; Reporting
+            </div>
+          </td>
+        </tr>
+
+        <!-- Title band -->
+        <tr>
+          <td style="background:linear-gradient(90deg,#0ea5e9,#0284c7);padding:14px 36px;">
+            <div style="color:#fff;font-size:0.72rem;font-weight:700;letter-spacing:1.2px;
+                        text-transform:uppercase;margin-bottom:2px;">
+              Forwarded Requirements
+            </div>
+            <div style="color:#fff;font-size:1.05rem;font-weight:700;">{_esc(subject)}</div>
+          </td>
+        </tr>
+
+        <!-- Greeting -->
+        <tr>
+          <td style="padding:28px 36px 0;">
+            <p style="margin:0 0 18px;font-size:0.95rem;color:#1e293b;line-height:1.6;">
+              Dear <strong>{_esc(department)}</strong> Team,
+            </p>
+            <p style="margin:0 0 18px;font-size:0.9rem;color:#475569;line-height:1.6;">
+              Please find below the room booking requirements forwarded from the
+              <strong>AURA Command System</strong>. Kindly review and action as required.
+            </p>
+          </td>
+        </tr>
+
+        <!-- Booking info card -->
+        <tr>
+          <td style="padding:0 36px 20px;">
+            <table width="100%" cellpadding="0" cellspacing="0"
+                   style="background:#f8fafc;border:1px solid #e2e8f0;
+                           border-radius:12px;overflow:hidden;font-size:0.85rem;">
+              <tr style="background:#f1f5f9;">
+                <td colspan="2" style="padding:10px 16px;font-weight:700;font-size:0.75rem;
+                                        color:#64748b;text-transform:uppercase;letter-spacing:0.5px;
+                                        border-bottom:1px solid #e2e8f0;">
+                  Booking Details
+                </td>
+              </tr>
+              <tr>
+                <td style="padding:9px 16px;color:#64748b;font-weight:600;
+                            border-bottom:1px solid #f1f5f9;width:38%;">Room</td>
+                <td style="padding:9px 16px;color:#1e293b;font-weight:700;
+                            border-bottom:1px solid #f1f5f9;">{_esc(room_name)}</td>
+              </tr>
+              <tr>
+                <td style="padding:9px 16px;color:#64748b;font-weight:600;
+                            border-bottom:1px solid #f1f5f9;">Faculty</td>
+                <td style="padding:9px 16px;color:#1e293b;
+                            border-bottom:1px solid #f1f5f9;">{_esc(faculty_name)}</td>
+              </tr>
+              <tr>
+                <td style="padding:9px 16px;color:#64748b;font-weight:600;
+                            border-bottom:1px solid #f1f5f9;">Faculty Email</td>
+                <td style="padding:9px 16px;color:#1e293b;
+                            border-bottom:1px solid #f1f5f9;">{_esc(faculty_email)}</td>
+              </tr>
+              <tr>
+                <td style="padding:9px 16px;color:#64748b;font-weight:600;
+                            border-bottom:1px solid #f1f5f9;">Schedule</td>
+                <td style="padding:9px 16px;color:#1e293b;
+                            border-bottom:1px solid #f1f5f9;">{_esc(start_local)} – {_esc(end_local)}</td>
+              </tr>
+              <tr>
+                <td style="padding:9px 16px;color:#64748b;font-weight:600;">Purpose</td>
+                <td style="padding:9px 16px;color:#1e293b;">{_esc(purpose)}</td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+
+        <!-- Requirements content -->
+        <tr>
+          <td style="padding:0 36px 28px;">
+            <div style="background:#fafafa;border:1px solid #e2e8f0;border-radius:12px;
+                         border-left:4px solid #0ea5e9;padding:20px 22px;">
+              <div style="font-weight:700;font-size:0.78rem;color:#0284c7;text-transform:uppercase;
+                           letter-spacing:0.5px;margin-bottom:14px;">
+                Requirements / Specifications
+              </div>
+              {content_html}
+            </div>
+          </td>
+        </tr>
+
+        <!-- Action note -->
+        <tr>
+          <td style="padding:0 36px 28px;">
+            <div style="background:#fffbeb;border:1px solid #fde68a;border-radius:10px;
+                         padding:12px 16px;font-size:0.82rem;color:#92400e;">
+              <strong>&#9888; Action Required:</strong>
+              Please acknowledge receipt and confirm arrangements for the above requirements
+              at your earliest convenience.
+            </div>
+          </td>
+        </tr>
+
+        <!-- Divider -->
+        <tr>
+          <td style="padding:0 36px;">
+            <hr style="border:none;border-top:1px solid #f1f5f9;margin:0 0 20px;">
+          </td>
+        </tr>
+
+        <!-- Sender info -->
+        <tr>
+          <td style="padding:0 36px 28px;font-size:0.82rem;color:#64748b;line-height:1.7;">
+            This email was forwarded by <strong style="color:#1e293b;">{_esc(sender_name)}</strong>
+            ({_esc(sender_role)}) via the Blixtro AURA Command System.<br>
+            This is an automated message — please do not reply to this email directly.
+          </td>
+        </tr>
+
+        <!-- Footer -->
+        <tr>
+          <td style="background:#f8fafc;border-top:1px solid #f1f5f9;
+                      padding:18px 36px;text-align:center;">
+            <div style="font-size:0.75rem;color:#94a3b8;line-height:1.6;">
+              <strong style="color:#475569;">Blixtro</strong> — SFS College, Autonomous Inventory &amp;
+              Booking System<br>
+              &copy; {_tz.now().year} Blixtro - SFS College, Autonomous. All rights reserved.
+            </div>
+          </td>
+        </tr>
+
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>"""
+
+    # Plain-text fallback
+    plain_lines = [
+        f'Room Booking Requirements — {room_name}',
+        f'Schedule : {start_local} – {end_local}',
+        f'Faculty  : {faculty_name} <{faculty_email}>',
+        f'Purpose  : {purpose}',
+        '',
+        'REQUIREMENTS',
+        '─' * 40,
+    ]
+    for blk in blocks:
+        if blk.get('type') == 'paragraph':
+            plain_lines.append(blk.get('text', ''))
+        elif blk.get('type') == 'table':
+            for row in blk.get('rows', []):
+                plain_lines.append(' | '.join(str(c) for c in row))
+            plain_lines.append('')
+    plain_lines += [
+        '',
+        '─' * 40,
+        f'Forwarded by {sender_name} ({sender_role}) via Blixtro SFS College, Autonomous.',
+        'This is an automated message — please do not reply directly.',
+    ]
+    plain_body = '\n'.join(plain_lines)
+
+    # ── Send email ────────────────────────────────────────────────────────────
+    try:
+        from_email = getattr(_s, 'DEFAULT_FROM_EMAIL', 'noreply@sfscollege.in')
+        msg = EmailMultiAlternatives(
+            subject=subject,
+            body=plain_body,
+            from_email=from_email,
+            to=[email],
+        )
+        msg.attach_alternative(html_body, 'text/html')
+        msg.send(fail_silently=False)   
+    except Exception as e:
+        import traceback
+        print(f'[forward_booking_requirements] Email send failed: {e}\n{traceback.format_exc()}')
+        return JsonResponse(
+            {'error': f'Email could not be sent: {str(e)}. Check your email settings.'},
+            status=500
+        )
+
+    return JsonResponse({'status': 'success', 'message': f'Requirements forwarded to {email}.'})

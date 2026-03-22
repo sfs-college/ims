@@ -763,6 +763,29 @@ function agShowAlert(msg) {
 // ═══════════════════════════════════════════════════
 // BOOKING FORM — room grid, time switching, validation
 // ═══════════════════════════════════════════════════
+// ── Set minimum selectable date to tomorrow across all date inputs ──────────
+document.addEventListener('DOMContentLoaded', function() {
+    var tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+
+    var yyyy = tomorrow.getFullYear();
+    var mm   = String(tomorrow.getMonth() + 1).padStart(2, '0');
+    var dd   = String(tomorrow.getDate()).padStart(2, '0');
+    var tomorrowDate     = yyyy + '-' + mm + '-' + dd;          // YYYY-MM-DD
+    var tomorrowDatetime = tomorrowDate + 'T00:00';              // YYYY-MM-DDTHH:MM
+
+    // Whole-day picker
+    var wholeDayInput = document.getElementById('wholeDayDate');
+    if (wholeDayInput) wholeDayInput.min = tomorrowDate;
+
+    // Custom datetime-local pickers
+    var startInput = document.getElementById('id_start_datetime');
+    if (startInput) startInput.min = tomorrowDatetime;
+
+    var endInput = document.getElementById('id_end_datetime');
+    if (endInput) endInput.min = tomorrowDatetime;
+});
+
 let currentMode = 'whole';
 
 function switchType(mode) {

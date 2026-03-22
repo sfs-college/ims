@@ -314,9 +314,6 @@
 
   </div>
 </section>
-{% endblock content %}
-
-{% block extra_js %}
 <script>
 document.addEventListener('DOMContentLoaded', function() {
   function refreshDashBell() {
@@ -339,4 +336,4 @@ document.addEventListener('DOMContentLoaded', function() {
   setInterval(refreshDashBell, 60000);
 });
 </script>
-{% endblock extra_js %}
+{% endblock content %}

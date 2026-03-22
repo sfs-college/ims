@@ -877,6 +877,12 @@ class ApprovalRequestListView(LoginRequiredMixin, ListView):
             .order_by('-created_on')
         )
 
+        # ── Tab badge counts ─────────────────────────────────────────────────
+        context['item_edit_count']   = context['stock_requests'].count()
+        context['issue_tat_count']   = context['tat_requests'].count()
+        context['booking_req_count'] = context['booking_requests'].count()
+        context['cancel_req_count']  = context['cancel_requests'].count()
+
         return context
 
 
