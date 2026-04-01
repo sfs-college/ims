@@ -154,7 +154,7 @@ class UserRegisterView(CreateView):
             is_central_admin=True
         )
 
-        login(self.request, user)
+        login(self.request, user, backend='django.contrib.auth.backends.ModelBackend')
         return redirect('landing_page')
     
 
