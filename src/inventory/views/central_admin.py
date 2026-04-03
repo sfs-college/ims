@@ -865,7 +865,7 @@ class ApprovalRequestListView(LoginRequiredMixin, ListView):
 
         context['booking_requests'] = (
             RoomBookingRequest.objects
-            .filter(status='pending')
+            .filter(status='pending' , tat_deadline__gt=timezone.now())
             .select_related('room', 'department')
             .order_by('-created_on')
         )
@@ -1150,7 +1150,7 @@ def admin_notification_counts(request):
     org        = profile.org
 
     counts = {
-        'booking_requests': RoomBookingRequest.objects.filter(status='pending').count(),
+        'booking_requests': RoomBookingRequest.objects.filter(status='pending' , tat_deadline__gt=timezone.now()).count(),
         'cancel_requests':  RoomCancellationRequest.objects.filter(status='pending').count(),
         'stock_requests':   StockRequest.objects.filter(status='pending').count(),
         'tat_requests':     IssueTimeExtensionRequest.objects.filter(status='pending').count(),
@@ -1205,7 +1205,7 @@ class AdminNotificationsView(LoginRequiredMixin, View):
 
         booking_requests = [
             r for r in RoomBookingRequest.objects
-            .filter(status='pending')
+            .filter(status='pending' , tat_deadline__gt=_now())
             .select_related('room')
             .order_by('-created_on')[:40]
             if not_dismissed('booking', r.id)

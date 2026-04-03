@@ -218,6 +218,12 @@ def _is_same_or_previous_day(dt):
 
 
 def room_booking_view(request):
+    # Run TAT expiry check on every booking page load
+    try:
+        process_booking_tat_reminders_and_expiry()
+    except Exception as _e:
+        print(f"[room_booking_view] TAT check failed: {_e}", flush=True)
+
     form = RoomBookingForm()
 
     if request.method == "POST":
@@ -250,6 +256,14 @@ def room_booking_view(request):
                 booking_req.requirements_doc.name = _os.path.join(
                     _os.path.dirname(booking_req.requirements_doc.name), unique_name
                 )
+            # Dynamic TAT: if event is within 48hrs, give only 12hrs for approval
+            from django.utils import timezone as _tz
+            now = _tz.now()
+            hours_until_event = (booking_req.start_datetime - now).total_seconds() / 3600
+            if hours_until_event <= 48:
+                booking_req.tat_deadline = now + timezone.timedelta(hours=12)
+            else:
+                booking_req.tat_deadline = now + timezone.timedelta(hours=48)
             booking_req.save()
 
             # ── Notify faculty: request received ────────────────────────────
@@ -281,7 +295,7 @@ def room_booking_view(request):
                         f"A new room booking request requires your approval.\n"
                         f"{details}\n\n"
                         f"Please log in to the admin dashboard to review this request.\n\n"
-                        f"Note: This request will be auto-cancelled if not acted upon within 48 hours.\n\n"
+                        f"Note: This request will be auto-cancelled if not acted upon within {'12' if hours_until_event <= 48 else '48'} hours (TAT deadline: {booking_req.tat_deadline.strftime('%d %b %Y, %H:%M')}).\n\n"
                         "Blixtro — SFS College Inventory & Booking System"
                     ),
                     recipient_list=admin_emails,
@@ -880,16 +894,17 @@ def process_booking_tat_reminders_and_expiry():
 
             # Notify faculty
             _safe_mail(
-                subject=f"[Blixtro] Room Booking Request Expired — {req.room.room_name}",
+                subject=f"[Blixtro] Room Booking Request Auto-Cancelled — {req.room.room_name}",
                 message=(
                     f"Dear {req.faculty_name},\n\n"
                     "Unfortunately, your room booking request was not reviewed within the "
-                    "48-hour approval window and has been automatically cancelled.\n"
+                    "required approval window and has been automatically cancelled.\n"
                     f"{details}\n\n"
                     "Please submit a new booking request if you still need the room.\n\n"
                     "Best regards,\nBlixtro — SFS College Inventory & Booking System"
                 ),
                 recipient_list=[req.faculty_email],
+                fail_silently=False,
             )
 
             # Notify admins
