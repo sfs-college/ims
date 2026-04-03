@@ -1203,16 +1203,17 @@ class AdminNotificationsView(LoginRequiredMixin, View):
         def not_dismissed(prefix, obj_id):
             return str(obj_id) not in dismissed.get(prefix, [])
 
+        from django.utils import timezone as _tz
+        _now = _tz.now()
+
         booking_requests = [
             r for r in RoomBookingRequest.objects
-            .filter(status='pending' , tat_deadline__gt=_now())
+            .filter(status='pending', tat_deadline__gt=_now)
             .select_related('room')
             .order_by('-created_on')[:40]
             if not_dismissed('booking', r.id)
         ]
 
-        from django.utils import timezone as _tz
-        _now = _tz.now()
         expiring_soon_bookings = [
             r for r in RoomBookingRequest.objects
             .filter(

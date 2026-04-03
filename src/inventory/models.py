@@ -715,6 +715,7 @@ class RoomBooking(models.Model):
     end_datetime = models.DateTimeField()
     created_on = models.DateTimeField(auto_now_add=True)
     purpose = models.TextField(null=True, blank=True)
+    reminder_sent = models.BooleanField(default=False)
     requirements_doc = models.FileField(
         upload_to='room_bookings/requirements/',
         null=True, 

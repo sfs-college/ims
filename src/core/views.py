@@ -205,16 +205,16 @@ def _roombooking_has_datetime_columns():
     return {'start_datetime', 'end_datetime'}.issubset(columns)
 
 
-def _is_same_or_previous_day(dt):
+def _is_booking_too_soon(dt):
     """
-    Returns True if the given datetime falls on today or yesterday (local date).
-    Used to block same-day and previous-day bookings.
+    Returns True if the booking date is today, tomorrow, or in the past.
+    Minimum allowed booking date is today + 2 days (day after tomorrow).
     """
     from django.utils import timezone as _tz
     local_dt = _tz.localtime(dt) if _tz.is_aware(dt) else dt
     booking_date = local_dt.date()
     today = date.today()
-    return booking_date <= today
+    return booking_date <= today + timedelta(days=1)
 
 
 def room_booking_view(request):
@@ -234,12 +234,12 @@ def room_booking_view(request):
             booking_req = form.save(commit=False)
             booking_req.status = 'pending'
 
-            # ── Same-day / previous-day block ───────────────────────────────
-            if booking_req.start_datetime and _is_same_or_previous_day(booking_req.start_datetime):
+            # ── Same-day / next-day / previous-day block ────────────────────────
+            if booking_req.start_datetime and _is_booking_too_soon(booking_req.start_datetime):
                 messages.error(
                     request,
-                    "Bookings cannot be made for today or a previous date. "
-                    "Please select a date at least one day in advance."
+                    "Bookings cannot be made for today, tomorrow, or a previous date. "
+                    "Please select a date at least 2 days in advance."
                 )
                 return render(request, "booking/room_booking.html", {"form": form})
 
@@ -820,13 +820,13 @@ def check_document_name(request):
 
 def process_booking_tat_reminders_and_expiry():
     """
-    1. Send 24-hour reminder emails for bookings whose TAT deadline is
-       between now+12h and now+24h (and reminder not yet sent).
-    2. Send 12-hour reminder emails for bookings whose TAT deadline is
-       between now and now+12h (and reminder not yet sent).
-    3. Auto-cancel (expire) any pending requests whose TAT deadline has passed.
-    4. Send "day before booking" reminder to faculty who have confirmed bookings
-       starting tomorrow.
+    For EACH pending booking request:
+      - Detect TAT type (12h or 48h) from (tat_deadline - created_on).
+      - 48h TAT → 24h reminder then 12h reminder (existing behaviour).
+      - 12h TAT → 6h reminder then 3h reminder (proportional new behaviour).
+      - Auto-cancel when TAT deadline passes.
+
+    Also sends a day-before reminder to faculty for confirmed bookings.
     """
     from django.utils import timezone as _tz
 
@@ -847,49 +847,99 @@ def process_booking_tat_reminders_and_expiry():
         )
         time_left = req.tat_deadline - now
 
-        # ── 24h reminder ────────────────────────────────────────────────────
-        if (not req.reminder_24h_sent and
-                timezone.timedelta(hours=12) < time_left <= timezone.timedelta(hours=24)):
-            admin_emails = _admin_emails()
-            if admin_emails:
-                _safe_mail(
-                    subject=f"[Blixtro] ⚠ 24h Approval Reminder — {req.room.room_name}",
-                    message=(
-                        "A room booking request has not been approved yet and the 48-hour "
-                        "TAT deadline is approaching (less than 24 hours remaining).\n"
-                        f"{details}\n\n"
-                        "Please approve or reject this request before the deadline, or it "
-                        "will be automatically cancelled.\n\n"
-                        "Blixtro — SFS College Inventory & Booking System"
-                    ),
-                    recipient_list=admin_emails,
-                )
-            req.reminder_24h_sent = True
-            req.save(update_fields=['reminder_24h_sent'])
+        # ── Determine which TAT tier this request belongs to ─────────────────
+        # A 12h-TAT booking has tat_deadline set to created_on + 12h.
+        # Allow a 2h tolerance for processing lag.
+        tat_duration = req.tat_deadline - req.created_on
+        is_12h_tat = tat_duration <= timezone.timedelta(hours=14)   # 12h + 2h buffer
 
-        # ── 12h reminder ────────────────────────────────────────────────────
-        if (not req.reminder_12h_sent and
-                timezone.timedelta(hours=0) < time_left <= timezone.timedelta(hours=12)):
-            admin_emails = _admin_emails()
-            if admin_emails:
-                _safe_mail(
-                    subject=f"[Blixtro] 🚨 12h Final Reminder — {req.room.room_name}",
-                    message=(
-                        "URGENT: A room booking request has less than 12 hours remaining "
-                        "before automatic cancellation.\n"
-                        f"{details}\n\n"
-                        "Please take immediate action in the admin dashboard.\n\n"
-                        "Blixtro — SFS College Inventory & Booking System"
-                    ),
-                    recipient_list=admin_emails,
-                )
-            req.reminder_12h_sent = True
-            req.save(update_fields=['reminder_12h_sent'])
+        if is_12h_tat:
+            # ── 6h reminder (for 12h TAT) ────────────────────────────────────
+            # Fires when 3h < time_left ≤ 6h (≈ halfway through the TAT).
+            if (not req.reminder_24h_sent and
+                    timezone.timedelta(hours=3) < time_left <= timezone.timedelta(hours=6)):
+                admin_emails = _admin_emails()
+                if admin_emails:
+                    _safe_mail(
+                        subject=f"[Blixtro] ⏳ 6h Approval Reminder (Fast-Track) — {req.room.room_name}",
+                        message=(
+                            "A fast-track room booking request has 6 hours or less remaining "
+                            "on its 12-hour approval window.\n"
+                            f"{details}\n\n"
+                            "Please approve or reject this request promptly, or it will be "
+                            "automatically cancelled.\n\n"
+                            "Blixtro — SFS College Inventory & Booking System"
+                        ),
+                        recipient_list=admin_emails,
+                    )
+                req.reminder_24h_sent = True
+                req.save(update_fields=['reminder_24h_sent'])
 
-        # ── Auto-expiry ──────────────────────────────────────────────────────
+            # ── 3h reminder (for 12h TAT) ────────────────────────────────────
+            # Fires when 0h < time_left ≤ 3h (final quarter of the TAT).
+            if (not req.reminder_12h_sent and
+                    timezone.timedelta(hours=0) < time_left <= timezone.timedelta(hours=3)):
+                admin_emails = _admin_emails()
+                if admin_emails:
+                    _safe_mail(
+                        subject=f"[Blixtro] 🚨 3h Final Reminder (Fast-Track) — {req.room.room_name}",
+                        message=(
+                            "URGENT: A fast-track room booking request has less than 3 hours "
+                            "remaining before automatic cancellation.\n"
+                            f"{details}\n\n"
+                            "Please take immediate action in the admin dashboard.\n\n"
+                            "Blixtro — SFS College Inventory & Booking System"
+                        ),
+                        recipient_list=admin_emails,
+                    )
+                req.reminder_12h_sent = True
+                req.save(update_fields=['reminder_12h_sent'])
+
+        else:
+            # ── 24h reminder (for 48h TAT) ───────────────────────────────────
+            if (not req.reminder_24h_sent and
+                    timezone.timedelta(hours=12) < time_left <= timezone.timedelta(hours=24)):
+                admin_emails = _admin_emails()
+                if admin_emails:
+                    _safe_mail(
+                        subject=f"[Blixtro] ⚠ 24h Approval Reminder — {req.room.room_name}",
+                        message=(
+                            "A room booking request has not been approved yet and the 48-hour "
+                            "TAT deadline is approaching (less than 24 hours remaining).\n"
+                            f"{details}\n\n"
+                            "Please approve or reject this request before the deadline, or it "
+                            "will be automatically cancelled.\n\n"
+                            "Blixtro — SFS College Inventory & Booking System"
+                        ),
+                        recipient_list=admin_emails,
+                    )
+                req.reminder_24h_sent = True
+                req.save(update_fields=['reminder_24h_sent'])
+
+            # ── 12h reminder (for 48h TAT) ───────────────────────────────────
+            if (not req.reminder_12h_sent and
+                    timezone.timedelta(hours=0) < time_left <= timezone.timedelta(hours=12)):
+                admin_emails = _admin_emails()
+                if admin_emails:
+                    _safe_mail(
+                        subject=f"[Blixtro] 🚨 12h Final Reminder — {req.room.room_name}",
+                        message=(
+                            "URGENT: A room booking request has less than 12 hours remaining "
+                            "before automatic cancellation.\n"
+                            f"{details}\n\n"
+                            "Please take immediate action in the admin dashboard.\n\n"
+                            "Blixtro — SFS College Inventory & Booking System"
+                        ),
+                        recipient_list=admin_emails,
+                    )
+                req.reminder_12h_sent = True
+                req.save(update_fields=['reminder_12h_sent'])
+
+        # ── Auto-expiry (both TAT types) ─────────────────────────────────────
         if time_left <= timezone.timedelta(0):
+            tat_label = '12' if is_12h_tat else '48'
             req.status = 'expired'
-            req.review_note = 'Auto-cancelled: Approval TAT of 48 hours exceeded.'
+            req.review_note = f'Auto-cancelled: Approval TAT of {tat_label} hours exceeded.'
             req.save(update_fields=['status', 'review_note', 'updated_on'])
 
             # Notify faculty
@@ -898,7 +948,7 @@ def process_booking_tat_reminders_and_expiry():
                 message=(
                     f"Dear {req.faculty_name},\n\n"
                     "Unfortunately, your room booking request was not reviewed within the "
-                    "required approval window and has been automatically cancelled.\n"
+                    f"required {tat_label}-hour approval window and has been automatically cancelled.\n"
                     f"{details}\n\n"
                     "Please submit a new booking request if you still need the room.\n\n"
                     "Best regards,\nBlixtro — SFS College Inventory & Booking System"
@@ -914,7 +964,7 @@ def process_booking_tat_reminders_and_expiry():
                     subject=f"[Blixtro] Booking Request Auto-Cancelled — {req.room.room_name}",
                     message=(
                         "A room booking request was automatically cancelled because the "
-                        "48-hour approval TAT was exceeded without action.\n"
+                        f"{tat_label}-hour approval TAT was exceeded without action.\n"
                         f"{details}\n\n"
                         "The request has been removed from the pending queue.\n\n"
                         "Blixtro — SFS College Inventory & Booking System"
@@ -922,13 +972,14 @@ def process_booking_tat_reminders_and_expiry():
                     recipient_list=admin_emails,
                 )
 
-    # ── Day-before confirmed booking reminder to faculty ────────────────────
+    # ── Day-before confirmed booking reminder to faculty ──────────────────────
     tomorrow_start = _tz.now().replace(hour=0, minute=0, second=0, microsecond=0) + timezone.timedelta(days=1)
     tomorrow_end   = tomorrow_start + timezone.timedelta(days=1)
 
     tomorrow_bookings = RoomBooking.objects.filter(
         start_datetime__gte=tomorrow_start,
         start_datetime__lt=tomorrow_end,
+        reminder_sent=False,                  # only fetch bookings not yet reminded
     ).select_related('room')
 
     for booking in tomorrow_bookings:
@@ -951,3 +1002,6 @@ def process_booking_tat_reminders_and_expiry():
             ),
             recipient_list=[booking.faculty_email],
         )
+        # Mark as sent so subsequent runs of this task skip it
+        booking.reminder_sent = True
+        booking.save(update_fields=['reminder_sent'])
