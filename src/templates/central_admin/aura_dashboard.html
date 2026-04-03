@@ -1018,7 +1018,31 @@
         const body = document.getElementById('bookingDataBody');
         body.innerHTML = '<tr><td colspan="6" class="text-center py-4"><div class="spinner-border text-primary" role="status"></div><p class="text-muted mt-2 mb-0">Synchronizing Schedules...</p></td></tr>';
 
-        fetch(`{% url "central_admin:aura_api_data" %}?model=bookings`)
+        // Also load pending/expired booking requests
+        fetch(`{% url "central_admin:aura_api_data" %}?model=booking_requests`)
+            .then(r => r.json())
+            .then(data => {
+                if (!data.results || !data.results.length) return;
+                let reqHtml = '<tr><td colspan="6" style="background:#f8fafc;font-weight:700;font-size:0.78rem;color:#64748b;padding:10px 16px;text-transform:uppercase;letter-spacing:0.5px;">Booking Requests</td></tr>';
+                data.results.forEach(row => {
+                    const isExpired = row.status === 'expired';
+                    const statusBadge = isExpired
+                        ? '<span class="badge bg-secondary">Expired / Auto-Cancelled</span>'
+                        : row.status === 'pending'
+                            ? '<span class="badge bg-warning text-dark">Pending Approval</span>'
+                            : `<span class="badge bg-light text-dark">${row.status}</span>`;
+                    body.innerHTML += `
+                        <tr style="opacity:${isExpired ? '0.65' : '1'}">
+                            <td class="fw-bold text-primary">${row.room_name || 'N/A'}</td>
+                            <td>${row.faculty_name || 'N/A'}</td>
+                            <td><small class="text-muted">${row.faculty_email || 'N/A'}</small></td>
+                            <td class="fw-semibold">${row.schedule || 'N/A'}</td>
+                            <td>${statusBadge}</td>
+                            <td><span class="badge bg-light text-muted border">Request</span></td>
+                        </tr>`;
+                });
+                body.innerHTML += reqHtml; // prepend section label
+            });
             .then(res => {
                 if (!res.ok) throw new Error('HTTP ' + res.status);
                 return res.json();

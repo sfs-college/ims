@@ -144,7 +144,7 @@ class AuraDashboardView(LoginRequiredMixin, CentralAdminRequiredMixin, TemplateV
         # Pending approval counts for dashboard alert banner
         try:
             from inventory.models import RoomBookingRequest, RoomCancellationRequest
-            context['pending_booking_requests'] = RoomBookingRequest.objects.filter(status='pending').count()
+            context['pending_booking_requests'] = RoomBookingRequest.objects.filter(status='pending' , tat_deadline__gt=timezone.now()).count()
             context['pending_cancel_requests']  = RoomCancellationRequest.objects.filter(status='pending').count()
         except Exception:
             context['pending_booking_requests'] = 0
@@ -205,6 +205,7 @@ def aura_data_manager(request):
         'vendors': Vendor, 
         'departments': Department,
         'credentials': RoomBookingCredentials,
+        'booking_requests': RoomBookingRequest,
     }
     
     model = model_map.get(model_name)
@@ -287,6 +288,19 @@ def aura_data_manager(request):
                 row['detail_head'] = "Metadata"
                 room_count = Room.objects.filter(department=obj).count()
                 row['detail'] = f"Total Rooms: {room_count}"
+            elif model_name == 'booking_requests':
+                row['label_head'] = "Booking Request"
+                row['label'] = f"{obj.faculty_name}"
+                row['detail_head'] = "Metadata"
+                room_name = obj.room.room_name if obj.room else '—'
+                row['room_name'] = room_name
+                row['faculty_name'] = obj.faculty_name
+                row['faculty_email'] = obj.faculty_email
+                row['status'] = obj.status
+                start_local = timezone.localtime(obj.start_datetime)
+                end_local = timezone.localtime(obj.end_datetime)
+                row['schedule'] = f"{start_local.strftime('%d %b, %Y')} | {start_local.strftime('%H:%M')} – {end_local.strftime('%H:%M')}"
+                row['detail'] = f"Room: {room_name}<br>Status: {obj.status.title()}<br>TAT Deadline: {obj.tat_deadline.strftime('%d %b, %H:%M') if obj.tat_deadline else '—'}"
             elif model_name == 'credentials':
                 row['label_head'] = "Email"
                 row['label'] = obj.email
