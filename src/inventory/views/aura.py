@@ -17,7 +17,7 @@ from decimal import Decimal, InvalidOperation
 from django.views.generic import FormView
 from django.views import View
 from django.contrib import messages
-from django.urls import reverse
+from django.core.mail import send_mail
 from inventory.forms.room_incharge import ExcelUploadForm
 from django.db import models
 from inventory.models import SystemComponent as SC
@@ -188,6 +188,9 @@ def aura_data_manager(request):
     Fetches AURA report data for all modules with module and date filtering.
     Accessible by both central admin and sub-admin (sub-admin gets view-only).
     """
+    from django.db import connection as _db_conn
+    from django.db.utils import OperationalError as _DBOperationalError
+
     profile = getattr(request.user, 'profile', None)
     if not profile or not (profile.is_central_admin or profile.is_sub_admin):
         return JsonResponse({'error': 'Unauthorized'}, status=403)
@@ -221,103 +224,114 @@ def aura_data_manager(request):
         elif model_name in ['issues', 'items', 'rooms', 'purchases']:
             qs = qs.filter(created_on__date__range=[date_from, date_to])
 
-    data = []
-    for obj in qs:
-        row = {'id': obj.id}
-        try:
-            if model_name == 'rooms':
-                row['label_head'] = "Room"
-                row['label'] = f"{obj.room_name}<br><small>Incharge: {obj.incharge}</small>"
-                row['detail_head'] = "Metadata"
-                row['detail'] = f"Category: {obj.get_room_category_display()} | Capacity: {obj.capacity}"
-            elif model_name == 'bookings':
-                # Report Generator Fields (Multi-line)
-                row['label_head'] = "Room Booked"
-                row['label'] = f"{obj.faculty_name}<br><small>{obj.faculty_email}</small>"
-                row['detail_head'] = "Metadata"
-                start_local = timezone.localtime(obj.start_datetime)
-                end_local = timezone.localtime(obj.end_datetime)
-                row['detail'] = f"Room: {obj.room.room_name}<br>Date: {start_local.strftime('%d %b, %Y')}<br>Time: {start_local.strftime('%H:%M')} - {end_local.strftime('%H:%M')}"
+    def _build_results(queryset):
+        data = []
+        for obj in queryset:
+            row = {'id': obj.id}
+            try:
+                if model_name == 'rooms':
+                    row['label_head'] = "Room"
+                    row['label'] = f"{obj.room_name}<br><small>Incharge: {obj.incharge}</small>"
+                    row['detail_head'] = "Metadata"
+                    row['detail'] = f"Category: {obj.get_room_category_display()} | Capacity: {obj.capacity}"
+                elif model_name == 'bookings':
+                    # Report Generator Fields (Multi-line)
+                    row['label_head'] = "Room Booked"
+                    row['label'] = f"{obj.faculty_name}<br><small>{obj.faculty_email}</small>"
+                    row['detail_head'] = "Metadata"
+                    start_local = timezone.localtime(obj.start_datetime)
+                    end_local = timezone.localtime(obj.end_datetime)
+                    row['detail'] = f"Room: {obj.room.room_name}<br>Date: {start_local.strftime('%d %b, %Y')}<br>Time: {start_local.strftime('%H:%M')} - {end_local.strftime('%H:%M')}"
                 
-                # SPECIFIC KEYS FOR ROOM BOOKING MANAGER MODAL
-                row['room_name'] = obj.room.room_name
-                row['faculty_name'] = obj.faculty_name
-                row['faculty_email'] = obj.faculty_email
-                row['schedule'] = f"{start_local.strftime('%d %b, %Y')} | {start_local.strftime('%H:%M')} – {end_local.strftime('%H:%M')}"
-            elif model_name == 'issues':
-                row['label_head'] = "Issue"
-                row['label'] = f"{obj.subject}"
-                row['detail_head'] = "Metadata"
-                assigned = obj.assigned_to.user.get_full_name() if obj.assigned_to else "N/A"
-                row['detail'] = f"Email: {obj.reporter_email}<br>Ticket ID: {obj.ticket_id}<br>Status: {obj.status}<br>Room: {obj.room.room_name}<br>Assigned: {assigned}"
-            elif model_name == 'items':
-                from inventory.models import AssetTag
-                row['label_head'] = "Items"
-                row['label'] = f"{obj.item_name}"
-                row['detail_head'] = "Metadata"
-                room_name = obj.room.room_name if obj.room else 'Master Inventory'
-                prod_code = obj.product_code or '—'
-                # Asset tag range for this room
-                tag_range = '—'
-                if obj.room and obj.product_code:
-                    tags = AssetTag.objects.filter(
-                        item_name=obj.item_name,
-                        assigned_room=obj.room
-                    ).order_by('tag_id')
-                    if tags.exists():
-                        first_tag = tags.first().tag_id
-                        last_tag = tags.last().tag_id
-                        tag_range = f"{first_tag} → {last_tag}"
-                row['detail'] = f"Room: {room_name}<br>Product Code: {prod_code}<br>Asset Tags: {tag_range}<br>Qty: {obj.total_count}<br>Available: {obj.available_count}<br>In Use: {obj.in_use}"
-            elif model_name == 'purchases':
-                row['label_head'] = "Purchase ID"
-                room_name = obj.room.room_name if obj.room else 'No Room Assigned'
-                row['label'] = f"{obj.purchase_id or 'Pending ID'}<br>Room: {room_name}"
-                row['detail_head'] = "Metadata"
-                item_name = obj.item.item_name if obj.item else 'N/A'
-                vendor_name = obj.vendor.vendor_name if obj.vendor else 'No Vendor'
-                row['detail'] = f"Item: {item_name}<br>Vendor: {vendor_name}<br>Status: {obj.status.title()}"
-            elif model_name == 'vendors':
-                row['label_head'] = "Vendors"
-                row['label'] = f"{obj.vendor_name}"
-                row['detail_head'] = "Metadata"
-                row['detail'] = f"Email: {obj.email}<br>Contact: {obj.contact_number}"
-            elif model_name == 'departments':
-                row['label_head'] = "Department/Cell/Office"
-                row['label'] = f"{obj.department_name}"
-                row['detail_head'] = "Metadata"
-                room_count = Room.objects.filter(department=obj).count()
-                row['detail'] = f"Total Rooms: {room_count}"
-            elif model_name == 'booking_requests':
-                row['label_head'] = "Booking Request"
-                row['label'] = f"{obj.faculty_name}"
-                row['detail_head'] = "Metadata"
-                room_name = obj.room.room_name if obj.room else '—'
-                row['room_name'] = room_name
-                row['faculty_name'] = obj.faculty_name
-                row['faculty_email'] = obj.faculty_email
-                row['status'] = obj.status
-                start_local = timezone.localtime(obj.start_datetime)
-                end_local = timezone.localtime(obj.end_datetime)
-                row['schedule'] = f"{start_local.strftime('%d %b, %Y')} | {start_local.strftime('%H:%M')} – {end_local.strftime('%H:%M')}"
-                row['detail'] = f"Room: {room_name}<br>Status: {obj.status.title()}<br>TAT Deadline: {obj.tat_deadline.strftime('%d %b, %H:%M') if obj.tat_deadline else '—'}"
-            elif model_name == 'credentials':
-                row['label_head'] = "Email"
-                row['label'] = obj.email
-                row['detail_head'] = "Designation"
-                row['detail'] = obj.designation or 'Faculty'
-                row['email'] = obj.email
-                row['designation'] = obj.designation or 'Faculty'
-                row['password'] = obj.password
-            else:
-                row['label_head'] = "Primary Record"
-                row['label'] = str(obj)
-                row['detail_head'] = "Metadata / Details"
-                row['detail'] = "General Record"
-        except Exception:
-            row['detail'] = "N/A (Data Mismatch)"
-        data.append(row)
-        
+                    # SPECIFIC KEYS FOR ROOM BOOKING MANAGER MODAL
+                    row['room_name'] = obj.room.room_name
+                    row['faculty_name'] = obj.faculty_name
+                    row['faculty_email'] = obj.faculty_email
+                    row['schedule'] = f"{start_local.strftime('%d %b, %Y')} | {start_local.strftime('%H:%M')} – {end_local.strftime('%H:%M')}"
+                elif model_name == 'issues':
+                    row['label_head'] = "Issue"
+                    row['label'] = f"{obj.subject}"
+                    row['detail_head'] = "Metadata"
+                    assigned = obj.assigned_to.user.get_full_name() if obj.assigned_to else "N/A"
+                    row['detail'] = f"Email: {obj.reporter_email}<br>Ticket ID: {obj.ticket_id}<br>Status: {obj.status}<br>Room: {obj.room.room_name}<br>Assigned: {assigned}"
+                elif model_name == 'items':
+                    from inventory.models import AssetTag
+                    row['label_head'] = "Items"
+                    row['label'] = f"{obj.item_name}"
+                    row['detail_head'] = "Metadata"
+                    room_name = obj.room.room_name if obj.room else 'Master Inventory'
+                    prod_code = obj.product_code or '—'
+                    # Asset tag range for this room
+                    tag_range = '—'
+                    if obj.room and obj.product_code:
+                        tags = AssetTag.objects.filter(
+                            item_name=obj.item_name,
+                            assigned_room=obj.room
+                        ).order_by('tag_id')
+                        if tags.exists():
+                            first_tag = tags.first().tag_id
+                            last_tag = tags.last().tag_id
+                            tag_range = f"{first_tag} → {last_tag}"
+                    row['detail'] = f"Room: {room_name}<br>Product Code: {prod_code}<br>Asset Tags: {tag_range}<br>Qty: {obj.total_count}<br>Available: {obj.available_count}<br>In Use: {obj.in_use}"
+                elif model_name == 'purchases':
+                    row['label_head'] = "Purchase ID"
+                    room_name = obj.room.room_name if obj.room else 'No Room Assigned'
+                    row['label'] = f"{obj.purchase_id or 'Pending ID'}<br>Room: {room_name}"
+                    row['detail_head'] = "Metadata"
+                    item_name = obj.item.item_name if obj.item else 'N/A'
+                    vendor_name = obj.vendor.vendor_name if obj.vendor else 'No Vendor'
+                    row['detail'] = f"Item: {item_name}<br>Vendor: {vendor_name}<br>Status: {obj.status.title()}"
+                elif model_name == 'vendors':
+                    row['label_head'] = "Vendors"
+                    row['label'] = f"{obj.vendor_name}"
+                    row['detail_head'] = "Metadata"
+                    row['detail'] = f"Email: {obj.email}<br>Contact: {obj.contact_number}"
+                elif model_name == 'departments':
+                    row['label_head'] = "Department/Cell/Office"
+                    row['label'] = f"{obj.department_name}"
+                    row['detail_head'] = "Metadata"
+                    room_count = Room.objects.filter(department=obj).count()
+                    row['detail'] = f"Total Rooms: {room_count}"
+                elif model_name == 'booking_requests':
+                    row['label_head'] = "Booking Request"
+                    row['label'] = f"{obj.faculty_name}"
+                    row['detail_head'] = "Metadata"
+                    room_name = obj.room.room_name if obj.room else '—'
+                    row['room_name'] = room_name
+                    row['faculty_name'] = obj.faculty_name
+                    row['faculty_email'] = obj.faculty_email
+                    row['status'] = obj.status
+                    start_local = timezone.localtime(obj.start_datetime)
+                    end_local = timezone.localtime(obj.end_datetime)
+                    row['schedule'] = f"{start_local.strftime('%d %b, %Y')} | {start_local.strftime('%H:%M')} – {end_local.strftime('%H:%M')}"
+                    row['detail'] = f"Room: {room_name}<br>Status: {obj.status.title()}<br>TAT Deadline: {obj.tat_deadline.strftime('%d %b, %H:%M') if obj.tat_deadline else '—'}"
+                elif model_name == 'credentials':
+                    row['label_head'] = "Email"
+                    row['label'] = obj.email
+                    row['detail_head'] = "Designation"
+                    row['detail'] = obj.designation or 'Faculty'
+                    row['email'] = obj.email
+                    row['designation'] = obj.designation or 'Faculty'
+                    row['password'] = obj.password
+                else:
+                    row['label_head'] = "Primary Record"
+                    row['label'] = str(obj)
+                    row['detail_head'] = "Metadata / Details"
+                    row['detail'] = "General Record"
+            except Exception:
+                row['detail'] = "N/A (Data Mismatch)"
+            data.append(row)
+        return data
+
+    # ── Execute with one automatic retry on transient SSL/connection drops ──
+    # PostgreSQL can drop idle SSL connections; closing the stale Django
+    # connection forces a fresh reconnect on the next query.
+    try:
+        data = _build_results(qs)
+    except _DBOperationalError:
+        _db_conn.close()          # discard the stale connection
+        data = _build_results(qs) # retry once with a fresh connection
+
     return JsonResponse({'results': data})
 
 def aura_delete_record(request):
@@ -340,6 +354,28 @@ def aura_delete_record(request):
             is_owner = True
             
         if is_owner:
+            if model_name == 'bookings':
+                # Send email to faculty about cancellation
+                try:
+                    send_mail(
+                        subject="Room Booking Cancelled by Administrator",
+                        message=(
+                            f"Dear {obj.faculty_name},\n\n"
+                            f"Your room booking for {obj.room.room_name} has been cancelled by the administrator.\n\n"
+                            f"Booking Details:\n"
+                            f"- Room: {obj.room.room_name}\n"
+                            f"- Date & Time: {obj.start_datetime.strftime('%d %b %Y, %H:%M')} to {obj.end_datetime.strftime('%d %b %Y, %H:%M')}\n"
+                            f"- Purpose: {obj.purpose or 'Not specified'}\n\n"
+                            "If you have any questions, please contact the administration.\n\n"
+                            "Regards,\nAdmin Team"
+                        ),
+                        from_email=None,
+                        recipient_list=[obj.faculty_email],
+                        fail_silently=True,
+                    )
+                except Exception as _e:
+                    print(f"[aura_delete_record] Email failed (non-fatal): {_e}", flush=True)
+            
             obj.delete()
             return JsonResponse({'status': 'success'})
             
@@ -592,6 +628,7 @@ def aura_bulk_delete(request):
             'bookings': RoomBooking,
             'purchases': Purchase,
             'credentials': RoomBookingCredentials,
+            'booking_requests': RoomBookingRequest, 
         }
         
         model = model_map.get(model_name)

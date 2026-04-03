@@ -1018,31 +1018,8 @@
         const body = document.getElementById('bookingDataBody');
         body.innerHTML = '<tr><td colspan="6" class="text-center py-4"><div class="spinner-border text-primary" role="status"></div><p class="text-muted mt-2 mb-0">Synchronizing Schedules...</p></td></tr>';
 
-        // Also load pending/expired booking requests
-        fetch(`{% url "central_admin:aura_api_data" %}?model=booking_requests`)
-            .then(r => r.json())
-            .then(data => {
-                if (!data.results || !data.results.length) return;
-                let reqHtml = '<tr><td colspan="6" style="background:#f8fafc;font-weight:700;font-size:0.78rem;color:#64748b;padding:10px 16px;text-transform:uppercase;letter-spacing:0.5px;">Booking Requests</td></tr>';
-                data.results.forEach(row => {
-                    const isExpired = row.status === 'expired';
-                    const statusBadge = isExpired
-                        ? '<span class="badge bg-secondary">Expired / Auto-Cancelled</span>'
-                        : row.status === 'pending'
-                            ? '<span class="badge bg-warning text-dark">Pending Approval</span>'
-                            : `<span class="badge bg-light text-dark">${row.status}</span>`;
-                    body.innerHTML += `
-                        <tr style="opacity:${isExpired ? '0.65' : '1'}">
-                            <td class="fw-bold text-primary">${row.room_name || 'N/A'}</td>
-                            <td>${row.faculty_name || 'N/A'}</td>
-                            <td><small class="text-muted">${row.faculty_email || 'N/A'}</small></td>
-                            <td class="fw-semibold">${row.schedule || 'N/A'}</td>
-                            <td>${statusBadge}</td>
-                            <td><span class="badge bg-light text-muted border">Request</span></td>
-                        </tr>`;
-                });
-                body.innerHTML += reqHtml; // prepend section label
-            });
+        // ── Fetch 1: Confirmed bookings ──────────────────────────────────────
+        fetch(`{% url "central_admin:aura_api_data" %}?model=bookings`)
             .then(res => {
                 if (!res.ok) throw new Error('HTTP ' + res.status);
                 return res.json();
@@ -1056,28 +1033,88 @@
                     return;
                 }
                 results.forEach(row => {
-                body.innerHTML += `
-                    <tr>
+                    body.innerHTML += `
+                        <tr>
+                            <td class="fw-bold text-primary">${row.room_name || 'N/A'}</td>
+                            <td>${row.faculty_name || 'N/A'}</td>
+                            <td><small class="text-muted">${row.faculty_email || 'N/A'}</small></td>
+                            <td class="fw-semibold">${row.schedule || 'N/A'}</td>
+                            <td>${getBookingStatus(row.schedule)}</td>
+                            <td>${getBookingControl(row.id, row.schedule)}</td>
+                        </tr>
+                    `;
+                });
+            })
+            .catch(err => {
+                body.innerHTML = `<tr><td colspan="6" class="text-center py-5 text-danger">
+                    <i class="bi bi-exclamation-triangle-fill fs-1 d-block mb-2"></i>
+                    Failed to load booking data.
+                    <button class="btn btn-sm btn-outline-danger mt-2 d-block mx-auto" onclick="loadBookingData()">
+                        <i class="bi bi-arrow-clockwise me-1"></i>Retry
+                    </button>
+                </td></tr>`;
+            });
+
+        // ── Fetch 2: Booking requests (pending/expired) — separate, non-blocking ──
+        fetch(`{% url "central_admin:aura_api_data" %}?model=booking_requests`)
+            .then(res => { if (!res.ok) return null; return res.json(); })
+            .then(data => {
+                if (!data || !data.results || !data.results.length) return;
+
+                // Section header row — includes bulk toolbar for central admin
+                const bulkToolbar = IS_CENTRAL_ADMIN
+                    ? `<span style="float:right;display:flex;align-items:center;gap:10px;">
+                        <label style="display:flex;align-items:center;gap:6px;font-weight:600;font-size:0.78rem;color:#64748b;cursor:pointer;margin:0;">
+                            <input type="checkbox" id="selectAllReqs" style="width:14px;height:14px;cursor:pointer;" onchange="toggleSelectAllReqs(this)">
+                            Select All
+                        </label>
+                        <button id="bulkDeleteReqsBtn" class="btn btn-danger btn-sm d-none py-0 px-2"
+                                style="font-size:0.75rem;" onclick="bulkDeleteBookingRequests()">
+                            <i class="bi bi-trash3-fill me-1"></i>Delete Selected
+                        </button>
+                    </span>`
+                    : '';
+
+                const reqHeader = `<tr>
+                    <td colspan="6" style="background:#f8fafc;font-weight:700;font-size:0.78rem;
+                        color:#64748b;padding:10px 16px;text-transform:uppercase;letter-spacing:0.5px;
+                        border-top:2px solid #e2e8f0;">
+                        Booking Requests (Pending / Expired)
+                        ${bulkToolbar}
+                    </td>
+                </tr>`;
+
+                let reqRows = '';
+                data.results.forEach(row => {
+                    const isExpired = row.status === 'expired';
+                    const statusBadge = isExpired
+                        ? '<span class="badge bg-secondary">Expired / Auto-Cancelled</span>'
+                        : row.status === 'pending'
+                            ? '<span class="badge bg-warning text-dark">Pending Approval</span>'
+                            : `<span class="badge bg-light text-dark">${row.status}</span>`;
+
+                    // Last column: checkbox for central admin, static badge for sub-admin
+                    const controlCell = IS_CENTRAL_ADMIN
+                        ? `<td class="text-center">
+                            <input type="checkbox" class="req-checkbox" value="${row.id}"
+                                    style="width:15px;height:15px;cursor:pointer;accent-color:#dc2626;"
+                                    onchange="updateReqBulkBtn()">
+                        </td>`
+                        : `<td><span class="badge bg-light text-muted border">Request</span></td>`;
+
+                    reqRows += `<tr style="opacity:${isExpired ? '0.65' : '1'}">
                         <td class="fw-bold text-primary">${row.room_name || 'N/A'}</td>
                         <td>${row.faculty_name || 'N/A'}</td>
                         <td><small class="text-muted">${row.faculty_email || 'N/A'}</small></td>
                         <td class="fw-semibold">${row.schedule || 'N/A'}</td>
-                        <td>${getBookingStatus(row.schedule)}</td>
-                        <td>${getBookingControl(row.id, row.schedule)}</td>
-                    </tr>
-                `;
-            });
-        })
-        .catch(err => {
-            body.innerHTML = `<tr><td colspan="6" class="text-center py-5 text-danger">
-                <i class="bi bi-exclamation-triangle-fill fs-1 d-block mb-2"></i>
-                Failed to load booking data.
-                <button class="btn btn-sm btn-outline-danger mt-2 d-block mx-auto" onclick="loadBookingData()">
-                    <i class="bi bi-arrow-clockwise me-1"></i>Retry
-                </button>
-            </td></tr>`;
-        });
-}
+                        <td>${statusBadge}</td>
+                        ${controlCell}
+                    </tr>`;
+                });
+                body.innerHTML += reqHeader + reqRows;
+            })
+            .catch(() => {}); // non-critical
+    }
 
     // 5. Global Delete (Restricted to Central Admin Backend)
     function deleteRecord(model, id) {
@@ -1147,6 +1184,50 @@
                 }
             });
         }
+    }
+
+        // ── Booking Requests bulk delete helpers (Central Admin only) ──
+    function toggleSelectAllReqs(masterCb) {
+        document.querySelectorAll('.req-checkbox').forEach(cb => cb.checked = masterCb.checked);
+        updateReqBulkBtn();
+    }
+
+    function updateReqBulkBtn() {
+        const count = document.querySelectorAll('.req-checkbox:checked').length;
+        const btn   = document.getElementById('bulkDeleteReqsBtn');
+        if (btn) {
+            btn.classList.toggle('d-none', count === 0);
+            btn.innerHTML = `<i class="bi bi-trash3-fill me-1"></i>Delete ${count} Selected`;
+        }
+        // Keep Select All checkbox in sync
+        const allCbs = document.querySelectorAll('.req-checkbox');
+        const selAll = document.getElementById('selectAllReqs');
+        if (selAll) selAll.checked = allCbs.length > 0 && count === allCbs.length;
+    }
+
+    function bulkDeleteBookingRequests() {
+        const selectedIds = Array.from(
+            document.querySelectorAll('.req-checkbox:checked')
+        ).map(cb => cb.value);
+
+        if (!selectedIds.length) return;
+        if (!confirm(`PERMANENT DELETE: Remove ${selectedIds.length} booking request(s) from the database? This cannot be undone.`)) return;
+
+        fetch('{% url "central_admin:aura_api_bulk_delete" %}', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': '{{ csrf_token }}' },
+            body: JSON.stringify({ model: 'booking_requests', ids: selectedIds })
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.status === 'success') {
+                alert(`${data.deleted_count} booking request(s) permanently deleted.`);
+                loadBookingData(); // refresh the table
+            } else {
+                alert('Error: ' + (data.message || 'Delete failed.'));
+            }
+        })
+        .catch(() => alert('Network error. Please try again.'));
     }
 
 

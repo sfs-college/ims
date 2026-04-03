@@ -765,25 +765,26 @@ function agShowAlert(msg) {
 // ═══════════════════════════════════════════════════
 // ── Set minimum selectable date to tomorrow across all date inputs ──────────
 document.addEventListener('DOMContentLoaded', function() {
-    var tomorrow = new Date();
-    tomorrow.setDate(tomorrow.getDate() + 1);
+    // Minimum selectable date = day after tomorrow (today + 2 days)
+    var minDate = new Date();
+    minDate.setDate(minDate.getDate() + 2);
 
-    var yyyy = tomorrow.getFullYear();
-    var mm   = String(tomorrow.getMonth() + 1).padStart(2, '0');
-    var dd   = String(tomorrow.getDate()).padStart(2, '0');
-    var tomorrowDate     = yyyy + '-' + mm + '-' + dd;          // YYYY-MM-DD
-    var tomorrowDatetime = tomorrowDate + 'T00:00';              // YYYY-MM-DDTHH:MM
+    var yyyy = minDate.getFullYear();
+    var mm   = String(minDate.getMonth() + 1).padStart(2, '0');
+    var dd   = String(minDate.getDate()).padStart(2, '0');
+    var minDateStr      = yyyy + '-' + mm + '-' + dd;       // YYYY-MM-DD
+    var minDatetimeStr  = minDateStr + 'T00:00';             // YYYY-MM-DDTHH:MM
 
     // Whole-day picker
     var wholeDayInput = document.getElementById('wholeDayDate');
-    if (wholeDayInput) wholeDayInput.min = tomorrowDate;
+    if (wholeDayInput) wholeDayInput.min = minDateStr;
 
     // Custom datetime-local pickers
     var startInput = document.getElementById('id_start_datetime');
-    if (startInput) startInput.min = tomorrowDatetime;
+    if (startInput) startInput.min = minDatetimeStr;
 
     var endInput = document.getElementById('id_end_datetime');
-    if (endInput) endInput.min = tomorrowDatetime;
+    if (endInput) endInput.min = minDatetimeStr;
 });
 
 let currentMode = 'whole';
@@ -939,11 +940,11 @@ document.getElementById('bookingForm').addEventListener('submit', function(e) {
         if (startDt < now) {
             errors.push('⚠ The start date/time cannot be in the past.');
         }
-        // Block same-day and previous-day bookings
+        // Block today, tomorrow, and anything before (min booking = today + 2 days)
         const todayMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-        const tomorrowMidnight = new Date(todayMidnight.getTime() + 24 * 60 * 60 * 1000);
-        if (startDt < tomorrowMidnight) {
-            errors.push('⚠ Bookings cannot be made for today or the previous day. Please select a date <strong>at least one day in advance</strong>.');
+        const minBookingMidnight = new Date(todayMidnight.getTime() + 2 * 24 * 60 * 60 * 1000);
+        if (startDt < minBookingMidnight) {
+            errors.push('⚠ Bookings must be made <strong>at least 2 days in advance</strong>. You cannot book for today or tomorrow.');
         }
     }
 
