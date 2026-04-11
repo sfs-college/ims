@@ -50,7 +50,7 @@ class Organisation(models.Model):
 
 class Department(models.Model):
     organisation = models.ForeignKey(Organisation,on_delete=models.CASCADE)
-    department_name = models.CharField(max_length=255)
+    department_name = models.CharField(max_length=500)
     created_on = models.DateTimeField(auto_now_add=True)
     udpated_on = models.DateTimeField(auto_now=True)
     slug = models.SlugField(unique=True)
