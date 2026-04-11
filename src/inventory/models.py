@@ -36,7 +36,7 @@ class Room(models.Model):
     updated_on = models.DateTimeField(auto_now=True)
     slug = models.SlugField(unique=True, max_length=255)
     room_category = models.CharField(max_length=20, choices=ROOM_CATEGORIES, default='classrooms')
-    capacity = models.PositiveIntegerField(default=0)
+    capacity = models.PositiveIntegerField(default=0, blank=True, null=True)
 
     
     def save(self, *args, **kwargs):

@@ -1,10 +1,21 @@
 from django import forms
+from django.core.validators import RegexValidator
 from core.models import User, UserProfile, Organisation
 from inventory.models import Department, Room, Vendor, Purchase, Issue, Category, Brand
 from config.mixins import form_mixin
 from django.forms import RadioSelect
 
+special_char_validator = RegexValidator(
+    regex=r'^[\w\s\-&.\'()]+$',
+    message='Department name can only contain letters, numbers, spaces, and these special characters: - & . \' ( )'
+)
+
 class DepartmentForm(form_mixin.BootstrapFormMixin, forms.ModelForm):
+    department_name = forms.CharField(
+        max_length=500,
+        validators=[special_char_validator]
+    )
+
     class Meta:
         model = Department
         fields = ['department_name']
@@ -45,6 +56,7 @@ class PeopleCreateForm(form_mixin.BootstrapFormMixin, forms.ModelForm):
     Clean form: NO organisation field (org is auto-assigned in the view).
     """
     email = forms.EmailField(label="Official Email")
+    last_name = forms.CharField(max_length=255, required=False)
 
     ROLE_CHOICES = (
         ('central_admin', 'Central Admin'),
@@ -72,6 +84,8 @@ class PeopleCreateForm(form_mixin.BootstrapFormMixin, forms.ModelForm):
 
 
 class RoomCreateForm(form_mixin.BootstrapFormMixin, forms.ModelForm):
+    capacity = forms.IntegerField(required=False)
+
     class Meta:
         model = Room
         fields = ['label', 'room_name', 'department', 'incharge','room_category', 'capacity']
