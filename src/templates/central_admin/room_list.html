@@ -105,6 +105,41 @@
   }
   .btn-export-pdf   { background:#fff5f5; color:#dc2626; border-color:#fecaca; }
   .btn-export-pdf:hover   { background:#dc2626; color:#fff; border-color:#dc2626; }
+
+  /* ── Action buttons ───────────────────────────────────── */
+  .action-buttons { display: flex; gap: 4px; flex-direction: column; }
+  .action-btn { white-space: nowrap; display: inline-block; }
+  .action-btn.btn-dark { 
+    background: #0f172a; color: #fff; border: none;
+    border-radius: 6px; padding: 4px 10px;
+    font-size: 0.70rem; font-weight: 600;
+    text-decoration: none; text-align: center;
+  }
+  .action-btn.btn-danger { 
+    background: #fef2f2; color: #dc2626; border: 1px solid #fecaca;
+    border-radius: 6px; padding: 4px 10px;
+    font-size: 0.70rem; font-weight: 600;
+    text-decoration: none; text-align: center;
+  }
+  .action-btn:hover { opacity: 0.85; }
+
+  /* ── Mobile Responsive ────────────────────────────────── */
+  @media (max-width: 768px) {
+    .rooms-toolbar { flex-direction: column; align-items: stretch; }
+    .rooms-toolbar-right { justify-content: space-between; }
+    .export-group { width: 100%; }
+    .export-group-controls { flex-wrap: wrap; }
+    .view-toggle { width: 100%; justify-content: center; }
+    .view-toggle .view-btn { flex: 1; text-align: center; justify-content: center; }
+    /* Table horizontal scroll for mobile */
+    .table-responsive { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+    .table-responsive table { min-width: 800px; }
+  }
+
+  @media (max-width: 576px) {
+    .d-flex.justify-content-between { flex-direction: column; gap: 12px; }
+    .d-flex.align-items-center { flex-wrap: wrap; gap: 8px; }
+  }
   .btn-export-excel { background:#f0fdf4; color:#059669; border-color:#a7f3d0; }
   .btn-export-excel:hover { background:#059669; color:#fff; border-color:#059669; }
 
@@ -306,18 +341,20 @@
     <table class="table">
         <thead>
             <tr>
+                <th>Room Label</th>
                 <th>Room Name</th>
                 <th>Category</th>
                 <th>Capacity</th>
                 <th>Incharge</th>
                 <th>Department</th>
                 <th>Created On</th>
-                <th>Action</th>
+                <th style="width: 90px;">Action</th>
             </tr>
         </thead>
         <tbody>
             {% for room in rooms %}
             <tr>
+                <td><span class="badge bg-primary">{{ room.label }}</span></td>
                 <td>{{ room.room_name }}</td>
                 <td><span class="badge bg-secondary">{{ room.get_room_category_display }}</span></td>
                 <td>{{ room.capacity }}</td>
@@ -326,12 +363,14 @@
                 <td>{{ room.created_on|date:"d-M-Y H:i:s" }}</td>
                 <td>
                     <!-- Both central admin AND sub-admin can edit/delete -->
-                    <a href="{% url 'central_admin:room_update' room_slug=room.slug %}" class="btn btn-dark btn-sm">Edit</a>
-                    <a href="{% url 'central_admin:room_delete' room_slug=room.slug %}" class="btn btn-danger btn-sm">Delete</a>
+                    <div class="d-flex gap-1 action-buttons">
+                        <a href="{% url 'central_admin:room_update' room_slug=room.slug %}" class="btn btn-dark btn-sm action-btn">Edit</a>
+                        <a href="{% url 'central_admin:room_delete' room_slug=room.slug %}" class="btn btn-danger btn-sm action-btn">Delete</a>
+                    </div>
                 </td>
             </tr>
             {% empty %}
-            <tr><td colspan="7" class="text-center text-muted py-4">No rooms found.</td></tr>
+            <tr><td colspan="8" class="text-center text-muted py-4">No rooms found.</td></tr>
             {% endfor %}
         </tbody>
     </table>
@@ -354,7 +393,9 @@
         <div class="room-cards">
             {% for entry in booked_rooms %}
             <div class="room-card card-booked">
-                <div class="room-card-name">{{ entry.room.room_name }}</div>
+                <div class="room-card-name">
+                    <span class="badge bg-primary me-1">{{ entry.room.label }}</span>
+                    {{ entry.room.room_name }}</div>
                 <div class="room-card-meta">
                     <span class="badge bg-secondary me-1">{{ entry.room.get_room_category_display }}</span>
                     {% if entry.room.department %}{{ entry.room.department.department_name }}{% endif %}
@@ -406,7 +447,9 @@
         <div class="room-cards">
             {% for entry in pending_booking_rooms %}
             <div class="room-card card-pending">
-                <div class="room-card-name">{{ entry.room.room_name }}</div>
+                <div class="room-card-name">
+                    <span class="badge bg-primary me-1">{{ entry.room.label }}</span>
+                    {{ entry.room.room_name }}</div>
                 <div class="room-card-meta">
                     <span class="badge bg-secondary me-1">{{ entry.room.get_room_category_display }}</span>
                     {% if entry.room.department %}{{ entry.room.department.department_name }}{% endif %}
@@ -457,7 +500,9 @@
         <div class="room-cards">
             {% for room in available_rooms %}
             <div class="room-card card-available">
-                <div class="room-card-name">{{ room.room_name }}</div>
+                <div class="room-card-name">
+                    <span class="badge bg-primary me-1">{{ room.label }}</span>
+                    {{ room.room_name }}</div>
                 <div class="room-card-meta">
                     <span class="badge bg-secondary me-1">{{ room.get_room_category_display }}</span>
                     {% if room.department %}{{ room.department.department_name }}{% endif %}

@@ -132,7 +132,7 @@ class RoomListView(LoginRequiredMixin, ListView):
     context_object_name = 'rooms'
 
     def get_queryset(self):
-        qs = Room.objects.filter(organisation=self.request.user.profile.org)
+        qs = Room.objects.filter(organisation=self.request.user.profile.org).select_related('incharge', 'incharge__user', 'department')
         category = self.request.GET.get('category')
         search   = self.request.GET.get('search')
         if category:

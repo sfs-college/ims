@@ -231,9 +231,11 @@ def aura_data_manager(request):
             try:
                 if model_name == 'rooms':
                     row['label_head'] = "Room"
-                    row['label'] = f"{obj.room_name}<br><small>Incharge: {obj.incharge}</small>"
+                    row['label'] = f"{obj.label} - {obj.room_name}<br><small>Incharge: {obj.incharge}</small>"
                     row['detail_head'] = "Metadata"
                     row['detail'] = f"Category: {obj.get_room_category_display()} | Capacity: {obj.capacity}"
+                    row['room_label'] = obj.label
+                    row['room_name'] = obj.room_name
                 elif model_name == 'bookings':
                     # Report Generator Fields (Multi-line)
                     row['label_head'] = "Room Booked"
@@ -241,10 +243,10 @@ def aura_data_manager(request):
                     row['detail_head'] = "Metadata"
                     start_local = timezone.localtime(obj.start_datetime)
                     end_local = timezone.localtime(obj.end_datetime)
-                    row['detail'] = f"Room: {obj.room.room_name}<br>Date: {start_local.strftime('%d %b, %Y')}<br>Time: {start_local.strftime('%H:%M')} - {end_local.strftime('%H:%M')}"
+                    row['detail'] = f"Room: {obj.room.label} - {obj.room.room_name}<br>Date: {start_local.strftime('%d %b, %Y')}<br>Time: {start_local.strftime('%H:%M')} - {end_local.strftime('%H:%M')}"
                 
                     # SPECIFIC KEYS FOR ROOM BOOKING MANAGER MODAL
-                    row['room_name'] = obj.room.room_name
+                    row['room_name'] = f"{obj.room.label} - {obj.room.room_name}"
                     row['faculty_name'] = obj.faculty_name
                     row['faculty_email'] = obj.faculty_email
                     row['schedule'] = f"{start_local.strftime('%d %b, %Y')} | {start_local.strftime('%H:%M')} – {end_local.strftime('%H:%M')}"
@@ -541,13 +543,13 @@ def aura_generate_report_pdf(request):
         
         try:
             if model_name == 'rooms':
-                label = f"{obj.room_name}<br/>Incharge: {obj.incharge}"
+                label = f"{obj.label} - {obj.room_name}<br/>Incharge: {obj.incharge}"
                 detail = f"Category: {obj.get_room_category_display()}<br/>Capacity: {obj.capacity}"
             elif model_name == 'bookings':
                 label = f"{obj.faculty_name}<br/>{obj.faculty_email}"
                 start_local = timezone.localtime(obj.start_datetime)
                 end_local = timezone.localtime(obj.end_datetime)
-                detail = f"Room: {obj.room.room_name}<br/>Date: {start_local.strftime('%d %b, %Y')}<br/>Time: {start_local.strftime('%H:%M')} - {end_local.strftime('%H:%M')}"
+                detail = f"Room: {obj.room.label} - {obj.room.room_name}<br/>Date: {start_local.strftime('%d %b, %Y')}<br/>Time: {start_local.strftime('%H:%M')} - {end_local.strftime('%H:%M')}"
             elif model_name == 'issues':
                 label = f"{obj.subject}"
                 assigned = obj.assigned_to.user.get_full_name() if obj.assigned_to else "N/A"
@@ -605,7 +607,10 @@ def aura_generate_report_pdf(request):
     
     buffer.seek(0)
     response = HttpResponse(buffer, content_type='application/pdf')
-    response['Content-Disposition'] = f'attachment; filename="Blixtro_AURA_{model_name}_Report.pdf"'
+    report_date = timezone.now().strftime('%d%b%Y')
+    filename = f"Blixtro_SFS_{model_name}_Report_{report_date}.pdf"
+    response['Content-Disposition'] = f'attachment; filename="{filename}"; filename*=UTF-8''{filename}'
+    response['Content-Name'] = filename
     return response
 
 @require_POST
@@ -1389,14 +1394,14 @@ def aura_generate_report_excel(request):
         
         try:
             if model_name == 'rooms':
-                label = f"{obj.room_name}\nIncharge: {obj.incharge}"
+                label = f"{obj.label} - {obj.room_name}\nIncharge: {obj.incharge}"
                 detail = f"Category: {obj.get_room_category_display()} | Capacity: {obj.capacity}"
                 
             elif model_name == 'bookings':
                 label = f"{obj.faculty_name}\n{obj.faculty_email}"
                 start_local = timezone.localtime(obj.start_datetime)
                 end_local = timezone.localtime(obj.end_datetime)
-                detail = f"Room: {obj.room.room_name}\nDate: {start_local.strftime('%d %b, %Y')}\nTime: {start_local.strftime('%H:%M')} - {end_local.strftime('%H:%M')}"
+                detail = f"Room: {obj.room.label} - {obj.room.room_name}\nDate: {start_local.strftime('%d %b, %Y')}\nTime: {start_local.strftime('%H:%M')} - {end_local.strftime('%H:%M')}"
                 
             elif model_name == 'issues':
                 label = obj.subject

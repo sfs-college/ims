@@ -1,6 +1,6 @@
 # ims/src/inventory/forms/student.py
 from django import forms
-from inventory.models import Issue
+from inventory.models import Issue, Room
 from config.mixins import form_mixin
 from django.core.exceptions import ValidationError
 
@@ -13,6 +13,12 @@ class IssueReportForm(form_mixin.BootstrapFormMixin, forms.ModelForm):
     class Meta:
         model = Issue
         fields = ['subject', 'description', 'room']
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Customize room choices to show both label and room name
+        self.fields['room'].queryset = Room.objects.all().order_by('label', 'room_name')
+        self.fields['room'].label_from_instance = lambda obj: f"{obj.label} - {obj.room_name}"
 
     def clean(self):
         """
