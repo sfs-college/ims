@@ -337,7 +337,212 @@
         background: #fef2f2; border: 1px solid #fecaca; color: #dc2626;
         display: none; text-align: left;
     }
-    </style>
+
+    /* Mobile Responsive Styles */
+    @media (max-width: 768px) {
+        body { padding: 20px 12px; }
+        
+        .booking-container { max-width: 100%; }
+        
+        .glass-header {
+            padding: 24px 20px;
+            border-radius: 20px;
+        }
+        
+        .glass-header h2 { font-size: 1.5rem; }
+        
+        .glass-card {
+            padding: 24px 20px;
+            border-radius: 20px;
+        }
+        
+        .booking-type-grid {
+            grid-template-columns: 1fr !important;
+            gap: 10px;
+        }
+        
+        /* Requirements type cards - stack vertically on mobile */
+        .d-flex.gap-3.mb-3 {
+            flex-direction: column !important;
+            gap: 10px !important;
+        }
+        
+        .d-flex.gap-3.mb-3 .type-card {
+            width: 100% !important;
+            padding: 14px 16px !important;
+            text-align: center;
+        }
+        
+        .d-flex.gap-3.mb-3 .type-card .d-block {
+            display: inline-block !important;
+        }
+        
+        .d-flex.gap-3.mb-3 .type-card br {
+            display: none;
+        }
+        
+        .btn-confirm {
+            padding: 16px;
+            font-size: 1rem;
+            margin-top: 24px;
+        }
+        
+        .btn-cancel-float, .btn-track-float {
+            padding: 12px 20px;
+            font-size: 0.85rem;
+        }
+        
+        .auth-gate-modal {
+            padding: 32px 24px;
+            margin: 0 12px;
+        }
+        
+        .cm-field { margin-bottom: 14px; }
+        
+        .cm-input {
+            padding: 11px 14px;
+            font-size: 0.9rem;
+        }
+        
+        #roomGrid {
+            grid-template-columns: 1fr !important;
+            gap: 12px;
+        }
+        
+        .room-item {
+            padding: 16px;
+        }
+        
+        .type-card {
+            padding: 16px;
+        }
+        
+        .form-label {
+            font-size: 0.85rem;
+        }
+        
+        .section-title h4 {
+            font-size: 1.1rem;
+        }
+    }
+
+    /* Small phones (iPhone SE, small Android) */
+    @media (max-width: 320px) {
+        body { padding: 8px 4px; }
+        
+        .glass-header { padding: 12px 10px; border-radius: 14px; }
+        .glass-header h2 { font-size: 1rem; }
+        
+        .glass-card { padding: 12px 10px; border-radius: 14px; }
+        
+        .btn-confirm { padding: 12px; font-size: 0.8rem; }
+        
+        .form-label { font-size: 0.75rem; }
+        
+        input[type="text"], input[type="email"], input[type="password"], input[type="date"], select, textarea {
+            padding: 10px 12px; font-size: 0.85rem; }
+        
+        .auth-gate-modal { padding: 20px 14px; }
+        
+        /* Requirements cards for very small phones */
+        .d-flex.gap-3.mb-3 .type-card { padding: 10px 12px !important; }
+        .d-flex.gap-3.mb-3 .type-card strong { font-size: 0.75rem !important; }
+    }
+
+    /* Large phones / small tablets */
+    @media (min-width: 375px) and (max-width: 424px) {
+        body { padding: 16px 10px; }
+        .glass-header { padding: 16px 14px; }
+        .glass-card { padding: 20px 16px; }
+        .btn-confirm { padding: 14px; }
+    }
+
+    /* Touch optimization for all mobile devices */
+    @media (hover: none) and (pointer: coarse) {
+        input, select, textarea, .btn-primary, .type-card, .room-item {
+            min-height: 44px;
+        }
+        .btn-primary { padding: 16px; }
+    }
+
+    @media (max-width: 576px) {
+        body { padding: 12px 8px; }
+        
+        .glass-header {
+            padding: 16px 14px;
+        }
+        
+        .glass-header h2 {
+            font-size: 1.2rem;
+        }
+        
+        .glass-card {
+            padding: 16px 14px;
+        }
+        
+        /* Requirements type cards - ensure they stay within container */
+        .d-flex.gap-3.mb-3 {
+            display: flex !important;
+            flex-direction: column !important;
+            gap: 8px !important;
+            width: 100%;
+        }
+        
+        .d-flex.gap-3.mb-3 .type-card {
+            width: 100% !important;
+            flex: none !important;
+            padding: 12px 14px !important;
+            box-sizing: border-box;
+        }
+        
+        .d-flex.gap-3.mb-3 .type-card strong {
+            font-size: 0.85rem !important;
+        }
+        
+        .d-flex.gap-3.mb-3 .type-card small {
+            font-size: 0.7rem !important;
+        }
+        
+        .btn-confirm {
+            padding: 14px;
+            font-size: 0.9rem;
+            border-radius: 14px;
+        }
+        
+        .form-label {
+            font-size: 0.8rem;
+        }
+        
+        input[type="text"],
+        input[type="email"],
+        input[type="password"],
+        input[type="date"],
+        input[type="datetime-local"],
+        select,
+        textarea {
+            padding: 10px 12px;
+            font-size: 0.9rem;
+        }
+        
+        .auth-gate-modal {
+            padding: 24px 16px;
+            border-radius: 20px;
+        }
+        
+        .cm-btn-primary {
+            padding: 12px;
+            font-size: 0.85rem;
+        }
+        
+        .cm-label {
+            font-size: 0.7rem;
+        }
+        
+        .cm-alert {
+            font-size: 0.78rem;
+        }
+    }
+</style>
 </head>
 <body>
 

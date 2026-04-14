@@ -1,12 +1,63 @@
 {% extends "base.html" %} 
 {% load static %} 
 {% block title %} | Login{% endblock title %} 
+{% block style %}
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+  }
+  .login-card {
+    background: white;
+    border-radius: 20px;
+    padding: 40px;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.08);
+    border: 1px solid #e2e8f0;
+  }
+  .login-card h3 {
+    font-family: 'DM Sans', sans-serif;
+    font-weight: 700;
+    color: #1e293b;
+    font-size: 1.4rem;
+  }
+  .form-control {
+    font-family: 'DM Sans', sans-serif;
+    border: 2px solid #e2e8f0;
+    border-radius: 12px;
+    padding: 12px 16px;
+    font-size: 0.95rem;
+  }
+  .form-control:focus {
+    border-color: #6366f1;
+    box-shadow: 0 0 0 3px rgba(99,102,241,0.1);
+  }
+  .btn-primary {
+    font-family: 'DM Sans', sans-serif;
+    background: linear-gradient(135deg, #6366f1, #8b5cf6);
+    border: none;
+    border-radius: 12px;
+    padding: 12px;
+    font-weight: 700;
+    transition: all 0.2s;
+  }
+  .btn-primary:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(99,102,241,0.3);
+  }
+  @media (max-width: 480px) {
+    .login-card {
+      padding: 24px 20px;
+    }
+  }
+</style>
+{% endblock style %}
 {% block content %}
 <div class="container d-flex flex-column justify-content-center align-items-center" style="min-height: 70vh;">
-  <div class="card shadow-sm p-4" style="max-width: 400px; width: 100%;">
+  <div class="login-card shadow-sm" style="max-width: 400px; width: 100%;">
     <div class="text-center">
       <img class="mb-3" src="{% static 'images/logo-icon.svg' %}" width="48" alt="logo" />
-      <h3 class="mb-3">Login</h3>
+      <h3 class="mb-4">Welcome Back</h3>
     </div>
     <form method="post">
       {% csrf_token %}
@@ -18,7 +69,7 @@
       </div>
     </form>
     <div class="text-center mt-3">
-      <p class="mb-0">Forgot password? <a class="text-primary fw-semibold" href="{% url 'core:reset_password' %}">Reset password</a></p>
+      <p class="mb-0" style="font-size: 0.9rem; color: #64748b;">Forgot password? <a class="text-primary fw-semibold" href="{% url 'core:reset_password' %}">Reset password</a></p>
     </div>
   </div>
 </div>

@@ -618,6 +618,9 @@
                         <p class="text-muted small mb-0">Import Excel with columns: <code>email, designation, password</code></p>
                     </div>
                     <div class="d-flex gap-2 align-items-center">
+                        <button class="btn btn-success btn-sm" onclick="openAddCredModal()">
+                            <i class="bi bi-plus-lg me-1"></i> Manual Add
+                        </button>
                         <form id="importCredForm" action="{% url 'core:import_booking_credentials' %}" method="POST" enctype="multipart/form-data" class="d-flex gap-2 align-items-center">
                             {% csrf_token %}
                             <label class="btn btn-outline-secondary btn-sm mb-0" style="cursor:pointer;">
@@ -701,6 +704,39 @@
                 <button class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>
                 <button class="btn btn-primary btn-sm px-4" onclick="saveCredEdit()">
                     <i class="bi bi-check2 me-1"></i> Save Changes
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Add Credential Modal (Central Admin only) -->
+<div class="modal fade" id="addCredModal" tabindex="-1" style="z-index:1060;">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header" style="background:#10b981; color:white; border-radius:20px 20px 0 0;">
+                <h6 class="modal-title fw-bold"><i class="bi bi-plus-lg me-2"></i>Add New Credential</h6>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body p-4">
+                <div class="mb-3">
+                    <label class="form-label fw-bold small text-muted">EMAIL *</label>
+                    <input type="email" id="newCredEmail" class="form-control" placeholder="faculty@sfscollege.in" required>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label fw-bold small text-muted">DESIGNATION *</label>
+                    <input type="text" id="newCredDesignation" class="form-control" placeholder="e.g. Faculty, HOD" required>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label fw-bold small text-muted">PASSWORD *</label>
+                    <input type="password" id="newCredPassword" class="form-control" placeholder="Enter password" required>
+                </div>
+                <div id="addCredAlert" class="d-none"></div>
+            </div>
+            <div class="modal-footer border-0">
+                <button class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>
+                <button class="btn btn-success btn-sm px-4" onclick="saveNewCred()">
+                    <i class="bi bi-check2 me-1"></i> Add Credential
                 </button>
             </div>
         </div>
@@ -1365,12 +1401,22 @@
 
         if (!email) { showCredAlert(alert, 'danger', 'Email is required.'); return; }
 
-        fetch(`/aura/credentials/${id}/update/`, {
+        const updateUrl = `{% url 'central_admin:credential_update' pk=0 %}`.replace('/0/', `/${id}/`);
+        
+        fetch(updateUrl, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': '{{ csrf_token }}' },
+            headers: { 
+                'Content-Type': 'application/json', 
+                'X-CSRFToken': '{{ csrf_token }}'
+            },
             body: JSON.stringify({ email, designation: desig, password: pwd })
         })
-        .then(res => res.json())
+        .then(res => {
+            if (!res.ok) {
+                return res.json().then(err => { throw new Error(err.message || 'Server error'); });
+            }
+            return res.json();
+        })
         .then(data => {
             if (data.status === 'success') {
                 bootstrap.Modal.getInstance(document.getElementById('editCredModal')).hide();
@@ -1379,14 +1425,60 @@
                 showCredAlert(alert, 'danger', data.message || 'Update failed.');
             }
         })
-        .catch(() => showCredAlert(alert, 'danger', 'Network error. Please try again.'));
+        .catch(err => showCredAlert(alert, 'danger', 'Network error: ' + err.message));
+    }
+
+    // Open Add Credential Modal
+    function openAddCredModal() {
+        document.getElementById('newCredEmail').value = '';
+        document.getElementById('newCredDesignation').value = '';
+        document.getElementById('newCredPassword').value = '';
+        document.getElementById('addCredAlert').className = 'd-none';
+        new bootstrap.Modal(document.getElementById('addCredModal')).show();
+    }
+
+    // Save New Credential
+    function saveNewCred() {
+        const email = document.getElementById('newCredEmail').value.trim();
+        const desig = document.getElementById('newCredDesignation').value.trim();
+        const pwd = document.getElementById('newCredPassword').value.trim();
+        const alert = document.getElementById('addCredAlert');
+
+        if (!email) { showCredAlert(alert, 'danger', 'Email is required.'); return; }
+        if (!desig) { showCredAlert(alert, 'danger', 'Designation is required.'); return; }
+        if (!pwd) { showCredAlert(alert, 'danger', 'Password is required.'); return; }
+
+        fetch('{% url "core:create_booking_credentials" %}', {
+            method: 'POST',
+            headers: { 
+                'Content-Type': 'application/json', 
+                'X-CSRFToken': '{{ csrf_token }}'
+            },
+            body: JSON.stringify({ email, designation: desig, password: pwd })
+        })
+        .then(res => {
+            if (!res.ok) {
+                return res.json().then(err => { throw new Error(err.message || 'Server error'); });
+            }
+            return res.json();
+        })
+        .then(data => {
+            if (data.status === 'success') {
+                bootstrap.Modal.getInstance(document.getElementById('addCredModal')).hide();
+                loadFacultyCredentials();
+            } else {
+                showCredAlert(alert, 'danger', data.message || 'Add failed.');
+            }
+        })
+        .catch(err => showCredAlert(alert, 'danger', 'Network error: ' + err.message));
     }
 
     // Delete single credential
     function deleteSingleCred(id, btn) {
         if (!confirm('Delete this credential? The faculty member will lose room booking access.')) return;
         btn.disabled = true;
-        fetch(`/aura/credentials/${id}/delete/`, {
+        const deleteUrl = `{% url 'central_admin:credential_delete' pk=0 %}`.replace('/0/', `/${id}/`);
+        fetch(deleteUrl, {
             method: 'POST',
             headers: { 'X-CSRFToken': '{{ csrf_token }}' }
         })

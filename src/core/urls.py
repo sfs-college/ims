@@ -18,6 +18,7 @@ urlpatterns = [
      path("book-room/", views.room_booking_view, name="room_booking"),
      path('api/rooms-by-category/', views.rooms_by_category, name='rooms_by_category'),
      path("aura/import-creds/", views.import_booking_credentials, name="import_booking_credentials"),
+     path("aura/create-cred/", views.create_booking_credentials, name="create_booking_credentials"),
      path("aura/delete-cred/<int:pk>/", views.delete_booking_credential, name="delete_cred"),
      path('access-denied/', views.TemplateView.as_view(template_name='core/access_denied.html'), name='access_denied'),
      path('firebase-login/', views.firebase_login_callback, name='firebase_login'),

@@ -786,6 +786,35 @@ def delete_booking_credential(request, pk):
     return redirect('central_admin:aura_dashboard')
 
 
+def create_booking_credentials(request):
+    """Create a new faculty credential manually via AJAX."""
+    from django.views.decorators.http import require_POST
+    
+    if request.method == "POST":
+        try:
+            data = json.loads(request.body)
+            email = data.get('email', '').strip().lower()
+            designation = data.get('designation', '').strip()
+            password = data.get('password', '').strip()
+            
+            if not email or not designation or not password:
+                return JsonResponse({'status': 'error', 'message': 'All fields are required.'}, status=400)
+            
+            if RoomBookingCredentials.objects.filter(email=email).exists():
+                return JsonResponse({'status': 'error', 'message': 'Email already exists.'}, status=400)
+            
+            RoomBookingCredentials.objects.create(
+                email=email,
+                designation=designation,
+                password=password
+            )
+            return JsonResponse({'status': 'success', 'message': 'Credential created successfully.'})
+        except Exception as e:
+            return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
+    
+    return JsonResponse({'status': 'error', 'message': 'Invalid request method.'}, status=405)
+
+
 def check_document_name(request):
     """
     AJAX GET — checks whether the given filename already exists in

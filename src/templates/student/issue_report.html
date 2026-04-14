@@ -109,12 +109,50 @@
         white-space: nowrap;
     }
 
-    /* Mobile responsive adjustments */
-    @media (max-width: 576px) {
-        .main-portal-card .card-body { padding: 1.25rem !important; }
-        .portal-header { flex-direction: column; align-items: flex-start; }
+    /* ── All Phone Brands Responsive (Android, iPhone, Samsung, OnePlus, Pixel, etc.) ── */
+    @media (max-width: 768px) {
+        .main-portal-card { border-radius: 20px; }
+        .main-portal-card .card-body { padding: 1.5rem; }
+        .portal-header { flex-direction: column; gap: 16px; }
         .portal-header-right { align-self: flex-end; margin-top: -8px; }
+        .btn-primary { padding: 12px 20px; font-size: 0.9rem; }
+        .form-control, .form-select { padding: 10px 14px; font-size: 0.95rem; }
+    }
+
+    @media (max-width: 576px) {
+        body { padding: 12px 8px; }
+        .container { padding-left: 12px; padding-right: 12px; }
+        .main-portal-card { border-radius: 16px; }
+        .main-portal-card .card-body { padding: 1rem !important; }
+        .portal-header { flex-direction: column; align-items: flex-start; }
+        .portal-header h2 { font-size: 1.25rem; }
         .email-badge { font-size: 0.78rem; }
+        .form-label { font-size: 0.8rem; }
+        .btn-primary { width: 100%; padding: 14px; font-size: 0.85rem; }
+        .track-section { border-radius: 16px; padding: 1rem; }
+        .ticket-detail-box { padding: 12px; }
+    }
+
+    /* Large phones / small tablets */
+    @media (min-width: 375px) and (max-width: 424px) {
+        .main-portal-card .card-body { padding: 1.1rem; }
+        h2 { font-size: 1.3rem; }
+        .form-control, .form-select { padding: 11px 14px; }
+    }
+
+    /* iPhone SE, small Androids */
+    @media (max-width: 320px) {
+        body { padding: 8px 4px; }
+        .main-portal-card .card-body { padding: 0.85rem !important; }
+        h2 { font-size: 1.1rem; }
+        .btn-primary { padding: 12px; font-size: 0.8rem; }
+    }
+
+    /* Touch optimization for all mobile devices */
+    @media (hover: none) and (pointer: coarse) {
+        .form-control, .form-select, .btn-primary {
+            min-height: 44px;
+        }
     }
 </style>
 
