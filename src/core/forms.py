@@ -117,13 +117,15 @@ class RoomBookingForm(forms.ModelForm):
     category = forms.ChoiceField(
         choices=Room.ROOM_CATEGORIES,
         widget=forms.Select(attrs={'class': 'form-control', 'id': 'id_category'}),
+        required=True,
     )
     password = forms.CharField(
         widget=forms.PasswordInput(attrs={
             'class': 'form-control',
             'placeholder': 'Enter your booking password',
             'id': 'id_password',
-        })
+        }),
+        required=True,
     )
 
     class Meta:
@@ -163,6 +165,19 @@ class RoomBookingForm(forms.ModelForm):
             'room': forms.HiddenInput(attrs={'id': 'id_room'}),
             'requirements_doc': forms.FileInput(attrs={'class': 'form-control'}),
         }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Make all required fields mandatory
+        self.fields['faculty_name'].required = True
+        self.fields['faculty_email'].required = True
+        self.fields['purpose'].required = True
+        self.fields['start_datetime'].required = True
+        self.fields['end_datetime'].required = True
+        self.fields['department'].required = True
+        self.fields['room'].required = True
+        # requirements_doc remains optional
+        self.fields['requirements_doc'].required = False
 
     def clean_faculty_email(self):
         email = self.cleaned_data.get('faculty_email', '').strip().lower()

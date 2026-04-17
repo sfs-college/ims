@@ -10,6 +10,10 @@ class IssueReportForm(form_mixin.BootstrapFormMixin, forms.ModelForm):
     The email is handled automatically via Google Auth in the view logic.
     """
 
+    subject = forms.CharField(required=True, widget=forms.TextInput(attrs={'class': 'form-control'}))
+    description = forms.CharField(required=True, widget=forms.Textarea(attrs={'class': 'form-control', 'rows': 4}))
+    room = forms.ModelChoiceField(queryset=Room.objects.all(), required=True, widget=forms.Select(attrs={'class': 'form-control'}))
+
     class Meta:
         model = Issue
         fields = ['subject', 'description', 'room']
