@@ -1,0 +1,307 @@
+{% block content %}
+<style>
+:root {
+    --primary-grad: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    --purple: #9333ea;
+    --purple-dark: #7c3aed;
+    --purple-light: #f3e8ff;
+    --border: #e2e8f0;
+    --text-dark: #1e293b;
+    --text-mid: #475569;
+    --text-muted: #94a3b8;
+    --shadow: 0 2px 8px rgba(0,0,0,0.05);
+    --info: #0ea5e9;
+    --info-light: #e0f2fe;
+}
+
+.reverted-items-modal .modal-content {
+    border: none; border-radius: 16px; box-shadow: 0 10px 40px rgba(0,0,0,0.15);
+}
+.reverted-items-modal .modal-header {
+    background: var(--primary-grad); color: white; border-radius: 16px 16px 0 0;
+    border: none; padding: 20px 24px;
+}
+.reverted-items-modal .modal-title {
+    font-weight: 700; font-size: 1.25rem; margin: 0;
+}
+.reverted-items-modal .modal-body {
+    padding: 24px; max-height: 70vh; overflow-y: auto;
+}
+.reverted-items-modal .btn-close {
+    filter: brightness(0) invert(1); opacity: 0.8;
+}
+
+.reverted-item-card {
+    background: white; border: 1.5px solid var(--border); border-radius: 12px;
+    padding: 20px; margin-bottom: 16px; transition: all 0.2s;
+}
+.reverted-item-card:hover {
+    box-shadow: var(--shadow); transform: translateY(-1px);
+}
+.reverted-item-card.assigned {
+    border-color: #10b981; background: #f0fdf4;
+}
+
+.item-header {
+    display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;
+}
+.item-name {
+    font-weight: 700; font-size: 1.1rem; color: var(--text-dark); margin: 0;
+}
+.item-badge {
+    background: var(--info-light); color: var(--info);
+    padding: 4px 10px; border-radius: 20px; font-size: 0.75rem;
+    font-weight: 600; text-transform: uppercase;
+}
+
+.item-details {
+    margin-bottom: 16px;
+}
+.detail-label {
+    font-size: 0.75rem; font-weight: 700; color: var(--text-muted);
+    text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;
+}
+.detail-value {
+    font-size: 0.9rem; color: var(--text-mid); margin-bottom: 8px;
+}
+.item-stats {
+    display: flex; gap: 12px; margin-bottom: 8px;
+}
+.stat-item {
+    background: #f8fafc; border-radius: 6px; padding: 4px 8px;
+    font-size: 0.8rem; color: var(--text-mid);
+}
+.stat-number {
+    font-weight: 600; color: var(--text-dark);
+}
+
+.previous-assignment {
+    background: #f8fafc; border-radius: 8px; padding: 12px; margin-bottom: 16px;
+}
+.user-name {
+    font-weight: 600; color: var(--text-dark); margin-bottom: 2px;
+}
+.user-email {
+    font-size: 0.85rem; color: var(--text-muted); margin-bottom: 4px;
+}
+.room-info {
+    font-size: 0.85rem; color: var(--text-muted); margin-bottom: 4px;
+}
+.revert-date {
+    font-size: 0.8rem; color: var(--text-muted);
+}
+
+.reassigned-notice {
+    background: #dcfce7; color: #166534; border-radius: 8px;
+    padding: 12px; font-size: 0.85rem; font-weight: 500;
+}
+
+.reassign-form {
+    margin-bottom: 16px;
+}
+.form-select {
+    border: 1.5px solid var(--border); border-radius: 8px;
+    padding: 8px 12px; font-size: 0.9rem; color: var(--text-mid);
+    background: white; margin-bottom: 12px;
+}
+.form-select:focus {
+    outline: none; border-color: var(--purple);
+    box-shadow: 0 0 0 3px rgba(147, 51, 234, 0.1);
+}
+.btn-reassign {
+    background: var(--primary-grad); color: white; border: none;
+    border-radius: 8px; padding: 8px 16px; font-weight: 600;
+    font-size: 0.9rem; cursor: pointer; transition: all 0.2s;
+    width: 100%;
+}
+.btn-reassign:hover {
+    opacity: 0.9; transform: translateY(-1px);
+}
+.btn-reassign:disabled {
+    opacity: 0.6; cursor: not-allowed; transform: none;
+}
+
+.empty-state {
+    text-align: center; padding: 40px 20px;
+}
+.empty-icon {
+    font-size: 3rem; color: var(--text-muted); margin-bottom: 16px;
+}
+.empty-title {
+    font-size: 1.1rem; color: var(--text-muted); margin-bottom: 8px;
+}
+.empty-text {
+    color: var(--text-muted); margin-bottom: 20px;
+}
+
+.stats-row {
+    display: flex; gap: 16px; margin-bottom: 24px;
+}
+.stat-card {
+    flex: 1; background: var(--purple-light); border-radius: 12px;
+    padding: 16px; text-align: center;
+}
+.stat-number {
+    font-size: 1.5rem; font-weight: 700; color: var(--purple);
+    margin-bottom: 4px;
+}
+.stat-label {
+    font-size: 0.8rem; color: var(--text-muted); font-weight: 600;
+}
+</style>
+
+<div class="modal fade reverted-items-modal" id="revertedItemsModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="bi bi-box-arrow-in-left me-2"></i>Reverted Items
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="stats-row">
+                    <div class="stat-card">
+                        <div class="stat-number">{{ reverted_items|length }}</div>
+                        <div class="stat-label">Total Reverted</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number">{{ reverted_items|length }}</div>
+                        <div class="stat-label">Need Reassignment</div>
+                    </div>
+                </div>
+
+                {% if reverted_items %}
+                    {% for reverted_item in reverted_items %}
+                        <div class="reverted-item-card {% if reverted_item.reassigned_to_room %}assigned{% endif %}">
+                            <div class="item-header">
+                                <h6 class="item-name">{{ reverted_item.item.item_name }}</h6>
+                                {% if reverted_item.reassigned_to_room %}
+                                    <span class="item-badge">Assigned</span>
+                                {% else %}
+                                    <span class="item-badge">Reverted</span>
+                                {% endif %}
+                            </div>
+                            
+                            <div class="item-details">
+                                <div class="detail-label">Item Information</div>
+                                <div class="detail-value">
+                                    {{ reverted_item.item.category.category_name }} - {{ reverted_item.item.brand.brand_name }}
+                                </div>
+                                <div class="item-stats">
+                                    <div class="stat-item">
+                                        <span class="stat-number">{{ reverted_item.item.total_count }}</span> Total
+                                    </div>
+                                    <div class="stat-item">
+                                        <span class="stat-number">{{ reverted_item.item.available_count }}</span> Available
+                                    </div>
+                                    <div class="stat-item">
+                                        <span class="stat-number">{{ reverted_item.item.in_use }}</span> In Use
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="previous-assignment">
+                                <div class="detail-label">Previously Assigned To</div>
+                                <div class="user-name">{{ reverted_item.deleted_user_name }}</div>
+                                <div class="user-email">{{ reverted_item.deleted_user_email }}</div>
+                                {% if reverted_item.previous_room %}
+                                    <div class="room-info">Room: {{ reverted_item.previous_room.room_name }}</div>
+                                {% endif %}
+                                <div class="revert-date">Reverted on: {{ reverted_item.reverted_on|date:"M d, Y H:i" }}</div>
+                            </div>
+
+                            {% if reverted_item.reassigned_to_room %}
+                                <div class="reassigned-notice">
+                                    <i class="bi bi-check-circle me-1"></i>
+                                    Reassigned to {{ reverted_item.reassigned_to_room.room_name }}
+                                    on {{ reverted_item.reassigned_on|date:"M d, Y H:i" }}
+                                </div>
+                            {% else %}
+                                <div class="reassign-form">
+                                    <select class="form-select" id="reassign-room-{{ reverted_item.id }}">
+                                        <option value="">Select a room...</option>
+                                        {% for room in available_rooms %}
+                                            <option value="{{ room.id }}">{{ room.room_name }} ({{ room.incharge.user.get_full_name }})</option>
+                                        {% endfor %}
+                                    </select>
+                                    <button class="btn-reassign" onclick="reassignItem({{ reverted_item.id }})">
+                                        <i class="bi bi-box-arrow-right me-2"></i>Reassign Item
+                                    </button>
+                                </div>
+                            {% endif %}
+                        </div>
+                    {% endfor %}
+                {% else %}
+                    <div class="empty-state">
+                        <div class="empty-icon">
+                            <i class="bi bi-box"></i>
+                        </div>
+                        <div class="empty-title">No Reverted Items</div>
+                        <div class="empty-text">All items are currently assigned to rooms or in master inventory.</div>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function reassignItem(revertedItemId) {
+    const selectElement = document.getElementById(`reassign-room-${revertedItemId}`);
+    const roomId = selectElement.value;
+    
+    if (!roomId) {
+        alert('Please select a room to reassign the item to.');
+        return;
+    }
+    
+    const button = event.target;
+    const originalText = button.innerHTML;
+    button.disabled = true;
+    button.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Reassigning...';
+    
+    fetch(`/central-admin/reverted-items/${revertedItemId}/reassign/`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': getCookie('csrftoken')
+        },
+        body: JSON.stringify({
+            room_id: parseInt(roomId)
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.status === 'success') {
+            location.reload();
+        } else {
+            alert('Error: ' + data.error);
+            button.disabled = false;
+            button.innerHTML = originalText;
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('An error occurred while reassigning the item.');
+        button.disabled = false;
+        button.innerHTML = originalText;
+    });
+}
+
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+</script>
+{% endblock %}

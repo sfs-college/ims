@@ -396,10 +396,16 @@ def get_rooms_by_category(request):
     rooms = Room.objects.filter(
         organisation=org,
         room_category=category
-    ).values('id', 'room_name')
+    ).values('id', 'room_name', 'label')
     
     return JsonResponse({
-        'rooms': [{'id': r['id'], 'name': r['room_name']} for r in rooms]
+        'rooms': [
+            {
+                'id': r['id'], 
+                'name': f"{r['room_name']} - {r['label']}" if r['label'] else r['room_name']
+            } 
+            for r in rooms
+        ]
     })
 
 
@@ -1660,10 +1666,19 @@ class MasterInventoryListView(LoginRequiredMixin, CentralAdminRequiredMixin, Tem
         context = super().get_context_data(**kwargs)
         org = self.request.user.profile.org
 
+        # Exclude reverted items from general master inventory list
+        from inventory.models import RevertedItem
+        reverted_item_ids = RevertedItem.objects.filter(
+            organisation=org,
+            reassigned_to_room__isnull=True  # Only exclude un-reassigned items
+        ).values_list('item_id', flat=True)
+        
         master_items = Item.objects.filter(
             organisation=org,
             room__isnull=True,
             is_listed=True
+        ).exclude(
+            id__in=reverted_item_ids  # Exclude reverted items
         ).select_related('category', 'brand').order_by('item_name')
 
         # ── Bulk aggregations (4 queries total, no per-item DB hits) ──
@@ -2739,6 +2754,15 @@ def forward_booking_requirements(request, booking_id):
     # ── Send email ────────────────────────────────────────────────────────────
     try:
         from_email = getattr(_s, 'DEFAULT_FROM_EMAIL', 'noreply@sfscollege.in')
+        
+        # Check if we're in development mode
+        if getattr(_s, 'EMAIL_BACKEND', '') == 'django.core.mail.backends.console.EmailBackend':
+            # In development, print email to console and return success
+            print(f'[forward_booking_requirements] EMAIL WOULD BE SENT TO: {email}')
+            print(f'[forward_booking_requirements] SUBJECT: {subject}')
+            print(f'[forward_booking_requirements] BODY: {plain_body[:200]}...')
+            return JsonResponse({'status': 'success', 'message': f'Requirements forwarded to {email} (Development Mode - Email logged to console).'})
+        
         msg = EmailMultiAlternatives(
             subject=subject,
             body=plain_body,

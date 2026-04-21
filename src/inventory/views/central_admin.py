@@ -2,7 +2,9 @@ from django.shortcuts import redirect, get_object_or_404, render
 from django.http import JsonResponse
 from django.urls import reverse, reverse_lazy
 from django.views.generic import TemplateView, ListView, CreateView, UpdateView, DeleteView, View
+from django.template.loader import render_to_string
 from core.models import User, UserProfile
+from django.db.models import Q
 from inventory.models import Room, Vendor, Purchase, Issue, Department, Item, StockRequest, IssueTimeExtensionRequest, RoomBooking, RoomBookingRequest, RoomCancellationRequest
 from django.contrib.auth.tokens import PasswordResetTokenGenerator
 from django.utils.http import urlsafe_base64_encode
@@ -98,12 +100,14 @@ class PeopleCreateView(LoginRequiredMixin, CreateView):
             reverse('core:confirm_password_reset', kwargs={'uidb64': uid, 'token': token})
         )
 
-        subject = "Your Blixtro account has been created"
+        subject = "Your Blixtro Account - Set Your Password"
         message = (
             "Hi,\n\n"
-            "An account has been created for you on the SFS IMS system.\n\n"
-            "Please click the link below to set your password:\n"
+            "An account has been created for you on the SFS College Inventory Management System (Blixtro IMS).\n\n"
+            "Please click the link below to set your password and activate your account:\n\n"
             f"{reset_link}\n\n"
+            "Important: This link will expire in 3 days for security reasons.\n\n"
+            "If you did not request this account, please contact your system administrator.\n\n"
             "Best regards,\nSFS IMS Team"
         )
 
@@ -126,19 +130,172 @@ class PeopleDeleteView(LoginRequiredMixin, DeleteView):
     slug_url_kwarg = 'people_slug'
     success_url = reverse_lazy('central_admin:people_list')
 
+    def delete(self, request, *args, **kwargs):
+        """
+        Override delete to handle comprehensive data cleanup:
+        1. Revert items to master inventory
+        2. Unassign rooms and track them as reverted
+        3. Mark issues as 'other issues' for admin review
+        4. Handle all related data cleanup
+        """
+        person = self.get_object()
+        org = person.org
+        
+        try:
+            from inventory.models import RevertedRoom, RevertedItem, Item, Room, Issue
+            from django.utils import timezone
+            
+            # Store user info for tracking
+            deleted_user_email = person.user.email
+            deleted_user_name = person.user.get_full_name()
+            
+            # 1. Handle room assignments - mark as reverted
+            rooms_as_incharge = Room.objects.filter(incharge=person, organisation=org)
+            for room in rooms_as_incharge:
+                # Create reverted room record
+                reverted_room, created = RevertedRoom.objects.get_or_create(
+                    organisation=org,
+                    room=room,
+                    defaults={
+                        'previous_incharge': person,
+                        'deleted_user_email': deleted_user_email,
+                        'deleted_user_name': deleted_user_name,
+                    }
+                )
+                if not created:
+                    # Update existing record
+                    reverted_room.previous_incharge = person
+                    reverted_room.deleted_user_email = deleted_user_email
+                    reverted_room.deleted_user_name = deleted_user_name
+                    reverted_room.reassigned_to = None
+                    reverted_room.reassigned_on = None
+                    reverted_room.save()
+                
+                # Unassign the room (set incharge to null or default)
+                # For now, we'll keep the room but mark it as unassigned
+                # You might want to set a default admin or keep it unassigned
+                room.incharge = None
+                room.save()
+            
+            # 2. Handle item assignments - revert to master inventory
+            items_assigned_to_user = Item.objects.filter(
+                created_by=person, 
+                organisation=org,
+                room__isnull=False  # Items that are assigned to rooms
+            )
+            
+            for item in items_assigned_to_user:
+                # Store previous assignment info
+                previous_room = item.room
+                
+                # Create reverted item record
+                reverted_item, created = RevertedItem.objects.get_or_create(
+                    organisation=org,
+                    item=item,
+                    defaults={
+                        'previous_room': previous_room,
+                        'previous_assigned_to': person,
+                        'deleted_user_email': deleted_user_email,
+                        'deleted_user_name': deleted_user_name,
+                    }
+                )
+                if not created:
+                    # Update existing record
+                    reverted_item.previous_room = previous_room
+                    reverted_item.previous_assigned_to = person
+                    reverted_item.deleted_user_email = deleted_user_email
+                    reverted_item.deleted_user_name = deleted_user_name
+                    reverted_item.reassigned_to_room = None
+                    reverted_item.reassigned_to_user = None
+                    reverted_item.reassigned_on = None
+                    reverted_item.save()
+                
+                # Revert item to master inventory (set room to null)
+                item.room = None
+                item.save()
+            
+            # 3. Handle issues - mark assigned issues as 'other issues'
+            # Issues assigned to this user should be visible in admin issues tab
+            # We'll keep the assigned_to field but add a flag or handle this in the view
+            issues_assigned = Issue.objects.filter(
+                assigned_to=person,
+                organisation=org,
+                status__in=['open', 'in_progress', 'escalated']  # Only active issues
+            )
+            
+            # For issues, we'll keep them assigned but they'll be filtered in the admin view
+            # The admin issues tab will have a filter for 'other issues' from deleted users
+            
+            # 4. Handle other related data
+            # - Stock requests made by this user
+            # - Purchase requests made by this user
+            # - Room bookings made by this user
+            # These will remain in the system but the user reference will be set to NULL
+            
+            from inventory.models import StockRequest, Purchase, RoomBooking, RoomBookingRequest
+            
+            # Set user references to NULL where appropriate
+            StockRequest.objects.filter(requested_by=person).update(requested_by=None)
+            Purchase.objects.filter(requested_by=person).update(requested_by=None)
+            
+            # For room bookings, we keep the email but note that the user is deleted
+            RoomBooking.objects.filter(faculty_email=deleted_user_email).update(
+                # Keep the booking but add a note or handle in view
+                # You might want to add a 'user_deleted' flag
+            )
+            
+            RoomBookingRequest.objects.filter(faculty_email=deleted_user_email).update(
+                # Keep the request but add a note or handle in view
+            )
+            
+            # Log the deletion
+            print(f'[User Deletion] User {deleted_user_name} ({deleted_user_email}) deleted from {org.name}')
+            print(f'[User Deletion] Reverted {rooms_as_incharge.count()} rooms')
+            print(f'[User Deletion] Reverted {items_assigned_to_user.count()} items to master inventory')
+            print(f'[User Deletion] {issues_assigned.count()} issues marked for admin review')
+            
+            # Add success message
+            messages.success(
+                request,
+                f'User {deleted_user_name} deleted successfully. '
+                f'{rooms_as_incharge.count()} rooms unassigned and '
+                f'{items_assigned_to_user.count()} items reverted to master inventory.'
+            )
+            
+        except Exception as e:
+            # Log error but still proceed with deletion
+            print(f'[User Deletion Error] {str(e)}')
+            messages.error(
+                request,
+                f'User deleted but some data cleanup failed: {str(e)}'
+            )
+        
+        # Proceed with the actual deletion
+        return super().delete(request, *args, **kwargs)
+
+
 class RoomListView(LoginRequiredMixin, ListView):
     template_name = 'central_admin/room_list.html'
     model = Room
     context_object_name = 'rooms'
 
     def get_queryset(self):
-        qs = Room.objects.filter(organisation=self.request.user.profile.org).select_related('incharge', 'incharge__user', 'department')
+        qs = Room.objects.filter(
+            organisation=self.request.user.profile.org,
+            incharge__isnull=False  # Exclude reverted rooms (rooms with no incharge)
+        ).select_related('incharge', 'incharge__user', 'department')
         category = self.request.GET.get('category')
         search   = self.request.GET.get('search')
         if category:
             qs = qs.filter(room_category=category)
         if search:
-            qs = qs.filter(room_name__icontains=search)
+            # Search by room name, label, or incharge name
+            qs = qs.filter(
+                Q(room_name__icontains=search) |
+                Q(label__icontains=search) |
+                Q(incharge__user__first_name__icontains=search) |
+                Q(incharge__user__last_name__icontains=search)
+            )
         return qs
 
     def get_context_data(self, **kwargs):
@@ -563,11 +720,23 @@ class IssueListView(LoginRequiredMixin, ListView):
             if issue_filter == 'escalated':
                 target_level = 2 if profile.is_central_admin else 1
                 qs = qs.filter(escalation_level=target_level)
+            elif issue_filter == 'other':
+                # Show issues from deleted users (assigned_to is null but issue is active)
+                qs = qs.filter(
+                    organisation=profile.org,
+                    assigned_to__isnull=True,
+                    status__in=['open', 'in_progress', 'escalated']
+                )
 
         elif self.request.user.is_superuser:
             qs = qs
             if issue_filter == 'escalated':
                 qs = qs.filter(status='escalated')
+            elif issue_filter == 'other':
+                qs = qs.filter(
+                    assigned_to__isnull=True,
+                    status__in=['open', 'in_progress', 'escalated']
+                )
 
         else:
             from inventory.models import Organisation
@@ -575,6 +744,11 @@ class IssueListView(LoginRequiredMixin, ListView):
             if org_count == 1:
                 org = Organisation.objects.first()
                 qs = qs.filter(organisation=org)
+                if issue_filter == 'other':
+                    qs = qs.filter(
+                        assigned_to__isnull=True,
+                        status__in=['open', 'in_progress', 'escalated']
+                    )
             else:
                 qs = qs.none()
 
@@ -1350,3 +1524,416 @@ class AdminNotificationsView(LoginRequiredMixin, View):
             return JsonResponse({'ok': True})
 
         return JsonResponse({'error': 'Unknown action'}, status=400)
+
+
+def get_person_api(request, people_slug):
+    """
+    API endpoint to get person data for editing
+    """
+    if not request.user.profile.is_central_admin and not request.user.profile.is_sub_admin:
+        return JsonResponse({'error': 'Unauthorized'}, status=403)
+    
+    try:
+        person = get_object_or_404(UserProfile, slug=people_slug, org=request.user.profile.org)
+        
+        # Determine role
+        role = 'unknown'
+        if person.is_central_admin:
+            role = 'central_admin'
+        elif person.is_sub_admin:
+            role = 'sub_admin'
+        elif person.is_incharge:
+            role = 'incharge'
+        
+        return JsonResponse({
+            'status': 'success',
+            'person': {
+                'slug': person.slug,
+                'user': {
+                    'full_name': person.user.get_full_name(),
+                    'email': person.user.email,
+                },
+                'role': role,
+                'is_central_admin': person.is_central_admin,
+                'is_sub_admin': person.is_sub_admin,
+                'is_incharge': person.is_incharge,
+            }
+        })
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
+
+
+@require_POST
+def edit_person_api(request, people_slug):
+    """
+    API endpoint to edit person data with email change handling
+    """
+    if not request.user.profile.is_central_admin and not request.user.profile.is_sub_admin:
+        return JsonResponse({'error': 'Unauthorized'}, status=403)
+    
+    try:
+        import json
+        data = json.loads(request.body)
+        
+        person = get_object_or_404(UserProfile, slug=people_slug, org=request.user.profile.org)
+        user = person.user
+        
+        new_full_name = data.get('full_name', '').strip()
+        new_email = data.get('email', '').strip().lower()
+        new_role = data.get('role', '')
+        email_changed = data.get('email_changed', False)
+        
+        # Validation
+        if not new_full_name or not new_email or not new_role:
+            return JsonResponse({'error': 'All fields are required'}, status=400)
+        
+        # Check if email is being changed to an existing user
+        if email_changed and new_email != user.email:
+            if User.objects.filter(email=new_email).exists():
+                return JsonResponse({'error': 'This email address is already in use'}, status=400)
+        
+        @transaction.atomic
+        def update_person():
+            # Update user name
+            user.first_name = ' '.join(new_full_name.split()[:-1]) if ' ' in new_full_name else new_full_name
+            user.last_name = new_full_name.split()[-1] if ' ' in new_full_name else ''
+            
+            # Update email if changed
+            old_email = user.email
+            if email_changed and new_email != old_email:
+                user.email = new_email
+                user.username = new_email  # Update username to match email
+            
+            user.save()
+            
+            # Update role flags
+            person.is_central_admin = (new_role == 'central_admin')
+            person.is_sub_admin = (new_role == 'sub_admin')
+            person.is_incharge = (new_role == 'incharge')
+            person.save()
+            
+            # Always send password reset email to ensure user can set password
+            if email_changed and new_email != old_email:
+                transfer_user_data(old_email, new_email, person)
+            
+            # Send password reset email (both for email changes and to ensure password is set)
+            send_password_reset_email(user)
+        
+        update_person()
+        
+        return JsonResponse({
+            'status': 'success',
+            'message': 'Person updated successfully. Password reset email has been sent to ' + new_email
+        })
+        
+    except json.JSONDecodeError:
+        return JsonResponse({'error': 'Invalid JSON data'}, status=400)
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
+
+
+def transfer_user_data(old_email, new_email, profile):
+    """
+    Transfer role-specific data from old email to new email
+    Only transfers data relevant to the user's role
+    """
+    try:
+        # Get old and new users
+        old_user = User.objects.get(email=old_email)
+        new_user = profile.user  # This is the updated user with new email
+        
+        # Store role information
+        is_central_admin = profile.is_central_admin
+        is_sub_admin = profile.is_sub_admin
+        is_incharge = profile.is_incharge
+        
+        transferred_count = 0
+        
+        # === ROOM INCHARGE SPECIFIC TRANSFERS ===
+        if is_incharge:
+            # Transfer room incharge assignments
+            from inventory.models import Room
+            rooms_count = Room.objects.filter(incharge=old_user).update(incharge=new_user)
+            transferred_count += rooms_count
+            
+            # Transfer item assignments for rooms they manage
+            Item.objects.filter(assigned_to=old_user).update(assigned_to=new_user)
+            
+            # Transfer issues assigned to this incharge
+            Issue.objects.filter(assigned_to__user=old_user).update(assigned_to=profile)
+            
+            print(f'[transfer_user_data] Room Incharge: Transferred {rooms_count} rooms and related data')
+        
+        # === ADMIN SPECIFIC TRANSFERS ===
+        if is_central_admin or is_sub_admin:
+            # Transfer room bookings made by this user
+            RoomBooking.objects.filter(faculty_email=old_email).update(faculty_email=new_email)
+            
+            # Transfer room booking requests
+            RoomBookingRequest.objects.filter(faculty_email=old_email).update(faculty_email=new_email)
+            
+            # Transfer cancellation requests
+            RoomCancellationRequest.objects.filter(faculty_email=old_email).update(faculty_email=new_email)
+            
+            # Transfer stock requests if applicable
+            StockRequest.objects.filter(requested_by=old_user).update(requested_by=new_user)
+            
+            # Transfer issues created/assigned to this admin
+            Issue.objects.filter(assigned_to__user=old_user).update(assigned_to=profile)
+            
+            print(f'[transfer_user_data] Admin: Transferred bookings, requests, and admin data')
+        
+        # === COMMON TRANSFERS FOR ALL ROLES ===
+        # Always transfer personal bookings and requests regardless of role
+        RoomBooking.objects.filter(faculty_email=old_email).update(faculty_email=new_email)
+        RoomBookingRequest.objects.filter(faculty_email=old_email).update(faculty_email=new_email)
+        RoomCancellationRequest.objects.filter(faculty_email=old_email).update(faculty_email=new_email)
+        
+        # Ensure user can login with new email
+        # The username is already updated to match new email in the main function
+        # Set a temporary password that will be changed via reset email
+        new_user.set_unusable_password()  # Forces password reset
+        new_user.save()
+        
+        print(f'[transfer_user_data] Successfully transferred role-specific data from {old_email} to {new_email}')
+        print(f'[transfer_user_data] User role: Central={is_central_admin}, Sub={is_sub_admin}, Incharge={is_incharge}')
+        
+    except Exception as e:
+        print(f'[transfer_user_data] Error transferring data: {e}')
+        # Don't raise the exception to avoid breaking the whole process
+        pass
+
+
+def send_password_reset_email(user):
+    """
+    Send password reset email to user
+    """
+    try:
+        from django.contrib.auth.tokens import PasswordResetTokenGenerator
+        from django.utils.http import urlsafe_base64_encode
+        from django.utils.encoding import force_bytes
+        from django.conf import settings
+        
+        # Generate password reset token
+        token_generator = PasswordResetTokenGenerator()
+        token = token_generator.make_token(user)
+        uid = urlsafe_base64_encode(force_bytes(user.pk))
+        
+        # Build reset link
+        domain = getattr(settings, 'SITE_URL', 'http://localhost:8000')
+        # Ensure domain doesn't end with slash to avoid double slashes
+        if domain.endswith('/'):
+            domain = domain.rstrip('/')
+        reset_link = f"{domain}{reverse('core:confirm_password_reset', kwargs={'uidb64': uid, 'token': token})}"
+        
+        subject = "Your Blixtro Account - Set Your Password"
+        message = (
+            "Hi,\n\n"
+            "Your email address has been updated in the SFS College Inventory Management System (Blixtro IMS).\n\n"
+            "Please click the link below to set your password and activate your account:\n\n"
+            f"{reset_link}\n\n"
+            "Important: This link will expire in 3 days for security reasons.\n\n"
+            "If you did not request this change, please contact your system administrator.\n\n"
+            "Best regards,\nSFS IMS Team"
+        )
+        
+        # Send email using the same method as PeopleCreateView
+        safe_send_mail(
+            subject=subject,
+            message=message,
+            recipient_list=[user.email],
+            from_email=getattr(settings, 'DEFAULT_FROM_EMAIL', 'noreply@sfscollege.in'),
+            fail_silently=False,
+        )
+        
+        print(f'[send_password_reset_email] Password reset email sent to {user.email}')
+        
+    except Exception as e:
+        print(f'[send_password_reset_email] Error sending password reset email: {e}')
+        # Don't raise the exception to avoid breaking the whole process
+        pass
+
+
+# ═══════════════════════════════════════════════════════════════
+# REVERTED ROOMS AND ITEMS VIEWS
+# ═══════════════════════════════════════════════════════════════
+
+class RevertedRoomsView(LoginRequiredMixin, ListView):
+    """
+    View rooms that became unassigned when users were deleted
+    """
+    template_name = 'central_admin/reverted_rooms.html'
+    model = None  # We'll use RevertedRoom model
+    context_object_name = 'reverted_rooms'
+    paginate_by = 20
+
+    def get_queryset(self):
+        from inventory.models import RevertedRoom
+        return RevertedRoom.objects.filter(
+            organisation=self.request.user.profile.org,
+            reassigned_to__isnull=True  # Only show un-reassigned rooms
+        ).select_related(
+            'room',
+            'room__department',
+            'previous_incharge',
+            'previous_incharge__user'
+        ).order_by('-reverted_on')
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        # Get available users for reassignment - optimized query
+        context['available_users'] = UserProfile.objects.filter(
+            org=self.request.user.profile.org,
+            is_incharge=True
+        ).select_related('user').order_by('user__first_name', 'user__last_name')
+        return context
+    
+    def get(self, request, *args, **kwargs):
+        # Check if this is an AJAX request for modal content
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            self.object_list = self.get_queryset()
+            context = self.get_context_data(**kwargs)
+            # Render only the modal content
+            return JsonResponse({
+                'html': render_to_string(self.template_name, context, request=request),
+                'status': 'success'
+            })
+        return super().get(request, *args, **kwargs)
+
+
+@require_POST
+def reassign_room(request, reverted_room_id):
+    """
+    Reassign a reverted room to a new user
+    """
+    if not request.user.profile.is_central_admin and not request.user.profile.is_sub_admin:
+        return JsonResponse({'error': 'Unauthorized'}, status=403)
+    
+    try:
+        from inventory.models import RevertedRoom, Room
+        import json
+        data = json.loads(request.body)
+        new_user_id = data.get('user_id')
+        
+        if not new_user_id:
+            return JsonResponse({'error': 'User ID is required'}, status=400)
+        
+        reverted_room = get_object_or_404(RevertedRoom, id=reverted_room_id, organisation=request.user.profile.org)
+        new_user = get_object_or_404(UserProfile, id=new_user_id, org=request.user.profile.org)
+        
+        # Update room assignment
+        room = reverted_room.room
+        room.incharge = new_user
+        room.save()
+        
+        # Update reverted room record
+        reverted_room.reassigned_to = new_user
+        reverted_room.reassigned_on = timezone.now()
+        reverted_room.save()
+        
+        messages.success(request, f'Room "{room.room_name}" reassigned to {new_user.user.get_full_name()}')
+        
+        return JsonResponse({
+            'status': 'success',
+            'message': f'Room reassigned to {new_user.user.get_full_name()}'
+        })
+        
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
+
+
+class RevertedItemsView(LoginRequiredMixin, ListView):
+    """
+    View items that reverted to master inventory when users were deleted
+    """
+    template_name = 'central_admin/reverted_items.html'
+    model = None  # We'll use RevertedItem model
+    context_object_name = 'reverted_items'
+    paginate_by = 20
+
+    def get_queryset(self):
+        from inventory.models import RevertedItem
+        return RevertedItem.objects.filter(
+            organisation=self.request.user.profile.org,
+            reassigned_to_room__isnull=True  # Only show un-reassigned items
+        ).select_related(
+            'item',
+            'item__category',
+            'item__brand',
+            'previous_room',
+            'previous_room__department',
+            'previous_assigned_to',
+            'previous_assigned_to__user'
+        ).order_by('-reverted_on')
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        # Get available rooms for reassignment - optimized query
+        from inventory.models import Room
+        context['available_rooms'] = Room.objects.filter(
+            organisation=self.request.user.profile.org,
+            incharge__isnull=False  # Only rooms with incharges
+        ).select_related(
+            'incharge',
+            'incharge__user',
+            'department'
+        ).order_by('room_name')
+        return context
+
+    def get(self, request, *args, **kwargs):
+        # Check if this is an AJAX request for modal content
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            self.object_list = self.get_queryset()
+            context = self.get_context_data(**kwargs)
+            # Render only the modal content
+            return JsonResponse({
+                'html': render_to_string(self.template_name, context, request=request),
+                'status': 'success'
+            })
+        return super().get(request, *args, **kwargs)
+
+
+@require_POST
+def reassign_item(request, reverted_item_id):
+    """
+    Reassign a reverted item to a new room
+    """
+    if not request.user.profile.is_central_admin and not request.user.profile.is_sub_admin:
+        return JsonResponse({'error': 'Unauthorized'}, status=403)
+    
+    try:
+        from inventory.models import RevertedItem, Item, Room
+        import json
+        data = json.loads(request.body)
+        new_room_id = data.get('room_id')
+        
+        if not new_room_id:
+            return JsonResponse({'error': 'Room ID is required'}, status=400)
+        
+        reverted_item = get_object_or_404(RevertedItem, id=reverted_item_id, organisation=request.user.profile.org)
+        new_room = get_object_or_404(Room, id=new_room_id, organisation=request.user.profile.org)
+        
+        # Validate that the room has an incharge
+        if not new_room.incharge:
+            return JsonResponse({'error': 'Selected room does not have an incharge assigned'}, status=400)
+        
+        # Update item assignment
+        item = reverted_item.item
+        item.room = new_room
+        item.save()
+        
+        # Update reverted item record
+        reverted_item.reassigned_to_room = new_room
+        reverted_item.reassigned_to_user = new_room.incharge
+        reverted_item.reassigned_on = timezone.now()
+        reverted_item.save()
+        
+        messages.success(request, f'Item "{item.item_name}" reassigned to room "{new_room.room_name}"')
+        
+        return JsonResponse({
+            'status': 'success',
+            'message': f'Item reassigned to {new_room.room_name}'
+        })
+        
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)

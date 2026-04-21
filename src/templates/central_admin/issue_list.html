@@ -27,6 +27,7 @@
             <ul class="dropdown-menu dropdown-menu-end shadow-sm" aria-labelledby="filterDropdown">
                 <li><a class="dropdown-item {% if request.GET.filter == 'all' or not request.GET.filter %}active{% endif %}" href="?filter=all">All Issues</a></li>
                 <li><a class="dropdown-item {% if request.GET.filter == 'escalated' %}active{% endif %}" href="?filter=escalated">Escalated to Me</a></li>
+                <li><a class="dropdown-item {% if request.GET.filter == 'other' %}active{% endif %}" href="?filter=other">Other Issues (Deleted Users)</a></li>
             </ul>
         </div>
     </div>

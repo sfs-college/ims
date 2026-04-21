@@ -308,12 +308,16 @@
                class="view-btn {% if view_mode == 'list' %}active{% endif %}">
                 <i class="bi bi-table me-1"></i> List
             </a>
-            <a href="?view=booking{% if request.GET.category %}&category={{ request.GET.category }}{% endif %}{% if request.GET.search %}&search={{ request.GET.search }}{% endif %}"
-               class="view-btn {% if view_mode == 'booking' %}active{% endif %}">
+            <button type="button" class="view-btn {% if view_mode == 'booking' %}active{% endif %}" onclick="showBookingStatusModal()">
                 <i class="bi bi-calendar3 me-1"></i> Booking Status
-            </a>
+            </button>
         </div>
-        <a href="{% url 'central_admin:room_create' %}" class="btn btn-primary">Create Room</a>
+        <div class="d-flex gap-2">
+            <button type="button" class="btn btn-outline-warning" onclick="showRevertedRoomsModal()">
+                <i class="bi bi-arrow-counterclockwise me-1"></i> Reverted Rooms
+            </button>
+            <a href="{% url 'central_admin:room_create' %}" class="btn btn-primary">Create Room</a>
+        </div>
     </div>
 </div>
 
@@ -328,7 +332,7 @@
             </option>
         {% endfor %}
     </select>
-    <input type="text" name="search" class="form-control" placeholder="Search room..."
+    <input type="text" name="search" class="form-control" placeholder="Search room name, label, or incharge name..."
            value="{{ request.GET.search }}">
     <button class="btn btn-outline-primary">Filter</button>
 </form>
@@ -1020,6 +1024,187 @@ function exportExcel() {
 function exportRooms(type) {
     if (type === 'pdf')   exportPDF();
     if (type === 'excel') exportExcel();
+}
+
+function showRevertedRoomsModal() {
+    // Show loading modal immediately
+    showLoadingModal('Reverted Rooms');
+    
+    // Load modal content via AJAX
+    fetch('{% url "central_admin:reverted_rooms" %}', {
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest',
+            'Content-Type': 'application/json'
+        }
+    })
+    .then(response => {
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        return response.json();
+    })
+    .then(data => {
+        // Hide loading modal
+        hideLoadingModal();
+        
+        if (data.status === 'success') {
+            // Create modal container if it doesn't exist
+            let modalContainer = document.getElementById('reverted-rooms-modal-container');
+            if (!modalContainer) {
+                modalContainer = document.createElement('div');
+                modalContainer.id = 'reverted-rooms-modal-container';
+                document.body.appendChild(modalContainer);
+            }
+            
+            // Insert modal HTML
+            modalContainer.innerHTML = data.html;
+            
+            // Show the modal
+            const modal = new bootstrap.Modal(document.getElementById('revertedRoomsModal'));
+            modal.show();
+        } else {
+            // Show error modal instead of alert
+            showErrorModal('Error loading reverted rooms: ' + (data.error || 'Unknown error'));
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        // Show error modal instead of alert
+        showErrorModal('Error loading reverted rooms. Please try again.');
+    });
+}
+
+function showErrorModal(message) {
+    // Create error modal if it doesn't exist
+    let errorModal = document.getElementById('errorModal');
+    if (!errorModal) {
+        const modalHtml = `
+            <div class="modal fade" id="errorModal" tabindex="-1">
+                <div class="modal-dialog modal-dialog-centered">
+                    <div class="modal-content">
+                        <div class="modal-header bg-danger text-white">
+                            <h5 class="modal-title">Error</h5>
+                            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                        </div>
+                        <div class="modal-body">
+                            <p>${message}</p>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+        document.body.insertAdjacentHTML('beforeend', modalHtml);
+    } else {
+        // Update error message
+        document.querySelector('#errorModal .modal-body p').textContent = message;
+    }
+    
+    // Show the error modal
+    const modal = new bootstrap.Modal(document.getElementById('errorModal'));
+    modal.show();
+}
+
+function reassignRoom(revertedRoomId) {
+    const selectElement = document.getElementById(`reassign-user-${revertedRoomId}`);
+    const userId = selectElement.value;
+    
+    if (!userId) {
+        alert('Please select a user to reassign the room to.');
+        return;
+    }
+    
+    const button = event.target;
+    const originalText = button.innerHTML;
+    button.disabled = true;
+    button.innerHTML = '<i class="bi bi-spinner-grow me-2"></i>Reassigning...';
+    
+    fetch(`/central-admin/reverted-rooms/${revertedRoomId}/reassign/`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': getCookie('csrftoken')
+        },
+        body: JSON.stringify({
+            user_id: parseInt(userId)
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.status === 'success') {
+            // Reload the modal content
+            showRevertedRoomsModal();
+        } else {
+            alert('Error: ' + data.error);
+            button.disabled = false;
+            button.innerHTML = originalText;
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('An error occurred while reassigning the room.');
+        button.disabled = false;
+        button.innerHTML = originalText;
+    });
+}
+
+function showLoadingModal(title) {
+    // Create loading modal if it doesn't exist
+    let loadingModal = document.getElementById('loadingModal');
+    if (!loadingModal) {
+        const modalHtml = `
+            <div class="modal fade" id="loadingModal" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false">
+                <div class="modal-dialog modal-dialog-centered">
+                    <div class="modal-content">
+                        <div class="modal-body text-center py-4">
+                            <div class="spinner-border text-primary mb-3" role="status">
+                                <span class="visually-hidden">Loading...</span>
+                            </div>
+                            <h6 class="mb-0">Loading ${title}...</h6>
+                            <small class="text-muted">Please wait while we fetch the data.</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+        document.body.insertAdjacentHTML('beforeend', modalHtml);
+    }
+    
+    // Show the loading modal
+    const modal = new bootstrap.Modal(document.getElementById('loadingModal'));
+    modal.show();
+}
+
+function hideLoadingModal() {
+    // Hide and remove the loading modal
+    const modalElement = document.getElementById('loadingModal');
+    if (modalElement) {
+        const modal = bootstrap.Modal.getInstance(modalElement);
+        if (modal) {
+            modal.hide();
+        }
+        // Remove modal after it's hidden
+        modalElement.addEventListener('hidden.bs.modal', function() {
+            modalElement.remove();
+        });
+    }
+}
+
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
 }
 </script>
 

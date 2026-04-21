@@ -238,9 +238,14 @@
         <a href="{% url 'central_admin:aura_dashboard' %}" class="nav-btn-ghost">
             <i class="bi bi-arrow-left"></i> Back to AURA
         </a>
-        <a href="{% url 'central_admin:assign_inventory' %}" class="nav-btn-primary">
-            <i class="bi bi-arrow-right-circle"></i> Assign Inventory
-        </a>
+        <div class="d-flex gap-2">
+            <button type="button" class="nav-btn-ghost" onclick="showRevertedItemsModal()">
+                <i class="bi bi-arrow-counterclockwise"></i> Reverted Items
+            </button>
+            <a href="{% url 'central_admin:assign_inventory' %}" class="nav-btn-primary">
+                <i class="bi bi-arrow-right-circle"></i> Assign Inventory
+            </a>
+        </div>
     </div>
 </nav>
 {% endblock navbar %}
@@ -1147,6 +1152,188 @@ function openTagModal(itemName) {
                 </div>`;
         });
 }
+
+function showRevertedItemsModal() {
+    // Show loading modal immediately
+    showLoadingModal('Reverted Items');
+    
+    // Load modal content via AJAX
+    fetch('{% url "central_admin:reverted_items" %}', {
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest',
+            'Content-Type': 'application/json'
+        }
+    })
+    .then(response => {
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        return response.json();
+    })
+    .then(data => {
+        // Hide loading modal
+        hideLoadingModal();
+        
+        if (data.status === 'success') {
+            // Create modal container if it doesn't exist
+            let modalContainer = document.getElementById('reverted-items-modal-container');
+            if (!modalContainer) {
+                modalContainer = document.createElement('div');
+                modalContainer.id = 'reverted-items-modal-container';
+                document.body.appendChild(modalContainer);
+            }
+            
+            // Insert modal HTML
+            modalContainer.innerHTML = data.html;
+            
+            // Show the modal
+            const modal = new bootstrap.Modal(document.getElementById('revertedItemsModal'));
+            modal.show();
+        } else {
+            // Show error modal instead of alert
+            showErrorModal('Error loading reverted items: ' + (data.error || 'Unknown error'));
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        // Show error modal instead of alert
+        showErrorModal('Error loading reverted items. Please try again.');
+    });
+}
+
+function reassignItem(revertedItemId) {
+    const selectElement = document.getElementById(`reassign-room-${revertedItemId}`);
+    const roomId = selectElement.value;
+    
+    if (!roomId) {
+        alert('Please select a room to reassign the item to.');
+        return;
+    }
+    
+    const button = event.target;
+    const originalText = button.innerHTML;
+    button.disabled = true;
+    button.innerHTML = '<i class="bi bi-spinner-grow me-2"></i>Reassigning...';
+    
+    fetch(`/central-admin/reverted-items/${revertedItemId}/reassign/`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': getCookie('csrftoken')
+        },
+        body: JSON.stringify({
+            room_id: parseInt(roomId)
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.status === 'success') {
+            // Reload the modal content
+            showRevertedItemsModal();
+        } else {
+            alert('Error: ' + data.error);
+            button.disabled = false;
+            button.innerHTML = originalText;
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('An error occurred while reassigning the item.');
+        button.disabled = false;
+        button.innerHTML = originalText;
+    });
+}
+
+function showLoadingModal(title) {
+    // Create loading modal if it doesn't exist
+    let loadingModal = document.getElementById('loadingModal');
+    if (!loadingModal) {
+        const modalHtml = `
+            <div class="modal fade" id="loadingModal" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false">
+                <div class="modal-dialog modal-dialog-centered">
+                    <div class="modal-content">
+                        <div class="modal-body text-center py-4">
+                            <div class="spinner-border text-primary mb-3" role="status">
+                                <span class="visually-hidden">Loading...</span>
+                            </div>
+                            <h6 class="mb-0">Loading ${title}...</h6>
+                            <small class="text-muted">Please wait while we fetch the data.</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+        document.body.insertAdjacentHTML('beforeend', modalHtml);
+    }
+    
+    // Show the loading modal
+    const modal = new bootstrap.Modal(document.getElementById('loadingModal'));
+    modal.show();
+}
+
+function hideLoadingModal() {
+    // Hide and remove the loading modal
+    const modalElement = document.getElementById('loadingModal');
+    if (modalElement) {
+        const modal = bootstrap.Modal.getInstance(modalElement);
+        if (modal) {
+            modal.hide();
+        }
+        // Remove modal after it's hidden
+        modalElement.addEventListener('hidden.bs.modal', function() {
+            modalElement.remove();
+        });
+    }
+}
+
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+
+function showErrorModal(message) {
+    // Create error modal if it doesn't exist
+    let errorModal = document.getElementById('errorModal');
+    if (!errorModal) {
+        const modalHtml = `
+            <div class="modal fade" id="errorModal" tabindex="-1">
+                <div class="modal-dialog modal-dialog-centered">
+                    <div class="modal-content">
+                        <div class="modal-header bg-danger text-white">
+                            <h5 class="modal-title">Error</h5>
+                            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                        </div>
+                        <div class="modal-body">
+                            <p>${message}</p>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+        document.body.insertAdjacentHTML('beforeend', modalHtml);
+    } else {
+        // Update error message
+        document.querySelector('#errorModal .modal-body p').textContent = message;
+    }
+    
+    // Show the error modal
+    const modal = new bootstrap.Modal(document.getElementById('errorModal'));
+    modal.show();
+}
+
 </script>
 
 {% endblock content %}

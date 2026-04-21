@@ -3,6 +3,10 @@
 
 {% block title %} | People List{% endblock title %}
 
+{% block extra_head %}
+<input type="hidden" name="csrfmiddlewaretoken" value="{% csrf_token %}">
+{% endblock %}
+
 {% block style %}
 <link rel="stylesheet" href="{% static 'styles/inventory/central_admin/rooms/style.css' %}">
 <style>
@@ -156,24 +160,95 @@
     border: 1px solid #e2e8f0;
   }
 
-  .btn-action-delete {
+  .action-buttons {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    align-items: flex-start;
+  }
+
+  .btn-action {
     display: inline-flex;
     align-items: center;
     gap: 5px;
     padding: 6px 12px;
-    background: #fef2f2;
-    color: #ef4444;
-    border: 1px solid #fecaca;
     border-radius: 7px;
     font-size: 12.5px;
     font-weight: 600;
     text-decoration: none;
     transition: all 0.14s;
+    white-space: nowrap;
+  }
+
+  .btn-action-delete {
+    background: #fef2f2;
+    color: #ef4444;
+    border: 1px solid #fecaca;
   }
   .btn-action-delete:hover {
     background: #ef4444;
     color: white;
     border-color: #ef4444;
+  }
+
+  .btn-action-edit {
+    background: #f0f9ff;
+    color: #0ea5e9;
+    border: 1px solid #bae6fd;
+  }
+  .btn-action-edit:hover {
+    background: #0ea5e9;
+    color: white;
+    border-color: #0ea5e9;
+  }
+
+  /* Mobile responsiveness */
+  @media (max-width: 768px) {
+    .data-table {
+      font-size: 12px;
+    }
+    .data-table thead th,
+    .data-table tbody td {
+      padding: 8px 12px;
+    }
+    .person-name {
+      font-size: 13px;
+    }
+    .avatar {
+      width: 26px;
+      height: 26px;
+      font-size: 10px;
+    }
+    .action-buttons {
+      gap: 6px;
+    }
+    .btn-action {
+      padding: 5px 10px;
+      font-size: 11px;
+    }
+  }
+
+  @media (max-width: 480px) {
+    .page-header {
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 12px;
+    }
+    .btn-create {
+      width: 100%;
+      justify-content: center;
+    }
+    .data-table {
+      font-size: 11px;
+    }
+    .data-table thead th,
+    .data-table tbody td {
+      padding: 6px 8px;
+    }
+    .role-badge {
+      font-size: 10px;
+      padding: 2px 6px;
+    }
   }
 
   .empty-state {
@@ -240,10 +315,16 @@
           {% endif %}
         </td>
         <td>
-          <a href="{% url 'central_admin:people_delete' people_slug=person.slug %}" class="btn-action-delete">
-            <span class="material-symbols-outlined" style="font-size:14px">delete</span>
-            Delete
-          </a>
+          <div class="action-buttons">
+            <button class="btn-action btn-action-edit" onclick="openEditModal('{{ person.slug }}')">
+              <span class="material-symbols-outlined" style="font-size:14px">edit</span>
+              Edit
+            </button>
+            <a href="{% url 'central_admin:people_delete' people_slug=person.slug %}" class="btn-action btn-action-delete">
+              <span class="material-symbols-outlined" style="font-size:14px">delete</span>
+              Delete
+            </a>
+          </div>
         </td>
       </tr>
       {% endfor %}
@@ -256,4 +337,228 @@
   </div>
   {% endif %}
 </div>
+<!-- Edit Person Modal -->
+<div class="modal fade" id="editPersonModal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">
+          <span class="material-symbols-outlined" style="font-size:20px;vertical-align:middle;margin-right:8px">edit</span>
+          Edit Person
+        </h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <form id="editPersonForm">
+          <input type="hidden" id="editPersonSlug" name="slug">
+          
+          <div class="mb-3">
+            <label for="editFullName" class="form-label">Full Name</label>
+            <input type="text" class="form-control" id="editFullName" name="full_name" required>
+          </div>
+          
+          <div class="mb-3">
+            <label for="editEmail" class="form-label">Email Address</label>
+            <input type="email" class="form-control" id="editEmail" name="email" required>
+            <div class="form-text">If email is changed, a password reset link will be sent to the new email address.</div>
+          </div>
+          
+          <div class="mb-3">
+            <label for="editRole" class="form-label">Role</label>
+            <select class="form-select" id="editRole" name="role" required>
+              <option value="central_admin">Central Admin</option>
+              <option value="sub_admin">Sub Admin</option>
+              <option value="incharge">Room Incharge</option>
+            </select>
+          </div>
+          
+          <div class="alert alert-info d-none" id="emailChangeAlert">
+            <strong>Important:</strong> Changing the email address will:
+            <ul class="mb-0 mt-2">
+              <li>Send a password reset link to the new email</li>
+              <li>Transfer all rooms, items, and issues to the new email</li>
+              <li>Maintain the same role and permissions</li>
+            </ul>
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+        <button type="button" class="btn btn-primary" onclick="savePerson()">
+          <span class="material-symbols-outlined" style="font-size:16px;vertical-align:middle;margin-right:4px">save</span>
+          Save Changes
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<style>
+.modal-content {
+  border-radius: 12px;
+  border: none;
+  box-shadow: 0 10px 40px rgba(0,0,0,0.15);
+}
+
+.modal-header {
+  background: linear-gradient(135deg, var(--accent), #8b7cf8);
+  color: white;
+  border-radius: 12px 12px 0 0;
+  border: none;
+}
+
+.modal-header .btn-close {
+  filter: brightness(0) invert(1);
+}
+
+.form-label {
+  font-weight: 600;
+  color: var(--text);
+  font-size: 14px;
+}
+
+.form-control, .form-select {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px 14px;
+  font-size: 14px;
+  transition: border-color 0.15s;
+}
+
+.form-control:focus, .form-select:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(108,99,255,0.1);
+}
+
+.btn-primary {
+  background: linear-gradient(135deg, var(--accent), #8b7cf8);
+  border: none;
+  border-radius: 8px;
+  font-weight: 600;
+}
+
+.btn-primary:hover {
+  background: linear-gradient(135deg, #5a52d5, #7b6ce7);
+  transform: translateY(-1px);
+}
+
+@media (max-width: 576px) {
+  .modal-dialog {
+    margin: 15px;
+  }
+  .modal-body {
+    padding: 20px 15px;
+  }
+}
+</style>
+
+<script>
+let currentPersonData = null;
+
+function openEditModal(slug) {
+  // Fetch person data
+  const baseUrl = '{% url "central_admin:get_person_api" people_slug="SLUG" %}'.replace('SLUG', slug);
+  fetch(baseUrl)
+    .then(response => response.json())
+    .then(data => {
+      if (data.status === 'success') {
+        currentPersonData = data.person;
+        populateEditForm(data.person);
+        const modal = new bootstrap.Modal(document.getElementById('editPersonModal'));
+        modal.show();
+      } else {
+        alert('Error loading person data: ' + data.error);
+      }
+    })
+    .catch(error => {
+      console.error('Error:', error);
+      alert('Error loading person data');
+    });
+}
+
+function populateEditForm(person) {
+  document.getElementById('editPersonSlug').value = person.slug;
+  document.getElementById('editFullName').value = person.user.full_name;
+  document.getElementById('editEmail').value = person.user.email;
+  document.getElementById('editRole').value = person.role;
+  
+  // Store original email for comparison
+  currentPersonData.original_email = person.user.email;
+}
+
+function checkEmailChange() {
+  const originalEmail = currentPersonData.original_email;
+  const newEmail = document.getElementById('editEmail').value;
+  const alert = document.getElementById('emailChangeAlert');
+  
+  if (originalEmail !== newEmail) {
+    alert.classList.remove('d-none');
+  } else {
+    alert.classList.add('d-none');
+  }
+}
+
+function savePerson() {
+  const form = document.getElementById('editPersonForm');
+  const formData = new FormData(form);
+  
+  // Convert to JSON and add email change flag
+  const data = {
+    slug: formData.get('slug'),
+    full_name: formData.get('full_name'),
+    email: formData.get('email'),
+    role: formData.get('role'),
+    email_changed: formData.get('email') !== currentPersonData.original_email
+  };
+  
+  const submitBtn = event.target;
+  submitBtn.disabled = true;
+  submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Saving...';
+  
+  const editUrl = '{% url "central_admin:edit_person_api" people_slug="SLUG" %}'.replace('SLUG', data.slug);
+  fetch(editUrl, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-CSRFToken': getCsrfToken(),
+      'X-Requested-With': 'XMLHttpRequest'
+    },
+    body: JSON.stringify(data)
+  })
+  .then(response => response.json())
+  .then(result => {
+    if (result.status === 'success') {
+      // Close modal and refresh page
+      bootstrap.Modal.getInstance(document.getElementById('editPersonModal')).hide();
+      location.reload();
+    } else {
+      alert('Error: ' + result.error);
+    }
+  })
+  .catch(error => {
+    console.error('Error:', error);
+    alert('Error saving changes');
+  })
+  .finally(() => {
+    submitBtn.disabled = false;
+    submitBtn.innerHTML = '<span class="material-symbols-outlined" style="font-size:16px;vertical-align:middle;margin-right:4px">save</span>Save Changes';
+  });
+}
+
+function getCsrfToken() {
+  const el = document.querySelector('[name=csrfmiddlewaretoken]');
+  if (el) return el.value;
+  const match = document.cookie.match(/csrftoken=([^;]+)/);
+  return match ? match[1] : '';
+}
+
+// Add email change listener
+document.addEventListener('DOMContentLoaded', function() {
+  const emailInput = document.getElementById('editEmail');
+  if (emailInput) {
+    emailInput.addEventListener('input', checkEmailChange);
+  }
+});
+</script>
+
 {% endblock content %}

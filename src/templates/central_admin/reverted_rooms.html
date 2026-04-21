@@ -1,0 +1,283 @@
+{% block content %}
+<style>
+:root {
+    --primary-grad: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    --purple: #9333ea;
+    --purple-dark: #7c3aed;
+    --purple-light: #f3e8ff;
+    --border: #e2e8f0;
+    --text-dark: #1e293b;
+    --text-mid: #475569;
+    --text-muted: #94a3b8;
+    --shadow: 0 2px 8px rgba(0,0,0,0.05);
+    --warning: #f59e0b;
+    --warning-light: #fef3c7;
+}
+
+.reverted-rooms-modal .modal-content {
+    border: none; border-radius: 16px; box-shadow: 0 10px 40px rgba(0,0,0,0.15);
+}
+.reverted-rooms-modal .modal-header {
+    background: var(--primary-grad); color: white; border-radius: 16px 16px 0 0;
+    border: none; padding: 20px 24px;
+}
+.reverted-rooms-modal .modal-title {
+    font-weight: 700; font-size: 1.25rem; margin: 0;
+}
+.reverted-rooms-modal .modal-body {
+    padding: 24px; max-height: 70vh; overflow-y: auto;
+}
+.reverted-rooms-modal .btn-close {
+    filter: brightness(0) invert(1); opacity: 0.8;
+}
+
+.reverted-room-card {
+    background: white; border: 1.5px solid var(--border); border-radius: 12px;
+    padding: 20px; margin-bottom: 16px; transition: all 0.2s;
+}
+.reverted-room-card:hover {
+    box-shadow: var(--shadow); transform: translateY(-1px);
+}
+.reverted-room-card.assigned {
+    border-color: #10b981; background: #f0fdf4;
+}
+
+.room-header {
+    display: flex; justify-content: between; align-items: center; margin-bottom: 16px;
+}
+.room-name {
+    font-weight: 700; font-size: 1.1rem; color: var(--text-dark); margin: 0;
+}
+.room-badge {
+    background: var(--warning-light); color: var(--warning);
+    padding: 4px 10px; border-radius: 20px; font-size: 0.75rem;
+    font-weight: 600; text-transform: uppercase;
+}
+
+.room-details {
+    margin-bottom: 16px;
+}
+.detail-label {
+    font-size: 0.75rem; font-weight: 700; color: var(--text-muted);
+    text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;
+}
+.detail-value {
+    font-size: 0.9rem; color: var(--text-mid); margin-bottom: 8px;
+}
+
+.previous-assignment {
+    background: #f8fafc; border-radius: 8px; padding: 12px; margin-bottom: 16px;
+}
+.user-name {
+    font-weight: 600; color: var(--text-dark); margin-bottom: 2px;
+}
+.user-email {
+    font-size: 0.85rem; color: var(--text-muted); margin-bottom: 4px;
+}
+.revert-date {
+    font-size: 0.8rem; color: var(--text-muted);
+}
+
+.reassigned-notice {
+    background: #dcfce7; color: #166534; border-radius: 8px;
+    padding: 12px; font-size: 0.85rem; font-weight: 500;
+}
+
+.reassign-form {
+    margin-bottom: 16px;
+}
+.form-select {
+    border: 1.5px solid var(--border); border-radius: 8px;
+    padding: 8px 12px; font-size: 0.9rem; color: var(--text-mid);
+    background: white; margin-bottom: 12px;
+}
+.form-select:focus {
+    outline: none; border-color: var(--purple);
+    box-shadow: 0 0 0 3px rgba(147, 51, 234, 0.1);
+}
+.btn-reassign {
+    background: var(--primary-grad); color: white; border: none;
+    border-radius: 8px; padding: 8px 16px; font-weight: 600;
+    font-size: 0.9rem; cursor: pointer; transition: all 0.2s;
+    width: 100%;
+}
+.btn-reassign:hover {
+    opacity: 0.9; transform: translateY(-1px);
+}
+.btn-reassign:disabled {
+    opacity: 0.6; cursor: not-allowed; transform: none;
+}
+
+.empty-state {
+    text-align: center; padding: 40px 20px;
+}
+.empty-icon {
+    font-size: 3rem; color: var(--text-muted); margin-bottom: 16px;
+}
+.empty-title {
+    font-size: 1.1rem; color: var(--text-muted); margin-bottom: 8px;
+}
+.empty-text {
+    color: var(--text-muted); margin-bottom: 20px;
+}
+
+.stats-row {
+    display: flex; gap: 16px; margin-bottom: 24px;
+}
+.stat-card {
+    flex: 1; background: var(--purple-light); border-radius: 12px;
+    padding: 16px; text-align: center;
+}
+.stat-number {
+    font-size: 1.5rem; font-weight: 700; color: var(--purple);
+    margin-bottom: 4px;
+}
+.stat-label {
+    font-size: 0.8rem; color: var(--text-muted); font-weight: 600;
+}
+</style>
+
+<div class="modal fade reverted-rooms-modal" id="revertedRoomsModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="bi bi-arrow-counterclockwise me-2"></i>Reverted Rooms
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="stats-row">
+                    <div class="stat-card">
+                        <div class="stat-number">{{ reverted_rooms|length }}</div>
+                        <div class="stat-label">Total Reverted</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number">{{ reverted_rooms|length }}</div>
+                        <div class="stat-label">Need Reassignment</div>
+                    </div>
+                </div>
+
+                {% if reverted_rooms %}
+                    {% for reverted_room in reverted_rooms %}
+                        <div class="reverted-room-card {% if reverted_room.reassigned_to %}assigned{% endif %}">
+                            <div class="room-header">
+                                <h6 class="room-name">{{ reverted_room.room.room_name }}</h6>
+                                {% if reverted_room.reassigned_to %}
+                                    <span class="room-badge">Assigned</span>
+                                {% else %}
+                                    <span class="room-badge">Reverted</span>
+                                {% endif %}
+                            </div>
+                            
+                            <div class="room-details">
+                                <div class="detail-label">Room Information</div>
+                                <div class="detail-value">
+                                    {% if reverted_room.room.label %}{{ reverted_room.room.label }}{% else %}No Label{% endif %}
+                                </div>
+                                <div class="detail-value">
+                                    Category: {{ reverted_room.room.get_room_category_display|title }}
+                                </div>
+                            </div>
+                            
+                            <div class="previous-assignment">
+                                <div class="detail-label">Previously Assigned To</div>
+                                <div class="user-name">{{ reverted_room.deleted_user_name }}</div>
+                                <div class="user-email">{{ reverted_room.deleted_user_email }}</div>
+                                <div class="revert-date">Reverted on: {{ reverted_room.reverted_on|date:"M d, Y H:i" }}</div>
+                            </div>
+
+                            {% if reverted_room.reassigned_to %}
+                                <div class="reassigned-notice">
+                                    <i class="bi bi-check-circle me-1"></i>
+                                    Reassigned to {{ reverted_room.reassigned_to.user.get_full_name }}
+                                    on {{ reverted_room.reassigned_on|date:"M d, Y H:i" }}
+                                </div>
+                            {% else %}
+                                <div class="reassign-form">
+                                    <select class="form-select" id="reassign-user-{{ reverted_room.id }}">
+                                        <option value="">Select a user...</option>
+                                        {% for user in available_users %}
+                                            <option value="{{ user.id }}">{{ user.user.get_full_name }} ({{ user.user.email }})</option>
+                                        {% endfor %}
+                                    </select>
+                                    <button class="btn-reassign" onclick="reassignRoom({{ reverted_room.id }})">
+                                        <i class="bi bi-person-plus me-2"></i>Reassign Room
+                                    </button>
+                                </div>
+                            {% endif %}
+                        </div>
+                    {% endfor %}
+                {% else %}
+                    <div class="empty-state">
+                        <div class="empty-icon">
+                            <i class="bi bi-door-open"></i>
+                        </div>
+                        <div class="empty-title">No Reverted Rooms</div>
+                        <div class="empty-text">All rooms are currently assigned to active users.</div>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function reassignRoom(revertedRoomId) {
+    const selectElement = document.getElementById(`reassign-user-${revertedRoomId}`);
+    const userId = selectElement.value;
+    
+    if (!userId) {
+        alert('Please select a user to reassign the room to.');
+        return;
+    }
+    
+    const button = event.target;
+    const originalText = button.innerHTML;
+    button.disabled = true;
+    button.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Reassigning...';
+    
+    fetch(`/central-admin/reverted-rooms/${revertedRoomId}/reassign/`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': getCookie('csrftoken')
+        },
+        body: JSON.stringify({
+            user_id: parseInt(userId)
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.status === 'success') {
+            location.reload();
+        } else {
+            alert('Error: ' + data.error);
+            button.disabled = false;
+            button.innerHTML = originalText;
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('An error occurred while reassigning the room.');
+        button.disabled = false;
+        button.innerHTML = originalText;
+    });
+}
+
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+</script>
+{% endblock %}

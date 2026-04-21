@@ -8,6 +8,8 @@ urlpatterns = [
     path('people/', central_admin.PeopleListView.as_view(), name='people_list'),
     path('people/create/', central_admin.PeopleCreateView.as_view(), name='people_create'),
     path('people/<slug:people_slug>/delete/', central_admin.PeopleDeleteView.as_view(), name='people_delete'),
+    path('people/api/<slug:people_slug>/', central_admin.get_person_api, name='get_person_api'),
+    path('people/api/<slug:people_slug>/edit/', central_admin.edit_person_api, name='edit_person_api'),
     path('rooms/', central_admin.RoomListView.as_view(), name='room_list'),
     path('rooms/create/', central_admin.RoomCreateView.as_view(), name='room_create'),
     path('rooms/<slug:room_slug>/delete/', central_admin.RoomDeleteView.as_view(), name='room_delete'),
@@ -95,5 +97,11 @@ urlpatterns = [
     path('api/save-product-code/', aura.save_product_code, name='save_product_code'),
     path('api/save-item-edit/', aura.save_item_edit, name='save_item_edit'),
     path('api/asset-tags/', aura.get_asset_tags, name='get_asset_tags'),
+    
+    # Reverted rooms and items management
+    path('reverted-rooms/', central_admin.RevertedRoomsView.as_view(), name='reverted_rooms'),
+    path('reverted-rooms/<int:reverted_room_id>/reassign/', central_admin.reassign_room, name='reassign_room'),
+    path('reverted-items/', central_admin.RevertedItemsView.as_view(), name='reverted_items'),
+    path('reverted-items/<int:reverted_item_id>/reassign/', central_admin.reassign_item, name='reassign_item'),
     path('api/room-asset-tags/', aura.get_room_asset_tags, name='get_room_asset_tags'),
 ]
