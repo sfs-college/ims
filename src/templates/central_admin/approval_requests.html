@@ -6,19 +6,92 @@
     Review and approve pending Item Edit and Issue Time Extension requests.
 </p>
 
+<style>
+    /* Approval hub mobile responsiveness - Perfect vertical stacking */
+    .approval-switch {
+        display: flex;
+        gap: 8px;
+        margin-bottom: 1rem;
+        width: 100%;
+    }
+    
+    /* Mobile devices - Force perfect vertical stacking */
+    @media (max-width: 768px) {
+        .approval-switch {
+            display: flex !important;
+            flex-direction: column !important;
+            gap: 16px !important;
+            width: 100% !important;
+            align-items: stretch !important;
+        }
+        
+        .approval-switch .btn {
+            width: 100% !important;
+            max-width: 100% !important;
+            text-align: center !important;
+            justify-content: center !important;
+            min-height: 48px !important;
+            display: flex !important;
+            align-items: center !important;
+            margin: 0 !important;
+            box-sizing: border-box !important;
+        }
+    }
+    
+    /* Tablet devices - Still vertical but more compact */
+    @media (min-width: 769px) and (max-width: 1024px) {
+        .approval-switch {
+            flex-direction: column !important;
+            gap: 12px !important;
+            width: 100% !important;
+        }
+        
+        .approval-switch .btn {
+            width: 100% !important;
+            text-align: center !important;
+        }
+    }
+    
+    /* Desktop devices - Horizontal layout */
+    @media (min-width: 1025px) {
+        .approval-switch {
+            flex-direction: row !important;
+            gap: 8px !important;
+        }
+        
+        .approval-switch .btn {
+            flex: 1 !important;
+            min-width: 0 !important;
+        }
+    }
+    
+    /* Extra small screens */
+    @media (max-width: 480px) {
+        .approval-switch {
+            gap: 12px !important;
+        }
+        
+        .approval-switch .btn {
+            font-size: 0.9rem !important;
+            padding: 14px 20px !important;
+            min-height: 52px !important;
+        }
+    }
+</style>
 
 <form method="get" class="mb-3">
-    <select name="type" class="form-select w-auto shadow-sm"
-            onchange="this.form.submit()">
-        <option value="item_edit"
-          {% if request_type == "item_edit" %}selected{% endif %}>
-          Item Edit Requests
-        </option>
-        <option value="issue_tat"
-          {% if request_type == "issue_tat" %}selected{% endif %}>
-          Issue Time Extension Requests
-        </option>
-    </select>
+    <div class="approval-switch">
+        <button type="submit" name="type" value="item_edit" 
+                class="btn {% if request_type == 'item_edit' %}btn-primary{% else %}btn-outline-primary{% endif %} shadow-sm"
+                onclick="this.form.submit()">
+            <i class="bi bi-pencil-square me-2"></i>Item Edit Requests
+        </button>
+        <button type="submit" name="type" value="issue_tat" 
+                class="btn {% if request_type == 'issue_tat' %}btn-primary{% else %}btn-outline-primary{% endif %} shadow-sm"
+                onclick="this.form.submit()">
+            <i class="bi bi-clock-history me-2"></i>Issue Time Extension Requests
+        </button>
+    </div>
 </form>
 
 {% if request_type == "item_edit" %}
