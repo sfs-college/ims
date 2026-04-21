@@ -501,6 +501,48 @@ class ItemGroup(models.Model):
         return self.item_group_name
     
 
+class RevertedRoom(models.Model):
+    """
+    Track rooms that became unassigned when a user was deleted
+    """
+    organisation = models.ForeignKey(Organisation, on_delete=models.CASCADE)
+    room = models.ForeignKey(Room, on_delete=models.CASCADE)
+    previous_incharge = models.ForeignKey(UserProfile, on_delete=models.SET_NULL, null=True, related_name='reverted_rooms')
+    deleted_user_email = models.EmailField()
+    deleted_user_name = models.CharField(max_length=255)
+    reverted_on = models.DateTimeField(auto_now_add=True)
+    reassigned_to = models.ForeignKey(UserProfile, on_delete=models.SET_NULL, null=True, blank=True, related_name='reassigned_rooms')
+    reassigned_on = models.DateTimeField(null=True, blank=True)
+    
+    class Meta:
+        unique_together = ['room', 'organisation']
+    
+    def __str__(self):
+        return f"{self.room.room_name} - reverted from {self.deleted_user_name}"
+
+
+class RevertedItem(models.Model):
+    """
+    Track items that reverted to master inventory when a user was deleted
+    """
+    organisation = models.ForeignKey(Organisation, on_delete=models.CASCADE)
+    item = models.ForeignKey(Item, on_delete=models.CASCADE)
+    previous_room = models.ForeignKey(Room, on_delete=models.SET_NULL, null=True, related_name='reverted_items_previous')
+    previous_assigned_to = models.ForeignKey(UserProfile, on_delete=models.SET_NULL, null=True, related_name='reverted_items')
+    deleted_user_email = models.EmailField()
+    deleted_user_name = models.CharField(max_length=255)
+    reverted_on = models.DateTimeField(auto_now_add=True)
+    reassigned_to_room = models.ForeignKey(Room, on_delete=models.SET_NULL, null=True, blank=True, related_name='reverted_items_reassigned')
+    reassigned_to_user = models.ForeignKey(UserProfile, on_delete=models.SET_NULL, null=True, blank=True, related_name='reassigned_items')
+    reassigned_on = models.DateTimeField(null=True, blank=True)
+    
+    class Meta:
+        unique_together = ['item', 'organisation']
+    
+    def __str__(self):
+        return f"{self.item.item_name} - reverted from {self.deleted_user_name}"
+
+
 class ItemGroupItem(models.Model):
     item_group = models.ForeignKey(ItemGroup, on_delete=models.CASCADE)
     item = models.ForeignKey(Item, on_delete=models.CASCADE)

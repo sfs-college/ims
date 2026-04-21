@@ -1,17 +1,15 @@
 from django.shortcuts import redirect, render, get_object_or_404
-from django.views.generic import TemplateView
+from django.views.generic import TemplateView, CreateView
 from django.db import transaction, connection
 from django.contrib.auth.views import (
     LoginView, LogoutView, PasswordChangeView, 
     PasswordResetCompleteView, PasswordResetConfirmView, 
     PasswordResetDoneView, PasswordResetView
     )
-from django.contrib.auth import login
+from django.contrib.auth import login, get_user_model
 from django.urls import reverse_lazy
-from . forms import CustomAuthenticationForm, UserRegisterForm
-from django.views.generic import CreateView
+from . forms import CustomAuthenticationForm, UserRegisterForm, CustomPasswordResetForm
 from core.models import UserProfile, Organisation
-from django.contrib.auth import get_user_model
 from config.mixins.access_mixins import RedirectLoggedInUsersMixin
 from django.contrib import messages
 from core.forms import RoomBookingForm
@@ -168,6 +166,7 @@ class ChangePasswordView(PasswordChangeView):
 
 
 class ResetPasswordView(PasswordResetView):
+    form_class = CustomPasswordResetForm
     email_template_name = 'core/password_reset/password_reset_email.html'
     html_email_template_name = 'core/password_reset/password_reset_email.html'
     subject_template_name = 'core/password_reset/password_reset_subject.txt'

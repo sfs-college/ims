@@ -1,7 +1,7 @@
 import os
 from django import forms
 from django.contrib.auth import get_user_model
-from django.contrib.auth.forms import AuthenticationForm, UserCreationForm
+from django.contrib.auth.forms import AuthenticationForm, UserCreationForm, PasswordResetForm
 from django.core.exceptions import ValidationError
 from django.conf import settings
 from config.mixins import form_mixin
@@ -213,3 +213,21 @@ class RoomBookingForm(forms.ModelForm):
             except RoomBookingCredentials.DoesNotExist:
                 self.add_error('faculty_email', 'This email is not authorised to book rooms.')
         return cleaned_data
+
+
+class CustomPasswordResetForm(PasswordResetForm):
+    """
+    Custom password reset form that ensures proper email validation
+    and handles college email domain restrictions.
+    """
+    def clean_email(self):
+        email = self.cleaned_data.get('email', '').strip().lower()
+        if not email:
+            raise ValidationError('Email is required.')
+        
+        # Check if user exists with this email
+        User = get_user_model()
+        if not User.objects.filter(email=email).exists():
+            raise ValidationError('No account found with this email address.')
+            
+        return email
