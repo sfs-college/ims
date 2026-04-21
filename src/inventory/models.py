@@ -25,6 +25,7 @@ class Room(models.Model):
     ('outdoors', 'Outdoors'),
     ('washrooms', 'Washrooms'),
     ('officerooms', 'Officerooms'),
+    ('others', 'Others'),
 ]
 
     organisation = models.ForeignKey(Organisation, on_delete=models.CASCADE)

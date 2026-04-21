@@ -361,6 +361,31 @@
             gap: 10px;
         }
         
+        /* Mobile positioning for track/cancel buttons next to home button */
+        div[style*="position:fixed;bottom:32px;right:32px"] {
+            position: fixed !important;
+            bottom: auto !important;
+            right: auto !important;
+            top: 20px !important;
+            left: 50% !important;
+            transform: translateX(-50%) !important;
+            flex-direction: row !important;
+            gap: 8px !important;
+            align-items: center !important;
+            z-index: 1000 !important;
+        }
+        
+        .btn-cancel-float, .btn-track-float {
+            padding: 10px 16px !important;
+            font-size: 0.8rem !important;
+            border-radius: 12px !important;
+            white-space: nowrap !important;
+        }
+        
+        .glass-header {
+            padding-top: 80px !important;
+        }
+        
         /* Requirements type cards - stack vertically on mobile */
         .d-flex.gap-3.mb-3 {
             flex-direction: column !important;

@@ -580,7 +580,8 @@ def rooms_by_category(request):
     start    = request.GET.get("start")
     end      = request.GET.get("end")
 
-    rooms    = Room.objects.filter(room_category=category)
+    # Exclude washrooms and officerooms from booking categories
+    rooms    = Room.objects.filter(room_category=category).exclude(room_category__in=['washrooms', 'officerooms'])
     start_dt = parse_datetime(start) if start else None
     end_dt   = parse_datetime(end)   if end   else None
 
