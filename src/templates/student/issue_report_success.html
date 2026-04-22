@@ -193,6 +193,14 @@
         color: var(--green-mid);
     }
 
+    /* ── Action Buttons ── */
+    .action-buttons {
+        display: flex;
+        gap: 12px;
+        justify-content: center;
+        margin-bottom: 1rem;
+    }
+
     /* ── CTA Button ── */
     .btn-logout {
         display: inline-flex;
@@ -298,11 +306,17 @@
             </span>
         </div>
 
-        <!-- Logout / Go Home button -->
-        <a href="{% url 'core:logout' %}" class="btn-logout">
-            <span class="material-symbols-outlined">logout</span>
-            Done &amp; Logout
-        </a>
+        <!-- Action buttons -->
+        <div class="action-buttons">
+            <a href="{% url 'student:issue_report' %}" class="btn-logout">
+                <span class="material-symbols-outlined">add_circle</span>
+                Report Issue Again
+            </a>
+            <a href="{% url 'core:logout' %}" class="btn-logout">
+                <span class="material-symbols-outlined">logout</span>
+                Done & Logout
+            </a>
+        </div>
 
     </div>
 </div>

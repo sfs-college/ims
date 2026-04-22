@@ -131,14 +131,91 @@
     .export-group-controls { flex-wrap: wrap; }
     .view-toggle { width: 100%; justify-content: center; }
     .view-toggle .view-btn { flex: 1; text-align: center; justify-content: center; }
-    /* Table horizontal scroll for mobile */
-    .table-responsive { overflow-x: auto; -webkit-overflow-scrolling: touch; }
-    .table-responsive table { min-width: 800px; }
+    
+    /* Mobile responsive table */
+    #roomsTable.table-responsive-stack {
+      display: block;
+    }
+    
+    #roomsTable.table-responsive-stack thead {
+      display: none;
+    }
+    
+    #roomsTable.table-responsive-stack tbody,
+    #roomsTable.table-responsive-stack tr,
+    #roomsTable.table-responsive-stack td {
+      display: block;
+      width: 100% !important;
+    }
+    
+    #roomsTable.table-responsive-stack tr {
+      border: 1px solid #e2e8f0;
+      border-radius: 12px;
+      margin-bottom: 15px;
+      padding: 15px;
+      background: #fff;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+    }
+    
+    #roomsTable.table-responsive-stack td {
+      border: none !important;
+      padding: 8px 0 !important;
+      text-align: left !important;
+      position: relative;
+      padding-left: 140px !important;
+    }
+    
+    #roomsTable.table-responsive-stack td:before {
+      content: attr(data-label) ": ";
+      position: absolute;
+      left: 0;
+      width: 130px;
+      font-weight: 600;
+      color: #64748b;
+      font-size: 0.85rem;
+    }
+    
+    #roomsTable.table-responsive-stack td:first-child {
+      padding-left: 0 !important;
+    }
+    
+    #roomsTable.table-responsive-stack td:first-child:before {
+      display: none;
+    }
+    
+    .action-buttons {
+      flex-direction: row;
+      gap: 6px !important;
+      justify-content: stretch;
+    }
+    
+    .action-btn {
+      flex: 1;
+      text-align: center;
+      min-height: 38px;
+      font-size: 11px !important;
+      padding: 6px 8px !important;
+    }
   }
 
   @media (max-width: 576px) {
     .d-flex.justify-content-between { flex-direction: column; gap: 12px; }
     .d-flex.align-items-center { flex-wrap: wrap; gap: 8px; }
+    
+    #roomsTable.table-responsive-stack tr {
+      padding: 12px;
+      margin-bottom: 12px;
+    }
+    
+    #roomsTable.table-responsive-stack td {
+      padding: 6px 0 !important;
+      padding-left: 120px !important;
+    }
+    
+    #roomsTable.table-responsive-stack td:before {
+      width: 110px;
+      font-size: 0.8rem;
+    }
   }
   .btn-export-excel { background:#f0fdf4; color:#059669; border-color:#a7f3d0; }
   .btn-export-excel:hover { background:#059669; color:#fff; border-color:#059669; }
@@ -341,7 +418,7 @@
 <!-- ════════════════════════════════
      LIST VIEW (original table)
 ════════════════════════════════ -->
-<div class="table-responsive" id="roomsTable">
+<div class="table-responsive table-responsive-stack" id="roomsTable">
     <table class="table">
         <thead>
             <tr>
@@ -358,14 +435,14 @@
         <tbody>
             {% for room in rooms %}
             <tr>
-                <td><span class="badge bg-primary">{{ room.label }}</span></td>
-                <td>{{ room.room_name }}</td>
-                <td><span class="badge bg-secondary">{{ room.get_room_category_display }}</span></td>
-                <td>{{ room.capacity }}</td>
-                <td>{{ room.incharge.user.get_full_name }}</td>
-                <td>{% if room.department %}{{ room.department.department_name }}{% else %}None{% endif %}</td>
-                <td>{{ room.created_on|date:"d-M-Y H:i:s" }}</td>
-                <td>
+                <td data-label="Room Label"><span class="badge bg-primary">{{ room.label }}</span></td>
+                <td data-label="Room Name">{{ room.room_name }}</td>
+                <td data-label="Category"><span class="badge bg-secondary">{{ room.get_room_category_display }}</span></td>
+                <td data-label="Capacity">{{ room.capacity }}</td>
+                <td data-label="Incharge">{{ room.incharge.user.get_full_name }}</td>
+                <td data-label="Department">{% if room.department %}{{ room.department.department_name }}{% else %}None{% endif %}</td>
+                <td data-label="Created On">{{ room.created_on|date:"d-M-Y H:i:s" }}</td>
+                <td data-label="Action">
                     <!-- Both central admin AND sub-admin can edit/delete -->
                     <div class="d-flex gap-1 action-buttons">
                         <a href="{% url 'central_admin:room_update' room_slug=room.slug %}" class="btn btn-dark btn-sm action-btn">Edit</a>
@@ -1206,6 +1283,18 @@ function getCookie(name) {
     }
     return cookieValue;
 }
+
+// Show Booking Status Modal
+function showBookingStatusModal() {
+    // The booking status view is already rendered in the template
+    // Just switch to the booking status view if not already active
+    const currentView = '{{ view_mode }}';
+    if (currentView !== 'booking') {
+        // Navigate to booking status view
+        window.location.href = '{% url "central_admin:room_list" %}?view=booking{% if request.GET.category %}&category={{ request.GET.category }}{% endif %}{% if request.GET.search %}&search={{ request.GET.search }}{% endif %}';
+    }
+}
+
 </script>
 
 {% endblock content %}

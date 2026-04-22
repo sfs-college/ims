@@ -165,6 +165,24 @@
     border-color: var(--accent);
   }
 
+  .action-buttons {
+    display: flex;
+    gap: 7px;
+    align-items: center;
+  }
+
+  @media (max-width: 767px) {
+    .action-buttons {
+      flex-direction: row;
+      gap: 6px;
+      justify-content: stretch;
+      width: 100%;
+      margin-top: 10px;
+      padding-top: 10px;
+      border-top: 1px solid var(--border);
+    }
+  }
+
   .empty-state {
     text-align: center;
     padding: 60px 24px;
@@ -177,6 +195,75 @@
     margin-bottom: 12px;
   }
   .empty-state p { margin: 0; font-size: 14px; }
+
+  /* Mobile responsive table styles */
+  @media (max-width: 767px) {
+    .table-responsive-stack {
+      display: block;
+    }
+    
+    .table-responsive-stack thead {
+      display: none;
+    }
+    
+    .table-responsive-stack tbody,
+    .table-responsive-stack tr,
+    .table-responsive-stack td {
+      display: block;
+      width: 100% !important;
+    }
+    
+    .table-responsive-stack tr {
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      margin-bottom: 15px;
+      padding: 15px;
+      background: var(--surface);
+      box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+    }
+    
+    .table-responsive-stack td {
+      border: none !important;
+      padding: 8px 0 !important;
+      text-align: left !important;
+      position: relative;
+      padding-left: 140px !important;
+    }
+    
+    .table-responsive-stack td:before {
+      content: attr(data-label) ": ";
+      position: absolute;
+      left: 0;
+      width: 130px;
+      font-weight: 600;
+      color: var(--text-muted);
+      font-size: 0.85rem;
+    }
+    
+    .table-responsive-stack td:first-child {
+      padding-left: 0 !important;
+    }
+    
+    .table-responsive-stack td:first-child:before {
+      display: none;
+    }
+    
+    .btn-action-delete {
+      flex: 1;
+      justify-content: center;
+      min-height: 38px;
+      font-size: 11px;
+      padding: 6px 8px;
+    }
+    
+    .btn-action-edit {
+      flex: 1;
+      justify-content: center;
+      min-height: 38px;
+      font-size: 11px;
+      padding: 6px 8px;
+    }
+  }
 </style>
 {% endblock style %}
 
@@ -199,32 +286,40 @@
 
 <div class="data-card">
   {% if departments %}
-  <table class="data-table">
-    <thead>
-      <tr>
-        <th>Department Name</th>
-        <th>Action</th>
-      </tr>
-    </thead>
-    <tbody>
-      {% for department in departments %}
-      <tr>
-        <td>
-          <span class="row-label">
-            <span class="row-dot"></span>
-            {{ department.department_name }}
-          </span>
-        </td>
-        <td>
-          <a href="{% url 'central_admin:department_delete' department_slug=department.slug %}" class="btn-action-delete">
-            <span class="material-symbols-outlined" style="font-size:14px">delete</span>
-            Delete
-          </a>
-        </td>
-      </tr>
-      {% endfor %}
-    </tbody>
-  </table>
+  <div class="table-responsive-stack">
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Department Name</th>
+          <th>Action</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for department in departments %}
+        <tr>
+          <td data-label="Department Name">
+            <span class="row-label">
+              <span class="row-dot"></span>
+              {{ department.department_name }}
+            </span>
+          </td>
+          <td data-label="Action">
+            <div class="action-buttons">
+              <a href="{% url 'central_admin:department_update' department_slug=department.slug %}" class="btn-action-edit">
+                <span class="material-symbols-outlined" style="font-size:14px">edit</span>
+                Edit
+              </a>
+              <a href="{% url 'central_admin:department_delete' department_slug=department.slug %}" class="btn-action-delete">
+                <span class="material-symbols-outlined" style="font-size:14px">delete</span>
+                Delete
+              </a>
+            </div>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
   {% else %}
   <div class="empty-state">
     <span class="material-symbols-outlined">tile_medium</span>

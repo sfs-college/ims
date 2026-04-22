@@ -66,8 +66,8 @@
     background: var(--surface);
     border-radius: 14px;
     border: 1px solid var(--border);
+    padding: 24px;
     overflow: hidden;
-    box-shadow: 0 1px 8px rgba(0,0,0,0.04);
   }
 
   .data-table {
@@ -262,6 +262,97 @@
     display: block;
     margin-bottom: 12px;
   }
+
+  /* Mobile responsive table styles */
+  @media (max-width: 767px) {
+    .table-responsive-stack {
+      display: block;
+    }
+    
+    .table-responsive-stack thead {
+      display: none;
+    }
+    
+    .table-responsive-stack tbody,
+    .table-responsive-stack tr,
+    .table-responsive-stack td {
+      display: block;
+      width: 100% !important;
+    }
+    
+    .table-responsive-stack tr {
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      margin-bottom: 15px;
+      padding: 15px;
+      background: var(--surface);
+      box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+    }
+    
+    .table-responsive-stack td {
+      border: none !important;
+      padding: 8px 0 !important;
+      text-align: left !important;
+      position: relative;
+      padding-left: 120px !important;
+    }
+    
+    .table-responsive-stack td:before {
+      content: attr(data-label) ": ";
+      position: absolute;
+      left: 0;
+      width: 110px;
+      font-weight: 600;
+      color: var(--text-muted);
+      font-size: 0.85rem;
+    }
+    
+    .table-responsive-stack td:first-child {
+      padding-left: 0 !important;
+    }
+    
+    .table-responsive-stack td:first-child:before {
+      display: none;
+    }
+    
+    .mobile-action-group {
+      display: flex;
+      gap: 8px;
+      flex-direction: column;
+      width: 100%;
+      margin-top: 10px;
+      padding-top: 10px;
+      border-top: 1px solid var(--border);
+    }
+    
+    .mobile-action-group .btn-action {
+      flex: 1;
+      justify-content: center;
+      min-height: 38px;
+      font-size: 11px;
+      padding: 6px 8px;
+    }
+    
+    .person-name {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    
+    .avatar {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      background: var(--accent);
+      color: white;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      font-size: 16px;
+      flex-shrink: 0;
+    }
+  }
 </style>
 {% endblock style %}
 
@@ -284,52 +375,54 @@
 
 <div class="data-card">
   {% if people %}
-  <table class="data-table">
-    <thead>
-      <tr>
-        <th>Full Name</th>
-        <th>Email</th>
-        <th>Role</th>
-        <th>Action</th>
-      </tr>
-    </thead>
-    <tbody>
-      {% for person in people %}
-      <tr>
-        <td>
-          <span class="person-name">
-            <span class="avatar">{{ person.user.get_full_name|first|upper }}</span>
-            {{ person.user.get_full_name }}
-          </span>
-        </td>
-        <td class="email-cell">{{ person.user.email }}</td>
-        <td>
-          {% if person.is_central_admin %}
-            <span class="role-badge role-central">Central Admin</span>
-          {% elif person.is_sub_admin %}
-            <span class="role-badge role-sub">Sub Admin</span>
-          {% elif person.is_incharge %}
-            <span class="role-badge role-incharge">Room Incharge</span>
-          {% else %}
-            <span class="role-badge role-unknown">Unknown</span>
-          {% endif %}
-        </td>
-        <td>
-          <div class="action-buttons">
-            <button class="btn-action btn-action-edit" onclick="openEditModal('{{ person.slug }}')">
-              <span class="material-symbols-outlined" style="font-size:14px">edit</span>
-              Edit
-            </button>
-            <a href="{% url 'central_admin:people_delete' people_slug=person.slug %}" class="btn-action btn-action-delete">
-              <span class="material-symbols-outlined" style="font-size:14px">delete</span>
-              Delete
-            </a>
-          </div>
-        </td>
-      </tr>
-      {% endfor %}
-    </tbody>
-  </table>
+  <div class="table-responsive-stack">
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Full Name</th>
+          <th>Email</th>
+          <th>Role</th>
+          <th>Action</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for person in people %}
+        <tr>
+          <td data-label="Full Name">
+            <span class="person-name">
+              <span class="avatar">{{ person.user.get_full_name|first|upper }}</span>
+              {{ person.user.get_full_name }}
+            </span>
+          </td>
+          <td data-label="Email" class="email-cell">{{ person.user.email }}</td>
+          <td data-label="Role">
+            {% if person.is_central_admin %}
+              <span class="role-badge role-central">Central Admin</span>
+            {% elif person.is_sub_admin %}
+              <span class="role-badge role-sub">Sub Admin</span>
+            {% elif person.is_incharge %}
+              <span class="role-badge role-incharge">Room Incharge</span>
+            {% else %}
+              <span class="role-badge role-unknown">Unknown</span>
+            {% endif %}
+          </td>
+          <td data-label="Action">
+            <div class="action-buttons mobile-action-group">
+              <button class="btn-action btn-action-edit" onclick="openEditModal('{{ person.slug }}')">
+                <span class="material-symbols-outlined" style="font-size:14px">edit</span>
+                Edit
+              </button>
+              <a href="{% url 'central_admin:people_delete' people_slug=person.slug %}" class="btn-action btn-action-delete">
+                <span class="material-symbols-outlined" style="font-size:14px">delete</span>
+                Delete
+              </a>
+            </div>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
   {% else %}
   <div class="empty-state">
     <span class="material-symbols-outlined">groups</span>
