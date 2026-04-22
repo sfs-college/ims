@@ -26,6 +26,7 @@ urlpatterns = [
     path('issues/', central_admin.IssueListView.as_view(), name='issue_list'),
     path('departments/', central_admin.DepartmentListView.as_view(), name='department_list'),
     path('departments/create/', central_admin.DepartmentCreateView.as_view(), name='department_create'),
+    path('departments/<slug:department_slug>/update/', central_admin.DepartmentUpdateView.as_view(), name='department_update'),
     path('departments/<slug:department_slug>/delete/', central_admin.DepartmentDeleteView.as_view(), name='department_delete'),
     #Issue Resolving by admin
     path("issues/<int:pk>/resolve/", central_admin.admin_resolve_issue, name="resolve_issue"),

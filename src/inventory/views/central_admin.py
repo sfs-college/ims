@@ -777,6 +777,24 @@ class DepartmentCreateView(LoginRequiredMixin, CreateView):
         return redirect(self.success_url)
 
 
+class DepartmentUpdateView(LoginRequiredMixin, UpdateView):
+    model = Department
+    template_name = 'central_admin/department_update.html'
+    form_class = DepartmentForm
+    slug_field = 'slug'
+    slug_url_kwarg = 'department_slug'
+    success_url = reverse_lazy('central_admin:department_list')
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['page_title'] = 'Edit Department'
+        return context
+
+    def form_valid(self, form):
+        messages.success(self.request, f'Department "{form.instance.department_name}" updated successfully!')
+        return super().form_valid(form)
+
+
 class DepartmentDeleteView(LoginRequiredMixin, DeleteView):
     model = Department
     template_name = 'central_admin/department_delete_confirm.html'
@@ -1323,13 +1341,16 @@ def admin_notification_counts(request):
     is_central = profile.is_central_admin and not profile.is_sub_admin
     org        = profile.org
 
-    counts = {
-        'booking_requests': RoomBookingRequest.objects.filter(status='pending' , tat_deadline__gt=timezone.now()).count(),
-        'cancel_requests':  RoomCancellationRequest.objects.filter(status='pending').count(),
-        'stock_requests':   StockRequest.objects.filter(status='pending').count(),
-        'tat_requests':     IssueTimeExtensionRequest.objects.filter(status='pending').count(),
-        'escalated_issues': Issue.objects.filter(status='escalated', organisation=org).count(),
-    }
+    try:
+        counts = {
+            'booking_requests': RoomBookingRequest.objects.filter(status='pending', tat_deadline__gt=timezone.now()).count(),
+            'cancel_requests': RoomCancellationRequest.objects.filter(status='pending').count(),
+            'stock_requests': StockRequest.objects.filter(status='pending').count(),
+            'tat_requests': IssueTimeExtensionRequest.objects.filter(status='pending').count(),
+            'escalated_issues': Issue.objects.filter(status='escalated', organisation=org).count(),
+        }
+    except Exception as e:
+        return JsonResponse({'error': f'Database error: {str(e)}'}, status=500)
 
     if is_central:
         counts['purchase_requests'] = Purchase.objects.filter(

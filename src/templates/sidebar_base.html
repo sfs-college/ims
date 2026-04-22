@@ -11,6 +11,78 @@
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined" />
     <link href="{% static 'utils/bootstrap/css/bootstrap.min.css' %}" rel="stylesheet">
     {% block style %}{% endblock style %}
+<style>
+    /* Universal Back Button Styles */
+    .universal-back-btn {
+        position: fixed;
+        top: 80px; /* Moved down to avoid header conflicts */
+        right: 20px;
+        z-index: 1040; /* Lowered z-index to avoid conflicts */
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 10px 16px;
+        background: linear-gradient(135deg, #6366f1, #8b5cf6);
+        color: white;
+        border: none;
+        border-radius: 12px;
+        font-weight: 600;
+        font-size: 14px;
+        text-decoration: none;
+        box-shadow: 0 4px 12px rgba(99,102,241,0.3);
+        transition: all 0.3s ease;
+        cursor: pointer;
+        font-family: 'DM Sans', sans-serif;
+        opacity: 0.9;
+    }
+    
+    .universal-back-btn:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(99,102,241,0.4);
+        color: white;
+        text-decoration: none;
+    }
+    
+    .universal-back-btn .material-symbols-outlined {
+        font-size: 18px;
+    }
+    
+    /* Mobile adjustments */
+    @media (max-width: 768px) {
+        .universal-back-btn {
+            top: 70px; /* Adjusted for mobile header */
+            right: 15px;
+            padding: 8px 12px;
+            font-size: 13px;
+            min-height: 44px;
+        }
+        
+        .universal-back-btn .material-symbols-outlined {
+            font-size: 16px;
+        }
+    }
+    
+    @media (max-width: 480px) {
+        .universal-back-btn {
+            top: 65px; /* Further adjusted for small mobile */
+            right: 10px;
+            padding: 6px 10px;
+            font-size: 12px;
+            min-height: 40px;
+        }
+        
+        .universal-back-btn .material-symbols-outlined {
+            font-size: 14px;
+        }
+    }
+    
+    /* Hide when sidebar is visible on desktop */
+    @media (min-width: 769px) {
+        .sidebar-visible .universal-back-btn {
+            display: none;
+        }
+    }
+</style>
 </head>
 
 <body class="bg-light">
@@ -21,6 +93,14 @@
 
         <!-- Sidebar -->
         {% block sidebar %}{% endblock sidebar %}
+
+        <!-- Universal Back Button -->
+        {% block back_button %}
+        <a href="javascript:history.back()" class="universal-back-btn" id="universalBackBtn">
+            <span class="material-symbols-outlined">arrow_back</span>
+            <span>Back</span>
+        </a>
+        {% endblock back_button %}
 
         <!-- Main Content -->
         <section class="main-content">

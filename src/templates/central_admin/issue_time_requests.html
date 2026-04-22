@@ -1,48 +1,139 @@
-<table class="table table-hover align-middle">
-    <thead class="table-light">
-        <tr>
-            <th>Issue</th>
-            <th>Requested By</th>
-            <th>Current SLA</th>
-            <th>Extra Time</th>
-            <th>Reason</th>
-            <th class="text-center">Action</th>
-        </tr>
-    </thead>
+<style>
+    /* Mobile responsiveness for issue time requests table */
+    @media (max-width: 767px) {
+        .table-responsive-stack {
+            display: block;
+        }
+        
+        .table-responsive-stack thead {
+            display: none;
+        }
+        
+        .table-responsive-stack tbody,
+        .table-responsive-stack tr,
+        .table-responsive-stack td {
+            display: block;
+            width: 100% !important;
+        }
+        
+        .table-responsive-stack tr {
+            border: 1px solid #dee2e6;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            padding: 15px;
+            background: #fff;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+        
+        .table-responsive-stack td {
+            border: none !important;
+            padding: 8px 0 !important;
+            text-align: left !important;
+            position: relative;
+            padding-left: 120px !important;
+        }
+        
+        .table-responsive-stack td:before {
+            content: attr(data-label) ": ";
+            position: absolute;
+            left: 0;
+            width: 110px;
+            font-weight: 600;
+            color: #495057;
+            font-size: 0.85rem;
+        }
+        
+        .table-responsive-stack td:last-child {
+            padding-left: 0 !important;
+            padding-top: 15px !important;
+            border-top: 1px solid #e9ecef !important;
+            margin-top: 10px;
+        }
+        
+        .table-responsive-stack td:last-child:before {
+            display: none;
+        }
+        
+        .mobile-action-group {
+            display: flex;
+            gap: 8px;
+            flex-direction: column;
+            width: 100%;
+        }
+        
+        .mobile-action-group form {
+            flex: 1;
+        }
+        
+        .mobile-action-group .btn {
+            width: 100%;
+            min-height: 44px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.9rem;
+        }
+    }
+    
+    @media (min-width: 768px) {
+        .table-responsive-stack {
+            display: table;
+        }
+        
+        .mobile-action-group {
+            display: flex;
+            gap: 8px;
+            justify-content: center;
+        }
+    }
+</style>
+
+<div class="table-responsive-stack">
+    <table class="table table-hover align-middle">
+        <thead class="table-light">
+            <tr>
+                <th>Issue</th>
+                <th>Requested By</th>
+                <th>Current SLA</th>
+                <th>Extra Time</th>
+                <th>Reason</th>
+                <th class="text-center">Action</th>
+            </tr>
+        </thead>
 
     <tbody>
     {% for r in requests %}
         <tr>
-            <td class="fw-semibold">
+            <td class="fw-semibold" data-label="Issue">
                 #{{ r.issue.ticket_id }}
             </td>
 
-            <td>
+            <td data-label="Requested By">
                 {{ r.requested_by }}
             </td>
 
-            <td>
+            <td data-label="Current SLA">
                 {{ r.current_tat_hours }} hrs
             </td>
 
-            <td class="text-warning fw-bold">
+            <td class="text-warning fw-bold" data-label="Extra Time">
                 +{{ r.requested_extra_hours }} hrs
             </td>
 
-            <td style="max-width: 280px;">
+            <td style="max-width: 280px;" data-label="Reason">
                 {{ r.reason }}
             </td>
 
             <!-- ✅ ADMIN ACTION BUTTONS -->
-            <td class="text-center">
-                <div class="d-flex justify-content-center gap-2">
+            <td class="text-center" data-label="Action">
+                <div class="mobile-action-group">
 
                     <form method="post"
                           action="{% url 'central_admin:approve_issue_time_extension' r.pk %}">
                         {% csrf_token %}
                         <button type="submit"
                                 class="btn btn-sm btn-success">
-                            Approve
+                            <i class="bi bi-check-lg me-1"></i> Approve
                         </button>
                     </form>
 
@@ -51,7 +142,7 @@
                         {% csrf_token %}
                         <button type="submit"
                                 class="btn btn-sm btn-outline-danger">
-                            Reject
+                            <i class="bi bi-x-lg me-1"></i> Reject
                         </button>
                     </form>
 
@@ -67,3 +158,4 @@
     {% endfor %}
     </tbody>
 </table>
+</div>

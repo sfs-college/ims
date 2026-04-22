@@ -1,0 +1,111 @@
+/* Mobile Responsiveness for Booking Files Modal */
+
+/* Enhanced mobile responsiveness for booking file cards */
+@media (max-width: 768px) {
+    .booking-file-card {
+        flex-direction: column !important;
+        padding: 16px !important;
+        gap: 12px !important;
+    }
+    
+    .bfc-icon {
+        width: 40px !important;
+        height: 40px !important;
+        align-self: flex-start !important;
+        margin-bottom: 8px;
+    }
+    
+    .bfc-icon i {
+        font-size: 1.2rem !important;
+    }
+    
+    .bfc-body {
+        width: 100% !important;
+    }
+    
+    .bfc-room {
+        font-size: 0.95rem !important;
+        margin-bottom: 6px !important;
+        word-wrap: break-word !important;
+        overflow-wrap: break-word !important;
+    }
+    
+    .bfc-meta {
+        font-size: 0.78rem !important;
+        margin-bottom: 5px !important;
+        word-wrap: break-word !important;
+        overflow-wrap: break-word !important;
+    }
+    
+    .bfc-purpose {
+        font-size: 0.82rem !important;
+        padding: 10px 12px !important;
+        margin-bottom: 10px !important;
+        line-height: 1.5 !important;
+        white-space: normal !important;
+        word-wrap: break-word !important;
+        overflow-wrap: break-word !important;
+        hyphens: auto !important;
+    }
+    
+    .bfc-actions {
+        flex-direction: column !important;
+        gap: 10px !important;
+        align-items: stretch !important;
+    }
+    
+    .btn-view-file,
+    .btn-dl-file,
+    .btn-delete-booking,
+    .btn-forward-booking {
+        width: 100% !important;
+        min-height: 44px !important;
+        font-size: 0.85rem !important;
+        padding: 10px 16px !important;
+        justify-content: center !important;
+    }
+    
+    .bfc-checkbox-wrap {
+        position: absolute !important;
+        top: 16px !important;
+        right: 16px !important;
+        padding-top: 0 !important;
+    }
+}
+
+@media (max-width: 480px) {
+    .booking-file-card {
+        padding: 12px !important;
+        margin-bottom: 12px !important;
+    }
+    
+    .bfc-icon {
+        width: 36px !important;
+        height: 36px !important;
+    }
+    
+    .bfc-icon i {
+        font-size: 1rem !important;
+    }
+    
+    .bfc-room {
+        font-size: 0.9rem !important;
+    }
+    
+    .bfc-meta {
+        font-size: 0.75rem !important;
+    }
+    
+    .bfc-purpose {
+        font-size: 0.8rem !important;
+        padding: 8px 10px !important;
+    }
+    
+    .btn-view-file,
+    .btn-dl-file,
+    .btn-delete-booking,
+    .btn-forward-booking {
+        font-size: 0.8rem !important;
+        padding: 8px 12px !important;
+    }
+}

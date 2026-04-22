@@ -176,6 +176,95 @@
     display: block;
     margin-bottom: 12px;
   }
+
+  /* Mobile responsive table styles */
+  @media (max-width: 767px) {
+    .table-responsive-stack {
+      display: block;
+    }
+    
+    .table-responsive-stack thead {
+      display: none;
+    }
+    
+    .table-responsive-stack tbody,
+    .table-responsive-stack tr,
+    .table-responsive-stack td {
+      display: block;
+      width: 100% !important;
+    }
+    
+    .table-responsive-stack tr {
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      margin-bottom: 15px;
+      padding: 15px;
+      background: var(--surface);
+      box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+    }
+    
+    .table-responsive-stack td {
+      border: none !important;
+      padding: 8px 0 !important;
+      text-align: left !important;
+      position: relative;
+      padding-left: 120px !important;
+    }
+    
+    .table-responsive-stack td:before {
+      content: attr(data-label) ": ";
+      position: absolute;
+      left: 0;
+      width: 110px;
+      font-weight: 600;
+      color: var(--text-muted);
+      font-size: 0.85rem;
+    }
+    
+    .table-responsive-stack td:first-child {
+      padding-left: 0 !important;
+    }
+    
+    .table-responsive-stack td:first-child:before {
+      display: none;
+    }
+    
+    .actions-cell {
+      display: flex;
+      gap: 8px;
+      flex-direction: column;
+      width: 100%;
+      margin-top: 10px;
+      padding-top: 10px;
+      border-top: 1px solid var(--border);
+    }
+    
+    .actions-cell .btn-action-edit,
+    .actions-cell .btn-action-delete {
+      flex: 1;
+      justify-content: center;
+      min-height: 38px;
+      font-size: 11px;
+      padding: 6px 8px;
+    }
+    
+    .vendor-name {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    
+    .vendor-icon {
+      width: 40px;
+      height: 40px;
+      border-radius: 8px;
+      background: linear-gradient(135deg, #f0f0ff, #e8e6ff);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+  }
 </style>
 {% endblock style %}
 
@@ -198,44 +287,47 @@
 
 <div class="data-card">
   {% if vendors %}
-  <table class="data-table">
-    <thead>
-      <tr>
-        <th>Vendor Name</th>
-        <th>Email</th>
-        <th>Contact Number</th>
-        <th>Action</th>
-      </tr>
-    </thead>
-    <tbody>
-      {% for vendor in vendors %}
-      <tr>
-        <td>
-          <span class="vendor-name">
-            <span class="vendor-icon">
-              <span class="material-symbols-outlined">storefront</span>
+  <div class="table-responsive-stack">
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th data-label="Vendor Name">Vendor Name</th>
+          <th data-label="Contact Person">Contact Person</th>
+          <th data-label="Email">Email</th>
+          <th data-label="Phone">Phone</th>
+          <th data-label="Action">Action</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for vendor in vendors %}
+        <tr>
+          <td data-label="Vendor Name">
+            <span class="vendor-name">
+              <span class="vendor-icon">
+                <span class="material-symbols-outlined">storefront</span>
+              </span>
+              {{ vendor.vendor_name }}
             </span>
-            {{ vendor.vendor_name }}
-          </span>
-        </td>
-        <td class="contact-cell">{{ vendor.email }}</td>
-        <td class="contact-cell">{{ vendor.contact_number }}</td>
-        <td>
-          <div class="actions-cell">
-            <a href="{% url 'central_admin:vendor_update' vendor_slug=vendor.slug %}" class="btn-action-edit">
-              <span class="material-symbols-outlined" style="font-size:14px">edit</span>
-              Edit
-            </a>
-            <a href="{% url 'central_admin:vendor_delete' vendor_slug=vendor.slug %}" class="btn-action-delete">
-              <span class="material-symbols-outlined" style="font-size:14px">delete</span>
-              Delete
-            </a>
-          </div>
-        </td>
-      </tr>
-      {% endfor %}
-    </tbody>
-  </table>
+          </td>
+          <td class="contact-cell">{{ vendor.email }}</td>
+          <td class="contact-cell">{{ vendor.contact_number }}</td>
+          <td>
+            <div class="actions-cell">
+              <a href="{% url 'central_admin:vendor_update' vendor_slug=vendor.slug %}" class="btn-action-edit">
+                <span class="material-symbols-outlined" style="font-size:14px">edit</span>
+                Edit
+              </a>
+              <a href="{% url 'central_admin:vendor_delete' vendor_slug=vendor.slug %}" class="btn-action-delete">
+                <span class="material-symbols-outlined" style="font-size:14px">delete</span>
+                Delete
+              </a>
+            </div>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
   {% else %}
   <div class="empty-state">
     <span class="material-symbols-outlined">storefront</span>

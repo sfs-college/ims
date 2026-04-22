@@ -8,11 +8,32 @@ class IssueReportForm(form_mixin.BootstrapFormMixin, forms.ModelForm):
     """
     Form for students to report issues.
     The email is handled automatically via Google Auth in the view logic.
+    All fields are mandatory to ensure complete issue reporting.
     """
 
-    subject = forms.CharField(required=True, widget=forms.TextInput(attrs={'class': 'form-control'}))
-    description = forms.CharField(required=True, widget=forms.Textarea(attrs={'class': 'form-control', 'rows': 4}))
-    room = forms.ModelChoiceField(queryset=Room.objects.all(), required=True, widget=forms.Select(attrs={'class': 'form-control'}))
+    subject = forms.CharField(
+        required=True, 
+        widget=forms.TextInput(attrs={
+            'class': 'form-control',
+            'placeholder': 'Enter issue subject'
+        })
+    )
+    description = forms.CharField(
+        required=True, 
+        widget=forms.Textarea(attrs={
+            'class': 'form-control', 
+            'rows': 4,
+            'placeholder': 'Describe the issue in detail'
+        })
+    )
+    room = forms.ModelChoiceField(
+        queryset=Room.objects.all(), 
+        required=True, 
+        widget=forms.Select(attrs={
+            'class': 'form-control',
+            'placeholder': 'Select room/department'
+        })
+    )
 
     class Meta:
         model = Issue

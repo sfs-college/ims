@@ -154,6 +154,294 @@
     .empty-state { grid-column:1/-1; text-align:center; padding:80px 20px; color:#94a3b8; }
     .empty-icon  { font-size:4rem; margin-bottom:16px; opacity:0.2; display:block; }
 
+    /* ── MOBILE RESPONSIVENESS ───────────────────────────────────── */
+    /* Extra small devices (phones under 480px) */
+    @media (max-width: 479px) {
+        .admin-container { 
+            padding: 15px !important; 
+            background: #f8fafc; 
+            min-height: 100vh; 
+        }
+        
+        .glass-header {
+            padding: 20px 15px !important;
+            border-radius: 15px !important;
+            margin-bottom: 20px !important;
+            flex-direction: column !important;
+            align-items: flex-start !important;
+            gap: 15px !important;
+        }
+        
+        .header-title h2 {
+            font-size: 1.5rem !important;
+            line-height: 1.2 !important;
+        }
+        
+        .header-title p {
+            font-size: 0.85rem !important;
+        }
+        
+        .type-toggle {
+            width: 100% !important;
+            flex-direction: column !important;
+            border-radius: 12px !important;
+            padding: 4px !important;
+            gap: 4px !important;
+        }
+        
+        .toggle-slider {
+            display: none !important;
+        }
+        
+        .type-toggle .tab-btn {
+            width: 100% !important;
+            padding: 12px 16px !important;
+            border-radius: 8px !important;
+            font-size: 0.85rem !important;
+            justify-content: space-between !important;
+            background: #f1f5f9 !important;
+            margin-bottom: 4px !important;
+            transition: all 0.2s ease !important;
+        }
+        
+        .type-toggle .tab-btn.active {
+            background: #6366f1 !important;
+            color: #fff !important;
+            box-shadow: 0 2px 8px rgba(99, 102, 241, 0.3) !important;
+        }
+        
+        .tab-count {
+            min-width: 24px !important;
+            height: 24px !important;
+            font-size: 0.75rem !important;
+            padding: 0 8px !important;
+        }
+        
+        .request-grid {
+            grid-template-columns: 1fr !important;
+            gap: 16px !important;
+        }
+        
+        .request-card {
+            padding: 18px !important;
+            border-radius: 15px !important;
+        }
+        
+        .req-title {
+            font-size: 1.1rem !important;
+            line-height: 1.3 !important;
+            margin-bottom: 10px !important;
+        }
+        
+        .meta-pills {
+            gap: 6px !important;
+            margin-bottom: 12px !important;
+        }
+        
+        .pill {
+            font-size: 0.75rem !important;
+            padding: 6px 10px !important;
+            border-radius: 6px !important;
+        }
+        
+        .detail-zone {
+            padding: 12px !important;
+            font-size: 0.82rem !important;
+            margin-bottom: 12px !important;
+        }
+        
+        .change-item {
+            padding: 6px 0 !important;
+            font-size: 0.82rem !important;
+        }
+        
+        .action-group {
+            flex-direction: column !important;
+            gap: 8px !important;
+            margin-top: 12px !important;
+        }
+        
+        .btn-approve-grad, .btn-reject-outline {
+            padding: 12px !important;
+            font-size: 0.85rem !important;
+            border-radius: 8px !important;
+            min-height: 48px !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+        }
+        
+        .empty-state {
+            padding: 60px 15px !important;
+        }
+        
+        .empty-icon {
+            font-size: 3rem !important;
+        }
+        
+        #toastContainer {
+            top: 10px !important;
+            right: 10px !important;
+            left: 10px !important;
+        }
+        
+        .bx-toast {
+            min-width: auto !important;
+            max-width: none !important;
+            margin: 0 5px !important;
+        }
+    }
+    
+    /* Small devices (phones 480px - 767px) */
+    @media (min-width: 480px) and (max-width: 767px) {
+        .admin-container { 
+            padding: 20px !important; 
+        }
+        
+        .glass-header {
+            padding: 22px 20px !important;
+            border-radius: 16px !important;
+            margin-bottom: 25px !important;
+        }
+        
+        .header-title h2 {
+            font-size: 1.6rem !important;
+        }
+        
+        .type-toggle {
+            width: 100% !important;
+            flex-wrap: wrap !important;
+            gap: 6px !important;
+        }
+        
+        .toggle-slider {
+            display: none !important;
+        }
+        
+        .type-toggle .tab-btn {
+            flex: 1 1 calc(50% - 3px) !important;
+            min-width: calc(50% - 3px) !important;
+            padding: 10px 12px !important;
+            font-size: 0.82rem !important;
+            justify-content: center !important;
+            background: #f1f5f9 !important;
+            margin-bottom: 6px !important;
+        }
+        
+        .type-toggle .tab-btn.active {
+            background: #6366f1 !important;
+            color: #fff !important;
+        }
+        
+        .request-grid {
+            grid-template-columns: 1fr !important;
+            gap: 18px !important;
+        }
+        
+        .request-card {
+            padding: 20px !important;
+        }
+        
+        .action-group {
+            flex-direction: column !important;
+            gap: 10px !important;
+        }
+        
+        .btn-approve-grad, .btn-reject-outline {
+            padding: 11px !important;
+            min-height: 46px !important;
+        }
+    }
+    
+    /* Medium devices (tablets 768px - 1023px) */
+    @media (min-width: 768px) and (max-width: 1023px) {
+        .admin-container { 
+            padding: 25px !important; 
+        }
+        
+        .glass-header {
+            padding: 24px 25px !important;
+            border-radius: 18px !important;
+            margin-bottom: 30px !important;
+            flex-wrap: wrap !important;
+            gap: 15px !important;
+        }
+        
+        .header-title h2 {
+            font-size: 1.7rem !important;
+        }
+        
+        .type-toggle {
+            order: 2 !important;
+            width: 100% !important;
+        }
+        
+        .type-toggle .tab-btn {
+            padding: 8px 14px !important;
+            font-size: 0.84rem !important;
+        }
+        
+        .tab-count {
+            min-width: 18px !important;
+            height: 18px !important;
+            font-size: 0.7rem !important;
+        }
+        
+        .request-grid {
+            grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)) !important;
+            gap: 20px !important;
+        }
+        
+        .request-card {
+            padding: 22px !important;
+        }
+        
+        .action-group {
+            gap: 8px !important;
+        }
+        
+        .btn-approve-grad, .btn-reject-outline {
+            padding: 10px !important;
+            font-size: 0.86rem !important;
+        }
+    }
+    
+    /* Large devices (desktops 1024px - 1439px) */
+    @media (min-width: 1024px) and (max-width: 1439px) {
+        .request-grid {
+            grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)) !important;
+            gap: 22px !important;
+        }
+        
+        .glass-header {
+            padding: 24px 30px !important;
+        }
+        
+        .type-toggle .tab-btn {
+            padding: 9px 16px !important;
+            font-size: 0.86rem !important;
+        }
+    }
+    
+    /* Touch device optimizations */
+    @media (hover: none) and (pointer: coarse) {
+        .type-toggle .tab-btn {
+            min-height: 44px !important;
+        }
+        
+        .btn-approve-grad, .btn-reject-outline {
+            min-height: 44px !important;
+        }
+        
+        .request-card {
+            transition: none !important;
+        }
+        
+        .request-card:hover {
+            transform: none !important;
+        }
+    }
+
     /* ── Toast ────────────────────────────────────────────── */
     #toastContainer {
         position:fixed; top:24px; right:24px; z-index:99999;
