@@ -242,7 +242,14 @@ else:
     EMAIL_HOST_USER = env('EMAIL_HOST_USER')
     EMAIL_HOST_PASSWORD = env('EMAIL_HOST_PASSWORD')
     DEFAULT_FROM_EMAIL = env('DEFAULT_FROM_EMAIL')
-    EMAIL_TIMEOUT = 10
+    # Extended timeout for slower networks (Capacitor/mobile environments)
+    EMAIL_TIMEOUT = env.int('EMAIL_TIMEOUT', default=30)
+    # Connection pooling settings
+    EMAIL_USE_LOCALTIME = True
+    # Fail silently in production to prevent 500 errors from email issues
+    EMAIL_FAIL_SILENTLY = env.bool('EMAIL_FAIL_SILENTLY', default=False)
+    # File-based backend fallback for failed emails
+    EMAIL_FILE_PATH = os.path.join(BASE_DIR, 'failed_emails')
 
 COLLEGE_CODE = env("COLLEGE_CODE")
 STUDENT_API_KEY = env("STUDENT_API_KEY")

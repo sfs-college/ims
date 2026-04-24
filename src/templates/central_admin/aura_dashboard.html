@@ -1396,7 +1396,7 @@
     }
 
     // 7. Optimized Backend PDF Download Logic
-    function downloadAuraPDF() {
+    async function downloadAuraPDF() {
         const moduleName = document.getElementById('reportModule').value;
         const dateFrom = document.getElementById('dateFrom').value;
         const dateTo = document.getElementById('dateTo').value;
@@ -1408,12 +1408,21 @@
             return;
         }
 
-        // Redirect to the backend PDF view with existing filters
+        // Use mobile-aware download manager
         const baseUrl = '{% url "central_admin:aura_api_pdf" %}';   
         const downloadUrl = `${baseUrl}?model=${moduleName}&date_from=${dateFrom}&date_to=${dateTo}`;
+        const filename = `aura_report_${moduleName}_${dateFrom || 'all'}_to_${dateTo || 'all'}.pdf`;
         
-        // Open in new tab to trigger download
-        window.open(downloadUrl, '_blank');
+        try {
+            await DownloadManager.download(downloadUrl, filename, {
+                mimeType: 'application/pdf',
+                openAfterDownload: false
+            });
+        } catch (err) {
+            console.error('PDF download failed:', err);
+            // Fallback to browser method
+            window.open(downloadUrl, '_blank');
+        }
     }
 
     // 8. Toggle all checkboxes and show/hide bulk delete button
@@ -1786,7 +1795,7 @@
 
     
     // Excel Download Logic
-    function downloadAuraExcel() {
+    async function downloadAuraExcel() {
         const moduleName = document.getElementById('reportModule').value;
         const dateFrom = document.getElementById('dateFrom').value;
         const dateTo = document.getElementById('dateTo').value;
@@ -1797,9 +1806,21 @@
             return;
         }
 
+        // Use mobile-aware download manager
         const baseUrl = '{% url "central_admin:aura_api_excel" %}';   
         const downloadUrl = `${baseUrl}?model=${moduleName}&date_from=${dateFrom}&date_to=${dateTo}`;
-        window.open(downloadUrl, '_blank');
+        const filename = `aura_report_${moduleName}_${dateFrom || 'all'}_to_${dateTo || 'all'}.xlsx`;
+        
+        try {
+            await DownloadManager.download(downloadUrl, filename, {
+                mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                openAfterDownload: false
+            });
+        } catch (err) {
+            console.error('Excel download failed:', err);
+            // Fallback to browser method
+            window.open(downloadUrl, '_blank');
+        }
     }
 
     // Toggle edit password visibility

@@ -1098,9 +1098,29 @@ function exportExcel() {
 }
 
 // ── Main export dispatcher ────────────────────────────────────────
-function exportRooms(type) {
-    if (type === 'pdf')   exportPDF();
-    if (type === 'excel') exportExcel();
+async function exportRooms(type) {
+    if (type === 'pdf') {
+        exportPDF();
+        // Show mobile notification if on mobile
+        if (window.IS_MOBILE || window.IS_CAPACITOR) {
+            setTimeout(() => {
+                if (window.DownloadManager) {
+                    DownloadManager.showNotification('PDF report generated', 'success');
+                }
+            }, 500);
+        }
+    }
+    if (type === 'excel') {
+        exportExcel();
+        // Show mobile notification if on mobile
+        if (window.IS_MOBILE || window.IS_CAPACITOR) {
+            setTimeout(() => {
+                if (window.DownloadManager) {
+                    DownloadManager.showNotification('Excel report generated', 'success');
+                }
+            }, 500);
+        }
+    }
 }
 
 function showRevertedRoomsModal() {
