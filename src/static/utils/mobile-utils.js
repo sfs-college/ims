@@ -1,6 +1,7 @@
 /**
  * Mobile Utilities for Blixtro IMS
- * Handles Capacitor integration, mobile downloads, and mobile-specific features
+ * Handles Capacitor integration, mobile downloads, Google Auth, and mobile-specific features
+ * Version: 4.0 - Fixed Google Auth, Downloads, Loading Animations
  */
 
 (function() {
@@ -15,6 +16,8 @@
         isAndroid: false,
         capacitor: null,
         browser: null,
+        app: null,
+        share: null,
 
         /**
          * Initialize mobile detection
@@ -23,6 +26,7 @@
             this.detectCapacitor();
             this.detectMobile();
             this.setupMobileViewport();
+            this.setupDeepLinkHandler();
         },
 
         /**
@@ -45,6 +49,85 @@
         },
 
         /**
+         * Setup deep link handler for OAuth callbacks
+         */
+        setupDeepLinkHandler() {
+            if (!this.isCapacitor) return;
+            
+            // Handle app URL opens (for OAuth callbacks)
+            if (window.Capacitor.Plugins?.App) {
+                this.app = window.Capacitor.Plugins.App;
+                this.app.addListener('appUrlOpen', (data) => {
+                    console.log('[MobileUtils] Deep link received:', data.url);
+                    this.handleDeepLink(data.url);
+                });
+            }
+        },
+
+        /**
+         * Handle deep link URLs (OAuth callbacks)
+         */
+        handleDeepLink(url) {
+            // Parse the URL for OAuth callbacks
+            const urlObj = new URL(url);
+            const params = new URLSearchParams(urlObj.search);
+            
+            // Handle Firebase/Google auth callback
+            if (url.includes('/auth/') || url.includes('firebase')) {
+                const idToken = params.get('id_token') || params.get('token');
+                if (idToken) {
+                    console.log('[MobileUtils] Auth token received via deep link');
+                    // Submit token to backend
+                    this.submitAuthToken(idToken);
+                }
+            }
+        },
+
+        /**
+         * Submit auth token to backend
+         */
+        async submitAuthToken(idToken) {
+            try {
+                PageLoader.show('Completing login...');
+                
+                const form = document.createElement('form');
+                form.method = 'POST';
+                form.action = '/auth/firebase-login/';
+                
+                const tokenInput = document.createElement('input');
+                tokenInput.type = 'hidden';
+                tokenInput.name = 'id_token';
+                tokenInput.value = idToken;
+                
+                const csrfInput = document.createElement('input');
+                csrfInput.type = 'hidden';
+                csrfInput.name = 'csrfmiddlewaretoken';
+                // Try to get CSRF token from cookie or meta
+                csrfInput.value = this.getCsrfToken();
+                
+                form.appendChild(tokenInput);
+                form.appendChild(csrfInput);
+                document.body.appendChild(form);
+                form.submit();
+            } catch (err) {
+                console.error('[MobileUtils] Token submission failed:', err);
+                PageLoader.hide();
+            }
+        },
+
+        /**
+         * Get CSRF token from cookie or meta tag
+         */
+        getCsrfToken() {
+            const meta = document.querySelector('meta[name="csrf-token"]');
+            if (meta) return meta.content;
+            
+            // Try to get from cookie
+            const match = document.cookie.match(/csrftoken=([^;]+)/);
+            return match ? match[1] : '';
+        },
+
+        /**
          * Load Capacitor plugins dynamically
          */
         async loadCapacitorPlugins() {
@@ -58,6 +141,23 @@
                 }
                 if (window.Capacitor.Plugins?.FileOpener) {
                     this.fileOpener = window.Capacitor.Plugins.FileOpener;
+                }
+                if (window.Capacitor.Plugins?.Share) {
+                    this.share = window.Capacitor.Plugins.Share;
+                }
+                if (window.Capacitor.Plugins?.App) {
+                    this.app = window.Capacitor.Plugins.App;
+                }
+                // Request permissions on Android
+                if (this.isAndroid && window.Capacitor.Plugins?.Permissions) {
+                    try {
+                        const { Permissions } = window.Capacitor.Plugins;
+                        await Permissions.requestPermissions({
+                            permissions: ['storage', 'photos']
+                        });
+                    } catch (permErr) {
+                        console.log('[MobileUtils] Permission request:', permErr);
+                    }
                 }
             } catch (err) {
                 console.error('[MobileUtils] Error loading Capacitor plugins:', err);
@@ -140,21 +240,34 @@
         },
 
         async downloadNative(url, filename, options) {
+            let progressNotification = null;
+            
             try {
                 if (!window.Capacitor.Plugins?.Filesystem) {
+                    console.log('[DownloadManager] Filesystem plugin not available, using browser');
                     return this.downloadBrowser(url, filename, options);
                 }
 
                 const { Filesystem, Directory } = window.Capacitor.Plugins;
                 
-                // Show progress
-                this.showNotification('Downloading...', 'info');
+                // Show progress notification
+                progressNotification = this.showNotification('Downloading...', 'info', 0);
                 
-                const response = await fetch(url, { headers: options.headers || {} });
+                // Fetch with progress tracking
+                const response = await fetch(url, { 
+                    headers: options.headers || {},
+                    cache: 'no-cache'
+                });
+                
                 if (!response.ok) {
-                    throw new Error(`HTTP ${response.status}`);
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
                 }
                 
+                // Get content length for progress
+                const contentLength = response.headers.get('Content-Length');
+                const totalSize = contentLength ? parseInt(contentLength, 10) : 0;
+                
+                // Read response as blob
                 const blob = await response.blob();
                 const arrayBuffer = await blob.arrayBuffer();
                 const base64Data = this.arrayBufferToBase64(arrayBuffer);
@@ -162,35 +275,94 @@
                 const mimeType = blob.type || options.mimeType || 'application/octet-stream';
                 const finalFilename = filename || `download_${Date.now()}`;
                 
-                // Write to cache first, then move to downloads
-                const result = await Filesystem.writeFile({
-                    path: finalFilename,
-                    data: base64Data,
-                    directory: Directory.Cache,
-                    recursive: true
-                });
+                // Determine best directory based on platform
+                let targetDirectory = Directory.Cache;
+                let targetPath = finalFilename;
                 
-                // Move to external storage for user access
-                const downloadResult = await Filesystem.writeFile({
-                    path: `Download/${finalFilename}`,
-                    data: base64Data,
-                    directory: Directory.ExternalStorage,
-                    recursive: true
-                });
-                
-                this.showNotification(`Saved: ${finalFilename}`, 'success');
-                
-                if (options.openAfterDownload && window.Capacitor.Plugins?.FileOpener) {
-                    await window.Capacitor.Plugins.FileOpener.open({
-                        filePath: result.uri,
-                        mimeType: mimeType
-                    });
+                if (MobileUtils.isAndroid) {
+                    // On Android, use ExternalStorage/Downloads for user access
+                    targetDirectory = Directory.ExternalStorage;
+                    targetPath = `Download/${finalFilename}`;
+                    
+                    // Try to create Download directory if needed
+                    try {
+                        await Filesystem.mkdir({
+                            path: 'Download',
+                            directory: Directory.ExternalStorage,
+                            recursive: true
+                        });
+                    } catch (mkdirErr) {
+                        // Directory might already exist
+                        console.log('[DownloadManager] Download dir:', mkdirErr.message);
+                    }
+                } else if (MobileUtils.isIOS) {
+                    // On iOS, use Documents and share via share sheet
+                    targetDirectory = Directory.Documents;
+                    targetPath = finalFilename;
                 }
                 
-                return { success: true, method: 'native', uri: result.uri };
+                // Write file
+                const writeResult = await Filesystem.writeFile({
+                    path: targetPath,
+                    data: base64Data,
+                    directory: targetDirectory,
+                    recursive: true
+                });
+                
+                // Dismiss progress notification
+                if (progressNotification) {
+                    progressNotification.remove();
+                }
+                
+                // Show success notification
+                this.showNotification(`Downloaded: ${finalFilename}`, 'success');
+                
+                // On iOS, offer to share the file
+                if (MobileUtils.isIOS && MobileUtils.share && options.shareOnIOS !== false) {
+                    try {
+                        await MobileUtils.share.share({
+                            title: finalFilename,
+                            url: writeResult.uri,
+                            dialogTitle: 'Save or Share File'
+                        });
+                    } catch (shareErr) {
+                        // User might have cancelled share
+                        console.log('[DownloadManager] Share:', shareErr);
+                    }
+                }
+                
+                // Optionally open file
+                if (options.openAfterDownload && window.Capacitor.Plugins?.FileOpener) {
+                    try {
+                        await window.Capacitor.Plugins.FileOpener.open({
+                            filePath: writeResult.uri,
+                            mimeType: mimeType
+                        });
+                    } catch (openErr) {
+                        console.error('[DownloadManager] Open file failed:', openErr);
+                    }
+                }
+                
+                return { 
+                    success: true, 
+                    method: 'native', 
+                    uri: writeResult.uri,
+                    path: targetPath,
+                    size: totalSize
+                };
+                
             } catch (err) {
                 console.error('[DownloadManager] Native download failed:', err);
-                this.showNotification('Download failed, trying browser method', 'error');
+                
+                // Dismiss progress notification
+                if (progressNotification) {
+                    progressNotification.remove();
+                }
+                
+                // Show error notification briefly
+                this.showNotification('Download failed, trying alternative...', 'error');
+                
+                // Fallback to browser method
                 return this.downloadBrowser(url, filename, options);
             }
         },
@@ -204,14 +376,16 @@
             return window.btoa(binary);
         },
 
-        showNotification(message, type = 'info') {
+        showNotification(message, type = 'info', duration = 3000) {
             const colors = {
                 success: '#10b981',
                 error: '#ef4444',
-                info: '#6366f1'
+                info: '#6366f1',
+                warning: '#f59e0b'
             };
             
             const toast = document.createElement('div');
+            toast.className = 'mobile-toast-notification';
             toast.style.cssText = `
                 position: fixed;
                 bottom: 100px;
@@ -226,15 +400,185 @@
                 z-index: 9999;
                 box-shadow: 0 4px 12px rgba(0,0,0,0.2);
                 animation: slideUp 0.3s ease;
+                max-width: 90vw;
+                text-align: center;
+                word-wrap: break-word;
             `;
             toast.textContent = message;
             document.body.appendChild(toast);
             
-            setTimeout(() => {
-                toast.style.opacity = '0';
-                toast.style.transition = 'opacity 0.3s';
-                setTimeout(() => toast.remove(), 300);
-            }, 3000);
+            // Return object with remove method for persistent notifications
+            const notification = {
+                element: toast,
+                remove: () => {
+                    toast.style.opacity = '0';
+                    toast.style.transition = 'opacity 0.3s';
+                    setTimeout(() => toast.remove(), 300);
+                },
+                update: (newMessage, newType) => {
+                    toast.textContent = newMessage;
+                    toast.style.background = colors[newType] || colors.info;
+                }
+            };
+            
+            if (duration > 0) {
+                setTimeout(() => notification.remove(), duration);
+            }
+            
+            return notification;
+        }
+    };
+
+    // ==================== PAGE LOADER (Loading Animation) ====================
+    
+    const PageLoader = {
+        loaderElement: null,
+        isVisible: false,
+        
+        /**
+         * Show loading animation
+         * @param {string} message - Message to display
+         * @param {string} type - 'full' | 'overlay' | 'inline'
+         */
+        show(message = 'Loading...', type = 'overlay') {
+            if (this.isVisible) {
+                this.updateMessage(message);
+                return this;
+            }
+            
+            this.hide(); // Remove any existing loader
+            this.isVisible = true;
+            
+            const loader = document.createElement('div');
+            loader.id = 'pageLoader';
+            loader.className = `page-loader page-loader-${type}`;
+            
+            const accentColor = '#6366f1';
+            const accentColor2 = '#8b5cf6';
+            
+            loader.style.cssText = `
+                position: ${type === 'full' ? 'fixed' : 'fixed'};
+                top: 0;
+                left: 0;
+                right: 0;
+                bottom: 0;
+                width: 100%;
+                height: 100%;
+                background: ${type === 'overlay' ? 'rgba(15, 23, 42, 0.85)' : 'linear-gradient(135deg, #0f172a 0%, #1e293b 100%)'};
+                backdrop-filter: blur(8px);
+                -webkit-backdrop-filter: blur(8px);
+                z-index: 99999;
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                justify-content: center;
+                animation: pageLoaderFadeIn 0.3s ease;
+            `;
+            
+            loader.innerHTML = `
+                <div class="page-loader-spinner" style="
+                    position: relative;
+                    width: 60px;
+                    height: 60px;
+                    margin-bottom: 20px;
+                ">
+                    <div style="
+                        position: absolute;
+                        top: 0;
+                        left: 0;
+                        width: 100%;
+                        height: 100%;
+                        border: 4px solid transparent;
+                        border-top-color: ${accentColor};
+                        border-radius: 50%;
+                        animation: pageLoaderSpin 0.8s linear infinite;
+                    "></div>
+                    <div style="
+                        position: absolute;
+                        top: 8px;
+                        left: 8px;
+                        width: calc(100% - 16px);
+                        height: calc(100% - 16px);
+                        border: 4px solid transparent;
+                        border-top-color: ${accentColor2};
+                        border-radius: 50%;
+                        animation: pageLoaderSpin 0.6s linear infinite reverse;
+                    "></div>
+                    <div style="
+                        position: absolute;
+                        top: 50%;
+                        left: 50%;
+                        transform: translate(-50%, -50%);
+                        width: 12px;
+                        height: 12px;
+                        background: linear-gradient(135deg, ${accentColor}, ${accentColor2});
+                        border-radius: 50%;
+                        box-shadow: 0 0 20px ${accentColor};
+                    "></div>
+                </div>
+                <div class="page-loader-message" style="
+                    color: #f1f5f9;
+                    font-size: 16px;
+                    font-weight: 500;
+                    font-family: 'DM Sans', sans-serif;
+                    text-align: center;
+                    max-width: 80vw;
+                    animation: pageLoaderPulse 1.5s ease-in-out infinite;
+                ">${message}</div>
+            `;
+            
+            document.body.appendChild(loader);
+            this.loaderElement = loader;
+            
+            // Add styles if not already added
+            this.addLoaderStyles();
+            
+            return this;
+        },
+        
+        updateMessage(message) {
+            if (this.loaderElement) {
+                const msgEl = this.loaderElement.querySelector('.page-loader-message');
+                if (msgEl) msgEl.textContent = message;
+            }
+        },
+        
+        hide() {
+            if (this.loaderElement) {
+                this.loaderElement.style.animation = 'pageLoaderFadeOut 0.3s ease';
+                setTimeout(() => {
+                    this.loaderElement?.remove();
+                    this.loaderElement = null;
+                    this.isVisible = false;
+                }, 300);
+            }
+            this.isVisible = false;
+        },
+        
+        addLoaderStyles() {
+            if (document.getElementById('pageLoaderStyles')) return;
+            
+            const style = document.createElement('style');
+            style.id = 'pageLoaderStyles';
+            style.textContent = `
+                @keyframes pageLoaderSpin {
+                    from { transform: rotate(0deg); }
+                    to { transform: rotate(360deg); }
+                }
+                @keyframes pageLoaderFadeIn {
+                    from { opacity: 0; transform: scale(0.95); }
+                    to { opacity: 1; transform: scale(1); }
+                }
+                @keyframes pageLoaderFadeOut {
+                    from { opacity: 1; transform: scale(1); }
+                    to { opacity: 0; transform: scale(0.95); }
+                }
+                @keyframes pageLoaderPulse {
+                    0%, 100% { opacity: 0.7; }
+                    50% { opacity: 1; }
+                }
+            `;
+            document.head.appendChild(style);
         }
     };
 
@@ -267,22 +611,60 @@
         },
 
         async capacitorGoogleLogin(firebaseConfig, options) {
-            console.log('[MobileAuth] Using Capacitor Google login flow');
+            console.log('[MobileAuth] Using Capacitor in-app browser login flow');
             
-            if (!window.firebase?.apps?.length) {
-                window.firebase.initializeApp(firebaseConfig);
+            // Show loading
+            PageLoader.show('Opening Google Sign-In...', 'overlay');
+            
+            try {
+                // Initialize Firebase if not already done
+                if (!window.firebase?.apps?.length) {
+                    window.firebase.initializeApp(firebaseConfig);
+                }
+                
+                // Use backend-based OAuth flow for better Capacitor compatibility
+                // This opens Google auth in the in-app browser and redirects back to the app
+                const authUrl = `/auth/google/?next=${encodeURIComponent(options.redirectUrl || '/')}`;
+                
+                if (MobileUtils.browser) {
+                    // Store pending login state
+                    sessionStorage.setItem('pendingGoogleLogin', 'true');
+                    sessionStorage.setItem('loginRedirectUrl', options.redirectUrl || '/');
+                    
+                    // Open auth URL in in-app browser
+                    await MobileUtils.browser.open({ 
+                        url: window.location.origin + authUrl,
+                        presentationStyle: 'popover'
+                    });
+                    
+                    PageLoader.hide();
+                    return { success: true, method: 'in-app-browser' };
+                } else {
+                    // Fallback to Firebase signInWithRedirect (may open external browser)
+                    PageLoader.updateMessage('Redirecting to Google...');
+                    
+                    const provider = new firebase.auth.GoogleAuthProvider();
+                    if (options.domain) {
+                        provider.setCustomParameters({ 
+                            hd: options.domain,
+                            prompt: 'select_account'
+                        });
+                    }
+                    
+                    sessionStorage.setItem('pendingGoogleLogin', 'true');
+                    sessionStorage.setItem('loginRedirectUrl', options.redirectUrl || '/');
+                    
+                    // Small delay to show loading
+                    await new Promise(r => setTimeout(r, 500));
+                    
+                    await firebase.auth().signInWithRedirect(provider);
+                    return { success: true, method: 'firebase-redirect' };
+                }
+            } catch (err) {
+                PageLoader.hide();
+                console.error('[MobileAuth] Capacitor login flow error:', err);
+                throw err;
             }
-
-            const provider = new firebase.auth.GoogleAuthProvider();
-            if (options.domain) {
-                provider.setCustomParameters({ hd: options.domain });
-            }
-
-            sessionStorage.setItem('pendingGoogleLogin', 'true');
-            sessionStorage.setItem('loginRedirectUrl', options.redirectUrl || '/');
-
-            await firebase.auth().signInWithRedirect(provider);
-            return { success: true, method: 'firebase-redirect' };
         },
 
         async handleRedirectResult() {
@@ -291,6 +673,18 @@
             if (!pendingLogin) return null;
 
             try {
+                // Check for token in URL (from in-app browser flow)
+                const urlParams = new URLSearchParams(window.location.search);
+                const tokenFromUrl = urlParams.get('token') || urlParams.get('id_token');
+                
+                if (tokenFromUrl) {
+                    sessionStorage.removeItem('pendingGoogleLogin');
+                    // Clean URL
+                    window.history.replaceState({}, document.title, window.location.pathname);
+                    return { success: true, idToken: tokenFromUrl, method: 'url-token' };
+                }
+                
+                // Otherwise try Firebase redirect result
                 const result = await firebase.auth().getRedirectResult();
                 if (result.user) {
                     sessionStorage.removeItem('pendingGoogleLogin');
@@ -303,6 +697,58 @@
                 throw err;
             }
             return null;
+        },
+        
+        /**
+         * Open Google auth in in-app browser (for Capacitor)
+         * This ensures the auth stays within the app
+         */
+        async openInAppAuth(authUrl, options = {}) {
+            if (!MobileUtils.browser) {
+                // Fallback to window.open
+                window.location.href = authUrl;
+                return;
+            }
+            
+            return new Promise((resolve, reject) => {
+                let authCompleted = false;
+                
+                // Listen for browser close
+                const closeListener = MobileUtils.browser.addListener('browserFinished', () => {
+                    if (!authCompleted) {
+                        console.log('[MobileAuth] Browser closed without auth');
+                        PageLoader.hide();
+                        reject(new Error('Authentication cancelled'));
+                    }
+                });
+                
+                // Listen for URL changes (auth completion)
+                const urlListener = MobileUtils.app?.addListener('appUrlOpen', (data) => {
+                    console.log('[MobileAuth] URL opened:', data.url);
+                    if (data.url.includes('/auth/') || data.url.includes('token')) {
+                        authCompleted = true;
+                        closeListener.remove();
+                        urlListener?.remove();
+                        
+                        // Parse token from URL
+                        const urlObj = new URL(data.url);
+                        const token = urlObj.searchParams.get('token') || urlObj.searchParams.get('id_token');
+                        
+                        if (token) {
+                            resolve({ idToken: token });
+                        } else {
+                            reject(new Error('No token in callback URL'));
+                        }
+                    }
+                });
+                
+                // Open the browser
+                MobileUtils.browser.open({ 
+                    url: authUrl,
+                    presentationStyle: 'popover',
+                    toolbarColor: '#6366f1'
+                });
+            });
         },
 
         fallbackEmailLogin(options) {
@@ -823,6 +1269,33 @@
                     </div>
                     <span class="fn-label">${item.label}</span>
                 `;
+                
+                // Add click handler with loading animation
+                a.addEventListener('click', (e) => {
+                    // Don't intercept if it's a direct match or modifier key pressed
+                    if (e.metaKey || e.ctrlKey || e.shiftKey || e.button !== 0) {
+                        return;
+                    }
+                    
+                    // Check if navigating to different page
+                    const currentPath = window.location.pathname;
+                    const targetPath = new URL(item.url, window.location.href).pathname;
+                    
+                    if (targetPath !== currentPath) {
+                        // Show loading animation
+                        PageLoader.show(`Loading ${item.label}...`, 'overlay');
+                        
+                        // Add visual feedback to clicked item
+                        a.style.transform = 'scale(0.92)';
+                        setTimeout(() => {
+                            a.style.transform = '';
+                        }, 150);
+                        
+                        // Allow navigation to proceed
+                        // PageLoader will be hidden by page unload/navigation
+                    }
+                });
+                
                 row.appendChild(a);
             });
 
@@ -1068,6 +1541,7 @@
     window.DownloadManager = DownloadManager;
     window.MobileAuth = MobileAuth;
     window.MobileNav = MobileNav;
+    window.PageLoader = PageLoader;
     window.initMobileFeatures = init;
 
     // Auto-init on DOM ready
