@@ -633,18 +633,40 @@ function getExportFields() {
     return getSelectedFields();
 }
 
-function exportPDF() {
+async function exportPDF() {
     const fields = getExportFields();
     if (!fields.length) { alert('Select at least one column.'); return; }
     const params = fields.map(f => `fields=${f}`).join('&');
-    window.open(`{% url 'central_admin:master_inventory_export_pdf' %}?${params}`, '_blank');
+    const downloadUrl = `{% url 'central_admin:master_inventory_export_pdf' %}?${params}`;
+    const filename = `inventory_report_${new Date().toISOString().slice(0,10)}.pdf`;
+    
+    try {
+        await DownloadManager.download(downloadUrl, filename, {
+            mimeType: 'application/pdf',
+            openAfterDownload: false
+        });
+    } catch (err) {
+        console.error('PDF export failed:', err);
+        window.open(downloadUrl, '_blank');
+    }
 }
 
-function exportExcel() {
+async function exportExcel() {
     const fields = getExportFields();
     if (!fields.length) { alert('Select at least one column.'); return; }
     const params = fields.map(f => `fields=${f}`).join('&');
-    window.location.href = `{% url 'central_admin:master_inventory_export_excel' %}?${params}`;
+    const downloadUrl = `{% url 'central_admin:master_inventory_export_excel' %}?${params}`;
+    const filename = `inventory_report_${new Date().toISOString().slice(0,10)}.xlsx`;
+    
+    try {
+        await DownloadManager.download(downloadUrl, filename, {
+            mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            openAfterDownload: false
+        });
+    } catch (err) {
+        console.error('Excel export failed:', err);
+        window.location.href = downloadUrl;
+    }
 }
 
 // ── ASSIGNMENTS MODAL ──

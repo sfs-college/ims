@@ -11,6 +11,7 @@
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined" />
     <link href="{% static 'utils/bootstrap/css/bootstrap.min.css' %}" rel="stylesheet">
     {% block style %}{% endblock style %}
+    <script src="{% static 'utils/mobile-utils.js' %}?v=3"></script>
 <style>
     /* Universal Back Button Styles */
     .universal-back-btn {
@@ -80,6 +81,13 @@
     @media (min-width: 769px) {
         .sidebar-visible .universal-back-btn {
             display: none;
+        }
+    }
+    
+    /* Mobile footer nav padding */
+    @media (max-width: 900px) {
+        body {
+            padding-bottom: 90px !important;
         }
     }
 </style>

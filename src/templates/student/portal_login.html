@@ -92,6 +92,7 @@
 
 <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
+<script src="{% static 'utils/mobile-utils.js' %}?v=2"></script>
 <script>
     // Values injected server-side from settings.py via context processor.
     // No secrets are hardcoded here.
@@ -106,22 +107,98 @@
     firebase.initializeApp(firebaseConfig);
 
     async function googleLogin() {
-        const provider = new firebase.auth.GoogleAuthProvider();
-        provider.setCustomParameters({ hd: 'sfscollege.in' });
+        const button = document.querySelector('button[onclick="googleLogin()"]');
+        const originalText = button.innerHTML;
+        button.disabled = true;
+        button.innerHTML = '<i class="bi bi-spinner-border bi-spin me-2"></i> Connecting...';
+        
         try {
-            const result = await firebase.auth().signInWithPopup(provider);
-            const idToken = await result.user.getIdToken();
-            const form = document.createElement('form');
-            form.method = 'POST';
-            form.action = "{% url 'core:firebase_login' %}";
-            const tokenInput = document.createElement('input');
-            tokenInput.type = 'hidden'; tokenInput.name = 'id_token'; tokenInput.value = idToken;
-            const csrfInput = document.createElement('input');
-            csrfInput.type = 'hidden'; csrfInput.name = 'csrfmiddlewaretoken'; csrfInput.value = '{{ csrf_token }}';
-            form.appendChild(tokenInput); form.appendChild(csrfInput);
-            document.body.appendChild(form);
-            form.submit();
-        } catch (error) { alert("Login failed: " + error.message); }
+            // Use mobile-aware authentication
+            const result = await MobileAuth.googleLogin(firebaseConfig, {
+                domain: 'sfscollege.in',
+                redirectUrl: window.location.href,
+                authUrl: "{% url 'core:firebase_login' %}"
+            });
+            
+            if (result.idToken) {
+                // Success - submit token to backend
+                const form = document.createElement('form');
+                form.method = 'POST';
+                form.action = "{% url 'core:firebase_login' %}";
+                const tokenInput = document.createElement('input');
+                tokenInput.type = 'hidden'; 
+                tokenInput.name = 'id_token'; 
+                tokenInput.value = result.idToken;
+                const csrfInput = document.createElement('input');
+                csrfInput.type = 'hidden'; 
+                csrfInput.name = 'csrfmiddlewaretoken'; 
+                csrfInput.value = '{{ csrf_token }}';
+                form.appendChild(tokenInput); 
+                form.appendChild(csrfInput);
+                document.body.appendChild(form);
+                form.submit();
+            } else if (result.method === 'firebase-redirect') {
+                // Redirect in progress, wait for result
+                console.log('[Login] Redirecting for authentication...');
+                return;
+            } else if (result.method === 'email-link') {
+                // Email link sent
+                button.innerHTML = '<i class="bi bi-check-lg me-2"></i> Check your email!';
+                button.classList.remove('btn-danger');
+                button.classList.add('btn-success');
+                setTimeout(() => {
+                    button.innerHTML = originalText;
+                    button.disabled = false;
+                    button.classList.add('btn-danger');
+                    button.classList.remove('btn-success');
+                }, 5000);
+                return;
+            }
+        } catch (error) {
+            console.error('[Login] Failed:', error);
+            button.innerHTML = originalText;
+            button.disabled = false;
+            
+            // Show friendly error
+            const errorDiv = document.createElement('div');
+            errorDiv.className = 'alert alert-danger mt-3 mx-auto';
+            errorDiv.style.maxWidth = '400px';
+            errorDiv.innerHTML = '<i class="bi bi-exclamation-circle me-2"></i>' + (error.message || 'Login failed. Please try again.');
+            
+            const existingAlert = document.querySelector('.alert-danger');
+            if (existingAlert) existingAlert.remove();
+            
+            const authBox = document.querySelector('.google-auth-box');
+            authBox.appendChild(errorDiv);
+            
+            setTimeout(() => errorDiv.remove(), 5000);
+        }
     }
+    
+    // Handle Firebase redirect result on page load (for Capacitor)
+    document.addEventListener('DOMContentLoaded', async function() {
+        try {
+            const result = await MobileAuth.handleRedirectResult();
+            if (result && result.idToken) {
+                const form = document.createElement('form');
+                form.method = 'POST';
+                form.action = "{% url 'core:firebase_login' %}";
+                const tokenInput = document.createElement('input');
+                tokenInput.type = 'hidden'; 
+                tokenInput.name = 'id_token'; 
+                tokenInput.value = result.idToken;
+                const csrfInput = document.createElement('input');
+                csrfInput.type = 'hidden'; 
+                csrfInput.name = 'csrfmiddlewaretoken'; 
+                csrfInput.value = '{{ csrf_token }}';
+                form.appendChild(tokenInput); 
+                form.appendChild(csrfInput);
+                document.body.appendChild(form);
+                form.submit();
+            }
+        } catch (err) {
+            console.error('[Login] Redirect handling error:', err);
+        }
+    });
 </script>
 {% endblock %}
