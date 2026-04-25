@@ -16,6 +16,7 @@ urlpatterns = [
      path('complete-password-reset/', views.CompletePasswordResetView.as_view(),
           name='complete_password_reset'),
      path("book-room/", views.room_booking_view, name="room_booking"),
+     path("edit-booking/<int:booking_id>/", views.edit_booking_view, name="edit_booking"),
      path('api/rooms-by-category/', views.rooms_by_category, name='rooms_by_category'),
      path("aura/import-creds/", views.import_booking_credentials, name="import_booking_credentials"),
      path("aura/create-cred/", views.create_booking_credentials, name="create_booking_credentials"),

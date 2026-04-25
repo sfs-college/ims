@@ -14,6 +14,7 @@ from inventory.models import UserProfile
 from django.core.mail import send_mail
 import pytz, uuid
 from django.core.validators import FileExtensionValidator
+from inventory.booking_utils import format_room_list
 
 class Room(models.Model):
     # CHANGE: Added fixed room category support for central admin room management
@@ -751,6 +752,7 @@ class StockRequest(models.Model):
 
 class RoomBooking(models.Model):
     room = models.ForeignKey(Room, on_delete=models.CASCADE)
+    rooms = models.ManyToManyField(Room, blank=True, related_name='multi_room_bookings')
     department = models.ForeignKey(Department, null=True, blank=True, on_delete=models.SET_NULL)
     faculty_name = models.CharField(max_length=255)
     faculty_email = models.EmailField()
@@ -779,6 +781,10 @@ class RoomBooking(models.Model):
         blank=True,
         help_text="Auto-extracted plain text from the uploaded requirements document."
     )
+    recommended_by_name = models.CharField(max_length=255, blank=True)
+    recommended_note = models.TextField(blank=True)
+    approved_by_name = models.CharField(max_length=255, blank=True)
+    approved_note = models.TextField(blank=True)
     
     slug = models.SlugField(unique=True, max_length=255, blank=True, null=True)
 
@@ -824,6 +830,10 @@ class RoomBooking(models.Model):
 
     def __str__(self):
         return f"{self.room.room_name} | {self.start_datetime.strftime('%Y-%m-%d %H:%M')}"
+
+    @property
+    def room_summary(self):
+        return format_room_list(self)
 
 
 class RoomBookingCredentials(models.Model):
@@ -911,6 +921,7 @@ class RoomBookingRequest(models.Model):
     ]
 
     room            = models.ForeignKey(Room, on_delete=models.CASCADE)
+    rooms           = models.ManyToManyField(Room, blank=True, related_name='multi_room_booking_requests')
     department      = models.ForeignKey(
                         'core.Department', null=True, blank=True, on_delete=models.SET_NULL
                       )
@@ -954,6 +965,35 @@ class RoomBookingRequest(models.Model):
     reminder_24h_sent = models.BooleanField(default=False)
     reminder_12h_sent = models.BooleanField(default=False)
 
+    WORKFLOW_STAGE_CHOICES = [
+        ('sub_admin',      'Sub Admin Review'),
+        ('central_admin',  'Central Admin Final Approval'),
+    ]
+ 
+    # Routing stage — starts at sub_admin, moves to central_admin after recommendation
+    workflow_stage   = models.CharField(
+        max_length=20,
+        choices=WORKFLOW_STAGE_CHOICES,
+        default='sub_admin',
+    )
+ 
+    # Set when a sub-admin recommends the booking
+    recommended_by   = models.ForeignKey(
+        'core.UserProfile',
+        null=True, blank=True,
+        on_delete=models.SET_NULL,
+        related_name='recommended_bookings',
+    )
+    recommended_note = models.TextField(blank=True)
+    approved_by = models.ForeignKey(
+        'core.UserProfile',
+        null=True, blank=True,
+        on_delete=models.SET_NULL,
+        related_name='approved_booking_requests',
+    )
+    approved_note = models.TextField(blank=True)
+ 
+
     def save(self, *args, **kwargs):
         # Set TAT deadline on first save
         if not self.pk and not self.tat_deadline:
@@ -962,6 +1002,10 @@ class RoomBookingRequest(models.Model):
 
     def __str__(self):
         return f"BookingReq [{self.status}]: {self.room} | {self.faculty_email}"
+
+    @property
+    def room_summary(self):
+        return format_room_list(self)
 
 
 class RoomCancellationRequest(models.Model):
@@ -993,3 +1037,167 @@ class RoomCancellationRequest(models.Model):
 
     def __str__(self):
         return f"CancelReq [{self.status}]: {self.booking}"
+
+
+class RoomBookingEditRequest(models.Model):
+    """
+    Faculty-raised request to edit an existing confirmed RoomBooking.
+    On approval → the linked RoomBooking is updated with new details.
+    On rejection → booking stays as is.
+    """
+    STATUS_CHOICES = [
+        ('pending',  'Pending'),
+        ('approved', 'Approved'),
+        ('rejected', 'Rejected'),
+    ]
+
+    original_booking = models.ForeignKey(
+                        RoomBooking, on_delete=models.CASCADE,
+                        related_name='edit_requests'
+                      )
+    faculty_email   = models.EmailField()
+    
+    # Store original values for comparison
+    original_rooms  = models.ManyToManyField(Room, blank=True, related_name='original_edit_requests')
+    original_start_datetime = models.DateTimeField()
+    original_end_datetime = models.DateTimeField()
+    original_purpose = models.TextField(null=True, blank=True)
+    original_department = models.ForeignKey(
+                        'core.Department', null=True, blank=True, on_delete=models.SET_NULL,
+                        related_name='original_edit_requests'
+                      )
+    
+    # New values requested by faculty
+    new_rooms = models.ManyToManyField(Room, blank=True, related_name='new_edit_requests')
+    new_start_datetime = models.DateTimeField()
+    new_end_datetime = models.DateTimeField()
+    new_purpose = models.TextField(null=True, blank=True)
+    new_department = models.ForeignKey(
+                        'core.Department', null=True, blank=True, on_delete=models.SET_NULL,
+                        related_name='new_edit_requests'
+                      )
+    new_requirements_doc = models.FileField(
+                        upload_to='room_booking_edits/requirements/',
+                        null=True, blank=True,
+                        validators=[FileExtensionValidator(
+                            allowed_extensions=['doc', 'docx', 'pdf']
+                        )],
+                      )
+    new_requirements_text = models.TextField(
+        null=True,
+        blank=True,
+        help_text="Plain text requirements typed by faculty for edited booking."
+    )
+    
+    # Change tracking fields
+    changes_made = models.JSONField(
+        default=dict,
+        help_text="Stores what fields were changed for highlighting in approval cards"
+    )
+    
+    status          = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
+    reviewed_by     = models.ForeignKey(
+                        UserProfile, on_delete=models.SET_NULL,
+                        null=True, blank=True,
+                        related_name='reviewed_edit_requests'
+                      )
+    review_note     = models.TextField(blank=True)
+    created_on      = models.DateTimeField(auto_now_add=True)
+    updated_on      = models.DateTimeField(auto_now=True)
+
+    # ── TAT tracking ────────────────────────────────────────────────────────
+    tat_deadline    = models.DateTimeField(
+                        null=True, blank=True,
+                        help_text="Deadline by which admin must approve/reject."
+                      )
+
+    WORKFLOW_STAGE_CHOICES = [
+        ('sub_admin',      'Sub Admin Review'),
+        ('central_admin',  'Central Admin Final Approval'),
+    ]
+ 
+    workflow_stage   = models.CharField(
+        max_length=20,
+        choices=WORKFLOW_STAGE_CHOICES,
+        default='sub_admin',
+    )
+ 
+    recommended_by   = models.ForeignKey(
+        'core.UserProfile',
+        null=True, blank=True,
+        on_delete=models.SET_NULL,
+        related_name='recommended_edit_requests',
+    )
+    recommended_note = models.TextField(blank=True)
+    approved_by = models.ForeignKey(
+        'core.UserProfile',
+        null=True, blank=True,
+        on_delete=models.SET_NULL,
+        related_name='approved_edit_requests',
+    )
+    approved_note = models.TextField(blank=True)
+
+    def save(self, *args, **kwargs):
+        # Set TAT deadline on first save
+        if not self.pk and not self.tat_deadline:
+            self.tat_deadline = timezone.now() + timezone.timedelta(hours=BOOKING_APPROVAL_TAT_HOURS)
+        
+        # Track changes made
+        if self.pk:
+            old_instance = RoomBookingEditRequest.objects.get(pk=self.pk)
+            self.changes_made = self._calculate_changes(old_instance)
+        else:
+            # For new requests, calculate changes from original booking
+            self.changes_made = self._calculate_changes_from_original()
+            
+        super().save(*args, **kwargs)
+        
+        # Update many-to-many relationships
+        if self.pk:
+            self.original_rooms.set(self.original_booking.rooms.all() if self.original_booking.rooms.exists() else [self.original_booking.room])
+    
+    def _calculate_changes_from_original(self):
+        """Calculate what fields were changed compared to original booking"""
+        changes = {}
+        
+        # Check rooms
+        original_rooms = list(self.original_booking.rooms.all() if self.original_booking.rooms.exists() else [self.original_booking.room])
+        if hasattr(self, 'new_rooms') and self.new_rooms.exists():
+            new_rooms = list(self.new_rooms.all())
+            if set(r.id for r in original_rooms) != set(r.id for r in new_rooms):
+                changes['rooms'] = {
+                    'old': format_room_list(original_rooms),
+                    'new': format_room_list(new_rooms)
+                }
+        
+        # Check datetime
+        if self.new_start_datetime != self.original_booking.start_datetime:
+            changes['start_datetime'] = {
+                'old': timezone.localtime(self.original_booking.start_datetime).strftime('%d %b %Y, %H:%M'),
+                'new': timezone.localtime(self.new_start_datetime).strftime('%d %b %Y, %H:%M')
+            }
+        
+        if self.new_end_datetime != self.original_booking.end_datetime:
+            changes['end_datetime'] = {
+                'old': timezone.localtime(self.original_booking.end_datetime).strftime('%d %b %Y, %H:%M'),
+                'new': timezone.localtime(self.new_end_datetime).strftime('%d %b %Y, %H:%M')
+            }
+        
+        # Check purpose
+        if self.new_purpose != self.original_booking.purpose:
+            changes['purpose'] = {
+                'old': self.original_booking.purpose or '—',
+                'new': self.new_purpose or '—'
+            }
+        
+        # Check department
+        if (self.new_department != self.original_booking.department):
+            changes['department'] = {
+                'old': str(self.original_booking.department) if self.original_booking.department else '—',
+                'new': str(self.new_department) if self.new_department else '—'
+            }
+        
+        return changes
+
+    def __str__(self):
+        return f"EditReq [{self.status}]: {self.original_booking}"

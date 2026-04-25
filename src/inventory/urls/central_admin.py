@@ -73,8 +73,11 @@ urlpatterns = [
     
     path('aura/credentials/<int:pk>/delete/', aura.credential_delete, name='credential_delete'),
     path('aura/credentials/<int:pk>/update/', aura.credential_update, name='credential_update'),
-    path('approvals/booking-request/<int:pk>/approve/', central_admin.ApproveRoomBookingRequestView.as_view(), name='approve_room_booking_request'),
-    path('approvals/booking-request/<int:pk>/reject/',  central_admin.RejectRoomBookingRequestView.as_view(),  name='reject_room_booking_request'),
+    path('booking-requests/approve/<int:pk>/', central_admin.ApproveRoomBookingRequestView.as_view(), name='approve_booking_request'),
+    path('booking-requests/reject/<int:pk>/', central_admin.RejectRoomBookingRequestView.as_view(), name='reject_booking_request'),
+    path('booking-edit-requests/recommend/<int:pk>/', central_admin.RecommendBookingEditRequestView.as_view(), name='recommend_booking_edit'),
+    path('booking-edit-requests/approve/<int:pk>/', central_admin.ApproveBookingEditRequestView.as_view(), name='approve_booking_edit'),
+    path('booking-edit-requests/reject/<int:pk>/', central_admin.RejectBookingEditRequestView.as_view(), name='reject_booking_edit'),
     path('approvals/cancel-request/<int:pk>/approve/',  central_admin.ApproveCancellationRequestView.as_view(), name='approve_cancellation_request'),
     path('approvals/cancel-request/<int:pk>/reject/',   central_admin.RejectCancellationRequestView.as_view(),  name='reject_cancellation_request'),
     path('aura/booking-status/', aura.get_booking_status, name='booking_status'),
@@ -105,4 +108,15 @@ urlpatterns = [
     path('reverted-items/', central_admin.RevertedItemsView.as_view(), name='reverted_items'),
     path('reverted-items/<int:reverted_item_id>/reassign/', central_admin.reassign_item, name='reassign_item'),
     path('api/room-asset-tags/', aura.get_room_asset_tags, name='get_room_asset_tags'),
+
+    path(
+        'approval/booking/<int:pk>/recommend/',
+        central_admin.RecommendRoomBookingRequestView.as_view(),
+        name='recommend_room_booking_request',
+    ),
+    path(
+        'approval/booking-request/<int:pk>/doc-text/',
+        central_admin.get_booking_request_doc_text,
+        name='booking_request_doc_text',
+    ),
 ]

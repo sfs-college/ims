@@ -12,8 +12,8 @@ from . forms import CustomAuthenticationForm, UserRegisterForm, CustomPasswordRe
 from core.models import UserProfile, Organisation
 from config.mixins.access_mixins import RedirectLoggedInUsersMixin
 from django.contrib import messages
-from core.forms import RoomBookingForm
-from inventory.models import Room, RoomBooking, RoomBookingRequest, RoomCancellationRequest, RoomBookingCredentials
+from core.forms import RoomBookingForm, RoomBookingEditForm
+from inventory.models import Room, RoomBooking, RoomBookingRequest, RoomCancellationRequest, RoomBookingCredentials, RoomBookingEditRequest
 from django.http import JsonResponse
 from django.utils.dateparse import parse_datetime
 from django.db.models import Q
@@ -25,6 +25,8 @@ import os
 from pathlib import Path
 import pandas as pd
 from datetime import date, timedelta
+from inventory.booking_utils import format_booking_details as build_booking_details, format_room_list, sort_rooms_iterable
+from inventory.email import build_email_shell
 
 User = get_user_model()
 
@@ -33,7 +35,7 @@ User = get_user_model()
 # HELPERS
 # ─────────────────────────────────────────────────────────────────────
 
-def _safe_mail(subject, message, recipient_list, fail_silently=True):
+def _safe_mail(subject, message, recipient_list, fail_silently=True, html_message=None):
     """Wrapper around safe_send_mail — imported lazily to avoid circular imports."""
     try:
         from inventory.email import safe_send_mail
@@ -41,6 +43,7 @@ def _safe_mail(subject, message, recipient_list, fail_silently=True):
             subject=subject,
             message=message,
             recipient_list=recipient_list,
+            html_message=html_message,
             fail_silently=fail_silently,
         )
     except Exception as _e:
@@ -56,18 +59,56 @@ def _admin_emails():
     )
 
 
-def _format_booking_details(room_name, faculty_name, start_dt, end_dt, purpose):
+def _sub_admin_emails():
+    """
+    Return email addresses for sub-admins only.
+    Falls back to central admins if no sub-admins exist.
+    """
+    emails = list(
+        UserProfile.objects.filter(is_sub_admin=True)
+        .values_list('user__email', flat=True)
+    )
+    if not emails:
+        # Fallback: if no sub-admins are configured, notify central admins
+        emails = list(
+            UserProfile.objects.filter(is_central_admin=True, is_sub_admin=False)
+            .values_list('user__email', flat=True)
+        )
+    return emails
+
+
+def _central_admin_only_emails():
+    """Return email addresses for central admins only (not sub-admins)."""
+    return list(
+        UserProfile.objects.filter(is_central_admin=True, is_sub_admin=False)
+        .values_list('user__email', flat=True)
+    )
+
+
+def _format_booking_details(rooms_or_instance, faculty_name, start_dt, end_dt, purpose, department=None):
     """Utility: format a readable booking-detail block for email bodies."""
+    return build_booking_details(rooms_or_instance, faculty_name, start_dt, end_dt, purpose, department)
+
+
+def _booking_email_sections(rooms_or_instance, faculty_name, faculty_email, start_dt, end_dt, purpose, department=None):
     from django.utils import timezone as _tz
+
     sl = _tz.localtime(start_dt)
     el = _tz.localtime(end_dt)
-    return (
-        f"\n  Room    : {room_name}"
-        f"\n  Faculty : {faculty_name}"
-        f"\n  Date    : {sl.strftime('%A, %d %B %Y')}"
-        f"\n  Time    : {sl.strftime('%I:%M %p')} – {el.strftime('%I:%M %p')}"
-        f"\n  Purpose : {purpose or '—'}"
-    )
+    return [
+        {
+            "title": "Booking Details",
+            "rows": [
+                {"label": "Room(s)", "value": format_room_list(rooms_or_instance)},
+                {"label": "Faculty", "value": faculty_name},
+                {"label": "Email", "value": faculty_email},
+                {"label": "Date", "value": sl.strftime('%A, %d %B %Y')},
+                {"label": "Time", "value": f"{sl.strftime('%I:%M %p')} to {el.strftime('%I:%M %p')}"},
+                {"label": "Purpose", "value": purpose or '—'},
+                {"label": "Department", "value": str(department) if department else '—'},
+            ],
+        }
+    ]
 
 
 # ─────────────────────────────────────────────────────────────────────
@@ -231,7 +272,9 @@ def room_booking_view(request):
             import uuid as _uuid
             import os as _os
             booking_req = form.save(commit=False)
+            selected_rooms = form.cleaned_data.get('selected_rooms', [])
             booking_req.status = 'pending'
+            booking_req.workflow_stage = 'sub_admin'
 
             # ── Same-day / next-day / previous-day block ────────────────────────
             if booking_req.start_datetime and _is_booking_too_soon(booking_req.start_datetime):
@@ -264,40 +307,82 @@ def room_booking_view(request):
             else:
                 booking_req.tat_deadline = now + timezone.timedelta(hours=48)
             booking_req.save()
+            if selected_rooms:
+                booking_req.rooms.set(selected_rooms)
 
             # ── Notify faculty: request received ────────────────────────────
             details = _format_booking_details(
-                booking_req.room.room_name,
+                selected_rooms or booking_req,
                 booking_req.faculty_name,
                 booking_req.start_datetime,
                 booking_req.end_datetime,
                 booking_req.purpose,
+                booking_req.department,
+            )
+            booking_sections = _booking_email_sections(
+                selected_rooms or booking_req,
+                booking_req.faculty_name,
+                booking_req.faculty_email,
+                booking_req.start_datetime,
+                booking_req.end_datetime,
+                booking_req.purpose,
+                booking_req.department,
             )
             _safe_mail(
                 subject="[Blixtro] Room Booking Request Received",
                 message=(
                     f"Dear {booking_req.faculty_name},\n\n"
-                    "Your room booking request has been submitted and is awaiting admin approval.\n"
+                    "Your room booking request has been submitted successfully.\n"
                     f"{details}\n\n"
-                    "You will receive a confirmation email once your request is reviewed.\n\n"
+                    "Your request is currently under review by the sub-admin. "
+                    "You will receive an email once it is recommended for final approval.\n\n"
                     "Best regards,\nBlixtro — SFS College Inventory & Booking System"
                 ),
                 recipient_list=[booking_req.faculty_email],
+                html_message=build_email_shell(
+                    title="Booking Request Received",
+                    intro_html=(
+                        f"Dear <strong>{booking_req.faculty_name}</strong>, your room booking request has been submitted "
+                        "successfully and is currently awaiting sub-admin review."
+                    ),
+                    sections=booking_sections,
+                    outro_html="You will receive another email as soon as the request is recommended, approved, or rejected.",
+                ),
             )
 
-            # ── Notify admins: new booking request pending ──────────────────
-            admin_emails = _admin_emails()
-            if admin_emails:
+            # ── Notify SUB-ADMINS ONLY: new booking request pending ──────────
+            # (Central admins are notified only after sub-admin recommends)
+            sub_admin_emails = _sub_admin_emails()
+            if sub_admin_emails:
                 _safe_mail(
-                    subject=f"[Blixtro] New Room Booking Request — {booking_req.room.room_name}",
+                    subject=f"[Blixtro] New Room Booking Request — {format_room_list(selected_rooms or booking_req)}",
                     message=(
-                        f"A new room booking request requires your approval.\n"
+                        f"A new room booking request requires your review.\n"
                         f"{details}\n\n"
-                        f"Please log in to the admin dashboard to review this request.\n\n"
-                        f"Note: This request will be auto-cancelled if not acted upon within {'12' if hours_until_event <= 48 else '48'} hours (TAT deadline: {booking_req.tat_deadline.strftime('%d %b %Y, %H:%M')}).\n\n"
+                        f"Please log in to the admin dashboard and either Recommend or Reject this request.\n\n"
+                        f"Note: This request will be auto-cancelled if not acted upon within "
+                        f"{'12' if hours_until_event <= 48 else '48'} hours "
+                        f"(TAT deadline: {booking_req.tat_deadline.strftime('%d %b %Y, %H:%M')}).\n\n"
                         "Blixtro — SFS College Inventory & Booking System"
                     ),
-                    recipient_list=admin_emails,
+                    recipient_list=sub_admin_emails,
+                    html_message=build_email_shell(
+                        title="Booking Review Required",
+                        intro_html=(
+                            "A faculty booking request is waiting in the Approval Hub. "
+                            "Please review it and add your recommendation remark if you want to share guidance."
+                        ),
+                        sections=booking_sections + [
+                            {
+                                "title": "Workflow",
+                                "rows": [
+                                    {"label": "Current Stage", "value": "Sub-admin review"},
+                                    {"label": "TAT Deadline", "value": booking_req.tat_deadline.strftime('%d %b %Y, %H:%M')},
+                                ],
+                            }
+                        ],
+                        outro_html="Open Blixtro IMS and recommend or reject the request from the Approval Hub.",
+                    ),
                 )
 
             return render(request, "booking/booking_success.html", {
@@ -308,6 +393,131 @@ def room_booking_view(request):
             messages.error(request, "Please correct the errors below.")
 
     return render(request, "booking/room_booking.html", {"form": form})
+
+
+def edit_booking_view(request, booking_id):
+    """
+    Handle edit booking requests for confirmed bookings.
+    Shows a pre-filled form with original booking data and allows faculty to make changes.
+    """
+    # Get the original booking
+    try:
+        original_booking = RoomBooking.objects.get(id=booking_id)
+    except RoomBooking.DoesNotExist:
+        messages.error(request, "Booking not found.")
+        return redirect('room_booking')
+    
+    # Check if booking is in the future (can only edit upcoming bookings)
+    if original_booking.start_datetime <= timezone.now():
+        messages.error(request, "Cannot edit bookings that have already started or passed.")
+        return redirect('room_booking')
+    
+    form = RoomBookingEditForm(original_booking=original_booking)
+    
+    if request.method == "POST":
+        form = RoomBookingEditForm(request.POST, request.FILES, original_booking=original_booking)
+        if form.is_valid():
+            import uuid as _uuid
+            import os as _os
+            
+            # Create edit request
+            edit_req = RoomBookingEditRequest()
+            edit_req.original_booking = original_booking
+            edit_req.faculty_email = original_booking.faculty_email
+            
+            # Store original values
+            edit_req.original_start_datetime = original_booking.start_datetime
+            edit_req.original_end_datetime = original_booking.end_datetime
+            edit_req.original_purpose = original_booking.purpose
+            edit_req.original_department = original_booking.department
+            
+            # Store new values from form
+            edit_req.new_start_datetime = form.cleaned_data['start_datetime']
+            edit_req.new_end_datetime = form.cleaned_data['end_datetime']
+            edit_req.new_purpose = form.cleaned_data['purpose']
+            edit_req.new_department = form.cleaned_data['department']
+            
+            # Handle requirements
+            req_type = request.POST.get('requirements_type', 'na')
+            if req_type == 'text':
+                edit_req.new_requirements_text = form.cleaned_data.get('requirements_text_input', '').strip() or None
+            elif req_type == 'doc' and form.cleaned_data.get('requirements_doc_upload'):
+                requirements_doc = form.cleaned_data['requirements_doc_upload']
+                # Ensure unique filename
+                orig_name = _os.path.basename(requirements_doc.name)
+                name_root, ext = _os.path.splitext(orig_name)
+                unique_name = f"{name_root}_{_uuid.uuid4().hex[:8]}{ext}"
+                requirements_doc.name = _os.path.join(_os.path.dirname(requirements_doc.name), unique_name)
+                edit_req.new_requirements_doc = requirements_doc
+            
+            # Set TAT deadline
+            from django.utils import timezone as _tz
+            now = _tz.now()
+            hours_until_event = (edit_req.new_start_datetime - now).total_seconds() / 3600
+            if hours_until_event <= 48:
+                edit_req.tat_deadline = now + timezone.timedelta(hours=12)
+            else:
+                edit_req.tat_deadline = now + timezone.timedelta(hours=48)
+            
+            edit_req.save()
+            
+            # Set many-to-many relationships
+            selected_rooms = form.selected_rooms
+            edit_req.new_rooms.set(selected_rooms)
+            edit_req.original_rooms.set(
+                original_booking.rooms.all() if original_booking.rooms.exists() else [original_booking.room]
+            )
+            
+            # Send email notification to faculty
+            details = _format_booking_details(
+                selected_rooms or original_booking,
+                original_booking.faculty_name,
+                edit_req.new_start_datetime,
+                edit_req.new_end_datetime,
+                edit_req.new_purpose,
+                edit_req.new_department,
+            )
+            
+            _safe_mail(
+                subject="[Blixtro] Room Booking Edit Request Submitted",
+                message=(
+                    f"Dear {original_booking.faculty_name},\n\n"
+                    "Your room booking edit request has been submitted successfully and is awaiting admin review.\n"
+                    f"{details}\n\n"
+                    "You will receive another email as soon as the request is reviewed.\n\n"
+                    "Best regards,\nBlixtro — SFS College Inventory & Booking System"
+                ),
+                recipient_list=[original_booking.faculty_email],
+            )
+            
+            # Send email notification to admins
+            admin_emails = _admin_emails()
+            if admin_emails:
+                _safe_mail(
+                    subject=f"[Blixtro] Room Booking Edit Request — {format_room_list(selected_rooms or original_booking)}",
+                    message=(
+                        f"A faculty member has requested to edit a confirmed booking.\n"
+                        f"Original Booking: {original_booking.room.room_name} | {timezone.localtime(original_booking.start_datetime).strftime('%d %b %Y, %H:%M')}\n"
+                        f"Requested Changes: {format_room_list(selected_rooms or original_booking)} | {timezone.localtime(edit_req.new_start_datetime).strftime('%d %b %Y, %H:%M')}\n"
+                        f"Faculty: {original_booking.faculty_name} ({original_booking.faculty_email})\n\n"
+                        "Please log in to the admin dashboard to review this edit request.\n\n"
+                        "Blixtro — SFS College Inventory & Booking System"
+                    ),
+                    recipient_list=admin_emails,
+                )
+            
+            return render(request, "booking/booking_success.html", {
+                "booking": original_booking,
+                "edit_request": True,
+                "pending": True,
+            })
+        else:
+            messages.error(request, "Please correct the errors below.")
+    
+    return render(request, "booking/edit_booking.html", {
+        "form": form,
+        "original_booking": original_booking,
+    })
 
 
 def get_bookings_by_email(request):
@@ -335,38 +545,50 @@ def get_bookings_by_email(request):
     confirmed_bookings = RoomBooking.objects.filter(
         faculty_email=email,
         end_datetime__gte=timezone.now()
-    ).select_related('room').order_by('start_datetime')
+    ).select_related('room').prefetch_related('rooms').order_by('start_datetime')
 
     for b in confirmed_bookings:
         has_pending_cancel = b.cancellation_requests.filter(status='pending').exists()
         start_local = timezone.localtime(b.start_datetime)
         end_local   = timezone.localtime(b.end_datetime)
+        
+        # Check if booking can be edited (not within 24 hours and no pending edits)
+        hours_until_booking = (b.start_datetime - timezone.now()).total_seconds() / 3600
+        has_pending_edit = b.edit_requests.filter(status='pending').exists()
+        can_edit = hours_until_booking > 24 and not has_pending_cancel
+        
         data.append({
             'id':                b.id,
             'booking_type':      'confirmed',
-            'room_name':         b.room.room_name,
+            'room_name':         format_room_list(b),
             'start':             start_local.strftime('%d %b %Y, %H:%M'),
             'end':               end_local.strftime('%H:%M'),
+            # ISO timestamp so JS can calculate 24hr window for cancel button
+            'start_raw':         b.start_datetime.isoformat(),
             'has_pending_cancel': has_pending_cancel,
+            'can_edit':          can_edit,
         })
 
     # 2. Pending booking requests (not yet approved / rejected / expired)
     pending_requests = RoomBookingRequest.objects.filter(
         faculty_email=email,
-        status='pending',
+        status__in=['pending', 'recommended'],
         end_datetime__gte=timezone.now()
-    ).select_related('room').order_by('start_datetime')
+    ).select_related('room').prefetch_related('rooms').order_by('start_datetime')
 
     for r in pending_requests:
         start_local = timezone.localtime(r.start_datetime)
         end_local   = timezone.localtime(r.end_datetime)
+        status_label = 'Recommended' if r.status == 'recommended' else 'Pending Approval'
         data.append({
             'id':                r.id,
             'booking_type':      'request',
-            'room_name':         r.room.room_name,
+            'room_name':         format_room_list(r),
             'start':             start_local.strftime('%d %b %Y, %H:%M'),
             'end':               end_local.strftime('%H:%M'),
+            'start_raw':         r.start_datetime.isoformat(),
             'has_pending_cancel': False,
+            'status_label':      status_label,
         })
 
     return JsonResponse({'bookings': data})
@@ -397,19 +619,30 @@ def get_booking_status(request):
     # Booking requests for this faculty
     booking_reqs = RoomBookingRequest.objects.filter(
         faculty_email=email
-    ).select_related('room').order_by('-created_on')
+    ).select_related('room', 'recommended_by', 'approved_by').prefetch_related('rooms').order_by('-created_on')
 
     for req in booking_reqs:
         start_local = timezone.localtime(req.start_datetime)
         end_local   = timezone.localtime(req.end_datetime)
+        review_note = req.review_note or ''
+        if req.status == 'recommended' and getattr(req, 'recommended_by', None):
+            recommender = f"{req.recommended_by.first_name} {req.recommended_by.last_name}".strip() or str(req.recommended_by)
+            review_note = f"Recommended by {recommender}"
+            if getattr(req, 'recommended_note', ''):
+                review_note += f" — {req.recommended_note}"
+        elif req.status == 'approved' and getattr(req, 'approved_by', None):
+            approver = f"{req.approved_by.first_name} {req.approved_by.last_name}".strip() or str(req.approved_by)
+            review_note = f"Approved by {approver}"
+            if getattr(req, 'approved_note', ''):
+                review_note += f" — {req.approved_note}"
         results.append({
             'type':        'Booking Request',
-            'room':        req.room.room_name,
+            'room':        format_room_list(req),
             'from':        start_local.strftime('%d %b %Y, %H:%M'),
             'to':          end_local.strftime('%H:%M'),
             'purpose':     req.purpose or '—',
-            'status':      req.status,      # pending / approved / rejected / expired
-            'review_note': req.review_note or '',
+            'status':      req.status,      # pending / recommended / approved / rejected / expired
+            'review_note': review_note,
             'submitted':   req.created_on.strftime('%d %b %Y'),
         })
 
@@ -419,7 +652,7 @@ def get_booking_status(request):
     ).select_related('booking', 'booking__room').order_by('-created_on')
 
     for req in cancel_reqs:
-        room_name = req.booking.room.room_name if req.booking else '—'
+        room_name = format_room_list(req.booking) if req.booking else '—'
         if req.booking:
             b_start = timezone.localtime(req.booking.start_datetime).strftime('%d %b %Y, %H:%M')
             b_end   = timezone.localtime(req.booking.end_datetime).strftime('%H:%M')
@@ -428,7 +661,7 @@ def get_booking_status(request):
             b_end   = '—'
         results.append({
             'type':        'Cancellation Request',
-            'room':        room_name,
+            'room':        format_room_list(req.booking) if req.booking else room_name,
             'from':        b_start,
             'to':          b_end,
             'purpose':     req.reason,
@@ -470,13 +703,13 @@ def submit_cancellation_request(request):
     except RoomBookingCredentials.DoesNotExist:
         return JsonResponse({'error': 'This email is not authorised.'}, status=403)
 
-    # ── Case 1: Withdraw a PENDING booking request (instant, no approval) ──
+    # ── Case 1: Withdraw a PENDING/RECOMMENDED booking request (instant, no approval) ──
     if booking_type == 'request':
         try:
             booking_req = RoomBookingRequest.objects.get(
                 id=booking_id,
                 faculty_email=email,
-                status='pending'
+                status__in=['pending', 'recommended']
             )
         except RoomBookingRequest.DoesNotExist:
             return JsonResponse({'error': 'Pending request not found or already processed.'}, status=404)
@@ -487,11 +720,12 @@ def submit_cancellation_request(request):
 
         # Email only to faculty
         details = _format_booking_details(
-            booking_req.room.room_name,
+            booking_req,
             booking_req.faculty_name,
             booking_req.start_datetime,
             booking_req.end_datetime,
             booking_req.purpose,
+            booking_req.department,
         )
         _safe_mail(
             subject="[Blixtro] Room Booking Request Withdrawn",
@@ -517,6 +751,14 @@ def submit_cancellation_request(request):
     except RoomBooking.DoesNotExist:
         return JsonResponse({'error': 'Booking not found.'}, status=404)
 
+    # ── 24-hour cancellation window check ──────────────────────────────────
+    from django.utils import timezone as _tz
+    hours_until = (booking.start_datetime - _tz.now()).total_seconds() / 3600
+    if hours_until < 24:
+        return JsonResponse({
+            'error': 'Cancellation requests cannot be submitted within 24 hours of the booking date.'
+        }, status=400)
+
     # Prevent a duplicate pending cancellation request
     if booking.cancellation_requests.filter(status='pending').exists():
         return JsonResponse(
@@ -532,11 +774,12 @@ def submit_cancellation_request(request):
     )
 
     details = _format_booking_details(
-        booking.room.room_name,
+        booking,
         booking.faculty_name,
         booking.start_datetime,
         booking.end_datetime,
         booking.purpose,
+        booking.department,
     )
 
     # Email to faculty
@@ -557,7 +800,7 @@ def submit_cancellation_request(request):
     admin_emails = _admin_emails()
     if admin_emails:
         _safe_mail(
-            subject=f"[Blixtro] Cancellation Request — {booking.room.room_name}",
+            subject=f"[Blixtro] Cancellation Request — {format_room_list(booking)}",
             message=(
                 f"A faculty member has requested cancellation of a confirmed booking.\n"
                 f"{details}\n\n"
@@ -580,7 +823,11 @@ def rooms_by_category(request):
     end      = request.GET.get("end")
 
     # Exclude washrooms and officerooms from booking categories
-    rooms    = Room.objects.filter(room_category=category).exclude(room_category__in=['washrooms', 'officerooms'])
+    rooms = list(
+        Room.objects.filter(room_category=category)
+        .exclude(room_category__in=['washrooms', 'officerooms'])
+    )
+    rooms = sort_rooms_iterable(rooms)
     start_dt = parse_datetime(start) if start else None
     end_dt   = parse_datetime(end)   if end   else None
 
@@ -600,25 +847,37 @@ def rooms_by_category(request):
         try:
             confirmed_booked_ids = set(
                 RoomBooking.objects.filter(
-                    room__in=rooms,
+                    Q(room__in=rooms) | Q(rooms__in=rooms),
                     start_datetime__lt=end_dt,
                     end_datetime__gt=start_dt,
                 ).values_list('room_id', flat=True)
+            )
+            confirmed_booked_ids.update(
+                RoomBooking.objects.filter(
+                    rooms__in=rooms,
+                    start_datetime__lt=end_dt,
+                    end_datetime__gt=start_dt,
+                ).values_list('rooms__id', flat=True)
             )
         except Exception:
             confirmed_booked_ids = set()
 
         try:
-            # Rooms with a PENDING booking request for this slot are treated
-            # as unavailable — shown as "Waiting for Approval" on the UI.
-            # Rejected/expired requests do NOT block the room.
             pending_ids = set(
                 RoomBookingRequest.objects.filter(
-                    room__in=rooms,
-                    status='pending',
+                    Q(room__in=rooms) | Q(rooms__in=rooms),
+                    status__in=['pending', 'recommended'],
                     start_datetime__lt=end_dt,
                     end_datetime__gt=start_dt,
                 ).values_list('room_id', flat=True)
+            )
+            pending_ids.update(
+                RoomBookingRequest.objects.filter(
+                    rooms__in=rooms,
+                    status__in=['pending', 'recommended'],
+                    start_datetime__lt=end_dt,
+                    end_datetime__gt=start_dt,
+                ).values_list('rooms__id', flat=True)
             )
         except Exception:
             pending_ids = set()
@@ -635,8 +894,8 @@ def rooms_by_category(request):
             "category":    room.room_category,
             "capacity":    getattr(room, 'capacity', 40),
             "available":   not is_confirmed_booked and not is_pending,
-            "is_booked":   is_confirmed_booked,   # confirmed/approved booking
-            "has_pending": is_pending,             # waiting for admin approval
+            "is_booked":   is_confirmed_booked,
+            "has_pending": is_pending,
         })
     return JsonResponse(data, safe=False)
 
@@ -649,11 +908,8 @@ def firebase_login_callback(request):
     if not id_token:
         return redirect('student:portal_login')
 
-    # ── Step 1: Verify Firebase token ────────────────────────────────────────
     try:
         if not firebase_admin._apps:
-            # This should never happen if settings.py initialized correctly,
-            # but kept as a safety net
             creds_json = os.environ.get('FIREBASE_ADMIN_CREDENTIALS_JSON', '')
             if creds_json:
                 import json as _json
@@ -671,7 +927,6 @@ def firebase_login_callback(request):
         print(f"[firebase_login] Token verification failed: {e}", flush=True)
         return redirect('student:portal_login')
 
-    # ── Step 2: Extract and validate email ────────────────────────────────
     email = (decoded_token.get('email') or '').strip().lower()
     name  = (decoded_token.get('name') or '').strip()
 
@@ -684,7 +939,6 @@ def firebase_login_callback(request):
         print(f"[firebase_login] Rejected domain: {email}", flush=True)
         return redirect('student:portal_login')
 
-    # ── Step 3: Get or create Django User ─────────────────────────────────
     try:
         user = User.objects.get(email=email)
         update_fields = []
@@ -711,7 +965,6 @@ def firebase_login_callback(request):
         user.set_unusable_password()
         user.save()
 
-    # ── Step 4: Log into Django session and redirect ───────────────────────
     user.backend = 'django.contrib.auth.backends.ModelBackend'
     login(request, user)
 
@@ -788,7 +1041,7 @@ def delete_booking_credential(request, pk):
 
 def create_booking_credentials(request):
     """Create a new faculty credential manually via AJAX."""
-    from django.views.decorators.http import require_POST
+    import json
     
     if request.method == "POST":
         try:
@@ -844,15 +1097,14 @@ def check_document_name(request):
 
 # ─────────────────────────────────────────────────────────────────────
 # AUTOMATED BOOKING TAT TASK
-# Call this from a Celery periodic task or management command every 30 min.
 # ─────────────────────────────────────────────────────────────────────
 
 def process_booking_tat_reminders_and_expiry():
     """
-    For EACH pending booking request:
+    For EACH pending/recommended booking request:
       - Detect TAT type (12h or 48h) from (tat_deadline - created_on).
-      - 48h TAT → 24h reminder then 12h reminder (existing behaviour).
-      - 12h TAT → 6h reminder then 3h reminder (proportional new behaviour).
+      - 48h TAT → 24h reminder then 12h reminder.
+      - 12h TAT → 6h reminder then 3h reminder.
       - Auto-cancel when TAT deadline passes.
 
     Also sends a day-before reminder to faculty for confirmed bookings.
@@ -861,36 +1113,39 @@ def process_booking_tat_reminders_and_expiry():
 
     now = _tz.now()
 
-    pending_reqs = RoomBookingRequest.objects.filter(status='pending').select_related('room')
+    pending_reqs = RoomBookingRequest.objects.filter(
+        status__in=['pending', 'recommended']
+    ).select_related('room')
 
     for req in pending_reqs:
         if not req.tat_deadline:
             continue
 
         details = _format_booking_details(
-            req.room.room_name,
+            req,
             req.faculty_name,
             req.start_datetime,
             req.end_datetime,
             req.purpose,
+            req.department,
         )
         time_left = req.tat_deadline - now
 
-        # ── Determine which TAT tier this request belongs to ─────────────────
-        # A 12h-TAT booking has tat_deadline set to created_on + 12h.
-        # Allow a 2h tolerance for processing lag.
         tat_duration = req.tat_deadline - req.created_on
-        is_12h_tat = tat_duration <= timezone.timedelta(hours=14)   # 12h + 2h buffer
+        is_12h_tat = tat_duration <= timezone.timedelta(hours=14)
+
+        # Determine who to remind based on stage
+        if req.workflow_stage == 'central_admin':
+            reminder_emails = _central_admin_only_emails()
+        else:
+            reminder_emails = _sub_admin_emails()
 
         if is_12h_tat:
-            # ── 6h reminder (for 12h TAT) ────────────────────────────────────
-            # Fires when 3h < time_left ≤ 6h (≈ halfway through the TAT).
             if (not req.reminder_24h_sent and
                     timezone.timedelta(hours=3) < time_left <= timezone.timedelta(hours=6)):
-                admin_emails = _admin_emails()
-                if admin_emails:
+                if reminder_emails:
                     _safe_mail(
-                        subject=f"[Blixtro] ⏳ 6h Approval Reminder (Fast-Track) — {req.room.room_name}",
+                        subject=f"[Blixtro] ⏳ 6h Approval Reminder (Fast-Track) — {format_room_list(req)}",
                         message=(
                             "A fast-track room booking request has 6 hours or less remaining "
                             "on its 12-hour approval window.\n"
@@ -899,19 +1154,16 @@ def process_booking_tat_reminders_and_expiry():
                             "automatically cancelled.\n\n"
                             "Blixtro — SFS College Inventory & Booking System"
                         ),
-                        recipient_list=admin_emails,
+                        recipient_list=reminder_emails,
                     )
                 req.reminder_24h_sent = True
                 req.save(update_fields=['reminder_24h_sent'])
 
-            # ── 3h reminder (for 12h TAT) ────────────────────────────────────
-            # Fires when 0h < time_left ≤ 3h (final quarter of the TAT).
             if (not req.reminder_12h_sent and
                     timezone.timedelta(hours=0) < time_left <= timezone.timedelta(hours=3)):
-                admin_emails = _admin_emails()
-                if admin_emails:
+                if reminder_emails:
                     _safe_mail(
-                        subject=f"[Blixtro] 🚨 3h Final Reminder (Fast-Track) — {req.room.room_name}",
+                        subject=f"[Blixtro] 🚨 3h Final Reminder (Fast-Track) — {format_room_list(req)}",
                         message=(
                             "URGENT: A fast-track room booking request has less than 3 hours "
                             "remaining before automatic cancellation.\n"
@@ -919,19 +1171,17 @@ def process_booking_tat_reminders_and_expiry():
                             "Please take immediate action in the admin dashboard.\n\n"
                             "Blixtro — SFS College Inventory & Booking System"
                         ),
-                        recipient_list=admin_emails,
+                        recipient_list=reminder_emails,
                     )
                 req.reminder_12h_sent = True
                 req.save(update_fields=['reminder_12h_sent'])
 
         else:
-            # ── 24h reminder (for 48h TAT) ───────────────────────────────────
             if (not req.reminder_24h_sent and
                     timezone.timedelta(hours=12) < time_left <= timezone.timedelta(hours=24)):
-                admin_emails = _admin_emails()
-                if admin_emails:
+                if reminder_emails:
                     _safe_mail(
-                        subject=f"[Blixtro] ⚠ 24h Approval Reminder — {req.room.room_name}",
+                        subject=f"[Blixtro] ⚠ 24h Approval Reminder — {format_room_list(req)}",
                         message=(
                             "A room booking request has not been approved yet and the 48-hour "
                             "TAT deadline is approaching (less than 24 hours remaining).\n"
@@ -940,18 +1190,16 @@ def process_booking_tat_reminders_and_expiry():
                             "will be automatically cancelled.\n\n"
                             "Blixtro — SFS College Inventory & Booking System"
                         ),
-                        recipient_list=admin_emails,
+                        recipient_list=reminder_emails,
                     )
                 req.reminder_24h_sent = True
                 req.save(update_fields=['reminder_24h_sent'])
 
-            # ── 12h reminder (for 48h TAT) ───────────────────────────────────
             if (not req.reminder_12h_sent and
                     timezone.timedelta(hours=0) < time_left <= timezone.timedelta(hours=12)):
-                admin_emails = _admin_emails()
-                if admin_emails:
+                if reminder_emails:
                     _safe_mail(
-                        subject=f"[Blixtro] 🚨 12h Final Reminder — {req.room.room_name}",
+                        subject=f"[Blixtro] 🚨 12h Final Reminder — {format_room_list(req)}",
                         message=(
                             "URGENT: A room booking request has less than 12 hours remaining "
                             "before automatic cancellation.\n"
@@ -959,21 +1207,20 @@ def process_booking_tat_reminders_and_expiry():
                             "Please take immediate action in the admin dashboard.\n\n"
                             "Blixtro — SFS College Inventory & Booking System"
                         ),
-                        recipient_list=admin_emails,
+                        recipient_list=reminder_emails,
                     )
                 req.reminder_12h_sent = True
                 req.save(update_fields=['reminder_12h_sent'])
 
-        # ── Auto-expiry (both TAT types) ─────────────────────────────────────
+        # ── Auto-expiry ─────────────────────────────────────────────────────
         if time_left <= timezone.timedelta(0):
             tat_label = '12' if is_12h_tat else '48'
             req.status = 'expired'
             req.review_note = f'Auto-cancelled: Approval TAT of {tat_label} hours exceeded.'
             req.save(update_fields=['status', 'review_note', 'updated_on'])
 
-            # Notify faculty
             _safe_mail(
-                subject=f"[Blixtro] Room Booking Request Auto-Cancelled — {req.room.room_name}",
+                subject=f"[Blixtro] Room Booking Request Auto-Cancelled — {format_room_list(req)}",
                 message=(
                     f"Dear {req.faculty_name},\n\n"
                     "Unfortunately, your room booking request was not reviewed within the "
@@ -986,11 +1233,10 @@ def process_booking_tat_reminders_and_expiry():
                 fail_silently=False,
             )
 
-            # Notify admins
-            admin_emails = _admin_emails()
-            if admin_emails:
+            all_admin_emails = _admin_emails()
+            if all_admin_emails:
                 _safe_mail(
-                    subject=f"[Blixtro] Booking Request Auto-Cancelled — {req.room.room_name}",
+                    subject=f"[Blixtro] Booking Request Auto-Cancelled — {format_room_list(req)}",
                     message=(
                         "A room booking request was automatically cancelled because the "
                         f"{tat_label}-hour approval TAT was exceeded without action.\n"
@@ -998,7 +1244,7 @@ def process_booking_tat_reminders_and_expiry():
                         "The request has been removed from the pending queue.\n\n"
                         "Blixtro — SFS College Inventory & Booking System"
                     ),
-                    recipient_list=admin_emails,
+                    recipient_list=all_admin_emails,
                 )
 
     # ── Day-before confirmed booking reminder to faculty ──────────────────────
@@ -1008,19 +1254,20 @@ def process_booking_tat_reminders_and_expiry():
     tomorrow_bookings = RoomBooking.objects.filter(
         start_datetime__gte=tomorrow_start,
         start_datetime__lt=tomorrow_end,
-        reminder_sent=False,                  # only fetch bookings not yet reminded
+        reminder_sent=False,
     ).select_related('room')
 
     for booking in tomorrow_bookings:
         details = _format_booking_details(
-            booking.room.room_name,
+            booking,
             booking.faculty_name,
             booking.start_datetime,
             booking.end_datetime,
             booking.purpose,
+            booking.department,
         )
         _safe_mail(
-            subject=f"[Blixtro] Reminder: Your Room Booking is Tomorrow — {booking.room.room_name}",
+            subject=f"[Blixtro] Reminder: Your Room Booking is Tomorrow — {format_room_list(booking)}",
             message=(
                 f"Dear {booking.faculty_name},\n\n"
                 "This is a friendly reminder that you have a confirmed room booking tomorrow.\n"
@@ -1031,6 +1278,5 @@ def process_booking_tat_reminders_and_expiry():
             ),
             recipient_list=[booking.faculty_email],
         )
-        # Mark as sent so subsequent runs of this task skip it
         booking.reminder_sent = True
         booking.save(update_fields=['reminder_sent'])

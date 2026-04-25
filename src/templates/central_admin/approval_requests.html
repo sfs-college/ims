@@ -91,11 +91,18 @@
                 onclick="this.form.submit()">
             <i class="bi bi-clock-history me-2"></i>Issue Time Extension Requests
         </button>
+        <button type="submit" name="type" value="booking_edit" 
+                class="btn {% if request_type == 'booking_edit' %}btn-primary{% else %}btn-outline-primary{% endif %} shadow-sm"
+                onclick="this.form.submit()">
+            <i class="bi bi-pencil-fill me-2"></i>Booking Edit Requests
+        </button>
     </div>
 </form>
 
 {% if request_type == "item_edit" %}
     {% include "central_admin/edit_request_list.html" %}
+{% elif request_type == "booking_edit" %}
+    {% include "central_admin/booking_edit_requests.html" %}
 {% else %}
     {% include "central_admin/issue_time_requests.html" %}
 {% endif %}
