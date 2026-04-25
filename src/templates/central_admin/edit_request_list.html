@@ -10,102 +10,54 @@
         --primary-grad: linear-gradient(135deg, #6366f1 0%, #a855f7 100%);
         --warning-grad: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
         --success-grad: linear-gradient(135deg, #10b981 0%, #059669 100%);
+        --recommend-grad: linear-gradient(135deg, #0ea5e9 0%, #0284c7 100%);
         --glass: rgba(255,255,255,0.95);
     }
-
     .admin-container { padding: 30px; background: #f8fafc; min-height: 100vh; }
-
-    /* ── Glass header ─────────────────────────────────────── */
     .glass-header {
-        background: var(--glass);
-        backdrop-filter: blur(10px);
-        padding: 25px 35px;
-        border-radius: 20px;
-        border-left: 5px solid #6366f1;
-        box-shadow: 0 10px 30px rgba(0,0,0,0.05);
-        margin-bottom: 35px;
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        flex-wrap: wrap;
-        gap: 20px;
+        background: var(--glass); backdrop-filter: blur(10px);
+        padding: 25px 35px; border-radius: 20px; border-left: 5px solid #6366f1;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.05); margin-bottom: 35px;
+        display: flex; justify-content: space-between; align-items: center;
+        flex-wrap: wrap; gap: 20px;
     }
     .header-title h2 {
-        background: var(--primary-grad);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-        font-weight: 800;
-        font-size: 1.8rem;
-        margin: 0;
+        background: var(--primary-grad); -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent; font-weight: 800; font-size: 1.8rem; margin: 0;
     }
-
-    /* ── Animated pill tab strip ──────────────────────────── */
     .type-toggle {
-        display: flex;
-        background: #f1f5f9;
-        border-radius: 14px;
-        padding: 5px;
-        position: relative;   /* slider is absolutely positioned inside */
+        display: flex; background: #f1f5f9; border-radius: 14px;
+        padding: 5px; position: relative;
     }
-    /*
-     * Sliding pill — JS drives left + width.
-     * Transition is added by JS after first paint so the initial
-     * snap-to-active-tab has no animation (avoids flash).
-     */
     .toggle-slider {
-        position: absolute;
-        top: 5px;
-        height: calc(100% - 10px);
-        background: #fff;
-        border-radius: 10px;
-        box-shadow: 0 2px 10px rgba(0,0,0,0.10);
-        z-index: 0;
-        pointer-events: none;
+        position: absolute; top: 5px; height: calc(100% - 10px);
+        background: #fff; border-radius: 10px;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.10); z-index: 0; pointer-events: none;
     }
     .type-toggle .tab-btn {
-        position: relative;
-        z-index: 1;
-        padding: 9px 18px;
-        border-radius: 10px;
-        font-weight: 600;
-        font-size: 0.88rem;
-        text-decoration: none;
-        color: #64748b;
-        transition: color 0.22s ease;
-        white-space: nowrap;
-        display: flex;
-        align-items: center;
-        gap: 6px;
-        cursor: pointer;
-        user-select: none;
+        position: relative; z-index: 1; padding: 9px 18px; border-radius: 10px;
+        font-weight: 600; font-size: 0.88rem; text-decoration: none; color: #64748b;
+        transition: color 0.22s ease; white-space: nowrap;
+        display: flex; align-items: center; gap: 6px; cursor: pointer; user-select: none;
     }
     .type-toggle .tab-btn.active { color: #6366f1; }
     .type-toggle .tab-btn:hover:not(.active) { color: #1e293b; }
     .tab-count {
         display: inline-flex; align-items: center; justify-content: center;
-        min-width: 20px; height: 20px; padding: 0 6px;
-        border-radius: 10px; font-size: 0.72rem; font-weight: 700;
-        background: #e0e7ff; color: #4f46e5;
+        min-width: 20px; height: 20px; padding: 0 6px; border-radius: 10px;
+        font-size: 0.72rem; font-weight: 700; background: #e0e7ff; color: #4f46e5;
         transition: background 0.22s, color 0.22s;
     }
     .type-toggle .tab-btn.active .tab-count { background: #6366f1; color: #fff; }
-
-    /* ── Tab panels — JS toggles .active ─────────────────── */
     .tab-panel        { display: none; }
     .tab-panel.active { display: block; }
-
-    /* ── Request cards grid ───────────────────────────────── */
     .request-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(360px,1fr));
-        gap: 25px;
+        display: grid; grid-template-columns: repeat(auto-fill, minmax(360px,1fr)); gap: 25px;
     }
     .request-card {
         background: #fff; border-radius: 18px; padding: 24px;
-        border: 1px solid rgba(0,0,0,0.05);
-        transition: all 0.3s cubic-bezier(0.4,0,0.2,1);
-        position: relative; overflow: hidden;
-        display: flex; flex-direction: column;
+        border: 1px solid rgba(0,0,0,0.05); transition: all 0.3s cubic-bezier(0.4,0,0.2,1);
+        position: relative; overflow: hidden; display: flex; flex-direction: column;
         box-shadow: 0 2px 8px rgba(0,0,0,0.04);
     }
     .request-card:hover { transform: translateY(-5px); box-shadow: 0 18px 38px rgba(0,0,0,0.08); }
@@ -116,11 +68,9 @@
     .request-card.type-issue::before   { background: var(--warning-grad); }
     .request-card.type-booking::before { background: linear-gradient(135deg,#3b82f6,#06b6d4); }
     .request-card.type-cancel::before  { background: linear-gradient(135deg,#ef4444,#f97316); }
-
     .req-type {
-        font-size: 0.68rem; text-transform: uppercase;
-        letter-spacing: 1.2px; font-weight: 700; color: #94a3b8;
-        margin-bottom: 6px; display: block;
+        font-size: 0.68rem; text-transform: uppercase; letter-spacing: 1.2px;
+        font-weight: 700; color: #94a3b8; margin-bottom: 6px; display: block;
     }
     .req-title { font-weight: 700; color: #1e293b; font-size: 1.15rem; margin-bottom: 12px; }
     .meta-pills { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 15px; }
@@ -129,6 +79,7 @@
         font-size: 0.78rem; color: #475569; border: 1px solid #e2e8f0; font-weight: 500;
     }
     .pill-warn { background:#fff7ed!important; color:#c2410c!important; border-color:#fed7aa!important; }
+    .pill-recommend { background:#e0f2fe!important; color:#0284c7!important; border-color:#bae6fd!important; }
     .detail-zone {
         background: #f8fafc; border-radius: 12px; padding: 14px;
         font-size: 0.84rem; color: #475569; margin-bottom: 14px; border: 1px solid #edf2f7;
@@ -144,305 +95,56 @@
         padding: 10px; border-radius: 10px; font-weight: 600; font-size: 0.88rem;
         transition: all 0.2s; cursor: pointer;
     }
+    .btn-recommend-grad {
+        flex: 2; background: var(--recommend-grad); color: #fff; border: none;
+        padding: 10px; border-radius: 10px; font-weight: 600; font-size: 0.88rem;
+        transition: all 0.2s; cursor: pointer;
+    }
     .btn-reject-outline {
         flex: 1; background: #fff; color: #ef4444;
         border: 1.5px solid #fee2e2; padding: 10px; border-radius: 10px;
         font-weight: 600; font-size: 0.88rem; cursor: pointer; transition: background 0.2s;
     }
-    .btn-approve-grad:hover { opacity: 0.88; transform: scale(1.01); color: #fff; }
+    .btn-approve-grad:hover, .btn-recommend-grad:hover { opacity: 0.88; transform: scale(1.01); color: #fff; }
     .btn-reject-outline:hover { background: #fef2f2; }
     .empty-state { grid-column:1/-1; text-align:center; padding:80px 20px; color:#94a3b8; }
     .empty-icon  { font-size:4rem; margin-bottom:16px; opacity:0.2; display:block; }
 
-    /* ── MOBILE RESPONSIVENESS ───────────────────────────────────── */
-    /* Extra small devices (phones under 480px) */
-    @media (max-width: 479px) {
-        .admin-container { 
-            padding: 15px !important; 
-            background: #f8fafc; 
-            min-height: 100vh; 
-        }
-        
-        .glass-header {
-            padding: 20px 15px !important;
-            border-radius: 15px !important;
-            margin-bottom: 20px !important;
-            flex-direction: column !important;
-            align-items: flex-start !important;
-            gap: 15px !important;
-        }
-        
-        .header-title h2 {
-            font-size: 1.5rem !important;
-            line-height: 1.2 !important;
-        }
-        
-        .header-title p {
-            font-size: 0.85rem !important;
-        }
-        
-        .type-toggle {
-            width: 100% !important;
-            flex-direction: column !important;
-            border-radius: 12px !important;
-            padding: 4px !important;
-            gap: 4px !important;
-        }
-        
-        .toggle-slider {
-            display: none !important;
-        }
-        
-        .type-toggle .tab-btn {
-            width: 100% !important;
-            padding: 12px 16px !important;
-            border-radius: 8px !important;
-            font-size: 0.85rem !important;
-            justify-content: space-between !important;
-            background: #f1f5f9 !important;
-            margin-bottom: 4px !important;
-            transition: all 0.2s ease !important;
-        }
-        
-        .type-toggle .tab-btn.active {
-            background: #6366f1 !important;
-            color: #fff !important;
-            box-shadow: 0 2px 8px rgba(99, 102, 241, 0.3) !important;
-        }
-        
-        .tab-count {
-            min-width: 24px !important;
-            height: 24px !important;
-            font-size: 0.75rem !important;
-            padding: 0 8px !important;
-        }
-        
-        .request-grid {
-            grid-template-columns: 1fr !important;
-            gap: 16px !important;
-        }
-        
-        .request-card {
-            padding: 18px !important;
-            border-radius: 15px !important;
-        }
-        
-        .req-title {
-            font-size: 1.1rem !important;
-            line-height: 1.3 !important;
-            margin-bottom: 10px !important;
-        }
-        
-        .meta-pills {
-            gap: 6px !important;
-            margin-bottom: 12px !important;
-        }
-        
-        .pill {
-            font-size: 0.75rem !important;
-            padding: 6px 10px !important;
-            border-radius: 6px !important;
-        }
-        
-        .detail-zone {
-            padding: 12px !important;
-            font-size: 0.82rem !important;
-            margin-bottom: 12px !important;
-        }
-        
-        .change-item {
-            padding: 6px 0 !important;
-            font-size: 0.82rem !important;
-        }
-        
-        .action-group {
-            flex-direction: column !important;
-            gap: 8px !important;
-            margin-top: 12px !important;
-        }
-        
-        .btn-approve-grad, .btn-reject-outline {
-            padding: 12px !important;
-            font-size: 0.85rem !important;
-            border-radius: 8px !important;
-            min-height: 48px !important;
-            display: flex !important;
-            align-items: center !important;
-            justify-content: center !important;
-        }
-        
-        .empty-state {
-            padding: 60px 15px !important;
-        }
-        
-        .empty-icon {
-            font-size: 3rem !important;
-        }
-        
-        #toastContainer {
-            top: 10px !important;
-            right: 10px !important;
-            left: 10px !important;
-        }
-        
-        .bx-toast {
-            min-width: auto !important;
-            max-width: none !important;
-            margin: 0 5px !important;
-        }
+    /* ── Requirements inline panel ─── */
+    .req-inline-panel {
+        background: #f0f9ff; border: 1px solid #bae6fd; border-radius: 12px;
+        padding: 14px 16px; margin-top: 10px; display: none;
     }
-    
-    /* Small devices (phones 480px - 767px) */
-    @media (min-width: 480px) and (max-width: 767px) {
-        .admin-container { 
-            padding: 20px !important; 
-        }
-        
-        .glass-header {
-            padding: 22px 20px !important;
-            border-radius: 16px !important;
-            margin-bottom: 25px !important;
-        }
-        
-        .header-title h2 {
-            font-size: 1.6rem !important;
-        }
-        
-        .type-toggle {
-            width: 100% !important;
-            flex-wrap: wrap !important;
-            gap: 6px !important;
-        }
-        
-        .toggle-slider {
-            display: none !important;
-        }
-        
-        .type-toggle .tab-btn {
-            flex: 1 1 calc(50% - 3px) !important;
-            min-width: calc(50% - 3px) !important;
-            padding: 10px 12px !important;
-            font-size: 0.82rem !important;
-            justify-content: center !important;
-            background: #f1f5f9 !important;
-            margin-bottom: 6px !important;
-        }
-        
-        .type-toggle .tab-btn.active {
-            background: #6366f1 !important;
-            color: #fff !important;
-        }
-        
-        .request-grid {
-            grid-template-columns: 1fr !important;
-            gap: 18px !important;
-        }
-        
-        .request-card {
-            padding: 20px !important;
-        }
-        
-        .action-group {
-            flex-direction: column !important;
-            gap: 10px !important;
-        }
-        
-        .btn-approve-grad, .btn-reject-outline {
-            padding: 11px !important;
-            min-height: 46px !important;
-        }
+    .req-inline-panel.open { display: block; }
+    .req-panel-header {
+        font-size: 0.74rem; font-weight: 700; text-transform: uppercase;
+        letter-spacing: 0.5px; color: #0284c7; margin-bottom: 8px;
+        display: flex; justify-content: space-between; align-items: center;
     }
-    
-    /* Medium devices (tablets 768px - 1023px) */
-    @media (min-width: 768px) and (max-width: 1023px) {
-        .admin-container { 
-            padding: 25px !important; 
-        }
-        
-        .glass-header {
-            padding: 24px 25px !important;
-            border-radius: 18px !important;
-            margin-bottom: 30px !important;
-            flex-wrap: wrap !important;
-            gap: 15px !important;
-        }
-        
-        .header-title h2 {
-            font-size: 1.7rem !important;
-        }
-        
-        .type-toggle {
-            order: 2 !important;
-            width: 100% !important;
-        }
-        
-        .type-toggle .tab-btn {
-            padding: 8px 14px !important;
-            font-size: 0.84rem !important;
-        }
-        
-        .tab-count {
-            min-width: 18px !important;
-            height: 18px !important;
-            font-size: 0.7rem !important;
-        }
-        
-        .request-grid {
-            grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)) !important;
-            gap: 20px !important;
-        }
-        
-        .request-card {
-            padding: 22px !important;
-        }
-        
-        .action-group {
-            gap: 8px !important;
-        }
-        
-        .btn-approve-grad, .btn-reject-outline {
-            padding: 10px !important;
-            font-size: 0.86rem !important;
-        }
+    .req-panel-close {
+        background: none; border: none; color: #94a3b8; font-size: 0.9rem;
+        cursor: pointer; padding: 0; line-height: 1; transition: color 0.15s;
     }
-    
-    /* Large devices (desktops 1024px - 1439px) */
-    @media (min-width: 1024px) and (max-width: 1439px) {
-        .request-grid {
-            grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)) !important;
-            gap: 22px !important;
-        }
-        
-        .glass-header {
-            padding: 24px 30px !important;
-        }
-        
-        .type-toggle .tab-btn {
-            padding: 9px 16px !important;
-            font-size: 0.86rem !important;
-        }
+    .req-panel-close:hover { color: #475569; }
+    .req-panel-body {
+        font-size: 0.82rem; color: #334155; max-height: 280px; overflow-y: auto;
+        line-height: 1.65; white-space: pre-line;
     }
-    
-    /* Touch device optimizations */
-    @media (hover: none) and (pointer: coarse) {
-        .type-toggle .tab-btn {
-            min-height: 44px !important;
-        }
-        
-        .btn-approve-grad, .btn-reject-outline {
-            min-height: 44px !important;
-        }
-        
-        .request-card {
-            transition: none !important;
-        }
-        
-        .request-card:hover {
-            transform: none !important;
-        }
+    .doc-table-wrap { overflow-x: auto; margin-bottom: 10px; border-radius: 8px; border: 1px solid #e2e8f0; }
+    .doc-table { min-width: 100%; border-collapse: collapse; font-size: 0.78rem; }
+    .doc-table th { background: linear-gradient(135deg,#0ea5e9,#0284c7); color: #fff; font-weight: 700; padding: 6px 10px; text-align: left; }
+    .doc-table td { padding: 5px 10px; border-bottom: 1px solid #e2e8f0; color: #1e293b; }
+    .doc-table tr:nth-child(even) td { background: #f0f9ff; }
+    .btn-view-req {
+        background: linear-gradient(135deg,#0ea5e9,#0284c7); color: #fff;
+        border: none; border-radius: 9px; padding: 6px 14px;
+        font-size: 0.78rem; font-weight: 700; cursor: pointer;
+        display: inline-flex; align-items: center; gap: 5px; transition: opacity 0.2s;
+        margin-top: 6px;
     }
+    .btn-view-req:hover { opacity: 0.85; }
 
-    /* ── Toast ────────────────────────────────────────────── */
+    /* ── Toast ── */
     #toastContainer {
         position:fixed; top:24px; right:24px; z-index:99999;
         display:flex; flex-direction:column; gap:12px; pointer-events:none;
@@ -451,8 +153,7 @@
         display:flex; align-items:flex-start; gap:14px;
         background:#fff; border-radius:14px; padding:16px 20px;
         min-width:320px; max-width:420px;
-        box-shadow:0 4px 24px rgba(0,0,0,0.13);
-        border-left:4px solid #10b981;
+        box-shadow:0 4px 24px rgba(0,0,0,0.13); border-left:4px solid #10b981;
         pointer-events:auto; opacity:0; transform:translateX(52px);
         animation: toastIn .38s cubic-bezier(.22,1,.36,1) forwards,
                    toastOut .32s ease 4.6s forwards;
@@ -477,6 +178,43 @@
         cursor:pointer; padding:0; flex-shrink:0; transition:color .2s;
     }
     .bx-toast-close:hover { color:#333; }
+
+    /* ── Mobile ── */
+    @media (max-width: 479px) {
+        .admin-container { padding: 15px !important; }
+        .glass-header { padding: 20px 15px !important; border-radius: 15px !important; margin-bottom: 20px !important; flex-direction: column !important; align-items: flex-start !important; gap: 15px !important; }
+        .header-title h2 { font-size: 1.5rem !important; }
+        .type-toggle { width: 100% !important; flex-direction: column !important; border-radius: 12px !important; padding: 4px !important; gap: 4px !important; }
+        .toggle-slider { display: none !important; }
+        .type-toggle .tab-btn { width: 100% !important; padding: 12px 16px !important; border-radius: 8px !important; font-size: 0.85rem !important; justify-content: space-between !important; background: #f1f5f9 !important; margin-bottom: 4px !important; }
+        .type-toggle .tab-btn.active { background: #6366f1 !important; color: #fff !important; box-shadow: 0 2px 8px rgba(99,102,241,0.3) !important; }
+        .request-grid { grid-template-columns: 1fr !important; gap: 16px !important; }
+        .request-card { padding: 18px !important; border-radius: 15px !important; }
+        .action-group { flex-direction: column !important; gap: 8px !important; }
+        .btn-approve-grad, .btn-recommend-grad, .btn-reject-outline { padding: 12px !important; font-size: 0.85rem !important; border-radius: 8px !important; min-height: 48px !important; display: flex !important; align-items: center !important; justify-content: center !important; }
+        #toastContainer { top: 10px !important; right: 10px !important; left: 10px !important; }
+    }
+    @media (min-width: 480px) and (max-width: 767px) {
+        .admin-container { padding: 20px !important; }
+        .type-toggle { width: 100% !important; flex-wrap: wrap !important; gap: 6px !important; }
+        .toggle-slider { display: none !important; }
+        .type-toggle .tab-btn { flex: 1 1 calc(50% - 3px) !important; padding: 10px 12px !important; font-size: 0.82rem !important; justify-content: center !important; background: #f1f5f9 !important; }
+        .type-toggle .tab-btn.active { background: #6366f1 !important; color: #fff !important; }
+        .request-grid { grid-template-columns: 1fr !important; gap: 18px !important; }
+        .action-group { flex-direction: column !important; gap: 10px !important; }
+        .btn-approve-grad, .btn-recommend-grad, .btn-reject-outline { min-height: 46px !important; }
+    }
+    @media (min-width: 768px) and (max-width: 1023px) {
+        .admin-container { padding: 25px !important; }
+        .glass-header { flex-wrap: wrap !important; gap: 15px !important; }
+        .type-toggle { order: 2 !important; width: 100% !important; }
+        .request-grid { grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)) !important; gap: 20px !important; }
+    }
+    @media (hover: none) and (pointer: coarse) {
+        .type-toggle .tab-btn, .btn-approve-grad, .btn-recommend-grad, .btn-reject-outline { min-height: 44px !important; }
+        .request-card { transition: none !important; }
+        .request-card:hover { transform: none !important; }
+    }
 </style>
 {% endblock style %}
 
@@ -491,23 +229,20 @@
 </div>
 {% endif %}
 
-<!--
-  active_tab is injected by the view into context so the correct panel
-  is shown on first load AND after a POST redirect (approve/reject).
-  JS then takes over for all subsequent tab clicks without any reload.
--->
 <div id="initialTab" data-tab="{{ active_tab }}" style="display:none"></div>
 
 <div class="admin-container">
 
     <div class="glass-header">
         <div class="header-title">
-            <a href="{% url 'central_admin:dashboard' %}"
-               class="btn btn-sm btn-outline-secondary mb-2 rounded-pill px-3">
+            <a href="{% url 'central_admin:dashboard' %}" class="btn btn-sm btn-outline-secondary mb-2 rounded-pill px-3">
                 <i class="bi bi-arrow-left me-1"></i> Dashboard
             </a>
             <h2>Approval Hub</h2>
-            <p class="text-muted mb-0 small">Review and authorize administrative modifications.</p>
+            <p class="text-muted mb-0 small">
+                {% if is_central_admin %}Final approval authority — reviewing recommended requests.
+                {% else %}Review and recommend booking requests for central admin approval.{% endif %}
+            </p>
         </div>
 
         <div class="type-toggle" id="typeToggle">
@@ -521,7 +256,8 @@
                 <span class="tab-count">{{ issue_tat_count }}</span>
             </a>
             <a class="tab-btn" data-target="panel-booking-req">
-                <i class="bi bi-calendar-check"></i>Booking Requests
+                <i class="bi bi-calendar-check"></i>
+                {% if is_central_admin %}Final Approvals{% else %}Booking Requests{% endif %}
                 <span class="tab-count">{{ booking_req_count }}</span>
             </a>
             <a class="tab-btn" data-target="panel-cancel-req">
@@ -531,9 +267,7 @@
         </div>
     </div>
 
-    <!-- ═══════════════════════════════════════════════════
-         PANEL 1  ·  ITEM STOCK REQUESTS
-    ═══════════════════════════════════════════════════ -->
+    <!-- ═══ PANEL 1 · ITEM STOCK REQUESTS ═══ -->
     <div class="tab-panel" id="panel-item-edit">
         <div class="request-grid">
             {% for r in stock_requests %}
@@ -545,26 +279,11 @@
                     <span class="pill"><i class="bi bi-person me-1"></i>{{ r.requested_by }}</span>
                 </div>
                 <div class="detail-zone">
-                    <div class="change-item">
-                        <span class="text-muted">Units Requested</span>
-                        <span class="fw-bold text-primary" style="font-size:1.05rem;">+{{ r.requested_count }}</span>
-                    </div>
-                    <div class="change-item">
-                        <span class="text-muted">Current Total Stock</span>
-                        <span class="fw-bold">{{ r.item.total_count }}</span>
-                    </div>
-                    <div class="change-item">
-                        <span class="text-muted">Available Now</span>
-                        <span class="fw-bold">{{ r.item.available_count }}</span>
-                    </div>
-                    <div class="change-item">
-                        <span class="text-muted">Currently In Use</span>
-                        <span class="fw-bold">{{ r.item.in_use }}</span>
-                    </div>
-                    <div class="change-item" style="border-bottom:none;">
-                        <span class="text-muted">Stock After Approval</span>
-                        <span class="fw-bold text-success">{{ r.item.total_count|add:r.requested_count }}</span>
-                    </div>
+                    <div class="change-item"><span class="text-muted">Units Requested</span><span class="fw-bold text-primary" style="font-size:1.05rem;">+{{ r.requested_count }}</span></div>
+                    <div class="change-item"><span class="text-muted">Current Total Stock</span><span class="fw-bold">{{ r.item.total_count }}</span></div>
+                    <div class="change-item"><span class="text-muted">Available Now</span><span class="fw-bold">{{ r.item.available_count }}</span></div>
+                    <div class="change-item"><span class="text-muted">Currently In Use</span><span class="fw-bold">{{ r.item.in_use }}</span></div>
+                    <div class="change-item" style="border-bottom:none;"><span class="text-muted">Stock After Approval</span><span class="fw-bold text-success">{{ r.item.total_count|add:r.requested_count }}</span></div>
                 </div>
                 <div class="detail-zone border-start border-primary border-3">
                     <h6 class="fw-bold small mb-1">Reason</h6>
@@ -572,34 +291,22 @@
                 </div>
                 <div class="action-group">
                     <form method="post" action="{% url 'central_admin:approve_stock_request' r.pk %}" class="flex-grow-1">
-                        {% csrf_token %}
-                        <input type="hidden" name="next_type" value="item_edit">
-                        <button type="submit" class="btn-approve-grad w-100">
-                            <i class="bi bi-check-lg me-1"></i> Approve +{{ r.requested_count }}
-                        </button>
+                        {% csrf_token %}<input type="hidden" name="next_type" value="item_edit">
+                        <button type="submit" class="btn-approve-grad w-100"><i class="bi bi-check-lg me-1"></i> Approve +{{ r.requested_count }}</button>
                     </form>
                     <form method="post" action="{% url 'central_admin:reject_stock_request' r.pk %}" class="flex-grow-1">
-                        {% csrf_token %}
-                        <input type="hidden" name="next_type" value="item_edit">
-                        <button type="submit" class="btn-reject-outline w-100">
-                            <i class="bi bi-x-lg me-1"></i> Reject
-                        </button>
+                        {% csrf_token %}<input type="hidden" name="next_type" value="item_edit">
+                        <button type="submit" class="btn-reject-outline w-100"><i class="bi bi-x-lg me-1"></i> Reject</button>
                     </form>
                 </div>
             </div>
             {% empty %}
-            <div class="empty-state">
-                <i class="bi bi-box-seam empty-icon"></i>
-                <h4 class="fw-bold text-dark">No Pending Stock Requests</h4>
-                <p>All stock requests have been reviewed.</p>
-            </div>
+            <div class="empty-state"><i class="bi bi-box-seam empty-icon"></i><h4 class="fw-bold text-dark">No Pending Stock Requests</h4><p>All stock requests have been reviewed.</p></div>
             {% endfor %}
         </div>
     </div>
 
-    <!-- ═══════════════════════════════════════════════════
-         PANEL 2  ·  TIME EXTENSION REQUESTS
-    ═══════════════════════════════════════════════════ -->
+    <!-- ═══ PANEL 2 · TIME EXTENSION REQUESTS ═══ -->
     <div class="tab-panel" id="panel-issue-tat">
         <div class="request-grid">
             {% for r in tat_requests %}
@@ -608,19 +315,11 @@
                 <h5 class="req-title">Ticket #{{ r.issue.ticket_id }}</h5>
                 <div class="meta-pills">
                     <span class="pill"><i class="bi bi-person me-1"></i>{{ r.requested_by }}</span>
-                    <span class="pill pill-warn">
-                        <i class="bi bi-plus-circle me-1"></i>+{{ r.requested_extra_hours }} hrs requested
-                    </span>
+                    <span class="pill pill-warn"><i class="bi bi-plus-circle me-1"></i>+{{ r.requested_extra_hours }} hrs requested</span>
                 </div>
                 <div class="detail-zone">
-                    <div class="d-flex justify-content-between mb-1">
-                        <span class="text-muted">Current SLA Balance</span>
-                        <span class="fw-bold">{{ r.current_tat_hours }} hrs</span>
-                    </div>
-                    <div class="d-flex justify-content-between">
-                        <span class="text-muted">After Extension</span>
-                        <span class="fw-bold text-success">{{ r.current_tat_hours|add:r.requested_extra_hours }} hrs</span>
-                    </div>
+                    <div class="d-flex justify-content-between mb-1"><span class="text-muted">Current SLA Balance</span><span class="fw-bold">{{ r.current_tat_hours }} hrs</span></div>
+                    <div class="d-flex justify-content-between"><span class="text-muted">After Extension</span><span class="fw-bold text-success">{{ r.current_tat_hours|add:r.requested_extra_hours }} hrs</span></div>
                 </div>
                 <div class="detail-zone border-start border-warning border-3">
                     <h6 class="fw-bold small mb-1">Justification</h6>
@@ -628,67 +327,66 @@
                 </div>
                 <div class="action-group">
                     <form method="post" action="{% url 'central_admin:approve_issue_time_extension' r.pk %}" class="flex-grow-1">
-                        {% csrf_token %}
-                        <input type="hidden" name="next_type" value="issue_tat">
-                        <button type="submit" class="btn-approve-grad w-100">
-                            <i class="bi bi-clock-history me-1"></i> Extend Time
-                        </button>
+                        {% csrf_token %}<input type="hidden" name="next_type" value="issue_tat">
+                        <button type="submit" class="btn-approve-grad w-100"><i class="bi bi-clock-history me-1"></i> Extend Time</button>
                     </form>
                     <form method="post" action="{% url 'central_admin:reject_issue_time_extension' r.pk %}" class="flex-grow-1">
-                        {% csrf_token %}
-                        <input type="hidden" name="next_type" value="issue_tat">
-                        <button type="submit" class="btn-reject-outline w-100">
-                            <i class="bi bi-x-lg me-1"></i> Reject
-                        </button>
+                        {% csrf_token %}<input type="hidden" name="next_type" value="issue_tat">
+                        <button type="submit" class="btn-reject-outline w-100"><i class="bi bi-x-lg me-1"></i> Reject</button>
                     </form>
                 </div>
             </div>
             {% empty %}
-            <div class="empty-state">
-                <i class="bi bi-clock-history empty-icon"></i>
-                <h4 class="fw-bold text-dark">No Pending Extensions</h4>
-                <p>All time extension requests have been reviewed.</p>
-            </div>
+            <div class="empty-state"><i class="bi bi-clock-history empty-icon"></i><h4 class="fw-bold text-dark">No Pending Extensions</h4><p>All time extension requests have been reviewed.</p></div>
             {% endfor %}
         </div>
     </div>
 
-    <!-- ═══════════════════════════════════════════════════
-         PANEL 3  ·  BOOKING REQUESTS
-    ═══════════════════════════════════════════════════ -->
+    <!-- ═══ PANEL 3 · BOOKING REQUESTS ═══ -->
     <div class="tab-panel" id="panel-booking-req">
+        {% if is_central_admin %}
+        <div style="background:#e0f2fe;border:1px solid #bae6fd;border-radius:12px;padding:12px 18px;margin-bottom:20px;display:flex;align-items:center;gap:10px;">
+            <i class="bi bi-info-circle-fill" style="color:#0284c7;font-size:1.1rem;flex-shrink:0;"></i>
+            <span style="font-size:0.85rem;color:#075985;font-weight:600;">
+                These bookings have been reviewed and recommended by a sub-admin. Your approval is the final confirmation.
+                On approval, all relevant parties and departments are automatically notified with the full booking details.
+            </span>
+        </div>
+        {% endif %}
         <div class="request-grid">
             {% for r in booking_requests %}
             <div class="request-card type-booking" id="bk-card-{{ r.pk }}">
-                <span class="req-type">Room Booking Request</span>
-                <h5 class="req-title">{{ r.room.room_name }}</h5>
+
+                {% if is_central_admin %}
+                <span class="req-type" style="color:#0284c7;">Room Booking — Awaiting Final Approval</span>
+                {% if r.recommended_by %}
+                <div style="font-size:0.74rem;color:#0284c7;font-weight:700;margin-bottom:6px;">
+                    <i class="bi bi-hand-thumbs-up-fill me-1"></i>Recommended by: {{ r.recommended_by }}
+                </div>
+                {% endif %}
+                {% else %}
+                <span class="req-type">Room Booking Request — Pending Review</span>
+                {% endif %}
+
+                <h5 class="req-title">{{ r.room_summary }}</h5>
                 <div class="meta-pills">
                     <span class="pill"><i class="bi bi-person me-1"></i>{{ r.faculty_name }}</span>
                     <span class="pill"><i class="bi bi-envelope me-1"></i>{{ r.faculty_email }}</span>
-                    {% if r.department %}
-                    <span class="pill"><i class="bi bi-building me-1"></i>{{ r.department }}</span>
-                    {% endif %}
+                    {% if r.department %}<span class="pill"><i class="bi bi-building me-1"></i>{{ r.department }}</span>{% endif %}
+                    {% if r.recommended_by %}<span class="pill pill-recommend"><i class="bi bi-hand-thumbs-up me-1"></i>Recommended by {{ r.recommended_by }}</span>{% endif %}
+                    {% if r.approved_by %}<span class="pill pill-recommend"><i class="bi bi-check2-circle me-1"></i>Approved by {{ r.approved_by }}</span>{% endif %}
                     {% if r.tat_deadline %}
-                    <span class="pill tat-pill" data-deadline="{{ r.tat_deadline|date:'c' }}"
-                          style="background:#fff7ed;color:#c2410c;border-color:#fed7aa;">
+                    <span class="pill tat-pill" data-deadline="{{ r.tat_deadline|date:'c' }}" style="background:#fff7ed;color:#c2410c;border-color:#fed7aa;">
                         <i class="bi bi-alarm me-1"></i>
-                        Approve by: {{ r.tat_deadline|date:"d M, H:i" }}
+                        {% if is_central_admin %}Approve by{% else %}Act by{% endif %}: {{ r.tat_deadline|date:"d M, H:i" }}
                     </span>
                     {% endif %}
                 </div>
+
                 <div class="detail-zone">
-                    <div class="d-flex justify-content-between mb-1">
-                        <span class="text-muted">From</span>
-                        <span class="fw-bold">{{ r.start_datetime|date:"d M Y, H:i" }}</span>
-                    </div>
-                    <div class="d-flex justify-content-between mb-1">
-                        <span class="text-muted">To</span>
-                        <span class="fw-bold">{{ r.end_datetime|date:"d M Y, H:i" }}</span>
-                    </div>
-                    <div class="d-flex justify-content-between">
-                        <span class="text-muted">Submitted</span>
-                        <span class="fw-bold">{{ r.created_on|date:"d M Y" }}</span>
-                    </div>
+                    <div class="d-flex justify-content-between mb-1"><span class="text-muted">From</span><span class="fw-bold">{{ r.start_datetime|date:"d M Y, H:i" }}</span></div>
+                    <div class="d-flex justify-content-between mb-1"><span class="text-muted">To</span><span class="fw-bold">{{ r.end_datetime|date:"d M Y, H:i" }}</span></div>
+                    <div class="d-flex justify-content-between"><span class="text-muted">Submitted</span><span class="fw-bold">{{ r.created_on|date:"d M Y" }}</span></div>
                 </div>
 
                 {% if r.purpose %}
@@ -698,59 +396,94 @@
                 </div>
                 {% endif %}
 
-                {% if r.requirements_text %}
-                <div class="detail-zone border-start border-3" style="border-color:#6366f1!important;">
-                    <h6 class="fw-bold small mb-1"><i class="bi bi-pencil-square me-1"></i>Requirements (Text)</h6>
-                    <p class="mb-0" style="white-space:pre-line;">{{ r.requirements_text }}</p>
+                {% if r.recommended_note or r.approved_note %}
+                <div class="detail-zone border-start border-3" style="border-color:#38bdf8!important;">
+                    <h6 class="fw-bold small mb-1">Admin Remarks</h6>
+                    {% if r.recommended_note %}<p class="mb-1"><strong>Sub-admin:</strong> {{ r.recommended_note }}</p>{% endif %}
+                    {% if r.approved_note %}<p class="mb-0"><strong>Central admin:</strong> {{ r.approved_note }}</p>{% endif %}
                 </div>
                 {% endif %}
 
+                <!-- ── Requirements: inline text ── -->
+                {% if r.requirements_text %}
+                <div style="margin-bottom:8px;">
+                    <button class="btn-view-req" onclick="toggleInlineReq('text-{{ r.pk }}', this)">
+                        <i class="bi bi-eye me-1"></i>View Requirements
+                    </button>
+                    <div class="req-inline-panel" id="req-panel-text-{{ r.pk }}">
+                        <div class="req-panel-header">
+                            <span><i class="bi bi-pencil-square me-1"></i>Requirements (Text)</span>
+                            <button class="req-panel-close" onclick="closeReqPanel('text-{{ r.pk }}')">✕ Close</button>
+                        </div>
+                        <div class="req-panel-body">{{ r.requirements_text }}</div>
+                    </div>
+                </div>
+                {% endif %}
+
+                <!-- ── Requirements: uploaded document ── -->
                 {% if r.requirements_doc %}
-                <div class="mb-2">
-                    <a href="{{ r.requirements_doc.url }}" target="_blank"
-                       class="btn btn-sm btn-outline-secondary rounded-pill">
-                        <i class="bi bi-file-earmark-text me-1"></i> View Requirements Doc
-                    </a>
+                <div style="margin-bottom:10px;">
+                    <button class="btn-view-req" onclick="toggleDocReq('doc-{{ r.pk }}', this, '{% url 'central_admin:booking_request_doc_text' r.pk %}')">
+                        <i class="bi bi-eye me-1"></i>View Requirements
+                    </button>
+                    <div class="req-inline-panel" id="req-panel-doc-{{ r.pk }}">
+                        <div class="req-panel-header">
+                            <span><i class="bi bi-file-earmark-word me-1"></i>Requirements Document</span>
+                            <button class="req-panel-close" onclick="closeReqPanel('doc-{{ r.pk }}')">✕ Close</button>
+                        </div>
+                        <div class="req-panel-body" id="req-content-doc-{{ r.pk }}"></div>
+                    </div>
                 </div>
                 {% endif %}
 
                 <div class="action-group">
-                    <!-- Approve -->
+                    {% if is_central_admin %}
+                    <!-- Central admin: FINAL APPROVE -->
                     <form method="post" action="{% url 'central_admin:approve_room_booking_request' r.pk %}" class="flex-grow-1">
                         {% csrf_token %}
                         <input type="hidden" name="next_type" value="booking_req">
+                        <textarea name="note" rows="2"
+                                  placeholder="Optional approval remark to send by email…"
+                                  style="width:100%;padding:10px 14px;border:1.5px solid #dbeafe;border-radius:10px;font-size:0.84rem;resize:vertical;margin-bottom:8px;font-family:inherit;color:#1e293b;"></textarea>
                         <button type="submit" class="btn-approve-grad w-100">
-                            <i class="bi bi-calendar-check me-1"></i> Approve Booking
+                            <i class="bi bi-check-circle-fill me-1"></i> Final Approve
                         </button>
                     </form>
+                    {% else %}
+                    <!-- Sub-admin: RECOMMEND -->
+                    <form method="post" action="{% url 'central_admin:recommend_room_booking_request' r.pk %}" class="flex-grow-1">
+                        {% csrf_token %}
+                        <input type="hidden" name="next_type" value="booking_req">
+                        <textarea name="note" rows="2"
+                                  placeholder="Optional recommendation remark to include in email…"
+                                  style="width:100%;padding:10px 14px;border:1.5px solid #bae6fd;border-radius:10px;font-size:0.84rem;resize:vertical;margin-bottom:8px;font-family:inherit;color:#1e293b;"></textarea>
+                        <button type="submit" class="btn-recommend-grad w-100">
+                            <i class="bi bi-hand-thumbs-up-fill me-1"></i> Recommend
+                        </button>
+                    </form>
+                    {% endif %}
                     <!-- Reject — opens inline note panel -->
-                    <button type="button" class="btn-reject-outline flex-grow-1"
-                            onclick="toggleRejectNote({{ r.pk }})">
+                    <button type="button" class="btn-reject-outline flex-grow-1" onclick="toggleRejectNote({{ r.pk }})">
                         <i class="bi bi-x-lg me-1"></i> Reject
                     </button>
                 </div>
 
-                <!-- Inline rejection note panel (hidden by default) -->
+                <!-- Inline rejection note panel -->
                 <div id="reject-note-{{ r.pk }}" style="display:none; margin-top:12px;">
                     <form method="post" action="{% url 'central_admin:reject_room_booking_request' r.pk %}">
                         {% csrf_token %}
                         <input type="hidden" name="next_type" value="booking_req">
-                        <textarea name="review_note" rows="3"
-                                  placeholder="Enter reason for rejection (optional but recommended)…"
+                        <textarea name="note" rows="3"
+                                  placeholder="Enter reason for rejection (required)…"
+                                  required
                                   style="width:100%;padding:10px 14px;border:1.5px solid #fee2e2;border-radius:10px;
                                          font-size:0.84rem;resize:vertical;margin-bottom:8px;
                                          font-family:inherit;color:#1e293b;"></textarea>
                         <div style="display:flex;gap:8px;">
-                            <button type="submit"
-                                    style="flex:2;background:linear-gradient(135deg,#ef4444,#dc2626);color:#fff;
-                                           border:none;padding:9px;border-radius:9px;font-weight:600;
-                                           font-size:0.84rem;cursor:pointer;">
+                            <button type="submit" style="flex:2;background:linear-gradient(135deg,#ef4444,#dc2626);color:#fff;border:none;padding:9px;border-radius:9px;font-weight:600;font-size:0.84rem;cursor:pointer;">
                                 <i class="bi bi-send me-1"></i> Confirm Rejection
                             </button>
-                            <button type="button" onclick="toggleRejectNote({{ r.pk }})"
-                                    style="flex:1;background:#f1f5f9;color:#475569;border:none;
-                                           padding:9px;border-radius:9px;font-weight:600;
-                                           font-size:0.84rem;cursor:pointer;">
+                            <button type="button" onclick="toggleRejectNote({{ r.pk }})" style="flex:1;background:#f1f5f9;color:#475569;border:none;padding:9px;border-radius:9px;font-weight:600;font-size:0.84rem;cursor:pointer;">
                                 Cancel
                             </button>
                         </div>
@@ -761,40 +494,31 @@
             {% empty %}
             <div class="empty-state">
                 <i class="bi bi-calendar-check empty-icon"></i>
-                <h4 class="fw-bold text-dark">No Pending Bookings</h4>
-                <p>All room booking requests have been reviewed.</p>
+                <h4 class="fw-bold text-dark">
+                    {% if is_central_admin %}No Bookings Awaiting Final Approval{% else %}No Pending Booking Requests{% endif %}
+                </h4>
+                <p>{% if is_central_admin %}All recommended bookings have been reviewed.{% else %}No booking requests are awaiting your recommendation.{% endif %}</p>
             </div>
             {% endfor %}
         </div>
     </div>
 
-    <!-- ═══════════════════════════════════════════════════
-         PANEL 4  ·  CANCELLATION REQUESTS
-    ═══════════════════════════════════════════════════ -->
+    <!-- ═══ PANEL 4 · CANCELLATION REQUESTS ═══ -->
     <div class="tab-panel" id="panel-cancel-req">
         <div class="request-grid">
             {% for r in cancel_requests %}
             <div class="request-card type-cancel">
                 <span class="req-type">Cancellation Request</span>
-                <h5 class="req-title">{{ r.booking.room.room_name }}</h5>
+                <h5 class="req-title">{{ r.booking.room_summary }}</h5>
                 <div class="meta-pills">
                     <span class="pill"><i class="bi bi-person me-1"></i>{{ r.booking.faculty_name }}</span>
                     <span class="pill"><i class="bi bi-envelope me-1"></i>{{ r.faculty_email }}</span>
                     <span class="pill pill-warn"><i class="bi bi-x-circle me-1"></i>Cancel Requested</span>
                 </div>
                 <div class="detail-zone">
-                    <div class="d-flex justify-content-between mb-1">
-                        <span class="text-muted">Booked From</span>
-                        <span class="fw-bold">{{ r.booking.start_datetime|date:"d M Y, H:i" }}</span>
-                    </div>
-                    <div class="d-flex justify-content-between mb-1">
-                        <span class="text-muted">Booked Until</span>
-                        <span class="fw-bold">{{ r.booking.end_datetime|date:"d M Y, H:i" }}</span>
-                    </div>
-                    <div class="d-flex justify-content-between">
-                        <span class="text-muted">Requested On</span>
-                        <span class="fw-bold">{{ r.created_on|date:"d M Y" }}</span>
-                    </div>
+                    <div class="d-flex justify-content-between mb-1"><span class="text-muted">Booked From</span><span class="fw-bold">{{ r.booking.start_datetime|date:"d M Y, H:i" }}</span></div>
+                    <div class="d-flex justify-content-between mb-1"><span class="text-muted">Booked Until</span><span class="fw-bold">{{ r.booking.end_datetime|date:"d M Y, H:i" }}</span></div>
+                    <div class="d-flex justify-content-between"><span class="text-muted">Requested On</span><span class="fw-bold">{{ r.created_on|date:"d M Y" }}</span></div>
                 </div>
                 <div class="detail-zone border-start border-danger border-3">
                     <h6 class="fw-bold small mb-1">Reason for Cancellation</h6>
@@ -802,27 +526,17 @@
                 </div>
                 <div class="action-group">
                     <form method="post" action="{% url 'central_admin:approve_cancellation_request' r.pk %}" class="flex-grow-1">
-                        {% csrf_token %}
-                        <input type="hidden" name="next_type" value="cancel_req">
-                        <button type="submit" class="btn-approve-grad w-100">
-                            <i class="bi bi-check-lg me-1"></i> Approve & Remove
-                        </button>
+                        {% csrf_token %}<input type="hidden" name="next_type" value="cancel_req">
+                        <button type="submit" class="btn-approve-grad w-100"><i class="bi bi-check-lg me-1"></i> Approve & Remove</button>
                     </form>
                     <form method="post" action="{% url 'central_admin:reject_cancellation_request' r.pk %}" class="flex-grow-1">
-                        {% csrf_token %}
-                        <input type="hidden" name="next_type" value="cancel_req">
-                        <button type="submit" class="btn-reject-outline w-100">
-                            <i class="bi bi-calendar-check me-1"></i> Keep Booking
-                        </button>
+                        {% csrf_token %}<input type="hidden" name="next_type" value="cancel_req">
+                        <button type="submit" class="btn-reject-outline w-100"><i class="bi bi-calendar-check me-1"></i> Keep Booking</button>
                     </form>
                 </div>
             </div>
             {% empty %}
-            <div class="empty-state">
-                <i class="bi bi-calendar-x empty-icon"></i>
-                <h4 class="fw-bold text-dark">No Pending Cancellations</h4>
-                <p>All cancellation requests have been reviewed.</p>
-            </div>
+            <div class="empty-state"><i class="bi bi-calendar-x empty-icon"></i><h4 class="fw-bold text-dark">No Pending Cancellations</h4><p>All cancellation requests have been reviewed.</p></div>
             {% endfor %}
         </div>
     </div>
@@ -830,114 +544,150 @@
 </div><!-- /admin-container -->
 
 <script>
-/* ════════════════════════════════════════════════════════════════
-   REJECT NOTE TOGGLE
-════════════════════════════════════════════════════════════════ */
+/* ── REJECT NOTE TOGGLE ── */
 function toggleRejectNote(pk) {
     var el = document.getElementById('reject-note-' + pk);
     if (!el) return;
     el.style.display = el.style.display === 'none' ? 'block' : 'none';
 }
 
-/* ════════════════════════════════════════════════════════════════
-   TAT DEADLINE URGENCY COLOURING
-   — Pills with data-deadline get coloured red if < 12 h remaining,
-     amber if 12-24 h, otherwise keep default warning orange.
-════════════════════════════════════════════════════════════════ */
+/* ── REQUIREMENTS INLINE VIEWER ── */
+function escapeHtml(str) {
+    return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+
+function renderDocBlocks(container, blocks) {
+    if (!container) return;
+    if (!blocks || blocks.length === 0) { container.innerHTML = '<span style="color:#94a3b8;font-style:italic;">No readable content found.</span>'; return; }
+    var html = '';
+    blocks.forEach(function(block) {
+        if (block.type === 'paragraph') {
+            html += '<p style="margin-bottom:6px;">' + escapeHtml(block.text) + '</p>';
+        } else if (block.type === 'table' && block.rows && block.rows.length) {
+            html += '<div class="doc-table-wrap"><table class="doc-table"><thead><tr>';
+            block.rows[0].forEach(function(c) { html += '<th>' + escapeHtml(c) + '</th>'; });
+            html += '</tr></thead><tbody>';
+            for (var i = 1; i < block.rows.length; i++) {
+                html += '<tr>';
+                block.rows[i].forEach(function(c) { html += '<td>' + escapeHtml(c) + '</td>'; });
+                html += '</tr>';
+            }
+            html += '</tbody></table></div>';
+        }
+    });
+    container.innerHTML = html || '<span style="color:#94a3b8;font-style:italic;">No readable content found.</span>';
+}
+
+function toggleInlineReq(pk, btn) {
+    var panel = document.getElementById('req-panel-' + pk);
+    if (!panel) return;
+    if (panel.classList.contains('open')) {
+        panel.classList.remove('open');
+        btn.innerHTML = '<i class="bi bi-eye me-1"></i>View Requirements';
+    } else {
+        panel.classList.add('open');
+        btn.innerHTML = '<i class="bi bi-eye-slash me-1"></i>Hide Requirements';
+    }
+}
+
+function toggleDocReq(pk, btn, textUrl) {
+    var panel   = document.getElementById('req-panel-' + pk);
+    var content = document.getElementById('req-content-' + pk);
+    if (!panel) return;
+    if (panel.classList.contains('open')) {
+        panel.classList.remove('open');
+        btn.innerHTML = '<i class="bi bi-eye me-1"></i>View Requirements';
+        return;
+    }
+    panel.classList.add('open');
+    btn.innerHTML = '<i class="bi bi-eye-slash me-1"></i>Hide Requirements';
+    if (!content || content.dataset.loaded) return;
+    content.innerHTML = '<div style="text-align:center;padding:12px;color:#64748b;"><div class="spinner-border spinner-border-sm me-2"></div>Loading document…</div>';
+    fetch(textUrl, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+        .then(function(r) { return r.json(); })
+        .then(function(d) {
+            if (d.error) {
+                content.innerHTML = '<span style="color:#dc2626;font-size:0.82rem;">' + escapeHtml(d.error) + '</span>';
+            } else {
+                renderDocBlocks(content, d.blocks);
+            }
+            if (content) content.dataset.loaded = '1';
+        })
+        .catch(function() {
+            content.innerHTML = '<span style="color:#dc2626;font-size:0.82rem;">Failed to load document. Please try again.</span>';
+        });
+}
+
+function closeReqPanel(pk) {
+    var panel = document.getElementById('req-panel-' + pk);
+    if (panel) panel.classList.remove('open');
+    // Reset button labels
+    var card = panel ? panel.closest('.request-card') : null;
+    if (card) {
+        card.querySelectorAll('.btn-view-req').forEach(function(btn) {
+            if (btn.textContent.indexOf('Hide') !== -1) {
+                btn.innerHTML = btn.textContent.indexOf('Doc') !== -1
+                    ? '<i class="bi bi-eye me-1"></i>View Requirements'
+                    : '<i class="bi bi-eye me-1"></i>View Requirements';
+            }
+        });
+    }
+}
+
+/* ── TAT URGENCY COLOURING ── */
 document.addEventListener('DOMContentLoaded', function() {
     var now = Date.now();
     document.querySelectorAll('.tat-pill[data-deadline]').forEach(function(el) {
         var deadline = new Date(el.getAttribute('data-deadline')).getTime();
         var hoursLeft = (deadline - now) / 3600000;
-        if (hoursLeft <= 0) {
-            el.style.background = '#fee2e2';
-            el.style.color      = '#991b1b';
-            el.style.borderColor= '#fecaca';
-            el.innerHTML = '<i class="bi bi-exclamation-triangle-fill me-1"></i>' + el.innerHTML.replace(/<[^>]+>/g,'').trim();
-        } else if (hoursLeft <= 12) {
+        if (hoursLeft <= 0 || hoursLeft <= 12) {
             el.style.background = '#fee2e2';
             el.style.color      = '#dc2626';
             el.style.borderColor= '#fecaca';
         }
-        // 12-24h keeps the default amber set in the template
     });
 });
 
-/* ════════════════════════════════════════════════════════════════
-   TOAST HELPER
-════════════════════════════════════════════════════════════════ */
+/* ── TOAST ── */
 function showToast(title, message, type) {
     var C = document.getElementById('toastContainer');
-    var cls     = type === 'reject' ? 'bx-toast toast-reject'
-                : type === 'error'  ? 'bx-toast toast-error'
-                : 'bx-toast';
+    var cls     = type === 'reject' ? 'bx-toast toast-reject' : type === 'error' ? 'bx-toast toast-error' : 'bx-toast';
     var iconCls = type === 'success' ? 'ti-s' : type === 'reject' ? 'ti-r' : 'ti-e';
-    var icon    = type === 'success' ? '✓'    : type === 'reject'  ? '↩'   : '✕';
+    var icon    = type === 'success' ? '✓'   : type === 'reject'  ? '↩'   : '✕';
     var t = document.createElement('div');
     t.className = cls;
     t.innerHTML =
         '<div class="bx-toast-icon ' + iconCls + '">' + icon + '</div>' +
-        '<div class="bx-toast-body">' +
-            '<div class="bx-toast-title">' + title + '</div>' +
-            '<p class="bx-toast-msg">' + message + '</p>' +
-        '</div>' +
+        '<div class="bx-toast-body"><div class="bx-toast-title">' + title + '</div><p class="bx-toast-msg">' + message + '</p></div>' +
         '<button class="bx-toast-close" onclick="this.closest(\'.bx-toast\').remove()">✕</button>';
     C.appendChild(t);
     setTimeout(function() { if (t.parentNode) t.remove(); }, 5200);
 }
 
-/* Consume Django messages as toasts */
 document.addEventListener('DOMContentLoaded', function() {
     var box = document.getElementById('djangoMessages');
     if (!box) return;
     box.querySelectorAll('span[data-text]').forEach(function(el) {
         var tags = el.dataset.tags || '';
         var text = el.dataset.text || '';
-        var type = tags.indexOf('error')   !== -1 ? 'error'
-                 : tags.indexOf('warning') !== -1 ? 'reject'
-                 : tags.indexOf('info')    !== -1 ? 'reject'
-                 : 'success';
+        var type = tags.indexOf('error') !== -1 ? 'error' : tags.indexOf('warning') !== -1 ? 'reject' : tags.indexOf('info') !== -1 ? 'reject' : 'success';
         showToast(
-            type === 'success' ? '✅ Action Approved'
-          : type === 'reject'  ? '↩ Request Rejected'
-          : '⚠ Something went wrong',
+            type === 'success' ? '✅ Action Completed' : type === 'reject' ? '↩ Request Rejected' : '⚠ Something went wrong',
             text, type
         );
     });
 });
 
-/* ════════════════════════════════════════════════════════════════
-   TAB SWITCHER
-   ─────────────────────────────────────────────────────────────
-   Strategy: ALL four panels are already rendered in the HTML by
-   Django. JS shows exactly one panel at a time by toggling the
-   .active class. There is NO page reload on tab click — the URL
-   is updated silently with history.replaceState so bookmarks /
-   back-button still work.
-
-   On first load the correct panel is determined from the hidden
-   #initialTab div whose data-tab attribute is set by the view
-   (e.g. "item_edit", "issue_tat", "booking_req", "cancel_req").
-   This makes post-redirect landings land on the right tab too.
-════════════════════════════════════════════════════════════════ */
+/* ── TAB SWITCHER ── */
 (function() {
-    /* Map view ?type values → panel element IDs */
-    var TAB_MAP = {
-        'item_edit'   : 'panel-item-edit',
-        'issue_tat'   : 'panel-issue-tat',
-        'booking_req' : 'panel-booking-req',
-        'cancel_req'  : 'panel-cancel-req'
-    };
-    /* Reverse map */
+    var TAB_MAP = { 'item_edit': 'panel-item-edit', 'issue_tat': 'panel-issue-tat', 'booking_req': 'panel-booking-req', 'cancel_req': 'panel-cancel-req' };
     var PANEL_MAP = {};
     Object.keys(TAB_MAP).forEach(function(k) { PANEL_MAP[TAB_MAP[k]] = k; });
+    var toggle = document.getElementById('typeToggle');
+    var slider = document.getElementById('toggleSlider');
+    var tabs   = Array.from(toggle.querySelectorAll('.tab-btn'));
+    var panels = Array.from(document.querySelectorAll('.tab-panel'));
 
-    var toggle  = document.getElementById('typeToggle');
-    var slider  = document.getElementById('toggleSlider');
-    var tabs    = Array.from(toggle.querySelectorAll('.tab-btn'));
-    var panels  = Array.from(document.querySelectorAll('.tab-panel'));
-
-    /* ── Move the sliding pill to sit behind a given tab ── */
     function moveSlider(tabEl) {
         var tr = toggle.getBoundingClientRect();
         var br = tabEl.getBoundingClientRect();
@@ -945,20 +695,11 @@ document.addEventListener('DOMContentLoaded', function() {
         slider.style.width = br.width + 'px';
     }
 
-    /* ── Activate a panel (no navigation, no reload) ─────── */
     function showPanel(panelId) {
-        /* Panels */
-        panels.forEach(function(p) {
-            p.classList.toggle('active', p.id === panelId);
-        });
-        /* Tab buttons */
-        tabs.forEach(function(tb) {
-            tb.classList.toggle('active', tb.getAttribute('data-target') === panelId);
-        });
-        /* Slide the pill */
+        panels.forEach(function(p) { p.classList.toggle('active', p.id === panelId); });
+        tabs.forEach(function(tb)  { tb.classList.toggle('active', tb.getAttribute('data-target') === panelId); });
         var activeTab = toggle.querySelector('.tab-btn.active');
         if (activeTab) moveSlider(activeTab);
-        /* Silently update the URL so reload / bookmark lands here */
         var typeVal = PANEL_MAP[panelId] || 'item_edit';
         try {
             var u = new URL(window.location.href);
@@ -967,49 +708,24 @@ document.addEventListener('DOMContentLoaded', function() {
         } catch(e) {}
     }
 
-    /* ── Determine which tab to open on first load ────────── */
     function getInitialPanel() {
-        /* 1. Prefer the value the view injected via #initialTab  */
         var hint = document.getElementById('initialTab');
-        if (hint) {
-            var t = hint.getAttribute('data-tab');
-            if (TAB_MAP[t]) return TAB_MAP[t];
-        }
-        /* 2. Fall back to ?type= URL param (covers manual navigation) */
-        try {
-            var param = new URL(window.location.href).searchParams.get('type');
-            if (TAB_MAP[param]) return TAB_MAP[param];
-        } catch(e) {}
-        /* 3. Default */
+        if (hint) { var t = hint.getAttribute('data-tab'); if (TAB_MAP[t]) return TAB_MAP[t]; }
+        try { var param = new URL(window.location.href).searchParams.get('type'); if (TAB_MAP[param]) return TAB_MAP[param]; } catch(e) {}
         return 'panel-item-edit';
     }
 
-    /* ── Initial render: snap slider without animation ────── */
     slider.style.transition = 'none';
     showPanel(getInitialPanel());
-
-    /* Enable smooth transition after first paint */
     requestAnimationFrame(function() {
         requestAnimationFrame(function() {
-            slider.style.transition =
-                'left 0.26s cubic-bezier(0.4,0,0.2,1),' +
-                'width 0.26s cubic-bezier(0.4,0,0.2,1)';
+            slider.style.transition = 'left 0.26s cubic-bezier(0.4,0,0.2,1), width 0.26s cubic-bezier(0.4,0,0.2,1)';
         });
     });
-
-    /* ── Click handlers ─────────────────────────────────────── */
     tabs.forEach(function(tab) {
-        tab.addEventListener('click', function(e) {
-            e.preventDefault();
-            showPanel(tab.getAttribute('data-target'));
-        });
+        tab.addEventListener('click', function(e) { e.preventDefault(); showPanel(tab.getAttribute('data-target')); });
     });
-
-    /* ── Re-position slider on window resize ────────────────── */
-    window.addEventListener('resize', function() {
-        var cur = toggle.querySelector('.tab-btn.active');
-        if (cur) moveSlider(cur);
-    });
+    window.addEventListener('resize', function() { var cur = toggle.querySelector('.tab-btn.active'); if (cur) moveSlider(cur); });
 }());
 </script>
 {% endblock content %}

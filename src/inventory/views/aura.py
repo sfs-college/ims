@@ -18,6 +18,7 @@ from django.views.generic import FormView
 from django.views import View
 from django.contrib import messages
 from django.core.mail import send_mail
+from inventory.booking_utils import extract_requirement_blocks_from_field, format_room_list, requirement_blocks_to_plain_text
 from inventory.forms.room_incharge import ExcelUploadForm
 from django.db import models
 from inventory.models import SystemComponent as SC
@@ -749,7 +750,7 @@ def get_booking_status(request):
     for req in booking_reqs:
         results.append({
             'type':        'Booking Request',
-            'room':        req.room.room_name,
+            'room':        format_room_list(req),
             'from':        req.start_datetime.strftime('%d %b %Y, %H:%M'),
             'to':          req.end_datetime.strftime('%H:%M'),
             'purpose':     req.purpose or '—',
@@ -764,7 +765,7 @@ def get_booking_status(request):
     ).select_related('booking', 'booking__room').order_by('-created_on')
 
     for req in cancel_reqs:
-        room_name = req.booking.room.room_name if req.booking else '—'
+        room_name = format_room_list(req.booking) if req.booking else '—'
         results.append({
             'type':        'Cancellation Request',
             'room':        room_name,
@@ -796,10 +797,17 @@ def confirmed_booking_files(request):
         return JsonResponse({'error': 'Unauthorized'}, status=403)
 
     try:
-        bookings = RoomBooking.objects.select_related('room').order_by('-created_on')
+        bookings = RoomBooking.objects.select_related('room', 'department').prefetch_related('rooms').order_by('-created_on')
 
         results = []
         for b in bookings:
+            # Check for approved edit requests
+            approved_edits = b.edit_requests.filter(status='approved').order_by('-created_on')
+            has_edited_booking = approved_edits.exists()
+            
+            # Get the most recent approved edit request if any
+            latest_edit = approved_edits.first() if has_edited_booking else None
+            
             # has_doc is True whenever a file path is recorded — regardless of
             # whether text has been extracted yet. The actual reading/extraction
             # is deferred to get_booking_doc_text (called lazily on "View Doc"
@@ -819,21 +827,49 @@ def confirmed_booking_files(request):
             inline_text     = (b.requirements_text or '').strip()
             has_inline_text = bool(inline_text)
 
-            results.append({
+            booking_data = {
                 'id':              b.id,
-                'room':            b.room.room_name if b.room else '—',
+                'room':            format_room_list(b),
                 'faculty':         b.faculty_name  or '—',
                 'email':           b.faculty_email or '—',
                 'from':            from_str,
                 'to':              to_str,
                 'purpose':         b.purpose or '',
+                'department':      str(b.department) if b.department else '—',
+                'recommended_by':  getattr(b, 'recommended_by_name', '') or '—',
+                'recommended_note': getattr(b, 'recommended_note', '') or '',
+                'approved_by':     getattr(b, 'approved_by_name', '') or '—',
+                'approved_note':   getattr(b, 'approved_note', '') or '',
                 'doc_name':        doc_name,
                 # True whenever a doc file is attached
                 'has_doc_text':    has_doc,
                 # Inline text requirements (no file upload — typed directly)
                 'has_inline_text': has_inline_text,
                 'inline_text':     inline_text if has_inline_text else '',
-            })
+                # Edit booking information
+                'has_edited_booking': has_edited_booking,
+                'edit_request_id': latest_edit.id if latest_edit else None,
+                'edit_approved_by': latest_edit.approved_by.user.get_full_name() if latest_edit and latest_edit.approved_by else None,
+                'edit_approved_date': latest_edit.updated_on.strftime('%d %b %Y, %H:%M') if latest_edit else None,
+                'edit_note': latest_edit.approved_note if latest_edit else None,
+            }
+            
+            # Add original vs current booking details for toggle functionality
+            if has_edited_booking and latest_edit:
+                # Original details
+                original_rooms = list(latest_edit.original_rooms.all()) if latest_edit.original_rooms.exists() else [latest_edit.original_booking.room]
+                booking_data['original'] = {
+                    'room': format_room_list(original_rooms),
+                    'from': timezone.localtime(latest_edit.original_start_datetime).strftime('%d %b %Y, %H:%M'),
+                    'to': timezone.localtime(latest_edit.original_end_datetime).strftime('%d %b %Y, %H:%M'),
+                    'purpose': latest_edit.original_purpose or '—',
+                    'department': str(latest_edit.original_department) if latest_edit.original_department else '—',
+                }
+                
+                # Changes made (for highlighting)
+                booking_data['changes'] = latest_edit.changes_made or {}
+            
+            results.append(booking_data)
 
         return JsonResponse({'results': results})
 
@@ -856,7 +892,7 @@ def delete_confirmed_booking(request, booking_id):
         return JsonResponse({'error': 'Only central admins can delete bookings.'}, status=403)
 
     booking = get_object_or_404(RoomBooking, id=booking_id)
-    room_name = booking.room.room_name if booking.room else str(booking_id)
+    room_name = format_room_list(booking) if booking.room else str(booking_id)
     try:
         booking.delete()
         return JsonResponse({'status': 'success', 'message': f'Booking for {room_name} deleted.'})
@@ -1006,14 +1042,6 @@ def get_booking_doc_text(request, booking_id):
         return JsonResponse({'error': 'No document is attached to this booking.'}, status=404)
 
     try:
-        from docx import Document  # noqa — just checking install
-    except ImportError:
-        return JsonResponse(
-            {'error': 'python-docx is not installed. Run: pip install python-docx'},
-            status=500
-        )
-
-    try:
         _storage = booking.requirements_doc.storage
         with _storage.open(booking.requirements_doc.name, 'rb') as _f:
             raw = _f.read()
@@ -1031,13 +1059,13 @@ def get_booking_doc_text(request, booking_id):
         return JsonResponse({'error': f'Could not read file from storage: {str(e)}'}, status=500)
 
     try:
-        result = _extract_docx_structured(raw)
+        from django.core.files.base import ContentFile
+        temp_field = ContentFile(raw, name=booking.requirements_doc.name.split('/')[-1])
+        blocks = extract_requirement_blocks_from_field(temp_field)
+        plain_text = requirement_blocks_to_plain_text(blocks) or '(No readable content found in this document)'
     except Exception as e:
         print(f"[get_booking_doc_text] Parse failed booking={booking_id}: {e}\n{_tb.format_exc()}")
         return JsonResponse({'error': f'Could not parse document: {str(e)}'}, status=500)
-
-    blocks     = result['blocks']
-    plain_text = result['plain_text'] or '(No readable content found in this document)'
 
     # Persist/update plain text cache
     try:

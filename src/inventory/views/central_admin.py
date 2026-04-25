@@ -5,7 +5,7 @@ from django.views.generic import TemplateView, ListView, CreateView, UpdateView,
 from django.template.loader import render_to_string
 from core.models import User, UserProfile
 from django.db.models import Q
-from inventory.models import Room, Vendor, Purchase, Issue, Department, Item, StockRequest, IssueTimeExtensionRequest, RoomBooking, RoomBookingRequest, RoomCancellationRequest
+from inventory.models import Room, Vendor, Purchase, Issue, Department, Item, StockRequest, IssueTimeExtensionRequest, RoomBooking, RoomBookingRequest, RoomCancellationRequest, RoomBookingEditRequest
 from django.contrib.auth.tokens import PasswordResetTokenGenerator
 from django.utils.http import urlsafe_base64_encode
 from django.utils.encoding import force_bytes
@@ -16,12 +16,78 @@ from django.contrib.auth.mixins import LoginRequiredMixin
 from django.core.mail import send_mail
 from django.contrib import messages
 from django.conf import settings
-from inventory.email import safe_send_mail
+from inventory.email import safe_send_mail, build_email_shell
 from django.utils import timezone
 from django.views.decorators.http import require_POST
 from datetime import timedelta
 import requests
 from django.http import HttpResponse, Http404
+from inventory.booking_utils import (
+    extract_requirement_blocks_from_field,
+    format_booking_details,
+    format_room_list,
+    get_requirements_payload,
+    requirement_blocks_to_plain_text,
+)
+from django.utils.html import escape
+
+
+BOOKING_NOTIFICATION_EMAILS = [
+    'hr@sfscollege.in',
+    'anithac@sfscollege.in',
+    'sabastin@sfscollege.in',
+    'anandl@sfscollege.in',
+    'sibisebastian@sfscollege.in',
+]
+
+def _get_requirements_text_for_email(req_obj):
+    """Extract requirements from a RoomBookingRequest for email embedding."""
+    payload = get_requirements_payload(req_obj)
+    if payload["kind"] == "text" and payload["plain_text"]:
+        return f"\nRequirements:\n{'='*50}\n{payload['plain_text']}\n{'='*50}\n"
+    if payload["kind"] == "document":
+        if payload["plain_text"]:
+            filename = payload["filename"] or "Requirements document"
+            return (
+                f"\nRequirements (from document: {filename}):\n{'='*50}\n"
+                f"{payload['plain_text']}\n{'='*50}\n"
+            )
+        return "\n[Requirements document attached — see booking files.]\n"
+    return "\n[No additional requirements specified.]\n"
+
+
+def _booking_email_sections(req_obj):
+    sl = timezone.localtime(req_obj.start_datetime)
+    el = timezone.localtime(req_obj.end_datetime)
+    sections = [
+        {
+            "title": "Booking Details",
+            "rows": [
+                {"label": "Room(s)", "value": format_room_list(req_obj)},
+                {"label": "Faculty", "value": req_obj.faculty_name},
+                {"label": "Email", "value": req_obj.faculty_email},
+                {"label": "Date", "value": sl.strftime('%A, %d %B %Y')},
+                {"label": "Time", "value": f"{sl.strftime('%I:%M %p')} to {el.strftime('%I:%M %p')}"},
+                {"label": "Department", "value": str(req_obj.department) if req_obj.department else '—'},
+                {"label": "Purpose", "value": req_obj.purpose or '—'},
+            ],
+        }
+    ]
+    payload = get_requirements_payload(req_obj)
+    if payload["kind"] != "none":
+        requirements_body = payload["plain_text"] or (payload["filename"] and f"Attached file: {payload['filename']}") or "Additional requirements were attached."
+        sections.append(
+            {
+                "title": payload["title"],
+                "body_html": (
+                    '<div style="white-space:pre-line;font-size:13px;line-height:1.7;color:#334155;">'
+                    f"{escape(requirements_body)}"
+                    '</div>'
+                ),
+            }
+        )
+    return sections
+
 
 class DashboardView(LoginRequiredMixin, TemplateView):
     template_name = 'central_admin/dashboard.html'
@@ -307,19 +373,25 @@ class RoomListView(LoginRequiredMixin, ListView):
         all_rooms = self.get_queryset()
 
         active_bookings = RoomBooking.objects.filter(
-            room__in=all_rooms,
+            Q(room__in=all_rooms) | Q(rooms__in=all_rooms),
             start_datetime__lte=now,
             end_datetime__gte=now,
-        ).select_related('room')
+        ).select_related('room').prefetch_related('rooms').distinct()
 
-        booked_room_ids = {b.room_id for b in active_bookings}
+        booked_room_ids = set()
+        for booking in active_bookings:
+            booked_room_ids.add(booking.room_id)
+            booked_room_ids.update(booking.rooms.values_list('id', flat=True))
 
         pending_reqs = RoomBookingRequest.objects.filter(
-            room__in=all_rooms,
-            status='pending',
-        ).select_related('room')
+            Q(room__in=all_rooms) | Q(rooms__in=all_rooms),
+            status__in=['pending', 'recommended'],
+        ).select_related('room').prefetch_related('rooms').distinct()
 
-        pending_room_ids = {r.room_id for r in pending_reqs}
+        pending_room_ids = set()
+        for booking_req in pending_reqs:
+            pending_room_ids.add(booking_req.room_id)
+            pending_room_ids.update(booking_req.rooms.values_list('id', flat=True))
 
         booked_map = {}
         for b in active_bookings:
@@ -1029,53 +1101,190 @@ def admin_deescalate_issue(request, pk):
 
 class ApprovalRequestListView(LoginRequiredMixin, ListView):
     template_name       = "central_admin/edit_request_list.html"
-    model               = StockRequest 
-    context_object_name = "requests"            
-
+    model               = StockRequest
+    context_object_name = "requests"
+ 
     def get_queryset(self):
         return StockRequest.objects.none()
-
+ 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        VALID_TABS = {'item_edit', 'issue_tat', 'booking_req', 'cancel_req'}
+        VALID_TABS = {'item_edit', 'issue_tat', 'booking_req', 'cancel_req', 'booking_edit'}
         raw = self.request.GET.get('type', 'item_edit')
         context['active_tab'] = raw if raw in VALID_TABS else 'item_edit'
-
+        context['request_type'] = raw if raw in VALID_TABS else 'item_edit'
+ 
+        profile    = self.request.user.profile
+        is_central = profile.is_central_admin and not profile.is_sub_admin
+        is_sub     = profile.is_sub_admin
+ 
+        context['is_central_admin'] = is_central
+        context['is_sub_admin']     = is_sub
+ 
         context['stock_requests'] = (
             StockRequest.objects
             .filter(status='pending')
             .select_related('item', 'room', 'requested_by')
             .order_by('-created_on')
         )
-
         context['tat_requests'] = (
             IssueTimeExtensionRequest.objects
             .filter(status='pending')
             .select_related('issue', 'requested_by')
             .order_by('-created_on')
         )
-
-        context['booking_requests'] = (
-            RoomBookingRequest.objects
-            .filter(status='pending' , tat_deadline__gt=timezone.now())
-            .select_related('room', 'department')
-            .order_by('-created_on')
-        )
-
+        
+        # Booking edit requests
+        if is_central:
+            edit_requests = RoomBookingEditRequest.objects.filter(
+                Q(status='pending', workflow_stage='central_admin') |
+                Q(status='pending', workflow_stage='sub_admin')
+            )
+        else:
+            edit_requests = RoomBookingEditRequest.objects.filter(
+                status='pending', workflow_stage='sub_admin'
+            )
+        
+        context['edit_requests'] = edit_requests.select_related(
+            'original_booking', 'original_booking__room', 'new_department', 'original_department'
+        ).prefetch_related('new_rooms', 'original_rooms').order_by('-created_on')
+ 
+        # Two-stage booking routing:
+        # sub-admin  → pending, workflow_stage='sub_admin'
+        # central    → recommended, workflow_stage='central_admin'
+        if is_central:
+            booking_qs = (
+                RoomBookingRequest.objects
+                .filter(
+                    status='recommended',
+                    workflow_stage='central_admin',
+                    tat_deadline__gt=timezone.now(),
+                )
+                .select_related('room', 'department', 'recommended_by', 'recommended_by__user', 'approved_by', 'approved_by__user')
+                .prefetch_related('rooms')
+                .order_by('-created_on')
+            )
+        else:
+            booking_qs = (
+                RoomBookingRequest.objects
+                .filter(
+                    status='pending',
+                    workflow_stage='sub_admin',
+                    tat_deadline__gt=timezone.now(),
+                )
+                .select_related('room', 'department', 'recommended_by', 'recommended_by__user')
+                .prefetch_related('rooms')
+                .order_by('-created_on')
+            )
+        context['booking_requests'] = booking_qs
+ 
         context['cancel_requests'] = (
             RoomCancellationRequest.objects
             .filter(status='pending')
             .select_related('booking', 'booking__room')
             .order_by('-created_on')
         )
-
-        # ── Tab badge counts ─────────────────────────────────────────────────
+ 
         context['item_edit_count']   = context['stock_requests'].count()
         context['issue_tat_count']   = context['tat_requests'].count()
-        context['booking_req_count'] = context['booking_requests'].count()
+        context['booking_req_count'] = booking_qs.count()
         context['cancel_req_count']  = context['cancel_requests'].count()
-
         return context
+
+class RecommendRoomBookingRequestView(LoginRequiredMixin, View):
+    """Sub-admin recommends → moves booking to central admin stage."""
+    def post(self, request, pk, *args, **kwargs):
+        profile = request.user.profile
+        if not profile.is_sub_admin:
+            messages.error(request, "Only sub-admins can recommend bookings.")
+            return redirect(f"{reverse('central_admin:approval_requests')}?type=booking_req")
+ 
+        req = get_object_or_404(RoomBookingRequest, pk=pk, status='pending')
+        remark = (request.POST.get('note', '') or '').strip()
+        req.status = 'recommended'
+        req.workflow_stage = 'central_admin'
+        req.recommended_by = profile
+        req.recommended_note = remark
+        req.review_note = f"Recommended by {(f'{profile.first_name} {profile.last_name}'.strip() or str(profile))}" + (f" — Remark: {remark}" if remark else "")
+        req.save(update_fields=['status', 'workflow_stage', 'recommended_by', 'recommended_note', 'review_note', 'updated_on'])
+ 
+        sub_admin_name = f"{profile.first_name} {profile.last_name}".strip() or str(profile)
+        details = format_booking_details(
+            req, req.faculty_name,
+            req.start_datetime, req.end_datetime, req.purpose, req.department,
+        )
+        sections = _booking_email_sections(req) + [
+            {
+                "title": "Review Trail",
+                "rows": [
+                    {"label": "Recommended By", "value": sub_admin_name},
+                    {"label": "Sub-admin Remark", "value": remark or 'No remark added'},
+                ],
+            }
+        ]
+ 
+        # Email → Faculty
+        try:
+            safe_send_mail(
+                subject="[Blixtro] Room Booking Recommended for Final Approval",
+                message=(
+                    f"Dear {req.faculty_name},\n\n"
+                    f"Your room booking request has been reviewed and recommended for approval "
+                    f"by {sub_admin_name}.\n"
+                    f"{details}\n\n"
+                    f"Remark: {remark or 'No remark added.'}\n\n"
+                    "Your request is now pending final approval from the administration. "
+                    "You will be notified once a decision is made.\n\n"
+                    "Best regards,\nBlixtro — SFS College Inventory & Booking System"
+                ),
+                recipient_list=[req.faculty_email],
+                html_message=build_email_shell(
+                    title="Booking Recommended",
+                    intro_html=(
+                        f"Dear <strong>{req.faculty_name}</strong>, your room booking request has been recommended by "
+                        f"<strong>{sub_admin_name}</strong> and is now waiting for central approval."
+                    ),
+                    sections=sections,
+                    outro_html="You will receive the final booking decision as soon as central approval is completed.",
+                ),
+            )
+        except Exception as _e:
+            print(f"[RecommendBooking] Faculty email failed: {_e}", flush=True)
+ 
+        # Email → Central Admins
+        central_emails = list(
+            UserProfile.objects.filter(is_central_admin=True, is_sub_admin=False)
+            .values_list('user__email', flat=True)
+        )
+        if central_emails:
+            try:
+                safe_send_mail(
+                    subject=f"[Blixtro] Booking Recommended for Approval — {format_room_list(req)}",
+                    message=(
+                        f"A room booking request has been recommended by {sub_admin_name} "
+                        f"and requires your final approval.\n"
+                        f"{details}\n\n"
+                        f"Recommended By: {sub_admin_name}\n"
+                        f"Remark: {remark or 'No remark provided.'}\n\n"
+                        "Please log in to the Approval Hub to give final approval.\n\n"
+                        "Blixtro — SFS College Inventory & Booking System"
+                    ),
+                    recipient_list=central_emails,
+                    html_message=build_email_shell(
+                        title="Central Approval Required",
+                        intro_html=(
+                            f"This booking request was recommended by <strong>{sub_admin_name}</strong> and now needs final central approval."
+                        ),
+                        sections=sections,
+                        outro_html="Open the Approval Hub to approve or reject the request with your remark.",
+                    ),
+                )
+            except Exception as _e:
+                print(f"[RecommendBooking] Central admin email failed: {_e}", flush=True)
+ 
+        messages.success(request, f"Booking for {format_room_list(req)} recommended for final approval.")
+        next_type = request.POST.get("next_type", "booking_req")
+        return redirect(f"{reverse('central_admin:approval_requests')}?type={next_type}")
 
 
 class ApproveIssueTimeExtensionView(LoginRequiredMixin, View):
@@ -1113,110 +1322,238 @@ class RejectIssueTimeExtensionView(LoginRequiredMixin, View):
 
 
 class ApproveRoomBookingRequestView(LoginRequiredMixin, View):
+    """
+    Central admin FINAL approval. On approval:
+     1. Creates RoomBooking.
+     2. Emails faculty confirmation.
+     3. Emails BOOKING_NOTIFICATION_EMAILS with full details + requirements.
+     4. Emails recommending sub-admin that booking was approved.
+    """
     def post(self, request, pk, *args, **kwargs):
-        from inventory.models import RoomBooking
-        profile  = request.user.profile
-        req      = get_object_or_404(RoomBookingRequest, pk=pk, status='pending')
-
+        from inventory.models import RoomBooking as _RB
+        profile = request.user.profile
+ 
+        if not (profile.is_central_admin and not profile.is_sub_admin):
+            messages.error(request, "Only central admins can give final approval.")
+            next_type = request.POST.get("next_type", "booking_req")
+            return redirect(f"{reverse('central_admin:approval_requests')}?type={next_type}")
+ 
+        req = get_object_or_404(RoomBookingRequest, pk=pk, status='recommended')
+        approval_remark = (request.POST.get('note', '') or '').strip()
+        approved_by_name = f"{profile.first_name} {profile.last_name}".strip() or str(profile)
+        recommended_by_name = (
+            f"{req.recommended_by.first_name} {req.recommended_by.last_name}".strip()
+            if req.recommended_by else "Not recorded"
+        )
+        selected_rooms = list(req.rooms.all()) or ([req.room] if req.room else [])
+ 
         try:
-            booking = RoomBooking.objects.create(
-                room           = req.room,
-                department     = req.department,
-                faculty_name   = req.faculty_name,
-                faculty_email  = req.faculty_email,
-                start_datetime = req.start_datetime,
-                end_datetime   = req.end_datetime,
-                purpose        = req.purpose,
+            booking = _RB.objects.create(
+                room              = req.room,
+                department        = req.department,
+                faculty_name      = req.faculty_name,
+                faculty_email     = req.faculty_email,
+                start_datetime    = req.start_datetime,
+                end_datetime      = req.end_datetime,
+                purpose           = req.purpose,
                 requirements_doc  = req.requirements_doc,
                 requirements_text = req.requirements_text,
+                recommended_by_name = recommended_by_name,
+                recommended_note    = req.recommended_note or '',
+                approved_by_name    = approved_by_name,
+                approved_note       = approval_remark,
             )
+            if selected_rooms:
+                booking.rooms.set(selected_rooms)
         except Exception as exc:
             messages.error(request, f"Booking conflict or validation error: {exc}")
             next_type = request.POST.get("next_type", "booking_req")
             return redirect(f"{reverse('central_admin:approval_requests')}?type={next_type}")
-
+ 
         req.status      = 'approved'
         req.reviewed_by = profile
-        req.review_note = request.POST.get('note', '')
-        req.save()
-
-        # Extract doc text from uploaded word document if present
+        req.approved_by = profile
+        req.approved_note = approval_remark
+        req.review_note = f"Final approval by {approved_by_name}" + (f" — Remark: {approval_remark}" if approval_remark else "")
+        req.save(update_fields=['status', 'reviewed_by', 'approved_by', 'approved_note', 'review_note', 'updated_on'])
+ 
+        # Extract and cache doc text for confirmed booking files viewer
         if booking.requirements_doc:
             try:
-                import docx, io
-                doc_bytes = booking.requirements_doc.read()
-                doc_obj   = docx.Document(io.BytesIO(doc_bytes))
-                blocks    = []
-                for block in doc_obj.element.body:
-                    tag = block.tag.split('}')[-1] if '}' in block.tag else block.tag
-                    if tag == 'p':
-                        from docx.oxml.ns import qn
-                        text = ''.join(n.text or '' for n in block.iter() if n.tag == qn('w:t'))
-                        if text.strip():
-                            blocks.append({'type': 'paragraph', 'text': text})
-                    elif tag == 'tbl':
-                        import docx.table
-                        tbl_obj = docx.table.Table(block, doc_obj)
-                        rows = []
-                        for r in tbl_obj.rows:
-                            rows.append([c.text for c in r.cells])
-                        if rows:
-                            blocks.append({'type': 'table', 'rows': rows})
-                import json
-                booking.requirements_doc_text = json.dumps(blocks)
+                blocks = extract_requirement_blocks_from_field(booking.requirements_doc)
+                booking.requirements_doc_text = requirement_blocks_to_plain_text(blocks)
                 booking.save(update_fields=['requirements_doc_text'])
             except Exception:
                 pass
-
+ 
+        from django.utils import timezone as _tz
+        sl = _tz.localtime(req.start_datetime)
+        details_plain = format_booking_details(req, req.faculty_name, req.start_datetime, req.end_datetime, req.purpose, req.department)
+        requirements_section = _get_requirements_text_for_email(req)
+        sections = _booking_email_sections(req) + [
+            {
+                "title": "Approval Trail",
+                "rows": [
+                    {"label": "Recommended By", "value": recommended_by_name},
+                    {"label": "Sub-admin Remark", "value": req.recommended_note or 'No remark added'},
+                    {"label": "Approved By", "value": approved_by_name},
+                    {"label": "Central-admin Remark", "value": approval_remark or 'No remark added'},
+                ],
+            }
+        ]
+ 
+        # Email 1: Faculty — booking confirmed
         try:
-            send_mail(
-                subject="Room Booking Approved",
+            safe_send_mail(
+                subject=f"[Blixtro] Your Room Booking is Confirmed — {format_room_list(req)}",
                 message=(
                     f"Dear {req.faculty_name},\n\n"
-                    f"Your booking request for {req.room.room_name} has been approved.\n"
-                    f"From: {req.start_datetime.strftime('%d %b %Y %H:%M')}\n"
-                    f"To:   {req.end_datetime.strftime('%d %b %Y %H:%M')}\n\n"
-                    "Regards,\nAdmin Team"
+                    f"Your room booking has been officially approved.\n"
+                    f"{details_plain}\n\n"
+                    f"Recommended by: {recommended_by_name}\n"
+                    f"Sub-admin remark: {req.recommended_note or 'No remark added.'}\n"
+                    f"Approved by: {approved_by_name}\n"
+                    f"Central-admin remark: {approval_remark or 'No remark added.'}\n\n"
+                    f"{requirements_section}\n"
+                    "Your booking is confirmed. Please contact the admin team for any assistance.\n\n"
+                    "Best regards,\nBlixtro — SFS College Inventory & Booking System"
                 ),
-                from_email=None,
                 recipient_list=[req.faculty_email],
-                fail_silently=True,
+                html_message=build_email_shell(
+                    title="Booking Approved",
+                    intro_html=(
+                        f"Dear <strong>{req.faculty_name}</strong>, your booking has been fully approved and is now confirmed."
+                    ),
+                    sections=sections,
+                    outro_html="Please keep this email for reference. The same booking details and requirements have been shared with the configured faculty recipients.",
+                ),
             )
         except Exception as _e:
-            print(f"[ApproveBooking] Email failed (non-fatal): {_e}", flush=True)
-
-        messages.success(request, f"Booking for {req.room.room_name} approved.")
+            print(f"[ApproveBooking] Faculty email failed: {_e}", flush=True)
+ 
+        # Email 2: Notification list — full details + requirements (replaces Forward button)
+        try:
+            safe_send_mail(
+                subject=(
+                    f"[Blixtro] Room Booking Notification — "
+                    f"{format_room_list(req)} | {sl.strftime('%d %b %Y')}"
+                ),
+                message=(
+                    f"A room booking has been officially approved by {approved_by_name}.\n\n"
+                    f"{'='*60}\nBOOKING DETAILS\n{'='*60}"
+                    f"{details_plain}\n{'='*60}"
+                    f"\nRecommended By: {recommended_by_name}"
+                    f"\nSub-admin Remark: {req.recommended_note or 'No remark added.'}"
+                    f"\nApproved By: {approved_by_name}"
+                    f"\nCentral-admin Remark: {approval_remark or 'No remark added.'}\n"
+                    f"{requirements_section}"
+                    "Please make the necessary arrangements as per the details above.\n\n"
+                    "This is an automated notification from Blixtro — SFS College."
+                ),
+                recipient_list=BOOKING_NOTIFICATION_EMAILS,
+                html_message=build_email_shell(
+                    title="Approved Booking Notification",
+                    intro_html=(
+                        "A room booking has been fully approved. Please review the complete booking details and requirements below and make the necessary arrangements."
+                    ),
+                    sections=sections,
+                    outro_html="This notification was automatically issued to the configured faculty recipients after final central approval.",
+                ),
+            )
+        except Exception as _e:
+            print(f"[ApproveBooking] Notification list email failed: {_e}", flush=True)
+ 
+        # Email 3: Sub-admin who recommended — inform of final approval
+        if req.recommended_by:
+            try:
+                sub_email = req.recommended_by.user.email
+                safe_send_mail(
+                    subject=f"[Blixtro] Booking Approved — {format_room_list(req)}",
+                    message=(
+                        f"The room booking request you recommended for {req.faculty_name} "
+                        f"has been approved by {approved_by_name}.\n"
+                        f"{details_plain}\n\n"
+                        f"Your recommendation remark: {req.recommended_note or 'No remark added.'}\n"
+                        f"Central-admin remark: {approval_remark or 'No remark added.'}\n\n"
+                        "The booking is now confirmed and relevant departments have been notified.\n\n"
+                        "Blixtro — SFS College Inventory & Booking System"
+                    ),
+                    recipient_list=[sub_email],
+                    html_message=build_email_shell(
+                        title="Recommended Booking Approved",
+                        intro_html=(
+                            f"The booking request you recommended for <strong>{req.faculty_name}</strong> has now been fully approved."
+                        ),
+                        sections=sections,
+                        outro_html="The confirmed booking details and requirements have already been shared with the notified recipients.",
+                    ),
+                )
+            except Exception as _e:
+                print(f"[ApproveBooking] Sub-admin notify email failed: {_e}", flush=True)
+ 
+        messages.success(request, f"Booking for {format_room_list(req)} approved and all parties notified.")
         next_type = request.POST.get("next_type", "booking_req")
         return redirect(f"{reverse('central_admin:approval_requests')}?type={next_type}")
+ 
+
 
 
 class RejectRoomBookingRequestView(LoginRequiredMixin, View):
+    """Both sub-admin (pending) and central admin (recommended) can reject."""
     def post(self, request, pk, *args, **kwargs):
         profile = request.user.profile
-        req     = get_object_or_404(RoomBookingRequest, pk=pk, status='pending')
+        is_central = profile.is_central_admin and not profile.is_sub_admin
+        allowed = ['recommended'] if is_central else ['pending']
+        req = get_object_or_404(RoomBookingRequest, pk=pk, status__in=allowed)
+        reason = (request.POST.get('note', '') or request.POST.get('review_note', '')).strip()
 
+        if not reason:
+            messages.error(request, "A rejection remark/reason is required.")
+            next_type = request.POST.get("next_type", "booking_req")
+            return redirect(f"{reverse('central_admin:approval_requests')}?type={next_type}")
+ 
         req.status      = 'rejected'
         req.reviewed_by = profile
-        req.review_note = request.POST.get('note', '')
+        req.review_note = reason
         req.save()
 
+        reviewer_name = f"{profile.first_name} {profile.last_name}".strip() or str(profile)
+ 
         try:
-            send_mail(
-                subject="Room Booking Request Rejected",
+            safe_send_mail(
+                subject="[Blixtro] Room Booking Request Rejected",
                 message=(
                     f"Dear {req.faculty_name},\n\n"
-                    f"Your booking request for {req.room.room_name} has been rejected.\n"
-                    f"Reason: {req.review_note or 'No reason provided.'}\n\n"
-                    "Regards,\nAdmin Team"
+                    f"Your booking request for {format_room_list(req)} has been rejected.\n"
+                    f"From: {req.start_datetime.strftime('%d %b %Y %H:%M')}\n"
+                    f"To:   {req.end_datetime.strftime('%d %b %Y %H:%M')}\n\n"
+                    f"Rejected by: {reviewer_name}\n"
+                    f"Reason: {reason}\n\n"
+                    "Regards,\nBlixtro — SFS College Inventory & Booking System"
                 ),
-                from_email=None,
                 recipient_list=[req.faculty_email],
-                fail_silently=True,
+                html_message=build_email_shell(
+                    title="Booking Rejected",
+                    intro_html=(
+                        f"Dear <strong>{req.faculty_name}</strong>, your booking request has been rejected."
+                    ),
+                    sections=_booking_email_sections(req) + [
+                        {
+                            "title": "Decision",
+                            "rows": [
+                                {"label": "Rejected By", "value": reviewer_name},
+                                {"label": "Reason", "value": reason},
+                            ],
+                        }
+                    ],
+                    accent="#dc2626",
+                    outro_html="You may submit a fresh request if you still need the room(s) for a different slot or arrangement.",
+                ),
             )
         except Exception as _e:
-            print(f"[RejectBooking] Email failed (non-fatal): {_e}", flush=True)
-
-        messages.warning(request, f"Booking request for {req.room.room_name} rejected.")
+            print(f"[RejectBooking] Email failed: {_e}", flush=True)
+ 
+        messages.warning(request, f"Booking request for {format_room_list(req)} rejected.")
         next_type = request.POST.get("next_type", "booking_req")
         return redirect(f"{reverse('central_admin:approval_requests')}?type={next_type}")
 
@@ -1226,7 +1563,7 @@ class ApproveCancellationRequestView(LoginRequiredMixin, View):
         profile  = request.user.profile
         cancel   = get_object_or_404(RoomCancellationRequest, pk=pk, status='pending')
         booking  = cancel.booking
-        room_name = booking.room.room_name
+        room_name = format_room_list(booking)
         faculty_email = cancel.faculty_email
 
         cancel.status      = 'approved'
@@ -1287,6 +1624,119 @@ class RejectCancellationRequestView(LoginRequiredMixin, View):
         return redirect(f"{reverse('central_admin:approval_requests')}?type={next_type}")
 
 
+class RecommendBookingEditRequestView(LoginRequiredMixin, View):
+    """Sub admin recommends or central admin can directly approve an edit request."""
+    def post(self, request, pk, *args, **kwargs):
+        profile = request.user.profile
+        edit_req = get_object_or_404(RoomBookingEditRequest, pk=pk, status='pending')
+
+        remark = (request.POST.get('note', '') or '').strip()
+        
+        is_central = profile.is_central_admin and not profile.is_sub_admin
+        
+        if remark:
+            edit_req.review_note = remark
+        
+        if is_central:
+            edit_req.status = 'approved'
+            edit_req.reviewed_by = profile
+            edit_req.approved_by = profile
+            edit_req.approved_note = remark
+            edit_req.workflow_stage = 'central_admin'
+        else:
+            edit_req.status = 'recommended'
+            edit_req.reviewed_by = profile
+            edit_req.recommended_by = profile
+            edit_req.recommended_note = remark
+            edit_req.workflow_stage = 'sub_admin'
+        
+        edit_req.save()
+
+        messages.success(request, "Booking edit request processed.")
+        return redirect(f"{reverse('central_admin:approval_requests')}?type=edit_req")
+
+
+class ApproveBookingEditRequestView(LoginRequiredMixin, View):
+    """Central admin final approval of booking edit request — applies changes to original booking."""
+    def post(self, request, pk, *args, **kwargs):
+        profile = request.user.profile
+
+        if not (profile.is_central_admin and not profile.is_sub_admin):
+            messages.error(request, "Only central admins can give final approval.")
+            return redirect(f"{reverse('central_admin:approval_requests')}?type=edit_req")
+
+        edit_req = get_object_or_404(RoomBookingEditRequest, pk=pk, status='recommended')
+        approval_remark = (request.POST.get('note', '') or '').strip()
+        approved_by_name = f"{profile.first_name} {profile.last_name}".strip() or str(profile)
+
+        booking = edit_req.original_booking
+        
+        if edit_req.new_start_datetime:
+            booking.start_datetime = edit_req.new_start_datetime
+        if edit_req.new_end_datetime:
+            booking.end_datetime = edit_req.new_end_datetime
+        if edit_req.new_purpose is not None:
+            booking.purpose = edit_req.new_purpose
+        if edit_req.new_department:
+            booking.department = edit_req.new_department
+        if edit_req.new_rooms.exists():
+            booking.rooms.set(edit_req.new_rooms.all())
+        if edit_req.new_requirements_doc:
+            booking.requirements_doc = edit_req.new_requirements_doc
+        if edit_req.new_requirements_text is not None:
+            booking.requirements_text = edit_req.new_requirements_text
+
+        booking.save()
+
+        edit_req.status = 'approved'
+        edit_req.reviewed_by = profile
+        edit_req.approved_by = profile
+        edit_req.approved_note = approval_remark
+        edit_req.save()
+
+        messages.success(request, f"Booking edit for {booking.room} approved and applied.")
+        return redirect(f"{reverse('central_admin:approval_requests')}?type=edit_req")
+
+
+class RejectBookingEditRequestView(LoginRequiredMixin, View):
+    """Reject a booking edit request."""
+    def post(self, request, pk, *args, **kwargs):
+        profile = request.user.profile
+        edit_req = get_object_or_404(RoomBookingEditRequest, pk=pk, status__in=['pending', 'recommended'])
+
+        reason = (request.POST.get('note', '') or '').strip()
+        if not reason:
+            messages.error(request, "A rejection reason is required.")
+            return redirect(f"{reverse('central_admin:approval_requests')}?type=edit_req")
+
+        edit_req.status = 'rejected'
+        edit_req.reviewed_by = profile
+        edit_req.review_note = reason
+        edit_req.save()
+
+        messages.info(request, "Booking edit request rejected.")
+        return redirect(f"{reverse('central_admin:approval_requests')}?type=edit_req")
+
+
+def get_booking_request_doc_text(request, pk):
+    """AJAX GET — extract doc blocks from RoomBookingRequest for inline preview."""
+    if not request.user.is_authenticated:
+        return JsonResponse({'error': 'Unauthorized'}, status=403)
+    profile = getattr(request.user, 'profile', None)
+    if not profile or not (profile.is_central_admin or profile.is_sub_admin):
+        return JsonResponse({'error': 'Unauthorized'}, status=403)
+ 
+    req = get_object_or_404(RoomBookingRequest, pk=pk)
+    if not req.requirements_doc:
+        return JsonResponse({'error': 'No document attached to this request.'}, status=404)
+ 
+    try:
+        blocks = extract_requirement_blocks_from_field(req.requirements_doc)
+        return JsonResponse({'blocks': blocks})
+    except Exception as exc:
+        return JsonResponse({'error': f'Failed to extract document: {str(exc)}'}, status=500)
+
+
 # ═══════════════════════════════════════════════════════════════
 # ROOM INCHARGE — NOTIFICATIONS VIEW
 # ═══════════════════════════════════════════════════════════════
@@ -1327,36 +1777,42 @@ class RoomInchargeNotificationsView(LoginRequiredMixin, TemplateView):
 # ═══════════════════════════════════════════════════════════════
 
 def admin_notification_counts(request):
-    """
-    Returns pending/active counts for every notification type relevant to
-    the logged-in admin role. Called every 60 s by the navbar bell badge.
-    Now also checks for sub-admin room action logs (edit/delete notifications).
-    """
+    """Bell badge counts — booking count is stage-aware."""
     if not request.user.is_authenticated:
         return JsonResponse({'error': 'Unauthorized'}, status=403)
     profile = getattr(request.user, 'profile', None)
     if not profile or not (profile.is_central_admin or profile.is_sub_admin):
         return JsonResponse({'error': 'Unauthorized'}, status=403)
-
+ 
     is_central = profile.is_central_admin and not profile.is_sub_admin
     org        = profile.org
-
+ 
     try:
+        if is_central:
+            booking_count = RoomBookingRequest.objects.filter(
+                status='recommended', workflow_stage='central_admin',
+                tat_deadline__gt=timezone.now(),
+            ).count()
+        else:
+            booking_count = RoomBookingRequest.objects.filter(
+                status='pending', workflow_stage='sub_admin',
+                tat_deadline__gt=timezone.now(),
+            ).count()
+ 
         counts = {
-            'booking_requests': RoomBookingRequest.objects.filter(status='pending', tat_deadline__gt=timezone.now()).count(),
-            'cancel_requests': RoomCancellationRequest.objects.filter(status='pending').count(),
-            'stock_requests': StockRequest.objects.filter(status='pending').count(),
-            'tat_requests': IssueTimeExtensionRequest.objects.filter(status='pending').count(),
+            'booking_requests': booking_count,
+            'cancel_requests':  RoomCancellationRequest.objects.filter(status='pending').count(),
+            'stock_requests':   StockRequest.objects.filter(status='pending').count(),
+            'tat_requests':     IssueTimeExtensionRequest.objects.filter(status='pending').count(),
             'escalated_issues': Issue.objects.filter(status='escalated', organisation=org).count(),
         }
     except Exception as e:
         return JsonResponse({'error': f'Database error: {str(e)}'}, status=500)
-
+ 
     if is_central:
         counts['purchase_requests'] = Purchase.objects.filter(
             status='requested', room__organisation=org
         ).count()
-        # Count unread room action logs by sub-admins
         try:
             from inventory.models import RoomActionLog
             counts['room_actions'] = RoomActionLog.objects.filter(
@@ -1368,7 +1824,7 @@ def admin_notification_counts(request):
         counts['purchase_approvals'] = Purchase.objects.filter(
             status='approved', room__organisation=org
         ).count()
-
+ 
     counts['total'] = sum(counts.values())
     return JsonResponse(counts)
 

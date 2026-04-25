@@ -1,0 +1,311 @@
+{% load static %}
+<div class="row">
+    <div class="col-12">
+        {% if edit_requests %}
+            <div class="table-responsive">
+                <table class="table table-hover align-middle">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Faculty</th>
+                            <th>Original Booking</th>
+                            <th>Changes</th>
+                            <th>Submitted</th>
+                            <th>Status</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for req in edit_requests %}
+                            <tr>
+                                <td>
+                                    <div class="fw-semibold">{{ req.original_booking.faculty_name }}</div>
+                                    <small class="text-muted">{{ req.faculty_email }}</small>
+                                </td>
+                                <td>
+                                    <div class="fw-semibold">{{ req.original_booking.room_summary }}</div>
+                                    <small class="text-muted">
+                                        {{ req.original_booking.start_datetime|date:"d M Y, H:i" }} - 
+                                        {{ req.original_booking.end_datetime|date:"H:i" }}
+                                    </small>
+                                </td>
+                                <td>
+                                    <div class="changes-summary">
+                                        {% if req.changes_made %}
+                                            {% for field, change in req.changes_made.items %}
+                                                <div class="change-item mb-2">
+                                                    <span class="badge bg-warning text-dark mb-1">
+                                                        {{ field|title }}
+                                                    </span>
+                                                    <div class="small">
+                                                        <span class="text-decoration-line-through text-muted">{{ change.old }}</span>
+                                                        <i class="bi bi-arrow-right mx-1"></i>
+                                                        <span class="text-success">{{ change.new }}</span>
+                                                    </div>
+                                                </div>
+                                            {% endfor %}
+                                        {% else %}
+                                            <span class="text-muted">No changes detected</span>
+                                        {% endif %}
+                                    </div>
+                                </td>
+                                <td>
+                                    <div>{{ req.created_on|date:"d M Y" }}</div>
+                                    <small class="text-muted">{{ req.created_on|date:"H:i" }}</small>
+                                </td>
+                                <td>
+                                    <span class="badge 
+                                        {% if req.status == 'pending' %}bg-warning
+                                        {% elif req.status == 'approved' %}bg-success
+                                        {% elif req.status == 'rejected' %}bg-danger
+                                        {% endif %}">
+                                        {{ req.status|title }}
+                                    </span>
+                                    {% if req.workflow_stage %}
+                                        <div class="small text-muted mt-1">{{ req.workflow_stage|title }}</div>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <div class="btn-group" role="group">
+                                        <button type="button" class="btn btn-sm btn-outline-primary" 
+                                                data-bs-toggle="modal" data-bs-target="#editRequestDetailModal{{ req.id }}">
+                                            <i class="bi bi-eye"></i> View
+                                        </button>
+                                        {% if req.status == 'pending' %}
+                                            {% if req.workflow_stage == 'central_admin' %}
+                                                <button type="button" class="btn btn-sm btn-success" 
+                                                        data-bs-toggle="modal" data-bs-target="#approveEditModal{{ req.id }}">
+                                                    <i class="bi bi-check"></i> Approve
+                                                </button>
+                                                <button type="button" class="btn btn-sm btn-danger" 
+                                                        data-bs-toggle="modal" data-bs-target="#rejectEditModal{{ req.id }}">
+                                                    <i class="bi bi-x"></i> Reject
+                                                </button>
+                                            {% elif req.workflow_stage == 'sub_admin' %}
+                                                <button type="button" class="btn btn-sm btn-info" 
+                                                        data-bs-toggle="modal" data-bs-target="#recommendEditModal{{ req.id }}">
+                                                    <i class="bi bi-hand-thumbs-up"></i> Recommend
+                                                </button>
+                                                <button type="button" class="btn btn-sm btn-danger" 
+                                                        data-bs-toggle="modal" data-bs-target="#rejectEditModal{{ req.id }}">
+                                                    <i class="bi bi-x"></i> Reject
+                                                </button>
+                                            {% endif %}
+                                        {% endif %}
+                                    </div>
+                                </td>
+                            </tr>
+
+                            <!-- Detail Modal -->
+                            <div class="modal fade" id="editRequestDetailModal{{ req.id }}" tabindex="-1">
+                                <div class="modal-dialog modal-lg">
+                                    <div class="modal-content">
+                                        <div class="modal-header">
+                                            <h5 class="modal-title">Booking Edit Request Details</h5>
+                                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                                        </div>
+                                        <div class="modal-body">
+                                            <div class="row mb-3">
+                                                <div class="col-md-6">
+                                                    <h6>Faculty Information</h6>
+                                                    <p><strong>Name:</strong> {{ req.original_booking.faculty_name }}</p>
+                                                    <p><strong>Email:</strong> {{ req.faculty_email }}</p>
+                                                </div>
+                                                <div class="col-md-6">
+                                                    <h6>Request Information</h6>
+                                                    <p><strong>Submitted:</strong> {{ req.created_on|date:"d M Y, H:i" }}</p>
+                                                    <p><strong>Status:</strong> 
+                                                        <span class="badge 
+                                                            {% if req.status == 'pending' %}bg-warning
+                                                            {% elif req.status == 'approved' %}bg-success
+                                                            {% elif req.status == 'rejected' %}bg-danger
+                                                            {% endif %}">
+                                                            {{ req.status|title }}
+                                                        </span>
+                                                    </p>
+                                                </div>
+                                            </div>
+
+                                            <div class="row">
+                                                <div class="col-md-6">
+                                                    <h6 class="text-danger">Original Booking</h6>
+                                                    <div class="border rounded p-3 bg-light">
+                                                        <p><strong>Room(s):</strong> {{ req.original_booking.room_summary }}</p>
+                                                        <p><strong>Date & Time:</strong> 
+                                                            {{ req.original_booking.start_datetime|date:"d M Y, H:i" }} - 
+                                                            {{ req.original_booking.end_datetime|date:"H:i" }}
+                                                        </p>
+                                                        <p><strong>Purpose:</strong> {{ req.original_booking.purpose|default:"—" }}</p>
+                                                        <p><strong>Department:</strong> {{ req.original_booking.department|default:"—" }}</p>
+                                                    </div>
+                                                </div>
+                                                <div class="col-md-6">
+                                                    <h6 class="text-success">Requested Changes</h6>
+                                                    <div class="border rounded p-3 bg-light">
+                                                        <p><strong>Room(s):</strong> 
+                                                            {% with new_rooms=req.new_rooms.all %}
+                                                                {% if new_rooms %}
+                                                                    {{ new_rooms|join:", " }}
+                                                                {% else %}
+                                                                    {{ req.original_booking.room_summary }}
+                                                                {% endif %}
+                                                            {% endwith %}
+                                                        </p>
+                                                        <p><strong>Date & Time:</strong> 
+                                                            {{ req.new_start_datetime|date:"d M Y, H:i" }} - 
+                                                            {{ req.new_end_datetime|date:"H:i" }}
+                                                        </p>
+                                                        <p><strong>Purpose:</strong> {{ req.new_purpose|default:"—" }}</p>
+                                                        <p><strong>Department:</strong> {{ req.new_department|default:"—" }}</p>
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            {% if req.new_requirements_text %}
+                                                <div class="mt-3">
+                                                    <h6>Requirements</h6>
+                                                    <div class="border rounded p-3 bg-light">
+                                                        {{ req.new_requirements_text|linebreaks }}
+                                                    </div>
+                                                </div>
+                                            {% endif %}
+
+                                            {% if req.review_note %}
+                                                <div class="mt-3">
+                                                    <h6>Review Note</h6>
+                                                    <div class="alert alert-info">
+                                                        {{ req.review_note|linebreaks }}
+                                                    </div>
+                                                </div>
+                                            {% endif %}
+                                        </div>
+                                        <div class="modal-footer">
+                                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Recommend Modal (for sub_admin) -->
+                            {% if req.status == 'pending' and req.workflow_stage == 'sub_admin' %}
+                            <div class="modal fade" id="recommendEditModal{{ req.id }}" tabindex="-1">
+                                <div class="modal-dialog">
+                                    <div class="modal-content">
+                                        <form method="post" action="{% url 'inventory:recommend_booking_edit' req.id %}">
+                                            {% csrf_token %}
+                                            <div class="modal-header">
+                                                <h5 class="modal-title">Recommend Edit Request</h5>
+                                                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                                            </div>
+                                            <div class="modal-body">
+                                                <p>Are you sure you want to recommend this booking edit request?</p>
+                                                <div class="mb-3">
+                                                    <label class="form-label">Recommendation Note (optional)</label>
+                                                    <textarea name="note" class="form-control" rows="3" placeholder="Add any comments for the central admin..."></textarea>
+                                                </div>
+                                            </div>
+                                            <div class="modal-footer">
+                                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                                                <button type="submit" class="btn btn-info">Recommend</button>
+                                            </div>
+                                        </form>
+                                    </div>
+                                </div>
+                            </div>
+                            {% endif %}
+
+                            <!-- Approve Modal (for central_admin) -->
+                            {% if req.status == 'pending' and req.workflow_stage == 'central_admin' %}
+                            <div class="modal fade" id="approveEditModal{{ req.id }}" tabindex="-1">
+                                <div class="modal-dialog">
+                                    <div class="modal-content">
+                                        <form method="post" action="{% url 'inventory:approve_booking_edit' req.id %}">
+                                            {% csrf_token %}
+                                            <div class="modal-header">
+                                                <h5 class="modal-title">Approve Edit Request</h5>
+                                                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                                            </div>
+                                            <div class="modal-body">
+                                                <p>Are you sure you want to approve this booking edit request?</p>
+                                                <p class="text-warning">This will update the original booking with the new details.</p>
+                                                <div class="mb-3">
+                                                    <label class="form-label">Approval Note (optional)</label>
+                                                    <textarea name="note" class="form-control" rows="3" placeholder="Add any comments..."></textarea>
+                                                </div>
+                                            </div>
+                                            <div class="modal-footer">
+                                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                                                <button type="submit" class="btn btn-success">Approve</button>
+                                            </div>
+                                        </form>
+                                    </div>
+                                </div>
+                            </div>
+                            {% endif %}
+
+                            <!-- Reject Modal -->
+                            {% if req.status == 'pending' %}
+                            <div class="modal fade" id="rejectEditModal{{ req.id }}" tabindex="-1">
+                                <div class="modal-dialog">
+                                    <div class="modal-content">
+                                        <form method="post" action="{% url 'inventory:reject_booking_edit' req.id %}">
+                                            {% csrf_token %}
+                                            <div class="modal-header">
+                                                <h5 class="modal-title">Reject Edit Request</h5>
+                                                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                                            </div>
+                                            <div class="modal-body">
+                                                <p>Are you sure you want to reject this booking edit request?</p>
+                                                <div class="mb-3">
+                                                    <label class="form-label">Rejection Reason *</label>
+                                                    <textarea name="note" class="form-control" rows="3" required placeholder="Please provide a reason for rejection..."></textarea>
+                                                </div>
+                                            </div>
+                                            <div class="modal-footer">
+                                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                                                <button type="submit" class="btn btn-danger">Reject</button>
+                                            </div>
+                                        </form>
+                                    </div>
+                                </div>
+                            </div>
+                            {% endif %}
+
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% else %}
+            <div class="text-center py-5">
+                <i class="bi bi-pencil-square text-muted" style="font-size: 3rem;"></i>
+                <h5 class="text-muted mt-3">No Booking Edit Requests</h5>
+                <p class="text-muted">There are currently no pending booking edit requests to review.</p>
+            </div>
+        {% endif %}
+    </div>
+</div>
+
+<style>
+.change-item {
+    border-left: 3px solid #ffc107;
+    padding-left: 10px;
+}
+
+.changes-summary {
+    max-width: 300px;
+}
+
+@media (max-width: 768px) {
+    .changes-summary {
+        max-width: 100%;
+    }
+    
+    .btn-group {
+        flex-direction: column;
+        gap: 5px;
+    }
+    
+    .btn-group .btn {
+        width: 100%;
+    }
+}
+</style>

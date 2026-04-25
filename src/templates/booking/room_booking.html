@@ -714,9 +714,12 @@
                 {{ form.category }}
             </div>
 
+            <div class="small text-muted mb-2">Select one or more available rooms. Click a selected room again to deselect it.</div>
             <div id="roomGrid" class="mb-5"></div>
 
             <input type="hidden" name="room" id="id_room" required>
+            <input type="hidden" name="room_ids" id="id_room_ids" required>
+            <div id="selectedRoomsSummary" class="small text-muted mb-4">No rooms selected yet.</div>
 
             <div class="mb-4">
                 <label class="form-label">Department / Office / Cells</label>
@@ -894,9 +897,12 @@
 
             <div class="cm-alert error" id="cmAlert2"></div>
 
-            <div style="display:flex; gap:12px;">
+            <div style="display:flex; gap:12px; flex-wrap:wrap;">
                 <button class="cm-btn-back" onclick="closeCancelModal()">
                     <i class="bi bi-x me-1"></i> Close
+                </button>
+                <button class="cm-btn-edit" id="cmEditBtn" onclick="cmEditBooking()" style="display:none;">
+                    <i class="bi bi-pencil-fill me-2"></i>Edit Booking
                 </button>
                 <button class="cm-btn-submit" id="cmSubmitBtn" onclick="cmSubmitCancellation()">
                     <i class="bi bi-send-fill me-2"></i>Submit Cancellation Request
@@ -924,6 +930,24 @@
 // ═══════════════════════════════════════════════════
 let sessionEmail    = '';
 let sessionPassword = '';
+let selectedRoomIds = [];
+let selectedRoomMap = {};
+
+function updateSelectedRoomsSummary() {
+    const roomField = document.getElementById('id_room');
+    const roomIdsField = document.getElementById('id_room_ids');
+    const summary = document.getElementById('selectedRoomsSummary');
+    roomField.value = selectedRoomIds[0] || '';
+    roomIdsField.value = selectedRoomIds.join(',');
+
+    if (!selectedRoomIds.length) {
+        summary.textContent = 'No rooms selected yet.';
+        return;
+    }
+
+    const labels = selectedRoomIds.map(id => selectedRoomMap[id]).filter(Boolean);
+    summary.textContent = `Selected room${labels.length > 1 ? 's' : ''}: ${labels.join(', ')}`;
+}
 
 // ═══════════════════════════════════════════════════
 // AUTH GATE
@@ -1041,10 +1065,18 @@ function loadRooms() {
     const category = document.getElementById("id_category").value;
     const start    = document.getElementById("id_start_datetime").value;
     const end      = document.getElementById("id_end_datetime").value;
+    const previousSelection = new Set(selectedRoomIds.map(String));
 
-    if (!category || !start || !end) return;
+    if (!category || !start || !end) {
+        selectedRoomIds = [];
+        selectedRoomMap = {};
+        updateSelectedRoomsSummary();
+        return;
+    }
 
-    document.getElementById("id_room").value = '';
+    selectedRoomIds = [];
+    selectedRoomMap = {};
+    updateSelectedRoomsSummary();
 
     const params = new URLSearchParams({ category, start, end });
     const grid   = document.getElementById("roomGrid");
@@ -1087,14 +1119,31 @@ function loadRooms() {
                     <div class="small text-muted"><i class="bi bi-people-fill me-1"></i>Capacity: ${room.capacity || 40} Seats</div>
                 `;
                 if (cardClass === 'available') {
-                    roomDiv.onclick = () => {
-                        document.querySelectorAll(".room-item").forEach(r => r.classList.remove("selected"));
+                    const roomDisplay = `${room.label} - ${room.name}`;
+                    if (previousSelection.has(String(room.id))) {
                         roomDiv.classList.add("selected");
-                        document.getElementById("id_room").value = room.id;
+                        selectedRoomIds.push(String(room.id));
+                        selectedRoomMap[String(room.id)] = roomDisplay;
+                    }
+                    roomDiv.onclick = () => {
+                        const roomId = String(room.id);
+                        const isSelected = roomDiv.classList.contains("selected");
+                        if (isSelected) {
+                            roomDiv.classList.remove("selected");
+                            selectedRoomIds = selectedRoomIds.filter(id => id !== roomId);
+                            delete selectedRoomMap[roomId];
+                        } else {
+                            roomDiv.classList.add("selected");
+                            selectedRoomIds.push(roomId);
+                            selectedRoomMap[roomId] = roomDisplay;
+                        }
+                        updateSelectedRoomsSummary();
                     };
                 }
                 grid.appendChild(roomDiv);
             });
+            selectedRoomIds = Array.from(new Set(selectedRoomIds));
+            updateSelectedRoomsSummary();
         })
         .catch(err => {
             console.error("Error loading rooms:", err);
@@ -1145,7 +1194,7 @@ document.getElementById('bookingForm').addEventListener('submit', function(e) {
     const category = document.getElementById('id_category').value;
     const start    = document.getElementById('id_start_datetime').value;
     const end      = document.getElementById('id_end_datetime').value;
-    const room     = document.getElementById('id_room').value;
+    const roomIds  = document.getElementById('id_room_ids').value;
     const fileInput = document.querySelector('#fileUploadSection input[type="file"]');
     const hasFile = fileInput && fileInput.files && fileInput.files.length > 0;
     const reqMode = document.getElementById('reqTypeInput').value;
@@ -1178,7 +1227,7 @@ document.getElementById('bookingForm').addEventListener('submit', function(e) {
         }
     }
 
-    if (!room) errors.push('Please select an available room from the grid below.');
+    if (!roomIds) errors.push('Please select at least one available room from the grid below.');
 
     if (isAttach && !hasFile) {
         errors.push('You selected "Attach Document" but no file was chosen.');
@@ -1280,16 +1329,13 @@ function cmAutoFetchBookings() {
     const spinner = document.getElementById('cmLoadingSpinner');
     if (spinner) spinner.style.display = 'block';
     cmClearAlert('cmAlert1');
-
+ 
     const url = `{% url "core:get_bookings_by_email" %}?email=${encodeURIComponent(sessionEmail)}&password=${encodeURIComponent(sessionPassword)}`;
     fetch(url)
         .then(res => res.json())
         .then(data => {
             if (spinner) spinner.style.display = 'none';
-            if (data.error) {
-                cmShowAlert('cmAlert1', data.error);
-                return;
-            }
+            if (data.error) { cmShowAlert('cmAlert1', data.error); return; }
             if (!data.bookings || data.bookings.length === 0) {
                 cmShowAlert('cmAlert1', 'No upcoming bookings or pending requests found for your account.');
                 return;
@@ -1299,14 +1345,24 @@ function cmAutoFetchBookings() {
             data.bookings.forEach(b => {
                 const opt = document.createElement('option');
                 opt.value = b.id;
-                // Store booking_type on the option so we can read it on submit
                 opt.dataset.bookingType = b.booking_type;
-                const typeLabel = b.booking_type === 'request'
-                    ? '⏳ Pending Approval'
-                    : '✅ Confirmed';
-                const cancelSuffix = b.has_pending_cancel ? '  ⚠ Cancellation Pending' : '';
+                opt.dataset.startRaw    = b.start_raw || '';   // ← ISO timestamp
+                opt.dataset.canEdit     = b.can_edit || false; // ← Edit permission flag
+                let within24h = false;
+                if (b.booking_type === 'confirmed' && b.start_raw) {
+                    const bookingDate = new Date(b.start_raw);
+                    const hoursUntil  = (bookingDate - new Date()) / (1000 * 60 * 60);
+                    within24h = hoursUntil < 24;
+                }
+ 
                 opt.textContent = `[${typeLabel}]  ${b.room_name}  •  ${b.start} → ${b.end}${cancelSuffix}`;
-                if (b.has_pending_cancel) opt.disabled = true;
+ 
+                if (b.has_pending_cancel || within24h) {
+                    opt.disabled = true;
+                    if (within24h) {
+                        opt.textContent = `[🚫 Within 24h window]  ${b.room_name}  •  ${b.start} → ${b.end}`;
+                    }
+                }
                 sel.appendChild(opt);
             });
             cmGoStep(2);
@@ -1317,14 +1373,44 @@ function cmAutoFetchBookings() {
         });
 }
 
+
 function cmOnSelectChange() {
     cmClearAlert('cmAlert2');
     const sel = document.getElementById('cmBookingSelect');
     const opt = sel.selectedOptions[0];
     if (!opt || !opt.value) return;
+ 
     const isRequest = opt.dataset.bookingType === 'request';
-    // Update submit button label
+    const canEdit = opt.dataset.canEdit === 'true';
+    const startRaw  = opt.dataset.startRaw || '';
+    const bookingId = opt.value;
+ 
+    // ── 24-hour cancellation window enforcement ───────────────────────
+    if (!isRequest && startRaw) {
+        const bookingDate = new Date(startRaw);
+        const hoursUntil  = (bookingDate - new Date()) / (1000 * 60 * 60);
+        if (hoursUntil < 24) {
+            const btn = document.getElementById('cmSubmitBtn');
+            if (btn) btn.disabled = true;
+            cmShowAlert('cmAlert2',
+                '⚠ Cancellation requests cannot be submitted within 24 hours of the booking date. ' +
+                'Please contact the admin directly.'
+            );
+            return;
+        }
+    }
+ 
+    // Show/hide edit button based on booking type and edit permission
+    const editBtn = document.getElementById('cmEditBtn');
+    if (editBtn) {
+        editBtn.style.display = (!isRequest && canEdit) ? 'flex' : 'none';
+        editBtn.dataset.bookingId = bookingId;
+    }
+ 
+    // Re-enable submit in case a different option was previously blocking it
     const btn = document.getElementById('cmSubmitBtn');
+    if (btn) btn.disabled = false;
+ 
     if (btn) {
         btn.innerHTML = isRequest
             ? '<i class="bi bi-x-circle-fill me-2"></i>Withdraw This Request'
@@ -1333,14 +1419,25 @@ function cmOnSelectChange() {
             ? 'linear-gradient(135deg, #f59e0b, #d97706)'
             : 'linear-gradient(135deg, #ef4444, #dc2626)';
     }
-    // Update reason label
     const lbl = document.getElementById('cmReasonLabel');
     if (lbl) lbl.textContent = isRequest ? 'Reason for Withdrawal' : 'Reason for Cancellation';
-    // Update textarea placeholder
     const ta = document.getElementById('cmReason');
     if (ta) ta.placeholder = isRequest
         ? 'Please explain why you want to withdraw this pending request…'
         : 'Please explain why you need to cancel this booking…';
+}
+
+function cmEditBooking() {
+    const editBtn = document.getElementById('cmEditBtn');
+    const bookingId = editBtn ? editBtn.dataset.bookingId : null;
+    
+    if (!bookingId) {
+        showValidationPopup('Please select a booking to edit.');
+        return;
+    }
+    
+    // Redirect to edit booking page
+    window.location.href = `{% url 'core:edit_booking' 0 %}`.replace('0', bookingId);
 }
 
 function cmSubmitCancellation() {
