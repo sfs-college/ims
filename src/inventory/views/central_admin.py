@@ -5,7 +5,7 @@ from django.views.generic import TemplateView, ListView, CreateView, UpdateView,
 from django.template.loader import render_to_string
 from core.models import User, UserProfile
 from django.db.models import Q
-from inventory.models import Room, Vendor, Purchase, Issue, Department, Item, StockRequest, IssueTimeExtensionRequest, RoomBooking, RoomBookingRequest, RoomCancellationRequest, RoomBookingEditRequest
+from inventory.models import Room, Vendor, Purchase, Issue, Department, Item, StockRequest, IssueTimeExtensionRequest, RoomBooking, RoomBookingRequest, RoomCancellationRequest
 from django.contrib.auth.tokens import PasswordResetTokenGenerator
 from django.utils.http import urlsafe_base64_encode
 from django.utils.encoding import force_bytes
@@ -385,7 +385,7 @@ class RoomListView(LoginRequiredMixin, ListView):
 
         pending_reqs = RoomBookingRequest.objects.filter(
             Q(room__in=all_rooms) | Q(rooms__in=all_rooms),
-            status__in=['pending', 'recommended'],
+            status='pending',
         ).select_related('room').prefetch_related('rooms').distinct()
 
         pending_room_ids = set()
@@ -1109,7 +1109,7 @@ class ApprovalRequestListView(LoginRequiredMixin, ListView):
  
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        VALID_TABS = {'item_edit', 'issue_tat', 'booking_req', 'cancel_req', 'booking_edit'}
+        VALID_TABS = {'item_edit', 'issue_tat', 'booking_req', 'cancel_req'}
         raw = self.request.GET.get('type', 'item_edit')
         context['active_tab'] = raw if raw in VALID_TABS else 'item_edit'
         context['request_type'] = raw if raw in VALID_TABS else 'item_edit'
@@ -1134,48 +1134,17 @@ class ApprovalRequestListView(LoginRequiredMixin, ListView):
             .order_by('-created_on')
         )
         
-        # Booking edit requests
-        if is_central:
-            edit_requests = RoomBookingEditRequest.objects.filter(
-                Q(status='pending', workflow_stage='central_admin') |
-                Q(status='pending', workflow_stage='sub_admin')
+        # Direct approval workflow - both central and sub-admin can approve pending bookings
+        booking_qs = (
+            RoomBookingRequest.objects
+            .filter(
+                status='pending',
+                tat_deadline__gt=timezone.now(),
             )
-        else:
-            edit_requests = RoomBookingEditRequest.objects.filter(
-                status='pending', workflow_stage='sub_admin'
-            )
-        
-        context['edit_requests'] = edit_requests.select_related(
-            'original_booking', 'original_booking__room', 'new_department', 'original_department'
-        ).prefetch_related('new_rooms', 'original_rooms').order_by('-created_on')
- 
-        # Two-stage booking routing:
-        # sub-admin  → pending, workflow_stage='sub_admin'
-        # central    → recommended, workflow_stage='central_admin'
-        if is_central:
-            booking_qs = (
-                RoomBookingRequest.objects
-                .filter(
-                    status='recommended',
-                    workflow_stage='central_admin',
-                    tat_deadline__gt=timezone.now(),
-                )
-                .select_related('room', 'department', 'recommended_by', 'recommended_by__user', 'approved_by', 'approved_by__user')
-                .prefetch_related('rooms')
-                .order_by('-created_on')
-            )
-        else:
-            booking_qs = (
-                RoomBookingRequest.objects
-                .filter(
-                    status='pending',
-                    workflow_stage='sub_admin',
-                    tat_deadline__gt=timezone.now(),
-                )
-                .select_related('room', 'department', 'recommended_by', 'recommended_by__user')
-                .prefetch_related('rooms')
-                .order_by('-created_on')
-            )
+            .select_related('room', 'department')
+            .prefetch_related('rooms')
+            .order_by('-created_on')
+        )
         context['booking_requests'] = booking_qs
  
         context['cancel_requests'] = (
@@ -1190,101 +1159,6 @@ class ApprovalRequestListView(LoginRequiredMixin, ListView):
         context['booking_req_count'] = booking_qs.count()
         context['cancel_req_count']  = context['cancel_requests'].count()
         return context
-
-class RecommendRoomBookingRequestView(LoginRequiredMixin, View):
-    """Sub-admin recommends → moves booking to central admin stage."""
-    def post(self, request, pk, *args, **kwargs):
-        profile = request.user.profile
-        if not profile.is_sub_admin:
-            messages.error(request, "Only sub-admins can recommend bookings.")
-            return redirect(f"{reverse('central_admin:approval_requests')}?type=booking_req")
- 
-        req = get_object_or_404(RoomBookingRequest, pk=pk, status='pending')
-        remark = (request.POST.get('note', '') or '').strip()
-        req.status = 'recommended'
-        req.workflow_stage = 'central_admin'
-        req.recommended_by = profile
-        req.recommended_note = remark
-        req.review_note = f"Recommended by {(f'{profile.first_name} {profile.last_name}'.strip() or str(profile))}" + (f" — Remark: {remark}" if remark else "")
-        req.save(update_fields=['status', 'workflow_stage', 'recommended_by', 'recommended_note', 'review_note', 'updated_on'])
- 
-        sub_admin_name = f"{profile.first_name} {profile.last_name}".strip() or str(profile)
-        details = format_booking_details(
-            req, req.faculty_name,
-            req.start_datetime, req.end_datetime, req.purpose, req.department,
-        )
-        sections = _booking_email_sections(req) + [
-            {
-                "title": "Review Trail",
-                "rows": [
-                    {"label": "Recommended By", "value": sub_admin_name},
-                    {"label": "Sub-admin Remark", "value": remark or 'No remark added'},
-                ],
-            }
-        ]
- 
-        # Email → Faculty
-        try:
-            safe_send_mail(
-                subject="[Blixtro] Room Booking Recommended for Final Approval",
-                message=(
-                    f"Dear {req.faculty_name},\n\n"
-                    f"Your room booking request has been reviewed and recommended for approval "
-                    f"by {sub_admin_name}.\n"
-                    f"{details}\n\n"
-                    f"Remark: {remark or 'No remark added.'}\n\n"
-                    "Your request is now pending final approval from the administration. "
-                    "You will be notified once a decision is made.\n\n"
-                    "Best regards,\nBlixtro — SFS College Inventory & Booking System"
-                ),
-                recipient_list=[req.faculty_email],
-                html_message=build_email_shell(
-                    title="Booking Recommended",
-                    intro_html=(
-                        f"Dear <strong>{req.faculty_name}</strong>, your room booking request has been recommended by "
-                        f"<strong>{sub_admin_name}</strong> and is now waiting for central approval."
-                    ),
-                    sections=sections,
-                    outro_html="You will receive the final booking decision as soon as central approval is completed.",
-                ),
-            )
-        except Exception as _e:
-            print(f"[RecommendBooking] Faculty email failed: {_e}", flush=True)
- 
-        # Email → Central Admins
-        central_emails = list(
-            UserProfile.objects.filter(is_central_admin=True, is_sub_admin=False)
-            .values_list('user__email', flat=True)
-        )
-        if central_emails:
-            try:
-                safe_send_mail(
-                    subject=f"[Blixtro] Booking Recommended for Approval — {format_room_list(req)}",
-                    message=(
-                        f"A room booking request has been recommended by {sub_admin_name} "
-                        f"and requires your final approval.\n"
-                        f"{details}\n\n"
-                        f"Recommended By: {sub_admin_name}\n"
-                        f"Remark: {remark or 'No remark provided.'}\n\n"
-                        "Please log in to the Approval Hub to give final approval.\n\n"
-                        "Blixtro — SFS College Inventory & Booking System"
-                    ),
-                    recipient_list=central_emails,
-                    html_message=build_email_shell(
-                        title="Central Approval Required",
-                        intro_html=(
-                            f"This booking request was recommended by <strong>{sub_admin_name}</strong> and now needs final central approval."
-                        ),
-                        sections=sections,
-                        outro_html="Open the Approval Hub to approve or reject the request with your remark.",
-                    ),
-                )
-            except Exception as _e:
-                print(f"[RecommendBooking] Central admin email failed: {_e}", flush=True)
- 
-        messages.success(request, f"Booking for {format_room_list(req)} recommended for final approval.")
-        next_type = request.POST.get("next_type", "booking_req")
-        return redirect(f"{reverse('central_admin:approval_requests')}?type={next_type}")
 
 
 class ApproveIssueTimeExtensionView(LoginRequiredMixin, View):
@@ -1323,28 +1197,26 @@ class RejectIssueTimeExtensionView(LoginRequiredMixin, View):
 
 class ApproveRoomBookingRequestView(LoginRequiredMixin, View):
     """
-    Central admin FINAL approval. On approval:
+    Admin approval (both central and sub-admin can approve).
+    On approval:
      1. Creates RoomBooking.
      2. Emails faculty confirmation.
      3. Emails BOOKING_NOTIFICATION_EMAILS with full details + requirements.
-     4. Emails recommending sub-admin that booking was approved.
     """
+
     def post(self, request, pk, *args, **kwargs):
         from inventory.models import RoomBooking as _RB
         profile = request.user.profile
- 
-        if not (profile.is_central_admin and not profile.is_sub_admin):
-            messages.error(request, "Only central admins can give final approval.")
+
+        # Both central admin and sub-admin can approve pending bookings
+        if not (profile.is_central_admin or profile.is_sub_admin):
+            messages.error(request, "Only admins can approve bookings.")
             next_type = request.POST.get("next_type", "booking_req")
             return redirect(f"{reverse('central_admin:approval_requests')}?type={next_type}")
- 
-        req = get_object_or_404(RoomBookingRequest, pk=pk, status='recommended')
+
+        req = get_object_or_404(RoomBookingRequest, pk=pk, status='pending')
         approval_remark = (request.POST.get('note', '') or '').strip()
         approved_by_name = f"{profile.first_name} {profile.last_name}".strip() or str(profile)
-        recommended_by_name = (
-            f"{req.recommended_by.first_name} {req.recommended_by.last_name}".strip()
-            if req.recommended_by else "Not recorded"
-        )
         selected_rooms = list(req.rooms.all()) or ([req.room] if req.room else [])
  
         try:
@@ -1358,8 +1230,6 @@ class ApproveRoomBookingRequestView(LoginRequiredMixin, View):
                 purpose           = req.purpose,
                 requirements_doc  = req.requirements_doc,
                 requirements_text = req.requirements_text,
-                recommended_by_name = recommended_by_name,
-                recommended_note    = req.recommended_note or '',
                 approved_by_name    = approved_by_name,
                 approved_note       = approval_remark,
             )
@@ -1394,10 +1264,8 @@ class ApproveRoomBookingRequestView(LoginRequiredMixin, View):
             {
                 "title": "Approval Trail",
                 "rows": [
-                    {"label": "Recommended By", "value": recommended_by_name},
-                    {"label": "Sub-admin Remark", "value": req.recommended_note or 'No remark added'},
                     {"label": "Approved By", "value": approved_by_name},
-                    {"label": "Central-admin Remark", "value": approval_remark or 'No remark added'},
+                    {"label": "Admin Remark", "value": approval_remark or 'No remark added'},
                 ],
             }
         ]
@@ -1410,10 +1278,8 @@ class ApproveRoomBookingRequestView(LoginRequiredMixin, View):
                     f"Dear {req.faculty_name},\n\n"
                     f"Your room booking has been officially approved.\n"
                     f"{details_plain}\n\n"
-                    f"Recommended by: {recommended_by_name}\n"
-                    f"Sub-admin remark: {req.recommended_note or 'No remark added.'}\n"
                     f"Approved by: {approved_by_name}\n"
-                    f"Central-admin remark: {approval_remark or 'No remark added.'}\n\n"
+                    f"Admin remark: {approval_remark or 'No remark added.'}\n\n"
                     f"{requirements_section}\n"
                     "Your booking is confirmed. Please contact the admin team for any assistance.\n\n"
                     "Best regards,\nBlixtro — SFS College Inventory & Booking System"
@@ -1442,10 +1308,8 @@ class ApproveRoomBookingRequestView(LoginRequiredMixin, View):
                     f"A room booking has been officially approved by {approved_by_name}.\n\n"
                     f"{'='*60}\nBOOKING DETAILS\n{'='*60}"
                     f"{details_plain}\n{'='*60}"
-                    f"\nRecommended By: {recommended_by_name}"
-                    f"\nSub-admin Remark: {req.recommended_note or 'No remark added.'}"
                     f"\nApproved By: {approved_by_name}"
-                    f"\nCentral-admin Remark: {approval_remark or 'No remark added.'}\n"
+                    f"\nAdmin Remark: {approval_remark or 'No remark added.'}\n"
                     f"{requirements_section}"
                     "Please make the necessary arrangements as per the details above.\n\n"
                     "This is an automated notification from Blixtro — SFS College."
@@ -1463,33 +1327,6 @@ class ApproveRoomBookingRequestView(LoginRequiredMixin, View):
         except Exception as _e:
             print(f"[ApproveBooking] Notification list email failed: {_e}", flush=True)
  
-        # Email 3: Sub-admin who recommended — inform of final approval
-        if req.recommended_by:
-            try:
-                sub_email = req.recommended_by.user.email
-                safe_send_mail(
-                    subject=f"[Blixtro] Booking Approved — {format_room_list(req)}",
-                    message=(
-                        f"The room booking request you recommended for {req.faculty_name} "
-                        f"has been approved by {approved_by_name}.\n"
-                        f"{details_plain}\n\n"
-                        f"Your recommendation remark: {req.recommended_note or 'No remark added.'}\n"
-                        f"Central-admin remark: {approval_remark or 'No remark added.'}\n\n"
-                        "The booking is now confirmed and relevant departments have been notified.\n\n"
-                        "Blixtro — SFS College Inventory & Booking System"
-                    ),
-                    recipient_list=[sub_email],
-                    html_message=build_email_shell(
-                        title="Recommended Booking Approved",
-                        intro_html=(
-                            f"The booking request you recommended for <strong>{req.faculty_name}</strong> has now been fully approved."
-                        ),
-                        sections=sections,
-                        outro_html="The confirmed booking details and requirements have already been shared with the notified recipients.",
-                    ),
-                )
-            except Exception as _e:
-                print(f"[ApproveBooking] Sub-admin notify email failed: {_e}", flush=True)
  
         messages.success(request, f"Booking for {format_room_list(req)} approved and all parties notified.")
         next_type = request.POST.get("next_type", "booking_req")
@@ -1499,12 +1336,15 @@ class ApproveRoomBookingRequestView(LoginRequiredMixin, View):
 
 
 class RejectRoomBookingRequestView(LoginRequiredMixin, View):
-    """Both sub-admin (pending) and central admin (recommended) can reject."""
+    """Both sub-admin and central admin can reject pending bookings."""
     def post(self, request, pk, *args, **kwargs):
         profile = request.user.profile
-        is_central = profile.is_central_admin and not profile.is_sub_admin
-        allowed = ['recommended'] if is_central else ['pending']
-        req = get_object_or_404(RoomBookingRequest, pk=pk, status__in=allowed)
+        # Both admin types can reject pending bookings
+        if not (profile.is_central_admin or profile.is_sub_admin):
+            messages.error(request, "Only admins can reject bookings.")
+            next_type = request.POST.get("next_type", "booking_req")
+            return redirect(f"{reverse('central_admin:approval_requests')}?type={next_type}")
+        req = get_object_or_404(RoomBookingRequest, pk=pk, status='pending')
         reason = (request.POST.get('note', '') or request.POST.get('review_note', '')).strip()
 
         if not reason:
@@ -1624,100 +1464,6 @@ class RejectCancellationRequestView(LoginRequiredMixin, View):
         return redirect(f"{reverse('central_admin:approval_requests')}?type={next_type}")
 
 
-class RecommendBookingEditRequestView(LoginRequiredMixin, View):
-    """Sub admin recommends or central admin can directly approve an edit request."""
-    def post(self, request, pk, *args, **kwargs):
-        profile = request.user.profile
-        edit_req = get_object_or_404(RoomBookingEditRequest, pk=pk, status='pending')
-
-        remark = (request.POST.get('note', '') or '').strip()
-        
-        is_central = profile.is_central_admin and not profile.is_sub_admin
-        
-        if remark:
-            edit_req.review_note = remark
-        
-        if is_central:
-            edit_req.status = 'approved'
-            edit_req.reviewed_by = profile
-            edit_req.approved_by = profile
-            edit_req.approved_note = remark
-            edit_req.workflow_stage = 'central_admin'
-        else:
-            edit_req.status = 'recommended'
-            edit_req.reviewed_by = profile
-            edit_req.recommended_by = profile
-            edit_req.recommended_note = remark
-            edit_req.workflow_stage = 'sub_admin'
-        
-        edit_req.save()
-
-        messages.success(request, "Booking edit request processed.")
-        return redirect(f"{reverse('central_admin:approval_requests')}?type=edit_req")
-
-
-class ApproveBookingEditRequestView(LoginRequiredMixin, View):
-    """Central admin final approval of booking edit request — applies changes to original booking."""
-    def post(self, request, pk, *args, **kwargs):
-        profile = request.user.profile
-
-        if not (profile.is_central_admin and not profile.is_sub_admin):
-            messages.error(request, "Only central admins can give final approval.")
-            return redirect(f"{reverse('central_admin:approval_requests')}?type=edit_req")
-
-        edit_req = get_object_or_404(RoomBookingEditRequest, pk=pk, status='recommended')
-        approval_remark = (request.POST.get('note', '') or '').strip()
-        approved_by_name = f"{profile.first_name} {profile.last_name}".strip() or str(profile)
-
-        booking = edit_req.original_booking
-        
-        if edit_req.new_start_datetime:
-            booking.start_datetime = edit_req.new_start_datetime
-        if edit_req.new_end_datetime:
-            booking.end_datetime = edit_req.new_end_datetime
-        if edit_req.new_purpose is not None:
-            booking.purpose = edit_req.new_purpose
-        if edit_req.new_department:
-            booking.department = edit_req.new_department
-        if edit_req.new_rooms.exists():
-            booking.rooms.set(edit_req.new_rooms.all())
-        if edit_req.new_requirements_doc:
-            booking.requirements_doc = edit_req.new_requirements_doc
-        if edit_req.new_requirements_text is not None:
-            booking.requirements_text = edit_req.new_requirements_text
-
-        booking.save()
-
-        edit_req.status = 'approved'
-        edit_req.reviewed_by = profile
-        edit_req.approved_by = profile
-        edit_req.approved_note = approval_remark
-        edit_req.save()
-
-        messages.success(request, f"Booking edit for {booking.room} approved and applied.")
-        return redirect(f"{reverse('central_admin:approval_requests')}?type=edit_req")
-
-
-class RejectBookingEditRequestView(LoginRequiredMixin, View):
-    """Reject a booking edit request."""
-    def post(self, request, pk, *args, **kwargs):
-        profile = request.user.profile
-        edit_req = get_object_or_404(RoomBookingEditRequest, pk=pk, status__in=['pending', 'recommended'])
-
-        reason = (request.POST.get('note', '') or '').strip()
-        if not reason:
-            messages.error(request, "A rejection reason is required.")
-            return redirect(f"{reverse('central_admin:approval_requests')}?type=edit_req")
-
-        edit_req.status = 'rejected'
-        edit_req.reviewed_by = profile
-        edit_req.review_note = reason
-        edit_req.save()
-
-        messages.info(request, "Booking edit request rejected.")
-        return redirect(f"{reverse('central_admin:approval_requests')}?type=edit_req")
-
-
 def get_booking_request_doc_text(request, pk):
     """AJAX GET — extract doc blocks from RoomBookingRequest for inline preview."""
     if not request.user.is_authenticated:
@@ -1790,12 +1536,12 @@ def admin_notification_counts(request):
     try:
         if is_central:
             booking_count = RoomBookingRequest.objects.filter(
-                status='recommended', workflow_stage='central_admin',
+                status='pending',
                 tat_deadline__gt=timezone.now(),
             ).count()
         else:
             booking_count = RoomBookingRequest.objects.filter(
-                status='pending', workflow_stage='sub_admin',
+                status='pending',
                 tat_deadline__gt=timezone.now(),
             ).count()
  

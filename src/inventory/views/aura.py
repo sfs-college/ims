@@ -18,7 +18,7 @@ from django.views.generic import FormView
 from django.views import View
 from django.contrib import messages
 from django.core.mail import send_mail
-from inventory.booking_utils import extract_requirement_blocks_from_field, format_room_list, requirement_blocks_to_plain_text
+from inventory.booking_utils import extract_requirement_blocks_from_field, format_room_list, requirement_blocks_to_plain_text, sort_rooms_iterable
 from inventory.forms.room_incharge import ExcelUploadForm
 from django.db import models
 from inventory.models import SystemComponent as SC
@@ -390,21 +390,22 @@ def get_rooms_by_category(request):
     profile = request.user.profile
     if not (profile.is_central_admin or profile.is_sub_admin):
         return JsonResponse({'error': 'Unauthorized'}, status=403)
-    
+
     category = request.GET.get('category')
     org = profile.org
-    
-    rooms = Room.objects.filter(
+
+    rooms = list(Room.objects.filter(
         organisation=org,
         room_category=category
-    ).values('id', 'room_name', 'label')
-    
+    ))
+    rooms = sort_rooms_iterable(rooms)
+
     return JsonResponse({
         'rooms': [
             {
-                'id': r['id'], 
-                'name': f"{r['room_name']} - {r['label']}" if r['label'] else r['room_name']
-            } 
+                'id': r.id,
+                'name': f"{r.room_name} - {r.label}" if r.label else r.room_name
+            }
             for r in rooms
         ]
     })
@@ -801,13 +802,6 @@ def confirmed_booking_files(request):
 
         results = []
         for b in bookings:
-            # Check for approved edit requests
-            approved_edits = b.edit_requests.filter(status='approved').order_by('-created_on')
-            has_edited_booking = approved_edits.exists()
-            
-            # Get the most recent approved edit request if any
-            latest_edit = approved_edits.first() if has_edited_booking else None
-            
             # has_doc is True whenever a file path is recorded — regardless of
             # whether text has been extracted yet. The actual reading/extraction
             # is deferred to get_booking_doc_text (called lazily on "View Doc"
@@ -836,8 +830,6 @@ def confirmed_booking_files(request):
                 'to':              to_str,
                 'purpose':         b.purpose or '',
                 'department':      str(b.department) if b.department else '—',
-                'recommended_by':  getattr(b, 'recommended_by_name', '') or '—',
-                'recommended_note': getattr(b, 'recommended_note', '') or '',
                 'approved_by':     getattr(b, 'approved_by_name', '') or '—',
                 'approved_note':   getattr(b, 'approved_note', '') or '',
                 'doc_name':        doc_name,
@@ -846,28 +838,7 @@ def confirmed_booking_files(request):
                 # Inline text requirements (no file upload — typed directly)
                 'has_inline_text': has_inline_text,
                 'inline_text':     inline_text if has_inline_text else '',
-                # Edit booking information
-                'has_edited_booking': has_edited_booking,
-                'edit_request_id': latest_edit.id if latest_edit else None,
-                'edit_approved_by': latest_edit.approved_by.user.get_full_name() if latest_edit and latest_edit.approved_by else None,
-                'edit_approved_date': latest_edit.updated_on.strftime('%d %b %Y, %H:%M') if latest_edit else None,
-                'edit_note': latest_edit.approved_note if latest_edit else None,
             }
-            
-            # Add original vs current booking details for toggle functionality
-            if has_edited_booking and latest_edit:
-                # Original details
-                original_rooms = list(latest_edit.original_rooms.all()) if latest_edit.original_rooms.exists() else [latest_edit.original_booking.room]
-                booking_data['original'] = {
-                    'room': format_room_list(original_rooms),
-                    'from': timezone.localtime(latest_edit.original_start_datetime).strftime('%d %b %Y, %H:%M'),
-                    'to': timezone.localtime(latest_edit.original_end_datetime).strftime('%d %b %Y, %H:%M'),
-                    'purpose': latest_edit.original_purpose or '—',
-                    'department': str(latest_edit.original_department) if latest_edit.original_department else '—',
-                }
-                
-                # Changes made (for highlighting)
-                booking_data['changes'] = latest_edit.changes_made or {}
             
             results.append(booking_data)
 
