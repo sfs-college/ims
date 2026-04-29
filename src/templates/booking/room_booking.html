@@ -901,9 +901,6 @@
                 <button class="cm-btn-back" onclick="closeCancelModal()">
                     <i class="bi bi-x me-1"></i> Close
                 </button>
-                <button class="cm-btn-edit" id="cmEditBtn" onclick="cmEditBooking()" style="display:none;">
-                    <i class="bi bi-pencil-fill me-2"></i>Edit Booking
-                </button>
                 <button class="cm-btn-submit" id="cmSubmitBtn" onclick="cmSubmitCancellation()">
                     <i class="bi bi-send-fill me-2"></i>Submit Cancellation Request
                 </button>
@@ -1347,7 +1344,6 @@ function cmAutoFetchBookings() {
                 opt.value = b.id;
                 opt.dataset.bookingType = b.booking_type;
                 opt.dataset.startRaw    = b.start_raw || '';   // ← ISO timestamp
-                opt.dataset.canEdit     = b.can_edit || false; // ← Edit permission flag
                 let within24h = false;
                 if (b.booking_type === 'confirmed' && b.start_raw) {
                     const bookingDate = new Date(b.start_raw);
@@ -1381,8 +1377,7 @@ function cmOnSelectChange() {
     if (!opt || !opt.value) return;
  
     const isRequest = opt.dataset.bookingType === 'request';
-    const canEdit = opt.dataset.canEdit === 'true';
-    const startRaw  = opt.dataset.startRaw || '';
+    const startRaw  = opt.dataset.startRaw || '';   // ← ISO timestamp
     const bookingId = opt.value;
  
     // ── 24-hour cancellation window enforcement ───────────────────────
@@ -1398,13 +1393,6 @@ function cmOnSelectChange() {
             );
             return;
         }
-    }
- 
-    // Show/hide edit button based on booking type and edit permission
-    const editBtn = document.getElementById('cmEditBtn');
-    if (editBtn) {
-        editBtn.style.display = (!isRequest && canEdit) ? 'flex' : 'none';
-        editBtn.dataset.bookingId = bookingId;
     }
  
     // Re-enable submit in case a different option was previously blocking it
@@ -1427,18 +1415,6 @@ function cmOnSelectChange() {
         : 'Please explain why you need to cancel this booking…';
 }
 
-function cmEditBooking() {
-    const editBtn = document.getElementById('cmEditBtn');
-    const bookingId = editBtn ? editBtn.dataset.bookingId : null;
-    
-    if (!bookingId) {
-        showValidationPopup('Please select a booking to edit.');
-        return;
-    }
-    
-    // Redirect to edit booking page
-    window.location.href = `{% url 'core:edit_booking' 0 %}`.replace('0', bookingId);
-}
 
 function cmSubmitCancellation() {
     const bookingId = document.getElementById('cmBookingSelect').value;
