@@ -794,6 +794,7 @@ class RoomBooking(models.Model):
     recommended_note = models.TextField(blank=True)
     approved_by_name = models.CharField(max_length=255, blank=True)
     approved_note = models.TextField(blank=True)
+    is_edited = models.BooleanField(default=False, help_text="True if this booking was edited after initial creation.")
     
     slug = models.SlugField(unique=True, max_length=255, blank=True, null=True)
 

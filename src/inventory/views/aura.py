@@ -3242,6 +3242,7 @@ def edit_booking(request, booking_id):
             }, status=400)
 
     try:
+        booking.is_edited = True  # Mark as edited
         booking.save()
     except Exception as exc:
         return JsonResponse({'error': f'Save failed: {exc}'}, status=400)
