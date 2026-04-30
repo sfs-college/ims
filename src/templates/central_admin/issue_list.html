@@ -37,6 +37,7 @@
         <tr>
           <th>Created By</th>
           <th>Room</th>
+          <th>Assigned To</th>
           <th>Resolved</th>
           <th>Created On</th>
           <th>Action</th>
@@ -47,6 +48,16 @@
         <tr>
           <td>{{ issue.created_by }}</td>
           <td>{{ issue.room.room_name }}</td>
+          <td>
+            {% if issue.assigned_to %}
+              <span style="display:inline-flex;align-items:center;gap:5px;">
+                <i class="bi bi-person-fill text-primary" style="font-size:0.85rem;"></i>
+                {{ issue.assigned_to.first_name }} {{ issue.assigned_to.last_name }}
+              </span>
+            {% else %}
+              <span class="text-muted small">—</span>
+            {% endif %}
+          </td>
           <td>
             {% if issue.resolved %}
             <span class="badge bg-success">Yes</span>
@@ -81,6 +92,35 @@
                 <div class="mb-3">
                   <h6 class="fw-bold">Room</h6>
                   <p>{{ issue.room.room_name }}</p>
+                </div>
+                <div class="mb-3">
+                  <h6 class="fw-bold">Room Incharge</h6>
+                  <p>
+                    {% if issue.room.incharge %}
+                      <span class="badge bg-secondary bg-opacity-10 text-secondary border border-secondary border-opacity-25 px-3 py-2" style="font-size:0.88rem;font-weight:600;border-radius:8px;">
+                        <i class="bi bi-person-workspace me-1"></i>
+                        {{ issue.room.incharge.first_name }} {{ issue.room.incharge.last_name }}
+                      </span>
+                    {% else %}
+                      <span class="text-muted">No incharge assigned to this room</span>
+                    {% endif %}
+                  </p>
+                </div>
+                <div class="mb-3">
+                  <h6 class="fw-bold">Currently Assigned To
+                    {% if issue.escalation_level == 1 %}<span class="badge bg-warning text-dark ms-2" style="font-size:0.72rem;">Escalated to Sub Admin</span>{% endif %}
+                    {% if issue.escalation_level == 2 %}<span class="badge bg-danger ms-2" style="font-size:0.72rem;">Escalated to Central Admin</span>{% endif %}
+                  </h6>
+                  <p>
+                    {% if issue.assigned_to %}
+                      <span class="badge bg-primary bg-opacity-10 text-primary border border-primary border-opacity-25 px-3 py-2" style="font-size:0.88rem;font-weight:600;border-radius:8px;">
+                        <i class="bi bi-person-badge-fill me-1"></i>
+                        {{ issue.assigned_to.first_name }} {{ issue.assigned_to.last_name }}
+                      </span>
+                    {% else %}
+                      <span class="text-muted">Not assigned</span>
+                    {% endif %}
+                  </p>
                 </div>
                 <div class="mb-3">
                   <h6 class="fw-bold">Resolved</h6>

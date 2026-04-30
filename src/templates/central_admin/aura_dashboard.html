@@ -40,6 +40,23 @@
         transform: scale(1.02); box-shadow: 0 20px 25px -5px rgba(59, 130, 246, 0.2);
     }
     .manager-card i { font-size: 2.5rem; margin-bottom: 15px; display: block; }
+    /* BCC card main icon — override manager-card i rule with higher specificity */
+    .manager-card .bcc-card-icon-box i {
+        font-size: 1.2rem !important;
+        margin-bottom: 0 !important;
+        display: inline-flex !important;
+        vertical-align: middle !important;
+        line-height: 1 !important;
+        color: #fff !important;
+    }
+    /* BCC badge icons */
+    .manager-card .bcc-badge-pill i {
+        font-size: 0.72rem !important;
+        margin-bottom: 0 !important;
+        display: inline !important;
+        vertical-align: middle !important;
+        line-height: 1 !important;
+    }
     
     /* Modal Customization */
     .modal-content { border-radius: 20px; border: none; }
@@ -410,8 +427,291 @@
                 <p class="small opacity-75 mb-0">Master inventory stock</p>
             </div>
         </div>
+
+        <!-- ══ BOOKING CONTROL CENTER — full-width card ══ -->
+        <div class="col-12 mb-4">
+            <div class="manager-card" onclick="openBookingControlCenter()" style="flex-direction:row;justify-content:space-between;align-items:center;padding:24px 28px;text-align:left;gap:16px;flex-wrap:wrap;">
+                <div style="display:flex;align-items:center;gap:16px;flex:1;min-width:0;">
+                    <div class="bcc-card-icon-box" style="width:48px;height:48px;background:linear-gradient(135deg,#6366f1,#9333ea);border-radius:13px;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+                        <i class="bi bi-sliders2" style="color:#fff !important;"></i>
+                    </div>
+                    <div style="min-width:0;">
+                        <h5 class="fw-bold mb-1" style="font-size:1rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">Booking Control Center</h5>
+                        <p class="small mb-0 opacity-75" style="line-height:1.4;">Edit details · Swap rooms · Manage requirements &amp; notes</p>
+                    </div>
+                </div>
+                <!-- Badges — compact pills with properly sized icons -->
+                <div style="display:flex;gap:6px;flex-wrap:wrap;flex-shrink:0;" onclick="event.stopPropagation();openBookingControlCenter();">
+                    <span class="bcc-badge-pill" style="background:#e0e7ff !important;color:#4f46e5 !important;border-radius:999px;padding:6px 14px;font-size:0.78rem;font-weight:700;white-space:nowrap;display:inline-flex;align-items:center;gap:5px;line-height:1;">
+                        <i class="bi bi-pencil-fill" style="color:#4f46e5 !important;"></i>
+                        <span style="color:#4f46e5 !important;">Edit</span>
+                    </span>
+                    <span class="bcc-badge-pill" style="background:#d1fae5 !important;color:#065f46 !important;border-radius:999px;padding:6px 14px;font-size:0.78rem;font-weight:700;white-space:nowrap;display:inline-flex;align-items:center;gap:5px;line-height:1;">
+                        <i class="bi bi-arrow-left-right" style="color:#065f46 !important;"></i>
+                        <span style="color:#065f46 !important;">Swap</span>
+                    </span>
+                    <span class="bcc-badge-pill" style="background:#ede9fe !important;color:#6d28d9 !important;border-radius:999px;padding:6px 14px;font-size:0.78rem;font-weight:700;white-space:nowrap;display:inline-flex;align-items:center;gap:5px;line-height:1;">
+                        <i class="bi bi-list-check" style="color:#6d28d9 !important;"></i>
+                        <span style="color:#6d28d9 !important;">Requirements</span>
+                    </span>
+                </div>
+            </div>
+        </div>
+
     </div>
 </div>
+
+<style>
+/* ── Booking Control Center entry card ── */
+.bcc-entry-card {
+    position: relative;
+    background: linear-gradient(135deg, rgba(15,23,42,0.96) 0%, rgba(30,41,59,0.98) 100%);
+    border: 1px solid rgba(99,102,241,0.25);
+    border-radius: 20px;
+    padding: 28px 32px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 20px;
+    overflow: hidden;
+    transition: transform 0.25s ease, box-shadow 0.25s ease, border-color 0.25s ease;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.18);
+    -webkit-tap-highlight-color: transparent;
+    user-select: none;
+}
+.bcc-entry-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 16px 48px rgba(99,102,241,0.22);
+    border-color: rgba(99,102,241,0.55);
+}
+.bcc-entry-card:active { transform: scale(0.99); }
+.bcc-glow {
+    position: absolute;
+    width: 260px; height: 260px;
+    background: radial-gradient(circle, rgba(99,102,241,0.22) 0%, transparent 70%);
+    filter: blur(40px);
+    top: -80px; left: -60px;
+    pointer-events: none;
+}
+.bcc-left { display: flex; align-items: center; gap: 20px; flex: 1; min-width: 0; }
+.bcc-icon-wrap {
+    width: 56px; height: 56px;
+    background: linear-gradient(135deg, #6366f1, #9333ea);
+    border-radius: 16px;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+    box-shadow: 0 4px 16px rgba(99,102,241,0.4);
+}
+.bcc-icon-wrap i { color: #fff; font-size: 1.5rem; }
+.bcc-title { font-size: 1.15rem; font-weight: 800; color: #fff; margin: 0 0 4px; letter-spacing: -0.3px; }
+.bcc-sub   { font-size: 0.82rem; color: rgba(255,255,255,0.55); margin: 0; line-height: 1.5; }
+.bcc-badges { display: flex; gap: 8px; flex-wrap: wrap; flex-shrink: 0; }
+.bcc-badge {
+    background: rgba(99,102,241,0.18);
+    border: 1px solid rgba(99,102,241,0.35);
+    color: #a5b4fc;
+    border-radius: 999px;
+    padding: 5px 14px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    white-space: nowrap;
+}
+.bcc-badge.teal   { background: rgba(13,148,136,0.18); border-color: rgba(13,148,136,0.35); color: #5eead4; }
+.bcc-badge.purple { background: rgba(147,51,234,0.18); border-color: rgba(147,51,234,0.35); color: #d8b4fe; }
+@media (max-width: 640px) {
+    .bcc-entry-card { flex-direction: column; align-items: flex-start; padding: 20px; }
+    .bcc-badges { margin-top: 4px; }
+    .bcc-title { font-size: 1rem; }
+}
+</style>
+
+<!-- ══════════════════════════════════════════════════════════════
+     BOOKING CONTROL CENTER — full-screen glassmorphism overlay
+══════════════════════════════════════════════════════════════ -->
+<div id="bccOverlay" style="display:none;position:fixed;inset:0;z-index:1500;background:rgba(10,14,26,0.72);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);overflow-y:auto;padding:20px 16px 40px;">
+<div id="bccPanel" style="max-width:1100px;margin:0 auto;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);border-radius:28px;overflow:hidden;box-shadow:0 40px 80px rgba(0,0,0,0.5);">
+
+  <!-- Header -->
+  <div style="background:linear-gradient(135deg,#0f172a 0%,#1e293b 100%);padding:24px 28px;display:flex;align-items:center;justify-content:space-between;gap:16px;border-bottom:1px solid rgba(255,255,255,0.08);">
+    <div style="display:flex;align-items:center;gap:14px;">
+      <div style="width:44px;height:44px;background:linear-gradient(135deg,#6366f1,#9333ea);border-radius:12px;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+        <i class="bi bi-sliders2" style="color:#fff;font-size:1.2rem;"></i>
+      </div>
+      <div>
+        <h5 style="color:#fff;font-weight:800;margin:0;font-size:1.1rem;letter-spacing:-0.3px;">Booking Control Center</h5>
+        <p style="color:rgba(255,255,255,0.45);font-size:0.75rem;margin:0;">Edit · Swap · Manage requirements for every confirmed booking</p>
+      </div>
+    </div>
+    <button onclick="closeBookingControlCenter()" style="background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.15);color:rgba(255,255,255,0.7);border-radius:10px;width:38px;height:38px;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:1.1rem;transition:background 0.2s;flex-shrink:0;" onmouseover="this.style.background='rgba(255,255,255,0.15)'" onmouseout="this.style.background='rgba(255,255,255,0.08)'">&#x2715;</button>
+  </div>
+
+  <!-- Search + filter bar -->
+  <div style="padding:18px 28px;background:rgba(255,255,255,0.03);border-bottom:1px solid rgba(255,255,255,0.07);display:flex;gap:12px;flex-wrap:wrap;align-items:center;">
+    <div style="position:relative;flex:1;min-width:200px;">
+      <i class="bi bi-search" style="position:absolute;left:12px;top:50%;transform:translateY(-50%);color:rgba(255,255,255,0.35);font-size:0.85rem;"></i>
+      <input type="text" id="bccSearch" placeholder="Search faculty, room, purpose…"
+             oninput="bccFilterBookings()"
+             style="width:100%;background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.12);border-radius:10px;padding:9px 12px 9px 34px;color:#fff;font-size:0.85rem;outline:none;box-sizing:border-box;"
+             onfocus="this.style.borderColor='rgba(99,102,241,0.6)'" onblur="this.style.borderColor='rgba(255,255,255,0.12)'">
+    </div>
+    <select id="bccStatusFilter" onchange="bccFilterBookings()"
+            style="background:#1e293b;border:1px solid rgba(255,255,255,0.2);border-radius:10px;padding:9px 12px;color:#f1f5f9;font-size:0.85rem;outline:none;min-width:130px;cursor:pointer;">
+      <option value=""    style="background:#1e293b;color:#f1f5f9;">All Statuses</option>
+      <option value="active"    style="background:#1e293b;color:#f1f5f9;">Active</option>
+      <option value="completed" style="background:#1e293b;color:#f1f5f9;">Completed</option>
+      <option value="cancelled" style="background:#1e293b;color:#f1f5f9;">Cancelled</option>
+    </select>
+    <button onclick="bccLoadBookings()" style="background:rgba(99,102,241,0.2);border:1px solid rgba(99,102,241,0.4);color:#a5b4fc;border-radius:10px;padding:9px 16px;font-size:0.82rem;font-weight:700;cursor:pointer;white-space:nowrap;transition:background 0.2s;" onmouseover="this.style.background='rgba(99,102,241,0.35)'" onmouseout="this.style.background='rgba(99,102,241,0.2)'">
+      <i class="bi bi-arrow-clockwise me-1"></i>Refresh
+    </button>
+  </div>
+
+  <!-- Booking list -->
+  <div style="padding:20px 28px;" id="bccListWrap">
+    <div id="bccList" style="display:flex;flex-direction:column;gap:12px;">
+      <div style="text-align:center;padding:48px 0;color:rgba(255,255,255,0.4);">
+        <div class="spinner-border text-primary" style="width:2rem;height:2rem;"></div>
+        <p style="margin-top:12px;font-size:0.85rem;">Loading bookings…</p>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /bccPanel -->
+</div><!-- /bccOverlay -->
+
+<!-- ── BCC Edit Modal ── -->
+<div id="bccEditOverlay" style="display:none;position:fixed;inset:0;z-index:1600;background:rgba(10,14,26,0.8);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);align-items:center;justify-content:center;padding:16px;overflow-y:auto;">
+<div id="bccEditBox" style="background:#fff;border-radius:24px;max-width:680px;width:100%;margin:auto;box-shadow:0 40px 80px rgba(0,0,0,0.4);overflow:hidden;animation:bccSlideUp 0.28s ease;">
+  <div style="background:linear-gradient(135deg,#6366f1,#9333ea);padding:20px 24px;display:flex;align-items:center;justify-content:space-between;">
+    <div style="display:flex;align-items:center;gap:12px;">
+      <i class="bi bi-pencil-fill" style="color:#fff;font-size:1.1rem;"></i>
+      <h6 style="color:#fff;font-weight:800;margin:0;" id="bccEditTitle">Edit Booking</h6>
+    </div>
+    <button onclick="closeBccEdit()" style="background:rgba(255,255,255,0.15);border:none;color:#fff;border-radius:8px;width:32px;height:32px;cursor:pointer;font-size:1rem;display:flex;align-items:center;justify-content:center;">&#x2715;</button>
+  </div>
+  <div style="padding:24px;" id="bccEditBody">
+    <div style="text-align:center;padding:32px;color:#64748b;"><div class="spinner-border text-primary"></div></div>
+  </div>
+</div>
+</div>
+
+<!-- ── BCC Swap Modal ── -->
+<div id="bccSwapOverlay" style="display:none;position:fixed;inset:0;z-index:1600;background:rgba(10,14,26,0.8);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);align-items:center;justify-content:center;padding:16px;overflow-y:auto;">
+<div id="bccSwapBox" style="background:#fff;border-radius:24px;max-width:640px;width:100%;margin:auto;box-shadow:0 40px 80px rgba(0,0,0,0.4);overflow:hidden;animation:bccSlideUp 0.28s ease;">
+  <div style="background:linear-gradient(135deg,#0d9488,#0f766e);padding:20px 24px;display:flex;align-items:center;justify-content:space-between;">
+    <div style="display:flex;align-items:center;gap:12px;">
+      <i class="bi bi-arrow-left-right" style="color:#fff;font-size:1.1rem;"></i>
+      <h6 style="color:#fff;font-weight:800;margin:0;" id="bccSwapTitle">Swap Room</h6>
+    </div>
+    <button onclick="closeBccSwap()" style="background:rgba(255,255,255,0.15);border:none;color:#fff;border-radius:8px;width:32px;height:32px;cursor:pointer;font-size:1rem;display:flex;align-items:center;justify-content:center;">&#x2715;</button>
+  </div>
+  <div style="padding:24px;" id="bccSwapBody">
+    <div style="text-align:center;padding:32px;color:#64748b;"><div class="spinner-border text-primary"></div></div>
+  </div>
+</div>
+</div>
+
+<style>
+@keyframes bccSlideUp { from { transform:translateY(24px);opacity:0; } to { transform:translateY(0);opacity:1; } }
+/* BCC booking card */
+.bcc-card {
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 16px;
+  padding: 18px 20px;
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  transition: border-color 0.2s, background 0.2s;
+}
+.bcc-card:hover { background: rgba(255,255,255,0.08); border-color: rgba(99,102,241,0.35); }
+.bcc-card-icon {
+  width: 44px; height: 44px;
+  border-radius: 12px;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+.bcc-card-icon.active   { background: linear-gradient(135deg,#6366f1,#9333ea); }
+.bcc-card-icon.completed{ background: linear-gradient(135deg,#10b981,#059669); }
+.bcc-card-icon.cancelled{ background: linear-gradient(135deg,#64748b,#475569); }
+.bcc-card-icon i { color:#fff; font-size:1.1rem; }
+.bcc-card-body { flex:1; min-width:0; }
+.bcc-card-room  { font-weight:800; color:#fff; font-size:0.95rem; margin-bottom:3px; }
+.bcc-card-meta  { font-size:0.78rem; color:rgba(255,255,255,0.5); margin-bottom:6px; line-height:1.5; }
+.bcc-card-purpose { font-size:0.8rem; color:rgba(255,255,255,0.65); background:rgba(255,255,255,0.06); border-radius:8px; padding:6px 10px; border-left:3px solid rgba(99,102,241,0.5); margin-bottom:8px; }
+.bcc-card-actions { display:flex; gap:8px; flex-wrap:wrap; }
+.bcc-btn {
+  border: none; border-radius: 9px; padding: 6px 14px;
+  font-size: 0.75rem; font-weight: 700; cursor: pointer;
+  display: inline-flex; align-items: center; gap: 5px;
+  transition: opacity 0.2s, transform 0.15s;
+  -webkit-tap-highlight-color: transparent;
+}
+.bcc-btn:active { transform: scale(0.96); }
+.bcc-btn.edit   { background:rgba(99,102,241,0.2); border:1px solid rgba(99,102,241,0.4); color:#a5b4fc; }
+.bcc-btn.edit:hover { background:rgba(99,102,241,0.35); }
+.bcc-btn.swap   { background:rgba(13,148,136,0.2); border:1px solid rgba(13,148,136,0.4); color:#5eead4; }
+.bcc-btn.swap:hover { background:rgba(13,148,136,0.35); }
+.bcc-btn.cancel { background:rgba(239,68,68,0.15); border:1px solid rgba(239,68,68,0.35); color:#fca5a5; }
+.bcc-btn.cancel:hover { background:rgba(239,68,68,0.28); }
+.bcc-status-pill {
+  display:inline-block; padding:2px 10px; border-radius:20px;
+  font-size:0.68rem; font-weight:800; text-transform:uppercase; letter-spacing:0.4px;
+}
+.bcc-status-pill.active    { background:rgba(16,185,129,0.2); color:#6ee7b7; border:1px solid rgba(16,185,129,0.3); }
+.bcc-status-pill.completed { background:rgba(100,116,139,0.2); color:#94a3b8; border:1px solid rgba(100,116,139,0.3); }
+.bcc-status-pill.cancelled { background:rgba(239,68,68,0.15); color:#fca5a5; border:1px solid rgba(239,68,68,0.25); }
+/* Edit form inside modal */
+.bcc-form-label { font-weight:700; font-size:0.78rem; color:#64748b; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:6px; display:block; }
+.bcc-form-input {
+  width:100%; padding:11px 14px; border:1.5px solid #e2e8f0; border-radius:11px;
+  font-size:0.9rem; color:#1e293b; background:#fff; box-sizing:border-box;
+  transition:border-color 0.2s; font-family:inherit;
+}
+.bcc-form-input:focus { outline:none; border-color:#6366f1; box-shadow:0 0 0 3px rgba(99,102,241,0.1); }
+textarea.bcc-form-input { resize:vertical; min-height:80px; }
+.bcc-save-btn {
+  width:100%; padding:13px; background:linear-gradient(135deg,#6366f1,#9333ea);
+  color:#fff; border:none; border-radius:12px; font-weight:800; font-size:0.95rem;
+  cursor:pointer; transition:opacity 0.2s, transform 0.15s; margin-top:4px;
+}
+.bcc-save-btn:hover { opacity:0.88; }
+.bcc-save-btn:active { transform:scale(0.98); }
+.bcc-save-btn:disabled { opacity:0.55; cursor:not-allowed; }
+/* Swap room grid */
+.bcc-room-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(180px,1fr)); gap:10px; margin-bottom:16px; }
+.bcc-room-tile {
+  background:#f8fafc; border:2px solid #e2e8f0; border-radius:12px;
+  padding:12px 14px; cursor:pointer; transition:border-color 0.2s, background 0.2s;
+  -webkit-tap-highlight-color:transparent;
+}
+.bcc-room-tile:hover { border-color:#6366f1; background:#f5f3ff; }
+.bcc-room-tile.selected { border-color:#6366f1; background:#f5f3ff; }
+.bcc-room-tile.booked   { opacity:0.5; cursor:not-allowed; pointer-events:none; }
+.bcc-room-tile-name { font-weight:700; font-size:0.85rem; color:#1e293b; }
+.bcc-room-tile-label{ font-size:0.72rem; color:#64748b; }
+/* Refreshment checklist in edit */
+.bcc-refresh-item {
+  display:flex; align-items:center; gap:10px;
+  padding:9px 12px; background:#f8fafc; border:1.5px solid #e2e8f0;
+  border-radius:10px; cursor:pointer; margin-bottom:7px;
+  transition:border-color 0.2s;
+}
+.bcc-refresh-item:hover { border-color:#a5b4fc; }
+.bcc-refresh-item input[type="checkbox"] { width:17px; height:17px; accent-color:#6366f1; flex-shrink:0; }
+.bcc-refresh-item span { font-weight:600; font-size:0.85rem; color:#1e293b; }
+/* Alert inside modals */
+.bcc-modal-alert { border-radius:10px; padding:10px 14px; font-size:0.82rem; font-weight:600; margin-bottom:12px; display:none; }
+.bcc-modal-alert.error   { background:#fef2f2; border:1px solid #fecaca; color:#dc2626; }
+.bcc-modal-alert.success { background:#f0fdf4; border:1px solid #bbf7d0; color:#166534; }
+@media (max-width:600px) {
+  #bccPanel { border-radius:18px; }
+  .bcc-card { flex-direction:column; gap:10px; }
+  .bcc-card-icon { display:none; }
+  #bccListWrap { padding:14px 16px; }
+}
+</style>
 
 <div class="modal fade" id="dataManagerModal" tabindex="-1">
     <div class="modal-dialog modal-xl modal-dialog-scrollable">
@@ -577,8 +877,10 @@
      data-doc-text-url="{% url 'central_admin:get_booking_doc_text' booking_id=0 %}"
      data-doc-pdf-url="{% url 'central_admin:download_booking_doc_as_pdf' booking_id=0 %}"
      data-delete-url="{% url 'central_admin:delete_confirmed_booking' booking_id=0 %}"
+     data-cancel-url="{% url 'central_admin:cancel_confirmed_booking' booking_id=0 %}"
      data-bulk-delete-url="{% url 'central_admin:bulk_delete_confirmed_bookings' %}"
-     data-is-central-admin="{{ request.user.profile.is_central_admin|yesno:'true,false' }}">
+     data-is-central-admin="{{ request.user.profile.is_central_admin|yesno:'true,false' }}"
+     data-is-admin="{% if request.user.profile.is_central_admin or request.user.profile.is_sub_admin %}true{% else %}false{% endif %}">
     <div class="modal-dialog modal-xl modal-dialog-scrollable">
         <div class="modal-content">
             <div class="modal-header">
@@ -665,14 +967,14 @@
 <div id="bfcDeleteConfirmOverlay">
     <div id="bfcDeleteConfirmBox">
         <div style="width:56px;height:56px;background:linear-gradient(135deg,#dc2626,#b91c1c);border-radius:16px;display:flex;align-items:center;justify-content:center;margin:0 auto 16px;">
-            <i class="bi bi-trash3-fill" style="color:#fff;font-size:1.5rem;"></i>
+            <i class="bi bi-x-circle-fill" style="color:#fff;font-size:1.5rem;"></i>
         </div>
-        <h5 id="bfcConfirmTitle" style="font-weight:900;color:#1e293b;margin-bottom:8px;">Delete Booking?</h5>
-        <p id="bfcConfirmMsg" style="color:#64748b;font-size:0.9rem;margin-bottom:24px;line-height:1.6;">This action cannot be undone.</p>
+        <h5 id="bfcConfirmTitle" style="font-weight:900;color:#1e293b;margin-bottom:8px;">Cancel Booking?</h5>
+        <p id="bfcConfirmMsg" style="color:#64748b;font-size:0.9rem;margin-bottom:24px;line-height:1.6;">The booking will be marked as cancelled and kept in history.</p>
         <div style="display:flex;gap:12px;justify-content:center;">
-            <button onclick="closeBfcConfirm()" style="background:#f1f5f9;color:#475569;border:1px solid #e2e8f0;border-radius:12px;padding:10px 28px;font-weight:700;font-size:0.9rem;cursor:pointer;">Cancel</button>
+            <button onclick="closeBfcConfirm()" style="background:#f1f5f9;color:#475569;border:1px solid #e2e8f0;border-radius:12px;padding:10px 28px;font-weight:700;font-size:0.9rem;cursor:pointer;">Close</button>
             <button id="bfcConfirmDeleteBtn" style="background:linear-gradient(135deg,#dc2626,#b91c1c);color:#fff;border:none;border-radius:12px;padding:10px 28px;font-weight:700;font-size:0.9rem;cursor:pointer;transition:opacity 0.2s;">
-                <i class="bi bi-trash3-fill me-1"></i>Yes, Delete
+                <i class="bi bi-x-circle-fill me-1"></i>Yes, Cancel Booking
             </button>
         </div>
     </div>
@@ -824,6 +1126,8 @@
 <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
 <script>
     const IS_CENTRAL_ADMIN = {% if request.user.profile.is_central_admin and not request.user.profile.is_sub_admin %}true{% else %}false{% endif %};
+    // Both central admin and sub-admin can cancel bookings
+    const IS_ADMIN = {% if request.user.profile.is_central_admin or request.user.profile.is_sub_admin %}true{% else %}false{% endif %};
 
     // 1. Live Charts Logic
     document.addEventListener('DOMContentLoaded', function() {
@@ -1103,7 +1407,18 @@
         }
     }
 
-    function getBookingStatus(schedule) {
+    function getBookingStatus(schedule, bookingStatus) {
+        // Use server-provided status if available
+        if (bookingStatus === 'cancelled') {
+            return '<span class="badge" style="background:#fee2e2;color:#991b1b;font-weight:700;">Cancelled</span>';
+        }
+        if (bookingStatus === 'completed') {
+            return '<span class="badge bg-secondary">Completed</span>';
+        }
+        if (bookingStatus === 'active') {
+            return '<span class="badge bg-success">Active</span>';
+        }
+        // Fallback: compute from schedule string
         const endDate = parseBookingEnd(schedule);
         const now = new Date();
         if (endDate && endDate < now) {
@@ -1112,25 +1427,50 @@
         return '<span class="badge bg-success">Active</span>';
     }
 
-    function getBookingControl(bookingId, schedule) {
+    function getBookingControl(bookingId, schedule, bookingStatus) {
+        // Already cancelled — show history badge
+        if (bookingStatus === 'cancelled') {
+            return '<span class="badge" style="background:#fee2e2;color:#991b1b;border:1px solid #fca5a5;">Cancelled</span>';
+        }
+        // Completed — no cancel allowed
         const endDate = parseBookingEnd(schedule);
         const now = new Date();
-        const isPast = endDate && endDate < now;
-
-        {% if request.user.profile.is_central_admin and not request.user.profile.is_sub_admin %}
-            if (isPast) {
-                return '<button class="btn btn-sm btn-secondary" disabled title="Booking already completed">Cancel</button>';
-            }
-            return `<button class="btn btn-sm btn-danger" onclick="deleteRecord('bookings', ${bookingId})">Cancel</button>`;
-        {% else %}
-            return '<span class="badge bg-secondary">View Only</span>';
-        {% endif %}
+        const isPast = (bookingStatus === 'completed') || (endDate && endDate < now);
+        if (isPast) {
+            return '<button class="btn btn-sm btn-secondary" disabled title="Booking already completed">Cancel</button>';
+        }
+        // Active — both admin and sub-admin can cancel
+        if (IS_ADMIN) {
+            return `<button class="btn btn-sm btn-danger" onclick="cancelBookingRecord(${bookingId})">Cancel</button>`;
+        }
+        return '<span class="badge bg-secondary">View Only</span>';
     }
 
     // 4. Show Booking Status Modal
     function showBookingStatusModal() {
         const modal = new bootstrap.Modal(document.getElementById('bookingStatusModal'));
         modal.show();
+    }
+
+    // ── Cancel a confirmed booking (admin + sub-admin) ──────────────────────
+    const CANCEL_BOOKING_URL_TPL = '{% url "central_admin:cancel_confirmed_booking" booking_id=0 %}';
+
+    function cancelBookingRecord(bookingId) {
+        if (!confirm('Cancel this booking? The room will be freed and all parties will be notified by email.')) return;
+        const url = CANCEL_BOOKING_URL_TPL.replace('/0/', '/' + bookingId + '/');
+        fetch(url, {
+            method: 'POST',
+            headers: { 'X-CSRFToken': '{{ csrf_token }}', 'Content-Type': 'application/json' },
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.status === 'success') {
+                loadBookingData();
+            } else {
+                alert('Error: ' + (data.error || 'Could not cancel booking.'));
+            }
+        })
+        .catch(() => alert('Network error. Please try again.'));
     }
 
     // 5. Room Booking Manager Logic
@@ -1159,8 +1499,8 @@
                             <td>${row.faculty_name || 'N/A'}</td>
                             <td><small class="text-muted">${row.faculty_email || 'N/A'}</small></td>
                             <td class="fw-semibold">${row.schedule || 'N/A'}</td>
-                            <td>${getBookingStatus(row.schedule)}</td>
-                            <td>${getBookingControl(row.id, row.schedule)}</td>
+                            <td>${getBookingStatus(row.schedule, row.booking_status)}</td>
+                            <td>${getBookingControl(row.id, row.schedule, row.booking_status)}</td>
                         </tr>
                     `;
                 });
@@ -1700,7 +2040,9 @@
     // ── Confirmed Booking Files ──────────────────────────────────
     // ── Booking Files state ───────────────────────────────────────────────────
     var _bfcIsCentralAdmin = false;
+    var _bfcIsAdmin        = false;   // true for both central admin and sub-admin
     var _bfcDeleteUrl      = null;
+    var _bfcCancelUrl      = null;
     var _bfcBulkDeleteUrl  = null;
     var _bfcDataMap        = {};   // id → booking data object, populated by loadBookingFiles
 
@@ -1713,7 +2055,9 @@
 
         // Capture central-admin flag and delete URLs from modal data attrs
         _bfcIsCentralAdmin = modal && modal.dataset.isCentralAdmin === 'true';
+        _bfcIsAdmin        = modal && modal.dataset.isAdmin === 'true';
         _bfcDeleteUrl      = modal ? modal.dataset.deleteUrl      : null;
+        _bfcCancelUrl      = modal ? modal.dataset.cancelUrl      : null;
         _bfcBulkDeleteUrl  = modal ? modal.dataset.bulkDeleteUrl  : null;
 
         // Show / hide the bulk toolbar based on role
@@ -1754,19 +2098,44 @@
                 let docHtml = '';
                 let docPanelHtml = '';
                 if (b.has_doc_text) {
-                    const textUrl = docTextUrlTpl ? docTextUrlTpl.replace('/0/', '/' + b.id + '/') : null;
-                    const pdfUrl  = docPdfUrlTpl  ? docPdfUrlTpl.replace('/0/',  '/' + b.id + '/') : null;
-                    docHtml = `
-                        <button class="btn-view-file" onclick="toggleDocText(this, '${escHtml(textUrl)}')" data-booking-id="${b.id}">
-                            <i class="bi bi-eye me-1"></i>View Doc
-                        </button>
-                        ${pdfUrl ? `<a href="${escHtml(pdfUrl)}" class="btn-dl-pdf"><i class="bi bi-file-earmark-pdf me-1"></i>Download PDF</a>` : ''}
-                    `;
+                    const textUrl    = docTextUrlTpl ? docTextUrlTpl.replace('/0/', '/' + b.id + '/') : null;
+                    const dlUrl      = modal ? modal.dataset.deleteUrl.replace('/0/', '/' + b.id + '/').replace('booking-delete', 'booking-doc').replace('/cancel', '/download') : null;
+                    // Use the dedicated download URL from the modal data attribute
+                    const downloadUrl = '{% url "central_admin:download_booking_doc" booking_id=0 %}'.replace('/0/', '/' + b.id + '/');
+
+                    if (b.doc_type === 'image') {
+                        // Inline image preview + download
+                        const inlineUrl = '{% url "central_admin:serve_booking_doc_inline" booking_id=0 %}'.replace('/0/', '/' + b.id + '/');
+                        docHtml = `
+                            <button class="btn-view-file" onclick="toggleDocText(this, '${escHtml(textUrl)}')" data-booking-id="${b.id}" data-doc-type="image" data-inline-url="${escHtml(inlineUrl)}" data-download-url="${escHtml(downloadUrl)}">
+                                <i class="bi bi-image me-1"></i>View Image
+                            </button>
+                            <a href="${escHtml(downloadUrl)}" download class="btn-dl-file"><i class="bi bi-download me-1"></i>Download</a>
+                        `;
+                    } else if (b.doc_type === 'pdf') {
+                        // PDF open in new tab + download
+                        const inlineUrl = '{% url "central_admin:serve_booking_doc_inline" booking_id=0 %}'.replace('/0/', '/' + b.id + '/');
+                        docHtml = `
+                            <button class="btn-view-file" onclick="toggleDocText(this, '${escHtml(textUrl)}')" data-booking-id="${b.id}" data-doc-type="pdf" data-inline-url="${escHtml(inlineUrl)}" data-download-url="${escHtml(downloadUrl)}">
+                                <i class="bi bi-file-earmark-pdf me-1"></i>View PDF
+                            </button>
+                            <a href="${escHtml(downloadUrl)}" download class="btn-dl-file"><i class="bi bi-download me-1"></i>Download</a>
+                        `;
+                    } else {
+                        // Legacy doc (blocks)
+                        const pdfUrl = docPdfUrlTpl ? docPdfUrlTpl.replace('/0/', '/' + b.id + '/') : null;
+                        docHtml = `
+                            <button class="btn-view-file" onclick="toggleDocText(this, '${escHtml(textUrl)}')" data-booking-id="${b.id}" data-doc-type="blocks">
+                                <i class="bi bi-eye me-1"></i>View Doc
+                            </button>
+                            ${pdfUrl ? `<a href="${escHtml(pdfUrl)}" class="btn-dl-pdf"><i class="bi bi-file-earmark-pdf me-1"></i>Download PDF</a>` : ''}
+                        `;
+                    }
                     docPanelHtml = `
                         <div class="doc-text-panel" id="doc-panel-${b.id}">
                             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
                                 <span style="font-weight:700;font-size:0.78rem;color:#6366f1;text-transform:uppercase;letter-spacing:0.5px;">
-                                    <i class="bi bi-file-earmark-text me-1"></i>Document Content
+                                    <i class="bi bi-file-earmark me-1"></i>Requirements
                                 </span>
                                 <span class="text-muted" style="font-size:0.72rem;cursor:pointer;" onclick="closeDocPanel(${b.id})">✕ Close</span>
                             </div>
@@ -1774,7 +2143,6 @@
                         </div>
                     `;
                 } else if (b.has_inline_text) {
-                    // Faculty typed requirements as text — show inline, no fetch needed
                     docHtml = `
                         <button class="btn-view-file" onclick="toggleInlineText(this, ${b.id})" data-booking-id="${b.id}">
                             <i class="bi bi-eye me-1"></i>View Requirements
@@ -1795,12 +2163,36 @@
                         </div>
                     `;
                 } else {
-                    docHtml = `<span class="text-muted small"><i class="bi bi-dash-circle me-1"></i>No document attached</span>`;
+                    docHtml = `<span class="text-muted small"><i class="bi bi-dash-circle me-1"></i>No requirements attached</span>`;
                 }
 
                 // Store booking data in the safe lookup map (used elsewhere)
                 _bfcDataMap[b.id] = b;
                 const forwardBtn = '';    // Forward replaced by automated email on approval
+
+                // ── Status badge ───────────────────────────────────────────────
+                let statusBadge = '';
+                if (b.booking_status === 'cancelled') {
+                    statusBadge = `<span data-status-badge="1" style="display:inline-flex;align-items:center;gap:4px;background:#fee2e2;color:#991b1b;border:1px solid #fca5a5;border-radius:8px;padding:3px 10px;font-size:0.75rem;font-weight:700;margin-bottom:6px;">
+                        <i class="bi bi-x-circle-fill"></i> Cancelled
+                    </span>`;
+                } else if (b.booking_status === 'completed') {
+                    statusBadge = `<span data-status-badge="1" style="display:inline-flex;align-items:center;gap:4px;background:#f1f5f9;color:#475569;border:1px solid #cbd5e1;border-radius:8px;padding:3px 10px;font-size:0.75rem;font-weight:700;margin-bottom:6px;">
+                        <i class="bi bi-check-circle-fill"></i> Completed
+                    </span>`;
+                } else {
+                    statusBadge = `<span data-status-badge="1" style="display:inline-flex;align-items:center;gap:4px;background:#dcfce7;color:#166534;border:1px solid #bbf7d0;border-radius:8px;padding:3px 10px;font-size:0.75rem;font-weight:700;margin-bottom:6px;">
+                        <i class="bi bi-circle-fill" style="font-size:0.5rem;"></i> Active
+                    </span>`;
+                }
+
+                // ── Cancel button (admin + sub-admin, only for active bookings) ──
+                let cancelBtn = '';
+                if (_bfcIsAdmin && b.booking_status === 'active') {
+                    cancelBtn = `<button class="btn-delete-booking" onclick="cancelBfcBooking(${b.id}, '${escHtml(b.room)}', '${escHtml(b.faculty)}')">
+                        <i class="bi bi-x-circle"></i> Cancel
+                    </button>`;
+                }
 
                 // ── Delete button (central admin only) ─────────────────────────
                 const deleteBtn = _bfcIsCentralAdmin
@@ -1833,8 +2225,12 @@
                     <div class="bfc-body" style="width:100%;">
                         <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;">
                             <div class="bfc-room">${escHtml(b.room)}</div>
-                            ${deleteBtn}
+                            <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;">
+                                ${cancelBtn}
+                                ${deleteBtn}
+                            </div>
                         </div>
+                        ${statusBadge}
                         <div class="bfc-meta"><i class="bi bi-person me-1"></i>${escHtml(b.faculty)}</div>
                         <div class="bfc-meta"><i class="bi bi-envelope me-1"></i>${escHtml(b.email)}</div>
                         <div class="bfc-meta"><i class="bi bi-calendar3 me-1"></i>${escHtml(b.from)} &rarr; ${escHtml(b.to)}</div>
@@ -1903,16 +2299,19 @@
         _bfcPendingDeleteId = bookingId;
         const title = document.getElementById('bfcConfirmTitle');
         const msg   = document.getElementById('bfcConfirmMsg');
-        if (title) title.textContent = 'Delete Booking?';
-        if (msg)   msg.innerHTML = `Are you sure you want to permanently delete the booking for <b>${escHtml(room)}</b> by <b>${escHtml(faculty)}</b>?<br><span style="color:#dc2626;font-size:0.82rem;font-weight:600;">This action cannot be undone.</span>`;
+        if (title) title.textContent = 'Cancel Booking?';
+        if (msg)   msg.innerHTML = `Cancel the booking for <b>${escHtml(room)}</b> by <b>${escHtml(faculty)}</b>?<br><span style="color:#64748b;font-size:0.82rem;">The booking will be marked as cancelled and kept in history. All parties will be notified by email.</span>`;
         const btn = document.getElementById('bfcConfirmDeleteBtn');
-        if (btn) btn.onclick = function() { executeSingleDelete(bookingId); };
+        if (btn) {
+            btn.innerHTML = '<i class="bi bi-x-circle-fill me-1"></i>Yes, Cancel Booking';
+            btn.onclick = function() { executeSingleDelete(bookingId); };
+        }
         document.getElementById('bfcDeleteConfirmOverlay').classList.add('open');
     }
 
     function executeSingleDelete(bookingId) {
         const btn = document.getElementById('bfcConfirmDeleteBtn');
-        if (btn) { btn.disabled = true; btn.innerHTML = '<div class="spinner-border spinner-border-sm me-1"></div>Deleting…'; }
+        if (btn) { btn.disabled = true; btn.innerHTML = '<div class="spinner-border spinner-border-sm me-1"></div>Cancelling…'; }
 
         const url = _bfcDeleteUrl ? _bfcDeleteUrl.replace('/0/', '/' + bookingId + '/') : null;
         if (!url) { closeBfcConfirm(); return; }
@@ -1925,20 +2324,24 @@
         .then(function(d) {
             closeBfcConfirm();
             if (d.status === 'success') {
-                // Remove card from DOM
+                // Update card in-place: change status badge, remove delete/cancel button
                 const card = document.querySelector(`.booking-file-card[data-booking-id="${bookingId}"]`);
                 if (card) {
-                    card.style.transition = 'opacity 0.3s,transform 0.3s';
-                    card.style.opacity = '0';
-                    card.style.transform = 'translateX(20px)';
-                    setTimeout(function() { card.remove(); updateBfcSelectedCount(); }, 300);
+                    const existingBadge = card.querySelector('[data-status-badge]');
+                    const newBadge = document.createElement('span');
+                    newBadge.setAttribute('data-status-badge', '1');
+                    newBadge.style.cssText = 'display:inline-flex;align-items:center;gap:4px;background:#fee2e2;color:#991b1b;border:1px solid #fca5a5;border-radius:8px;padding:3px 10px;font-size:0.75rem;font-weight:700;margin-bottom:6px;';
+                    newBadge.innerHTML = '<i class="bi bi-x-circle-fill"></i> Cancelled';
+                    if (existingBadge) existingBadge.replaceWith(newBadge);
+                    // Remove all action buttons (cancel + delete) from this card
+                    card.querySelectorAll('.btn-delete-booking').forEach(function(b) { b.remove(); });
                 }
-                showBfcToast(d.message || 'Booking deleted.', 'success');
+                showBfcToast(d.message || 'Booking cancelled and kept in history.', 'success');
             } else {
-                showBfcToast(d.error || 'Delete failed.', 'error');
+                showBfcToast(d.error || 'Action failed.', 'error');
             }
         })
-        .catch(function() { closeBfcConfirm(); showBfcToast('Delete failed. Please try again.', 'error'); });
+        .catch(function() { closeBfcConfirm(); showBfcToast('Network error. Please try again.', 'error'); });
     }
 
     // ── Bulk delete ───────────────────────────────────────────────────────────
@@ -1947,10 +2350,13 @@
         if (chkd.length === 0) return;
         const title = document.getElementById('bfcConfirmTitle');
         const msg   = document.getElementById('bfcConfirmMsg');
-        if (title) title.textContent = `Delete ${chkd.length} Booking${chkd.length > 1 ? 's' : ''}?`;
-        if (msg)   msg.innerHTML = `Are you sure you want to permanently delete <b>${chkd.length} booking${chkd.length > 1 ? 's' : ''}</b>?<br><span style="color:#dc2626;font-size:0.82rem;font-weight:600;">This action cannot be undone.</span>`;
+        if (title) title.textContent = `Cancel ${chkd.length} Booking${chkd.length > 1 ? 's' : ''}?`;
+        if (msg)   msg.innerHTML = `Cancel <b>${chkd.length} booking${chkd.length > 1 ? 's' : ''}</b>?<br><span style="color:#64748b;font-size:0.82rem;">They will be marked as cancelled and kept in history. All parties will be notified.</span>`;
         const btn = document.getElementById('bfcConfirmDeleteBtn');
-        if (btn) btn.onclick = executeBulkDelete;
+        if (btn) {
+            btn.innerHTML = '<i class="bi bi-x-circle-fill me-1"></i>Yes, Cancel All';
+            btn.onclick = executeBulkDelete;
+        }
         document.getElementById('bfcDeleteConfirmOverlay').classList.add('open');
     }
 
@@ -1960,7 +2366,7 @@
         if (!ids.length) return;
 
         const btn = document.getElementById('bfcConfirmDeleteBtn');
-        if (btn) { btn.disabled = true; btn.innerHTML = '<div class="spinner-border spinner-border-sm me-1"></div>Deleting…'; }
+        if (btn) { btn.disabled = true; btn.innerHTML = '<div class="spinner-border spinner-border-sm me-1"></div>Cancelling…'; }
 
         fetch(_bfcBulkDeleteUrl, {
             method: 'POST',
@@ -1975,31 +2381,73 @@
         .then(function(d) {
             closeBfcConfirm();
             if (d.status === 'success') {
+                // Update each card in-place
                 ids.forEach(function(id) {
                     const card = document.querySelector(`.booking-file-card[data-booking-id="${id}"]`);
                     if (card) {
-                        card.style.transition = 'opacity 0.3s,transform 0.3s';
-                        card.style.opacity = '0';
-                        card.style.transform = 'translateX(20px)';
-                        setTimeout(function() { card.remove(); }, 300);
+                        const existingBadge = card.querySelector('[data-status-badge]');
+                        const newBadge = document.createElement('span');
+                        newBadge.setAttribute('data-status-badge', '1');
+                        newBadge.style.cssText = 'display:inline-flex;align-items:center;gap:4px;background:#fee2e2;color:#991b1b;border:1px solid #fca5a5;border-radius:8px;padding:3px 10px;font-size:0.75rem;font-weight:700;margin-bottom:6px;';
+                        newBadge.innerHTML = '<i class="bi bi-x-circle-fill"></i> Cancelled';
+                        if (existingBadge) existingBadge.replaceWith(newBadge);
+                        card.querySelectorAll('.btn-delete-booking').forEach(function(b) { b.remove(); });
+                        // Uncheck and deselect
+                        const cb = card.querySelector('.bfc-item-check');
+                        if (cb) cb.checked = false;
+                        card.classList.remove('bfc-selected');
                     }
                 });
-                setTimeout(updateBfcSelectedCount, 350);
-                showBfcToast(d.message || `${d.deleted_count} booking(s) deleted.`, 'success');
-                // Reset select-all
+                updateBfcSelectedCount();
+                showBfcToast(d.message || `${d.deleted_count} booking(s) cancelled.`, 'success');
                 const sa = document.getElementById('bfcSelectAll');
                 if (sa) sa.checked = false;
             } else {
-                showBfcToast(d.error || 'Bulk delete failed.', 'error');
+                showBfcToast(d.error || 'Bulk cancel failed.', 'error');
             }
         })
-        .catch(function() { closeBfcConfirm(); showBfcToast('Bulk delete failed. Please try again.', 'error'); });
+        .catch(function() { closeBfcConfirm(); showBfcToast('Network error. Please try again.', 'error'); });
     }
 
     function closeBfcConfirm() {
         document.getElementById('bfcDeleteConfirmOverlay').classList.remove('open');
         const btn = document.getElementById('bfcConfirmDeleteBtn');
-        if (btn) { btn.disabled = false; btn.innerHTML = '<i class="bi bi-trash3-fill me-1"></i>Yes, Delete'; }
+        if (btn) { btn.disabled = false; btn.innerHTML = '<i class="bi bi-x-circle-fill me-1"></i>Yes, Cancel Booking'; }
+    }
+
+    // ── Cancel a booking from Confirmed Booking Files (admin + sub-admin) ─────
+    function cancelBfcBooking(bookingId, room, faculty) {
+        if (!confirm(`Cancel the booking for "${room}" by ${faculty}?\n\nThe room will be freed and all parties will be notified by email.`)) return;
+        const url = _bfcCancelUrl ? _bfcCancelUrl.replace('/0/', '/' + bookingId + '/') : null;
+        if (!url) { showBfcToast('Cancel URL not configured.', 'error'); return; }
+
+        fetch(url, {
+            method: 'POST',
+            headers: { 'X-CSRFToken': getCsrfToken(), 'X-Requested-With': 'XMLHttpRequest' },
+        })
+        .then(function(r) { return r.json(); })
+        .then(function(d) {
+            if (d.status === 'success') {
+                // Update the card in-place: change status badge and remove cancel button
+                const card = document.querySelector(`.booking-file-card[data-booking-id="${bookingId}"]`);
+                if (card) {
+                    // Update status badge
+                    const existingBadge = card.querySelector('[data-status-badge]');
+                    const newBadge = document.createElement('span');
+                    newBadge.setAttribute('data-status-badge', '1');
+                    newBadge.style.cssText = 'display:inline-flex;align-items:center;gap:4px;background:#fee2e2;color:#991b1b;border:1px solid #fca5a5;border-radius:8px;padding:3px 10px;font-size:0.75rem;font-weight:700;margin-bottom:6px;';
+                    newBadge.innerHTML = '<i class="bi bi-x-circle-fill"></i> Cancelled';
+                    if (existingBadge) existingBadge.replaceWith(newBadge);
+                    // Remove cancel button
+                    const cancelBtnEl = card.querySelector('.btn-delete-booking');
+                    if (cancelBtnEl && cancelBtnEl.textContent.includes('Cancel')) cancelBtnEl.remove();
+                }
+                showBfcToast(d.message || 'Booking cancelled and parties notified.', 'success');
+            } else {
+                showBfcToast(d.error || 'Could not cancel booking.', 'error');
+            }
+        })
+        .catch(function() { showBfcToast('Network error. Please try again.', 'error'); });
     }
 
     // ── Toast notification ────────────────────────────────────────────────────
@@ -2083,12 +2531,22 @@
 
         if (panel.classList.contains('open') || forceClose) {
             panel.classList.remove('open');
-            if (btn) btn.innerHTML = '<i class="bi bi-eye me-1"></i>View Doc';
+            if (btn) {
+                const docType = btn.dataset.docType;
+                if (docType === 'image') btn.innerHTML = '<i class="bi bi-image me-1"></i>View Image';
+                else if (docType === 'pdf') btn.innerHTML = '<i class="bi bi-file-earmark-pdf me-1"></i>View PDF';
+                else btn.innerHTML = '<i class="bi bi-eye me-1"></i>View Doc';
+            }
             return;
         }
 
         panel.classList.add('open');
-        if (btn) btn.innerHTML = '<i class="bi bi-eye-slash me-1"></i>Hide Doc';
+        if (btn) {
+            const docType = btn.dataset.docType;
+            if (docType === 'image') btn.innerHTML = '<i class="bi bi-eye-slash me-1"></i>Hide Image';
+            else if (docType === 'pdf') btn.innerHTML = '<i class="bi bi-eye-slash me-1"></i>Hide PDF';
+            else btn.innerHTML = '<i class="bi bi-eye-slash me-1"></i>Hide Doc';
+        }
 
         // Already loaded — don't re-fetch
         if (textEl && textEl.dataset.loaded) return;
@@ -2106,9 +2564,29 @@
                 if (!textEl) return;
                 if (d.error) {
                     textEl.innerHTML = `<span class="text-danger"><i class="bi bi-exclamation-triangle me-1"></i>${escHtml(d.error)}</span>`;
+                } else if (d.type === 'image') {
+                    // Display image inline
+                    textEl.innerHTML =
+                        `<div style="text-align:center;">` +
+                        `<img src="${escHtml(d.url)}" alt="Requirements" style="max-width:100%;max-height:480px;border-radius:8px;border:1px solid #e2e8f0;">` +
+                        `</div>`;
+                } else if (d.type === 'pdf') {
+                    // PDF viewer — use system browser on Capacitor, iframe on web
+                    var pdfUrl = escHtml(d.url);
+                    var dlUrl  = escHtml(d.download_url);
+                    var openBtn = window.IS_CAPACITOR
+                        ? `<button onclick="window.Capacitor.Plugins.Browser ? window.Capacitor.Plugins.Browser.open({url:'${pdfUrl}'}) : window.open('${pdfUrl}','_system')" class="btn-view-file" style="font-size:0.78rem;padding:5px 12px;border:none;cursor:pointer;margin-right:8px;"><i class="bi bi-file-earmark-pdf me-1"></i>Open PDF</button>`
+                        : `<a href="${pdfUrl}" target="_blank" rel="noopener" class="btn-view-file" style="font-size:0.78rem;padding:5px 12px;text-decoration:none;margin-right:8px;"><i class="bi bi-box-arrow-up-right me-1"></i>Open PDF in New Tab</a>`;
+                    textEl.innerHTML =
+                        `<div style="margin-bottom:8px;">${openBtn}` +
+                        `<a href="${dlUrl}" download class="btn-dl-file" style="font-size:0.78rem;padding:5px 12px;">` +
+                        `<i class="bi bi-download me-1"></i>Download</a>` +
+                        `</div>` +
+                        (window.IS_CAPACITOR ? '' : `<iframe src="${pdfUrl}" style="width:100%;height:420px;border:1px solid #e2e8f0;border-radius:8px;" title="Requirements PDF"></iframe>`);
                 } else {
                     renderDocBlocks(textEl, d.blocks);
                 }
+                if (textEl) textEl.dataset.loaded = '1';
             })
             .catch(function() {
                 if (textEl) textEl.innerHTML = `<span class="text-danger"><i class="bi bi-exclamation-triangle me-1"></i>Failed to load document.</span>`;
@@ -2253,5 +2731,603 @@
         setInterval(refreshAdminBellBadge, 60000); // refresh every 60 seconds
     });
 
+</script>
+
+<script>
+// ═══════════════════════════════════════════════════════════════
+// BOOKING CONTROL CENTER — JS
+// ═══════════════════════════════════════════════════════════════
+const BCC_DETAIL_URL     = "{% url 'central_admin:booking_control_detail' booking_id=0 %}";
+const BCC_EDIT_URL       = "{% url 'central_admin:booking_control_edit'   booking_id=0 %}";
+const BCC_SWAP_URL       = "{% url 'central_admin:booking_control_swap'   booking_id=0 %}";
+const BCC_SWAPPABLE_URL  = "{% url 'central_admin:booking_control_swappable' booking_id=0 %}";
+const BCC_CANCEL_URL     = "{% url 'central_admin:cancel_confirmed_booking' booking_id=0 %}";
+const BCC_FILES_URL      = "{% url 'central_admin:confirmed_booking_files' %}";
+const CSRF_TOKEN         = document.querySelector('[name=csrfmiddlewaretoken]') ? document.querySelector('[name=csrfmiddlewaretoken]').value : '';
+
+const REFRESHMENT_OPTIONS = [
+  {value:'water_bottle', label:'Water Bottle'},
+  {value:'juice',        label:'Juice'},
+  {value:'sapling',      label:'Sapling'},
+  {value:'tissue',       label:'Tissue'},
+  {value:'refreshments', label:'Refreshments'},
+  {value:'mic',          label:'Mic'},
+  {value:'tray',         label:'Tray'},
+];
+
+let _bccAllBookings    = [];
+let _bccCurrentEditId  = null;
+let _bccCurrentSwapId  = null;
+// Swap state
+let _bccSwapMode       = 'mutual';   // 'mutual' | 'move'
+let _bccSwapSelected   = [];         // room IDs for move-mode
+let _bccSwapWithId     = null;       // booking ID for mutual-mode
+let _bccSwapRoomData   = [];
+
+function openBookingControlCenter() {
+  document.getElementById('bccOverlay').style.display = 'block';
+  document.body.style.overflow = 'hidden';
+  bccLoadBookings();
+}
+function closeBookingControlCenter() {
+  document.getElementById('bccOverlay').style.display = 'none';
+  document.body.style.overflow = '';
+}
+
+function bccLoadBookings() {
+  const list = document.getElementById('bccList');
+  list.innerHTML = '<div style="text-align:center;padding:48px 0;color:rgba(255,255,255,0.4);"><div class="spinner-border text-primary" style="width:2rem;height:2rem;"></div><p style="margin-top:12px;font-size:0.85rem;">Loading bookings…</p></div>';
+  fetch(BCC_FILES_URL)
+    .then(r => r.json())
+    .then(data => {
+      if (data.error) throw new Error(data.error);
+      _bccAllBookings = data.results || [];
+      bccRenderList(_bccAllBookings);
+    })
+    .catch(err => {
+      list.innerHTML = '<div style="text-align:center;padding:48px 0;color:#fca5a5;"><i class="bi bi-exclamation-triangle-fill" style="font-size:2rem;display:block;margin-bottom:10px;"></i>Failed to load bookings. <button onclick="bccLoadBookings()" style="background:rgba(239,68,68,0.2);border:1px solid rgba(239,68,68,0.4);color:#fca5a5;border-radius:8px;padding:6px 14px;cursor:pointer;margin-top:8px;font-size:0.8rem;">Retry</button></div>';
+    });
+}
+
+function bccFilterBookings() {
+  const q      = (document.getElementById('bccSearch').value || '').toLowerCase();
+  const status = (document.getElementById('bccStatusFilter').value || '').toLowerCase();
+  const filtered = _bccAllBookings.filter(b => {
+    const matchQ = !q || (b.faculty||'').toLowerCase().includes(q) || (b.room||'').toLowerCase().includes(q) || (b.purpose||'').toLowerCase().includes(q) || (b.email||'').toLowerCase().includes(q);
+    const matchS = !status || (b.booking_status||'').toLowerCase() === status;
+    return matchQ && matchS;
+  });
+  bccRenderList(filtered);
+}
+
+function bccRenderList(bookings) {
+  const list = document.getElementById('bccList');
+  if (!bookings.length) {
+    list.innerHTML = '<div style="text-align:center;padding:48px 0;color:rgba(255,255,255,0.35);"><i class="bi bi-calendar-x" style="font-size:2.5rem;display:block;margin-bottom:10px;"></i>No bookings found.</div>';
+    return;
+  }
+  list.innerHTML = bookings.map(b => {
+    const st = b.booking_status || 'active';
+    const iconMap = {active:'calendar-check-fill', completed:'check-circle-fill', cancelled:'x-circle-fill'};
+    const icon = iconMap[st] || 'calendar-fill';
+    const isCancelled = st === 'cancelled';
+    const actionBtns = isCancelled ? '' : `
+      <button class="bcc-btn edit"   onclick="openBccEdit(${b.id})"><i class="bi bi-pencil-fill"></i>Edit</button>
+      <button class="bcc-btn swap"   onclick="openBccSwap(${b.id})"><i class="bi bi-arrow-left-right"></i>Swap Room</button>
+      <button class="bcc-btn cancel" onclick="bccCancelBooking(${b.id}, '${escHtml(b.room)}')"><i class="bi bi-x-circle-fill"></i>Cancel</button>
+    `;
+    return `
+    <div class="bcc-card" id="bcc-card-${b.id}">
+      <div class="bcc-card-icon ${st}"><i class="bi bi-${icon}"></i></div>
+      <div class="bcc-card-body">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;flex-wrap:wrap;">
+          <span class="bcc-card-room">${escHtml(b.room)}</span>
+          <span class="bcc-status-pill ${st}">${st}</span>
+        </div>
+        <div class="bcc-card-meta">
+          <i class="bi bi-person-fill me-1"></i>${escHtml(b.faculty)} &nbsp;·&nbsp;
+          <i class="bi bi-envelope-fill me-1"></i>${escHtml(b.email)} &nbsp;·&nbsp;
+          <i class="bi bi-clock me-1"></i>${escHtml(b.from)} – ${escHtml(b.to)}
+          ${b.department && b.department !== '—' ? ' &nbsp;·&nbsp; <i class="bi bi-building me-1"></i>' + escHtml(b.department) : ''}
+        </div>
+        ${b.purpose ? `<div class="bcc-card-purpose">${escHtml(b.purpose)}</div>` : ''}
+        ${b.has_inline_text && b.inline_text ? `<div class="bcc-card-purpose" style="border-left-color:rgba(13,148,136,0.5);"><i class="bi bi-list-check me-1" style="color:#5eead4;"></i>${escHtml(b.inline_text)}</div>` : ''}
+        <div class="bcc-card-actions">${actionBtns}</div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function escHtml(s) {
+  return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// ── Cancel from BCC ──────────────────────────────────────────────────
+function bccCancelBooking(bookingId, roomName) {
+  if (!confirm(`Cancel booking for "${roomName}"?\n\nThis will mark it as cancelled and notify all parties.`)) return;
+  const url = BCC_CANCEL_URL.replace('/0/', '/' + bookingId + '/');
+  fetch(url, {
+    method: 'POST',
+    headers: {'X-CSRFToken': CSRF_TOKEN, 'Content-Type': 'application/json'},
+    body: JSON.stringify({}),
+  })
+  .then(r => r.json())
+  .then(data => {
+    if (data.error) { alert('Error: ' + data.error); return; }
+    bccLoadBookings();
+  })
+  .catch(() => alert('Network error. Please try again.'));
+}
+
+// ── Edit ─────────────────────────────────────────────────────────────
+function openBccEdit(bookingId) {
+  _bccCurrentEditId = bookingId;
+  const overlay = document.getElementById('bccEditOverlay');
+  overlay.style.display = 'flex';
+  document.getElementById('bccEditBody').innerHTML = '<div style="text-align:center;padding:32px;color:#64748b;"><div class="spinner-border text-primary"></div></div>';
+
+  const url = BCC_DETAIL_URL.replace('/0/', '/' + bookingId + '/');
+  fetch(url)
+    .then(r => r.json())
+    .then(data => {
+      if (data.error) throw new Error(data.error);
+      renderBccEditForm(data);
+    })
+    .catch(err => {
+      document.getElementById('bccEditBody').innerHTML = '<div style="color:#dc2626;padding:20px;text-align:center;">Failed to load booking details.</div>';
+    });
+}
+
+function renderBccEditForm(d) {
+  // Parse existing refreshment checklist from requirements_text
+  const existingReq = d.requirements_text || '';
+  const itemQtys = {};   // { value: qty }
+  let othersVal = '';
+  if (existingReq.startsWith('Refreshments requested: ')) {
+    const parts = existingReq.replace('Refreshments requested: ', '').split(', ');
+    parts.forEach(p => {
+      // Format: "Water Bottle - 3" or legacy "water_bottle"
+      const dashIdx = p.lastIndexOf(' - ');
+      if (dashIdx > 0) {
+        const label = p.substring(0, dashIdx).trim();
+        const qty   = parseInt(p.substring(dashIdx + 3)) || 1;
+        const opt   = REFRESHMENT_OPTIONS.find(o => o.label === label || o.value === label);
+        if (opt) itemQtys[opt.value] = qty;
+        else if (label.startsWith('Others:')) othersVal = label.replace('Others:', '').trim();
+      } else {
+        // Legacy: plain label or value
+        const opt = REFRESHMENT_OPTIONS.find(o => o.label === p || o.value === p);
+        if (opt) itemQtys[opt.value] = 1;
+        else if (p.startsWith('Others: ')) othersVal = p.replace('Others: ', '');
+      }
+    });
+  }
+
+  // Build 3-column stepper grid
+  const refreshGrid = `
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:10px;">
+      ${REFRESHMENT_OPTIONS.map(o => {
+        const qty = itemQtys[o.value] || 0;
+        return `<div style="display:flex;flex-direction:column;align-items:center;gap:6px;padding:10px 6px;background:#f8fafc;border:1.5px solid ${qty > 0 ? '#6366f1' : '#e2e8f0'};border-radius:11px;text-align:center;transition:border-color 0.2s;" id="bcc-rrow-${o.value}" data-label="${escHtml(o.label)}">
+          <span style="font-weight:600;font-size:0.75rem;color:#1e293b;line-height:1.3;">${escHtml(o.label)}</span>
+          <div style="display:flex;align-items:center;border:1.5px solid #e2e8f0;border-radius:8px;overflow:hidden;background:#fff;">
+            <button type="button" onclick="bccAdjustQty('${o.value}',-1)" style="width:28px;height:28px;border:none;background:transparent;font-size:0.95rem;font-weight:700;color:#6366f1;cursor:pointer;display:flex;align-items:center;justify-content:center;" onmouseover="this.style.background='#ede9fe'" onmouseout="this.style.background='transparent'">−</button>
+            <span id="bcc-qty-${o.value}" style="min-width:22px;text-align:center;font-weight:800;font-size:0.88rem;color:#1e293b;">${qty}</span>
+            <button type="button" onclick="bccAdjustQty('${o.value}',1)" style="width:28px;height:28px;border:none;background:transparent;font-size:0.95rem;font-weight:700;color:#6366f1;cursor:pointer;display:flex;align-items:center;justify-content:center;" onmouseover="this.style.background='#ede9fe'" onmouseout="this.style.background='transparent'">+</button>
+          </div>
+        </div>`;
+      }).join('')}
+    </div>
+    <div>
+      <label style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:#f8fafc;border:1.5px solid #e2e8f0;border-radius:10px;cursor:pointer;">
+        <input type="checkbox" id="bccOthersCb" ${othersVal ? 'checked' : ''} onchange="toggleBccOthers(this)" style="width:16px;height:16px;accent-color:#6366f1;flex-shrink:0;">
+        <span style="font-weight:600;font-size:0.82rem;color:#1e293b;">Others</span>
+        <span style="font-size:0.7rem;color:#94a3b8;margin-left:auto;">Specify below</span>
+      </label>
+      <div id="bccOthersBox" style="${othersVal ? '' : 'display:none;'}padding:6px 0 0;">
+        <input type="text" id="bccOthers1" class="bcc-form-input" placeholder="Describe your requirement (max 100 characters)…" maxlength="100" value="${escHtml(othersVal)}">
+        <small style="font-size:0.72rem;color:#94a3b8;display:block;margin-top:4px;"><i class="bi bi-info-circle me-1"></i>Max 100 characters. For detailed requirements, attach a document.</small>
+      </div>
+    </div>`;
+
+  const deptOptions = (d.departments || []).map(dep =>
+    `<option value="${dep.id}" ${dep.id == d.department_id ? 'selected' : ''}>${escHtml(dep.department_name)}</option>`
+  ).join('');
+
+  document.getElementById('bccEditTitle').textContent = `Edit Booking — ${d.faculty_name}`;
+  document.getElementById('bccEditBody').innerHTML = `
+    <div class="bcc-modal-alert error"   id="bccEditAlert"></div>
+    <div class="bcc-modal-alert success" id="bccEditSuccess"></div>
+    <div class="row g-3 mb-3">
+      <div class="col-12 col-sm-6">
+        <label class="bcc-form-label">Faculty Name</label>
+        <input type="text" id="bccFacultyName" class="bcc-form-input" value="${escHtml(d.faculty_name)}">
+      </div>
+      <div class="col-12 col-sm-6">
+        <label class="bcc-form-label">Faculty Email</label>
+        <input type="email" id="bccFacultyEmail" class="bcc-form-input" value="${escHtml(d.faculty_email)}">
+      </div>
+      <div class="col-12">
+        <label class="bcc-form-label">Purpose</label>
+        <textarea id="bccPurpose" class="bcc-form-input">${escHtml(d.purpose)}</textarea>
+      </div>
+      <div class="col-12 col-sm-6">
+        <label class="bcc-form-label">Department</label>
+        <select id="bccDept" class="bcc-form-input"><option value="">— None —</option>${deptOptions}</select>
+      </div>
+      <div class="col-12 col-sm-6">
+        <label class="bcc-form-label">Admin Remark <span style="font-weight:400;text-transform:none;letter-spacing:0;color:#94a3b8;">(internal note, included in emails)</span></label>
+        <input type="text" id="bccAdminNote" class="bcc-form-input" placeholder="e.g. Chairs arranged, projector confirmed…" value="${escHtml(d.approved_note)}">
+      </div>
+      <div class="col-12 col-sm-6">
+        <label class="bcc-form-label">Start Date &amp; Time</label>
+        <input type="datetime-local" id="bccStart" class="bcc-form-input" value="${d.start_datetime}">
+      </div>
+      <div class="col-12 col-sm-6">
+        <label class="bcc-form-label">End Date &amp; Time</label>
+        <input type="datetime-local" id="bccEnd" class="bcc-form-input" value="${d.end_datetime}">
+      </div>
+    </div>
+    <div class="mb-3">
+      <label class="bcc-form-label" style="margin-bottom:8px;">Refreshments &amp; Supplies <span style="font-weight:400;text-transform:none;letter-spacing:0;color:#94a3b8;">(max 5 per item)</span></label>
+      ${refreshGrid}
+    </div>
+    <button class="bcc-save-btn" id="bccSaveBtn" onclick="saveBccEdit()">
+      <i class="bi bi-check2-circle me-2"></i>Save Changes &amp; Notify Faculty &amp; Administration
+    </button>`;
+}
+
+function toggleBccOthers(cb) {
+  document.getElementById('bccOthersBox').style.display = cb.checked ? '' : 'none';
+}
+
+function bccAdjustQty(value, delta) {
+  var displayEl = document.getElementById('bcc-qty-' + value);
+  var rowEl     = document.getElementById('bcc-rrow-' + value);
+  if (!displayEl) return;
+  var current = parseInt(displayEl.textContent) || 0;
+  var next    = current + delta;
+  if (next < 0) next = 0;
+  if (next > 5) { bccPopupWarn('Maximum 5 units allowed per item.'); return; }
+  displayEl.textContent = next;
+  if (rowEl) {
+    rowEl.style.borderColor = next > 0 ? '#6366f1' : '#e2e8f0';
+    rowEl.style.background  = next > 0 ? '#f5f3ff' : '#f8fafc';
+  }
+}
+
+function saveBccEdit() {
+  const alertEl   = document.getElementById('bccEditAlert');
+  const successEl = document.getElementById('bccEditSuccess');
+  const saveBtn   = document.getElementById('bccSaveBtn');
+  alertEl.style.display = 'none';
+  successEl.style.display = 'none';
+
+  // Build requirements_text from stepper grid
+  const items = [];
+  REFRESHMENT_OPTIONS.forEach(o => {
+    const displayEl = document.getElementById('bcc-qty-' + o.value);
+    if (displayEl) {
+      const qty = parseInt(displayEl.textContent) || 0;
+      if (qty > 0) items.push(o.label + ' - ' + qty);
+    }
+  });
+  const othersCb = document.getElementById('bccOthersCb');
+  if (othersCb && othersCb.checked) {
+    const o1 = (document.getElementById('bccOthers1').value || '').trim();
+    if (o1) items.push('Others: ' + o1);
+  }
+  let reqText = items.length ? 'Refreshments requested: ' + items.join(', ') : '';
+
+  const payload = {
+    faculty_name:     document.getElementById('bccFacultyName').value.trim(),
+    faculty_email:    document.getElementById('bccFacultyEmail').value.trim().toLowerCase(),
+    purpose:          document.getElementById('bccPurpose').value.trim(),
+    department_id:    document.getElementById('bccDept').value || null,
+    start_datetime:   document.getElementById('bccStart').value,
+    end_datetime:     document.getElementById('bccEnd').value,
+    requirements_text: reqText,
+    approved_note:    document.getElementById('bccAdminNote').value.trim(),
+  };
+
+  if (!payload.faculty_name) { bccPopupWarn('Faculty name is required.'); return; }
+  if (!payload.faculty_email) { bccPopupWarn('Faculty email is required.'); return; }
+  if (!payload.start_datetime || !payload.end_datetime) { bccPopupWarn('Start and end times are required.'); return; }
+
+  saveBtn.disabled = true;
+  saveBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2" style="width:14px;height:14px;border-width:2px;"></span>Saving…';
+
+  const url = BCC_EDIT_URL.replace('/0/', '/' + _bccCurrentEditId + '/');
+  fetch(url, {
+    method: 'POST',
+    headers: {'X-CSRFToken': CSRF_TOKEN, 'Content-Type': 'application/json'},
+    body: JSON.stringify(payload),
+  })
+  .then(r => r.json())
+  .then(data => {
+    if (data.error) { bccPopupWarn(data.error); return; }
+    bccShowAlert(successEl, data.message || 'Saved successfully.');
+    setTimeout(() => { closeBccEdit(); bccLoadBookings(); }, 1800);
+  })
+  .catch(() => bccPopupWarn('Network error. Please check your connection and try again.'))
+  .finally(() => {
+    saveBtn.disabled = false;
+    saveBtn.innerHTML = '<i class="bi bi-check2-circle me-2"></i>Save Changes & Notify All Parties';
+  });
+}
+
+function closeBccEdit() {
+  document.getElementById('bccEditOverlay').style.display = 'none';
+  _bccCurrentEditId = null;
+}
+
+// ── Swap ─────────────────────────────────────────────────────────────
+function openBccSwap(bookingId) {
+  _bccCurrentSwapId = bookingId;
+  _bccSwapSelected  = [];
+  _bccSwapWithId    = null;
+  _bccSwapMode      = 'mutual';
+  const overlay = document.getElementById('bccSwapOverlay');
+  overlay.style.display = 'flex';
+  document.getElementById('bccSwapBody').innerHTML = '<div style="text-align:center;padding:32px;color:#64748b;"><div class="spinner-border text-primary"></div></div>';
+
+  // Load both booking detail (for move-mode rooms) and swappable bookings (for mutual-mode)
+  const detailUrl    = BCC_DETAIL_URL.replace('/0/', '/' + bookingId + '/');
+  const swappableUrl = BCC_SWAPPABLE_URL.replace('/0/', '/' + bookingId + '/');
+
+  Promise.all([fetch(detailUrl).then(r => r.json()), fetch(swappableUrl).then(r => r.json())])
+    .then(([detail, swappable]) => {
+      if (detail.error) throw new Error(detail.error);
+      renderBccSwapForm(detail, swappable.results || []);
+    })
+    .catch(() => {
+      document.getElementById('bccSwapBody').innerHTML = '<div style="color:#dc2626;padding:20px;text-align:center;">Failed to load booking details.</div>';
+    });
+}
+
+function renderBccSwapForm(d, swappableBookings) {
+  _bccSwapRoomData = d.rooms_all || [];
+  _bccSwapSelected = [...(d.selected_room_ids || [])];
+
+  // ── Section 1: Mutual swap ─────────────────────────────────────────
+  const mutualSectionHtml = `
+    <div style="margin-bottom:20px;">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
+        <div style="width:28px;height:28px;background:linear-gradient(135deg,#0d9488,#0f766e);border-radius:8px;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+          <i class="bi bi-arrow-left-right" style="color:#fff;font-size:0.8rem;"></i>
+        </div>
+        <span style="font-weight:700;font-size:0.9rem;color:#1e293b;">Mutual Swap</span>
+        <span style="font-size:0.72rem;color:#64748b;background:#f1f5f9;border-radius:20px;padding:2px 10px;">Exchange rooms with another booking at the same time</span>
+      </div>
+      ${swappableBookings.length === 0
+        ? '<div style="background:#fef3c7;border:1.5px solid #fde68a;border-radius:11px;padding:12px 14px;font-size:0.82rem;color:#92400e;"><i class="bi bi-info-circle-fill me-1"></i>No other bookings found at the same time slot.</div>'
+        : `<div style="display:flex;flex-direction:column;gap:8px;max-height:220px;overflow-y:auto;">
+             ${swappableBookings.map(b => `
+               <label style="display:flex;align-items:flex-start;gap:12px;padding:11px 14px;background:#f8fafc;border:2px solid #e2e8f0;border-radius:12px;cursor:pointer;transition:border-color 0.2s;-webkit-tap-highlight-color:transparent;" class="bcc-swap-option" id="bcc-swap-opt-${b.id}">
+                 <input type="radio" name="bccSwapWith" value="${b.id}" style="width:18px;height:18px;accent-color:#0d9488;flex-shrink:0;margin-top:2px;" onchange="selectBccSwapWith(${b.id})">
+                 <div>
+                   <div style="font-weight:700;font-size:0.88rem;color:#1e293b;">${escHtml(b.room)}</div>
+                   <div style="font-size:0.78rem;color:#64748b;margin-top:2px;"><i class="bi bi-person-fill me-1"></i>${escHtml(b.faculty)} &nbsp;·&nbsp; <i class="bi bi-clock me-1"></i>${escHtml(b.from)} – ${escHtml(b.to)}</div>
+                   ${b.purpose ? `<div style="font-size:0.75rem;color:#94a3b8;margin-top:2px;">${escHtml(b.purpose)}</div>` : ''}
+                 </div>
+               </label>`).join('')}
+           </div>`
+      }
+    </div>`;
+
+  // ── Section 2: Move to free room ───────────────────────────────────
+  const cats = {};
+  // Sort rooms within each category by label (same as booking module)
+  _bccSwapRoomData.forEach(r => {
+    const cat = r.room_category || 'Other';
+    if (!cats[cat]) cats[cat] = [];
+    cats[cat].push(r);
+  });
+  Object.values(cats).forEach(arr => arr.sort((a, b) => {
+    const la = (a.label || '').toLowerCase(), lb = (b.label || '').toLowerCase();
+    return la < lb ? -1 : la > lb ? 1 : 0;
+  }));
+  const catLabels = Object.fromEntries((d.room_categories || []).map(([v,l]) => [v,l]));
+
+  // Category filter options
+  const catFilterOptions = Object.keys(cats).map(cat =>
+    `<option value="${escHtml(cat)}">${escHtml(catLabels[cat] || cat)}</option>`
+  ).join('');
+
+  const catHtml = Object.entries(cats).map(([cat, rooms]) => {
+    const label = catLabels[cat] || cat;
+    const tilesHtml = rooms.map(r => {
+      const isCurrent = (d.selected_room_ids || []).includes(r.id);
+      return `<div class="bcc-room-tile${isCurrent ? ' selected' : ''}" id="bcc-tile-${r.id}" onclick="toggleBccSwapRoom(${r.id})" data-cat="${escHtml(cat)}">
+        <div class="bcc-room-tile-name">${escHtml(r.room_name)}</div>
+        <div class="bcc-room-tile-label">${escHtml(r.label || '')}${isCurrent ? ' <span style="font-size:0.62rem;color:#6366f1;font-weight:800;">CURRENT</span>' : ''}</div>
+      </div>`;
+    }).join('');
+    return `<div class="bcc-cat-section" data-cat="${escHtml(cat)}" style="margin-bottom:12px;"><p style="font-size:0.7rem;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px;">${escHtml(label)}</p><div class="bcc-room-grid">${tilesHtml}</div></div>`;
+  }).join('');
+
+  const moveSectionHtml = `
+    <div style="margin-bottom:20px;">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
+        <div style="width:28px;height:28px;background:linear-gradient(135deg,#6366f1,#9333ea);border-radius:8px;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+          <i class="bi bi-box-arrow-right" style="color:#fff;font-size:0.8rem;"></i>
+        </div>
+        <span style="font-weight:700;font-size:0.9rem;color:#1e293b;">Move to Free Room</span>
+        <span style="font-size:0.72rem;color:#64748b;background:#f1f5f9;border-radius:20px;padding:2px 10px;">Pick any available room — conflict checked on save</span>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center;margin-bottom:10px;">
+        <select id="bccCatFilter" onchange="bccFilterRoomsByCategory()" style="flex:1;padding:8px 12px;border:1.5px solid #e2e8f0;border-radius:10px;font-size:0.82rem;color:#1e293b;background:#fff;outline:none;">
+          <option value="">All Categories</option>
+          ${catFilterOptions}
+        </select>
+        <span style="font-size:0.75rem;color:#64748b;white-space:nowrap;" id="bccSwapSummary">${_bccSwapSelected.length} selected</span>
+      </div>
+      <div id="bccRoomGridWrap" style="max-height:260px;overflow-y:auto;padding-right:4px;">${catHtml}</div>
+    </div>`;
+
+  document.getElementById('bccSwapTitle').textContent = `Swap / Move Room — ${d.faculty_name}`;
+  document.getElementById('bccSwapBody').innerHTML = `
+    <div class="bcc-modal-alert error"   id="bccSwapAlert"></div>
+    <div class="bcc-modal-alert success" id="bccSwapSuccess"></div>
+
+    ${mutualSectionHtml}
+
+    <div style="display:flex;align-items:center;gap:10px;margin:4px 0 16px;">
+      <div style="flex:1;height:1px;background:#e2e8f0;"></div>
+      <span style="font-size:0.72rem;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:0.5px;white-space:nowrap;">OR</span>
+      <div style="flex:1;height:1px;background:#e2e8f0;"></div>
+    </div>
+
+    ${moveSectionHtml}
+
+    <div style="margin-top:4px;">
+      <label class="bcc-form-label">Admin Remark <span style="font-weight:400;text-transform:none;letter-spacing:0;color:#94a3b8;">(sent in all notification emails)</span></label>
+      <input type="text" id="bccSwapRemark" class="bcc-form-input" placeholder="e.g. Room change due to maintenance, faculty informed…">
+    </div>
+
+    <button class="bcc-save-btn" id="bccSwapBtn" onclick="saveBccSwap()" style="background:linear-gradient(135deg,#0d9488,#0f766e);margin-top:14px;">
+      <i class="bi bi-arrow-left-right me-2"></i>Confirm &amp; Notify Faculty &amp; Administration
+    </button>`;
+}
+
+function selectBccSwapWith(bookingId) {
+  _bccSwapWithId = bookingId;
+  _bccSwapMode   = 'mutual';
+  document.querySelectorAll('.bcc-swap-option').forEach(el => {
+    el.style.borderColor = el.id === 'bcc-swap-opt-' + bookingId ? '#0d9488' : '#e2e8f0';
+    el.style.background  = el.id === 'bcc-swap-opt-' + bookingId ? '#f0fdfa' : '#f8fafc';
+  });
+}
+
+function toggleBccSwapRoom(roomId) {
+  // Selecting a room switches to move-mode; deselecting mutual selection
+  _bccSwapMode   = 'move';
+  _bccSwapWithId = null;
+  // Deselect all mutual radio buttons
+  document.querySelectorAll('input[name="bccSwapWith"]').forEach(r => r.checked = false);
+  document.querySelectorAll('.bcc-swap-option').forEach(el => {
+    el.style.borderColor = '#e2e8f0'; el.style.background = '#f8fafc';
+  });
+
+  const idx  = _bccSwapSelected.indexOf(roomId);
+  const tile = document.getElementById('bcc-tile-' + roomId);
+  if (idx === -1) { _bccSwapSelected.push(roomId); if (tile) tile.classList.add('selected'); }
+  else            { _bccSwapSelected.splice(idx, 1); if (tile) tile.classList.remove('selected'); }
+  const sumEl = document.getElementById('bccSwapSummary');
+  if (sumEl) sumEl.textContent = _bccSwapSelected.length + ' selected';
+}
+
+function bccFilterRoomsByCategory() {
+  var sel = document.getElementById('bccCatFilter');
+  if (!sel) return;
+  var chosen = sel.value;
+  document.querySelectorAll('.bcc-cat-section').forEach(function(section) {
+    section.style.display = (!chosen || section.dataset.cat === chosen) ? '' : 'none';
+  });
+}
+
+function saveBccSwap() {
+  const alertEl   = document.getElementById('bccSwapAlert');
+  const successEl = document.getElementById('bccSwapSuccess');
+  const swapBtn   = document.getElementById('bccSwapBtn');
+  const remark    = (document.getElementById('bccSwapRemark').value || '').trim();
+  alertEl.style.display = 'none';
+  successEl.style.display = 'none';
+
+  let payload = { admin_remark: remark };
+
+  // Determine mode: if a mutual radio is selected → mutual; else if rooms selected → move
+  const checkedRadio = document.querySelector('input[name="bccSwapWith"]:checked');
+  if (checkedRadio) {
+    _bccSwapMode   = 'mutual';
+    _bccSwapWithId = parseInt(checkedRadio.value);
+  }
+
+  if (_bccSwapMode === 'mutual' && _bccSwapWithId) {
+    payload.swap_with_booking_id = _bccSwapWithId;
+  } else if (_bccSwapSelected.length) {
+    payload.room_ids = _bccSwapSelected;
+  } else {
+    bccPopupWarn('Please either select a booking to swap with (Mutual Swap) or select new room(s) (Move to Free Room).');
+    return;
+  }
+
+  swapBtn.disabled = true;
+  swapBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2" style="width:14px;height:14px;border-width:2px;"></span>Processing…';
+
+  const url = BCC_SWAP_URL.replace('/0/', '/' + _bccCurrentSwapId + '/');
+  fetch(url, {
+    method: 'POST',
+    headers: {'X-CSRFToken': CSRF_TOKEN, 'Content-Type': 'application/json'},
+    body: JSON.stringify(payload),
+  })
+  .then(r => r.json())
+  .then(data => {
+    if (data.error) { bccPopupWarn(data.error); return; }
+    bccShowAlert(successEl, data.message || 'Done. All parties notified.');
+    setTimeout(() => { closeBccSwap(); bccLoadBookings(); }, 2000);
+  })
+  .catch(() => bccPopupWarn('Network error. Please check your connection and try again.'))
+  .finally(() => {
+    swapBtn.disabled = false;
+    swapBtn.innerHTML = '<i class="bi bi-arrow-left-right me-2"></i>Confirm &amp; Notify Faculty &amp; Administration';
+  });
+}
+
+function closeBccSwap() {
+  document.getElementById('bccSwapOverlay').style.display = 'none';
+  _bccCurrentSwapId = null;
+  _bccSwapSelected  = [];
+  _bccSwapWithId    = null;
+  _bccSwapMode      = 'mutual';
+}
+
+function bccShowAlert(el, msg) {
+  el.textContent = msg;
+  el.style.display = 'block';
+}
+
+// ── Popup warning (replaces inline error for validation/server errors) ──
+function bccPopupWarn(msg) {
+  let overlay = document.getElementById('bccWarnOverlay');
+  if (!overlay) {
+    overlay = document.createElement('div');
+    overlay.id = 'bccWarnOverlay';
+    overlay.style.cssText = 'position:fixed;inset:0;z-index:2000;background:rgba(10,14,26,0.72);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);display:flex;align-items:center;justify-content:center;padding:20px;';
+    overlay.innerHTML = `
+      <div style="background:#fff;border-radius:20px;padding:32px 28px;max-width:420px;width:100%;box-shadow:0 30px 60px rgba(0,0,0,0.3);animation:bccSlideUp 0.22s ease;text-align:center;">
+        <div style="width:52px;height:52px;background:linear-gradient(135deg,#f59e0b,#d97706);border-radius:14px;display:flex;align-items:center;justify-content:center;margin:0 auto 14px;">
+          <i class="bi bi-exclamation-triangle-fill" style="color:#fff;font-size:1.3rem;"></i>
+        </div>
+        <h6 style="font-weight:800;color:#1e293b;margin-bottom:8px;">Action Required</h6>
+        <p id="bccWarnMsg" style="color:#64748b;font-size:0.88rem;line-height:1.6;margin-bottom:20px;"></p>
+        <button onclick="document.getElementById('bccWarnOverlay').style.display='none'"
+                style="background:linear-gradient(135deg,#6366f1,#9333ea);color:#fff;border:none;border-radius:11px;padding:11px 32px;font-weight:700;font-size:0.9rem;cursor:pointer;min-height:44px;-webkit-tap-highlight-color:transparent;">
+          Got it
+        </button>
+      </div>`;
+    document.body.appendChild(overlay);
+  }
+  document.getElementById('bccWarnMsg').textContent = msg;
+  overlay.style.display = 'flex';
+}
+
+// Close overlays on backdrop click
+document.getElementById('bccEditOverlay').addEventListener('click', function(e) {
+  if (e.target === this) closeBccEdit();
+});
+document.getElementById('bccSwapOverlay').addEventListener('click', function(e) {
+  if (e.target === this) closeBccSwap();
+});
+// ESC key closes all BCC panels
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'Escape') {
+    const warnOverlay = document.getElementById('bccWarnOverlay');
+    if (warnOverlay && warnOverlay.style.display === 'flex') { warnOverlay.style.display = 'none'; return; }
+    if (document.getElementById('bccSwapOverlay').style.display === 'flex') { closeBccSwap(); return; }
+    if (document.getElementById('bccEditOverlay').style.display === 'flex') { closeBccEdit(); return; }
+    if (document.getElementById('bccOverlay').style.display === 'block')    { closeBookingControlCenter(); }
+  }
+});
 </script>
 {% endblock content %}

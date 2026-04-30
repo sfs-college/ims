@@ -84,6 +84,7 @@ urlpatterns = [
     path('notifications/', central_admin.AdminNotificationsView.as_view(), name='admin_notifications'),
     path('notification-counts/', central_admin.admin_notification_counts, name='admin_notification_counts'),
     path('booking-doc/<int:booking_id>/download/', aura.download_booking_doc, name='download_booking_doc'),
+    path('booking-doc/<int:booking_id>/inline/',   aura.serve_booking_doc_inline, name='serve_booking_doc_inline'),
     path('api/room-inventory/', aura.get_room_inventory, name='get_room_inventory'),
     path('purchases/create/', central_admin.PurchaseCreateView.as_view(), name='purchase_create'),
     path('purchases/<slug:purchase_slug>/approve/', central_admin.PurchaseApproveView.as_view(), name='purchase_approve'),
@@ -91,10 +92,16 @@ urlpatterns = [
     path('booking-doc-text/<int:booking_id>/', aura.get_booking_doc_text, name='get_booking_doc_text'),
     path('booking-doc-pdf/<int:booking_id>/',  aura.download_booking_doc_as_pdf, name='download_booking_doc_as_pdf'),
     
-    path('booking-delete/<int:booking_id>/', aura.delete_confirmed_booking,    name='delete_confirmed_booking'),
+    path('booking-delete/<int:booking_id>/', aura.cancel_confirmed_booking,    name='delete_confirmed_booking'),
+    path('booking-cancel/<int:booking_id>/', aura.cancel_confirmed_booking,   name='cancel_confirmed_booking'),
     path('booking-bulk-delete/', aura.bulk_delete_confirmed_bookings, name='bulk_delete_confirmed_bookings'),
     path('aura/forward/<int:booking_id>/', aura.forward_booking_requirements, name='forward_booking_requirements'),
 
+    path('book-venue/', central_admin.SubAdminBookVenueView.as_view(), name='sub_admin_book_venue'),
+    path('booking-control/<int:booking_id>/detail/', aura.get_booking_for_edit, name='booking_control_detail'),
+    path('booking-control/<int:booking_id>/edit/',   aura.edit_booking,          name='booking_control_edit'),
+    path('booking-control/<int:booking_id>/swap/',   aura.swap_booking_rooms,    name='booking_control_swap'),
+    path('booking-control/<int:booking_id>/swappable/', aura.get_swappable_bookings, name='booking_control_swappable'),
     path('api/save-product-code/', aura.save_product_code, name='save_product_code'),
     path('api/save-item-edit/', aura.save_item_edit, name='save_item_edit'),
     path('api/asset-tags/', aura.get_asset_tags, name='get_asset_tags'),
@@ -110,5 +117,15 @@ urlpatterns = [
         'approval/booking-request/<int:pk>/doc-text/',
         central_admin.get_booking_request_doc_text,
         name='booking_request_doc_text',
+    ),
+    path(
+        'approval/booking-request/<int:pk>/inline/',
+        aura.serve_booking_request_doc_inline,
+        name='serve_booking_request_doc_inline',
+    ),
+    path(
+        'approval/booking-request/<int:pk>/download/',
+        central_admin.download_booking_request_doc,
+        name='download_booking_request_doc',
     ),
 ]

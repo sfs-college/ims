@@ -92,7 +92,7 @@
                 
                 const form = document.createElement('form');
                 form.method = 'POST';
-                form.action = '/auth/firebase-login/';
+                form.action = '/core/firebase-login/';
                 
                 const tokenInput = document.createElement('input');
                 tokenInput.type = 'hidden';
@@ -240,130 +240,114 @@
         },
 
         async downloadNative(url, filename, options) {
-            let progressNotification = null;
+            // On Android Capacitor: fetch the file and try to save it.
+            // If Filesystem plugin is unavailable or write fails, open the URL
+            // in the system browser — Android's download manager handles it natively.
             
             try {
-                if (!window.Capacitor.Plugins?.Filesystem) {
-                    console.log('[DownloadManager] Filesystem plugin not available, using browser');
-                    return this.downloadBrowser(url, filename, options);
+                const { Filesystem } = window.Capacitor.Plugins || {};
+                
+                if (!Filesystem) {
+                    // No Filesystem plugin — open in system browser for native download
+                    console.log('[DownloadManager] No Filesystem plugin, opening in browser');
+                    this.showNotification('Opening download...', 'info');
+                    if (window.Capacitor.Plugins?.Browser) {
+                        await window.Capacitor.Plugins.Browser.open({ url: url });
+                    } else {
+                        window.open(url, '_system');
+                    }
+                    return { success: true, method: 'browser-open' };
                 }
 
-                const { Filesystem, Directory } = window.Capacitor.Plugins;
+                // Show progress
+                const progressNote = this.showNotification('Downloading...', 'info', 0);
                 
-                // Show progress notification
-                progressNotification = this.showNotification('Downloading...', 'info', 0);
+                const response = await fetch(url, { cache: 'no-cache' });
+                if (!response.ok) throw new Error('HTTP ' + response.status);
                 
-                // Fetch with progress tracking
-                const response = await fetch(url, { 
-                    headers: options.headers || {},
-                    cache: 'no-cache'
-                });
-                
-                if (!response.ok) {
-                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-                }
-                
-                // Get content length for progress
-                const contentLength = response.headers.get('Content-Length');
-                const totalSize = contentLength ? parseInt(contentLength, 10) : 0;
-                
-                // Read response as blob
                 const blob = await response.blob();
                 const arrayBuffer = await blob.arrayBuffer();
                 const base64Data = this.arrayBufferToBase64(arrayBuffer);
-                
                 const mimeType = blob.type || options.mimeType || 'application/octet-stream';
-                const finalFilename = filename || `download_${Date.now()}`;
-                
-                // Determine best directory based on platform
-                let targetDirectory = Directory.Cache;
-                let targetPath = finalFilename;
+                const finalFilename = filename || ('download_' + Date.now());
+
+                // Android 10+ — use Documents directory (always accessible)
+                // Android 9 and below — try ExternalStorage/Download
+                let writeResult = null;
+                const dirsToTry = [];
                 
                 if (MobileUtils.isAndroid) {
-                    // On Android, use ExternalStorage/Downloads for user access
-                    targetDirectory = Directory.ExternalStorage;
-                    targetPath = `Download/${finalFilename}`;
-                    
-                    // Try to create Download directory if needed
-                    try {
-                        await Filesystem.mkdir({
-                            path: 'Download',
-                            directory: Directory.ExternalStorage,
-                            recursive: true
-                        });
-                    } catch (mkdirErr) {
-                        // Directory might already exist
-                        console.log('[DownloadManager] Download dir:', mkdirErr.message);
-                    }
-                } else if (MobileUtils.isIOS) {
-                    // On iOS, use Documents and share via share sheet
-                    targetDirectory = Directory.Documents;
-                    targetPath = finalFilename;
+                    // Try Documents first (works on all Android versions without extra permissions)
+                    dirsToTry.push({ dir: 'DOCUMENTS', path: finalFilename });
+                    // Fallback: Cache (always writable)
+                    dirsToTry.push({ dir: 'CACHE', path: finalFilename });
+                } else {
+                    dirsToTry.push({ dir: 'DOCUMENTS', path: finalFilename });
                 }
-                
-                // Write file
-                const writeResult = await Filesystem.writeFile({
-                    path: targetPath,
-                    data: base64Data,
-                    directory: targetDirectory,
-                    recursive: true
-                });
-                
-                // Dismiss progress notification
-                if (progressNotification) {
-                    progressNotification.remove();
-                }
-                
-                // Show success notification
-                this.showNotification(`Downloaded: ${finalFilename}`, 'success');
-                
-                // On iOS, offer to share the file
-                if (MobileUtils.isIOS && MobileUtils.share && options.shareOnIOS !== false) {
+
+                for (const attempt of dirsToTry) {
                     try {
-                        await MobileUtils.share.share({
-                            title: finalFilename,
-                            url: writeResult.uri,
-                            dialogTitle: 'Save or Share File'
+                        writeResult = await Filesystem.writeFile({
+                            path: attempt.path,
+                            data: base64Data,
+                            directory: attempt.dir,
+                            recursive: true,
                         });
-                    } catch (shareErr) {
-                        // User might have cancelled share
-                        console.log('[DownloadManager] Share:', shareErr);
+                        break;
+                    } catch (writeErr) {
+                        console.log('[DownloadManager] Write to', attempt.dir, 'failed:', writeErr.message);
                     }
                 }
-                
-                // Optionally open file
-                if (options.openAfterDownload && window.Capacitor.Plugins?.FileOpener) {
+
+                if (progressNote) progressNote.remove();
+
+                if (!writeResult) {
+                    // All write attempts failed — open in browser as last resort
+                    this.showNotification('Opening in browser...', 'info');
+                    if (window.Capacitor.Plugins?.Browser) {
+                        await window.Capacitor.Plugins.Browser.open({ url: url });
+                    } else {
+                        window.open(url, '_system');
+                    }
+                    return { success: true, method: 'browser-fallback' };
+                }
+
+                this.showNotification('Downloaded: ' + finalFilename, 'success');
+
+                // Open the file after download if requested
+                if (options.openAfterDownload !== false) {
                     try {
-                        await window.Capacitor.Plugins.FileOpener.open({
-                            filePath: writeResult.uri,
-                            mimeType: mimeType
-                        });
+                        if (window.Capacitor.Plugins?.FileOpener) {
+                            await window.Capacitor.Plugins.FileOpener.open({
+                                filePath: writeResult.uri,
+                                mimeType: mimeType,
+                            });
+                        } else if (MobileUtils.isIOS && MobileUtils.share) {
+                            await MobileUtils.share.share({
+                                title: finalFilename,
+                                url: writeResult.uri,
+                                dialogTitle: 'Save or Share File',
+                            });
+                        }
                     } catch (openErr) {
-                        console.error('[DownloadManager] Open file failed:', openErr);
+                        console.log('[DownloadManager] Open file:', openErr.message);
                     }
                 }
-                
-                return { 
-                    success: true, 
-                    method: 'native', 
-                    uri: writeResult.uri,
-                    path: targetPath,
-                    size: totalSize
-                };
-                
+
+                return { success: true, method: 'native', uri: writeResult.uri };
+
             } catch (err) {
                 console.error('[DownloadManager] Native download failed:', err);
-                
-                // Dismiss progress notification
-                if (progressNotification) {
-                    progressNotification.remove();
-                }
-                
-                // Show error notification briefly
-                this.showNotification('Download failed, trying alternative...', 'error');
-                
-                // Fallback to browser method
-                return this.downloadBrowser(url, filename, options);
+                this.showNotification('Download failed — opening in browser', 'error');
+                // Final fallback: open URL in system browser
+                try {
+                    if (window.Capacitor.Plugins?.Browser) {
+                        await window.Capacitor.Plugins.Browser.open({ url: url });
+                    } else {
+                        window.open(url, '_system');
+                    }
+                } catch (_) {}
+                return { success: false, method: 'browser-fallback', error: err.message };
             }
         },
 
@@ -611,9 +595,8 @@
         },
 
         async capacitorGoogleLogin(firebaseConfig, options) {
-            console.log('[MobileAuth] Using Capacitor in-app browser login flow');
+            console.log('[MobileAuth] Using Capacitor in-app Google Sign-In (popup)');
             
-            // Show loading
             PageLoader.show('Opening Google Sign-In...', 'overlay');
             
             try {
@@ -622,47 +605,51 @@
                     window.firebase.initializeApp(firebaseConfig);
                 }
                 
-                // Use backend-based OAuth flow for better Capacitor compatibility
-                // This opens Google auth in the in-app browser and redirects back to the app
-                const authUrl = `/auth/google/?next=${encodeURIComponent(options.redirectUrl || '/')}`;
-                
-                if (MobileUtils.browser) {
-                    // Store pending login state
-                    sessionStorage.setItem('pendingGoogleLogin', 'true');
-                    sessionStorage.setItem('loginRedirectUrl', options.redirectUrl || '/');
-                    
-                    // Open auth URL in in-app browser
-                    await MobileUtils.browser.open({ 
-                        url: window.location.origin + authUrl,
-                        presentationStyle: 'popover'
+                const provider = new firebase.auth.GoogleAuthProvider();
+                if (options.domain) {
+                    provider.setCustomParameters({
+                        hd: options.domain,
+                        prompt: 'select_account',
                     });
-                    
-                    PageLoader.hide();
-                    return { success: true, method: 'in-app-browser' };
-                } else {
-                    // Fallback to Firebase signInWithRedirect (may open external browser)
-                    PageLoader.updateMessage('Redirecting to Google...');
-                    
-                    const provider = new firebase.auth.GoogleAuthProvider();
-                    if (options.domain) {
-                        provider.setCustomParameters({ 
-                            hd: options.domain,
-                            prompt: 'select_account'
-                        });
-                    }
-                    
-                    sessionStorage.setItem('pendingGoogleLogin', 'true');
-                    sessionStorage.setItem('loginRedirectUrl', options.redirectUrl || '/');
-                    
-                    // Small delay to show loading
-                    await new Promise(r => setTimeout(r, 500));
-                    
-                    await firebase.auth().signInWithRedirect(provider);
-                    return { success: true, method: 'firebase-redirect' };
                 }
+                
+                // signInWithPopup works inside Capacitor WebView — no external browser needed.
+                // The Google sign-in sheet appears as an overlay within the app.
+                const result = await firebase.auth().signInWithPopup(provider);
+                const idToken = await result.user.getIdToken();
+                
+                PageLoader.hide();
+                return { success: true, idToken, user: result.user, method: 'capacitor-popup' };
+                
             } catch (err) {
                 PageLoader.hide();
-                console.error('[MobileAuth] Capacitor login flow error:', err);
+                console.error('[MobileAuth] Capacitor popup login error:', err);
+                
+                // If popup was blocked or failed, fall back to redirect
+                if (err.code === 'auth/popup-blocked' || err.code === 'auth/popup-closed-by-user') {
+                    console.log('[MobileAuth] Popup blocked/closed, trying redirect...');
+                    return this.capacitorRedirectFallback(firebaseConfig, options);
+                }
+                throw err;
+            }
+        },
+
+        async capacitorRedirectFallback(firebaseConfig, options) {
+            // Last resort: signInWithRedirect — opens system browser.
+            // User will need to return to the app manually after auth.
+            PageLoader.show('Redirecting to Google...', 'overlay');
+            try {
+                const provider = new firebase.auth.GoogleAuthProvider();
+                if (options.domain) {
+                    provider.setCustomParameters({ hd: options.domain, prompt: 'select_account' });
+                }
+                sessionStorage.setItem('pendingGoogleLogin', 'true');
+                sessionStorage.setItem('loginAuthUrl', options.authUrl || '/core/firebase-login/');
+                await new Promise(r => setTimeout(r, 400));
+                await firebase.auth().signInWithRedirect(provider);
+                return { success: true, method: 'firebase-redirect' };
+            } catch (err) {
+                PageLoader.hide();
                 throw err;
             }
         },
@@ -1496,7 +1483,7 @@
                 // Submit token to backend
                 const form = document.createElement('form');
                 form.method = 'POST';
-                form.action = '/auth/firebase-login/';
+                form.action = '/core/firebase-login/';
                 const tokenInput = document.createElement('input');
                 tokenInput.type = 'hidden';
                 tokenInput.name = 'id_token';
@@ -1561,9 +1548,11 @@
 
 })();
 
-// Add animation keyframes
-const animStyle = document.createElement('style');
-animStyle.textContent = `
+// Add animation keyframes (guard against double-load)
+if (!document.getElementById('mobileUtilsAnimStyles')) {
+    var animStyle = document.createElement('style');
+    animStyle.id = 'mobileUtilsAnimStyles';
+    animStyle.textContent = `
     @keyframes slideUp {
         from { transform: translate(-50%, 20px); opacity: 0; }
         to { transform: translate(-50%, 0); opacity: 1; }
@@ -1577,7 +1566,8 @@ animStyle.textContent = `
         50% { transform: scale(1.1); }
     }
 `;
-document.head.appendChild(animStyle);
+    document.head.appendChild(animStyle);
+}
 
 // Global forceMobileView - defined outside IIFE for immediate availability
 window.forceMobileView = window.forceMobileView || function() {

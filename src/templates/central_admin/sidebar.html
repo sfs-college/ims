@@ -221,6 +221,14 @@
     </a>
     {% endif %}
 
+    {% if request.user.profile.is_central_admin or request.user.profile.is_sub_admin %}
+    <a class="navlink {% if request.resolver_match.url_name == 'sub_admin_book_venue' %}active{% endif %}"
+       href="{% url 'central_admin:sub_admin_book_venue' %}">
+      <span class="material-symbols-outlined">event_available</span>
+      <span class="menu-text">Book a Venue</span>
+    </a>
+    {% endif %}
+
   </div>
 </section>
 

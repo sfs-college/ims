@@ -1270,6 +1270,19 @@ class ApproveRoomBookingRequestView(LoginRequiredMixin, View):
             }
         ]
  
+        # ── Read requirements file for email attachment (if present) ────────────
+        _req_attachment = None
+        if req.requirements_doc and req.requirements_doc.name:
+            import mimetypes as _mt
+            _fname = req.requirements_doc.name.split('/')[-1]
+            _mime, _ = _mt.guess_type(_fname)
+            _mime = _mime or 'application/octet-stream'
+            try:
+                with req.requirements_doc.storage.open(req.requirements_doc.name, 'rb') as _f:
+                    _req_attachment = (_fname, _f.read(), _mime)
+            except Exception as _ae:
+                print(f"[ApproveBooking] Could not read requirements file for attachment: {_ae}", flush=True)
+
         # Email 1: Faculty — booking confirmed
         try:
             safe_send_mail(
@@ -1293,6 +1306,7 @@ class ApproveRoomBookingRequestView(LoginRequiredMixin, View):
                     sections=sections,
                     outro_html="Please keep this email for reference. The same booking details and requirements have been shared with the configured faculty recipients.",
                 ),
+                attachments=[_req_attachment] if _req_attachment else None,
             )
         except Exception as _e:
             print(f"[ApproveBooking] Faculty email failed: {_e}", flush=True)
@@ -1323,6 +1337,7 @@ class ApproveRoomBookingRequestView(LoginRequiredMixin, View):
                     sections=sections,
                     outro_html="This notification was automatically issued to the configured faculty recipients after final central approval.",
                 ),
+                attachments=[_req_attachment] if _req_attachment else None,
             )
         except Exception as _e:
             print(f"[ApproveBooking] Notification list email failed: {_e}", flush=True)
@@ -1464,21 +1479,79 @@ class RejectCancellationRequestView(LoginRequiredMixin, View):
         return redirect(f"{reverse('central_admin:approval_requests')}?type={next_type}")
 
 
+def download_booking_request_doc(request, pk):
+    """Download the requirements file attached to a RoomBookingRequest."""
+    import mimetypes
+    if not request.user.is_authenticated:
+        return HttpResponse("Unauthorized", status=403)
+    profile = getattr(request.user, 'profile', None)
+    if not profile or not (profile.is_central_admin or profile.is_sub_admin):
+        return HttpResponse("Unauthorized", status=403)
+    req = get_object_or_404(RoomBookingRequest, pk=pk)
+    if not req.requirements_doc or not req.requirements_doc.name:
+        return HttpResponse("No document attached.", status=404)
+    doc_field = req.requirements_doc
+    file_name = doc_field.name.split('/')[-1]
+    content_type, _ = mimetypes.guess_type(file_name)
+    if not content_type:
+        content_type = 'application/octet-stream'
+    try:
+        with doc_field.storage.open(doc_field.name, 'rb') as f:
+            file_data = f.read()
+        response = HttpResponse(file_data, content_type=content_type)
+        response['Content-Disposition'] = f'attachment; filename="{file_name}"'
+        return response
+    except Exception:
+        try:
+            url = doc_field.url
+            if url:
+                from django.http import HttpResponseRedirect
+                return HttpResponseRedirect(url)
+        except Exception:
+            pass
+    return HttpResponse("Failed to retrieve file.", status=500)
+
+
 def get_booking_request_doc_text(request, pk):
-    """AJAX GET — extract doc blocks from RoomBookingRequest for inline preview."""
+    """AJAX GET — return doc info from RoomBookingRequest for inline preview.
+    For images/PDFs: returns type + inline URL so the frontend can display them.
+    For legacy docs: returns parsed blocks.
+    """
     if not request.user.is_authenticated:
         return JsonResponse({'error': 'Unauthorized'}, status=403)
     profile = getattr(request.user, 'profile', None)
     if not profile or not (profile.is_central_admin or profile.is_sub_admin):
         return JsonResponse({'error': 'Unauthorized'}, status=403)
- 
+
     req = get_object_or_404(RoomBookingRequest, pk=pk)
-    if not req.requirements_doc:
+    if not req.requirements_doc or not req.requirements_doc.name:
         return JsonResponse({'error': 'No document attached to this request.'}, status=404)
- 
+
+    doc_name = req.requirements_doc.name.split('/')[-1]
+    ext = doc_name.rsplit('.', 1)[-1].lower() if '.' in doc_name else ''
+
+    if ext in ('png', 'jpg', 'jpeg', 'heic', 'heif', 'webp', 'gif', 'bmp', 'tiff', 'tif'):
+        doc_type = 'image'
+    elif ext == 'pdf':
+        doc_type = 'pdf'
+    else:
+        doc_type = 'other'
+
+    if doc_type in ('image', 'pdf'):
+        from django.urls import reverse as _reverse
+        inline_url   = _reverse('central_admin:serve_booking_request_doc_inline', args=[pk])
+        download_url = _reverse('central_admin:download_booking_request_doc',     args=[pk])
+        return JsonResponse({
+            'doc_name':     doc_name,
+            'type':         doc_type,
+            'url':          inline_url,
+            'download_url': download_url,
+        })
+
+    # Legacy: parse as document
     try:
         blocks = extract_requirement_blocks_from_field(req.requirements_doc)
-        return JsonResponse({'blocks': blocks})
+        return JsonResponse({'doc_name': doc_name, 'type': 'blocks', 'blocks': blocks})
     except Exception as exc:
         return JsonResponse({'error': f'Failed to extract document: {str(exc)}'}, status=500)
 
@@ -2160,3 +2233,289 @@ def reassign_item(request, reverted_item_id):
         
     except Exception as e:
         return JsonResponse({'error': str(e)}, status=500)
+
+
+# ═══════════════════════════════════════════════════════════════
+# SUB-ADMIN / CENTRAL-ADMIN DIRECT VENUE BOOKING
+# ═══════════════════════════════════════════════════════════════
+
+class SubAdminBookVenueView(LoginRequiredMixin, View):
+    """
+    Session-authenticated direct venue booking for sub-admins and central admins.
+
+    Rules:
+    - Must be logged in as sub-admin or central admin (uses existing session — no re-auth).
+    - Creates RoomBooking directly (confirmed, no approval workflow).
+    - No 48-hour advance restriction; same-day and next-day bookings allowed.
+    - Past bookings (start_datetime < now) are rejected.
+    - On success, emails:
+        1. Faculty — booking confirmed
+        2. All OTHER sub-admins and central admins (excluding the booking admin)
+        3. BOOKING_NOTIFICATION_EMAILS (the 5 configured recipients)
+    """
+
+    template_name = 'central_admin/sub_admin_book_venue.html'
+
+    def _get_refreshment_options(self):
+        return [
+            {'value': 'water_bottle', 'label': 'Water Bottle'},
+            {'value': 'juice',        'label': 'Juice'},
+            {'value': 'sapling',      'label': 'Sapling'},
+            {'value': 'tissue',       'label': 'Tissue'},
+            {'value': 'refreshments', 'label': 'Refreshments'},
+            {'value': 'mic',          'label': 'Mic'},
+            {'value': 'tray',         'label': 'Tray'},
+        ]
+
+    def _check_access(self, request):
+        profile = getattr(request.user, 'profile', None)
+        if not profile or not (profile.is_central_admin or profile.is_sub_admin):
+            return None
+        return profile
+
+    def get(self, request, *args, **kwargs):
+        profile = self._check_access(request)
+        if not profile:
+            messages.error(request, "Access denied. Only sub-admins and central admins can book venues.")
+            return redirect('central_admin:dashboard')
+
+        from core.forms import AdminRoomBookingForm
+        form = AdminRoomBookingForm()
+        return render(request, self.template_name, {
+            'form': form,
+            'refreshment_options': self._get_refreshment_options(),
+        })
+
+    def post(self, request, *args, **kwargs):
+        profile = self._check_access(request)
+        if not profile:
+            messages.error(request, "Access denied.")
+            return redirect('central_admin:dashboard')
+
+        from core.forms import AdminRoomBookingForm
+        from inventory.booking_utils import format_room_list
+        from inventory.email import safe_send_mail, build_email_shell
+        import uuid as _uuid
+        import os as _os
+
+        form = AdminRoomBookingForm(request.POST, request.FILES)
+
+        if not form.is_valid():
+            messages.error(request, "Please correct the errors below.")
+            return render(request, self.template_name, {
+                'form': form,
+                'refreshment_options': self._get_refreshment_options(),
+            })
+
+        start_dt = form.cleaned_data.get('start_datetime')
+        end_dt   = form.cleaned_data.get('end_datetime')
+        now      = timezone.now()
+
+        # Block past bookings
+        if start_dt and start_dt < now:
+            messages.error(request, "Past bookings are not accepted. Please select a future date and time.")
+            return render(request, self.template_name, {
+                'form': form,
+                'refreshment_options': self._get_refreshment_options(),
+            })
+
+        selected_rooms = form.cleaned_data.get('selected_rooms', [])
+        # Parse room_ids from POST to get all selected rooms for M2M
+        room_ids_raw = request.POST.get('room_ids', '').strip()
+        if not selected_rooms and room_ids_raw:
+            parsed_ids = [int(v) for v in room_ids_raw.split(',') if v.strip().isdigit()]
+            if parsed_ids:
+                from inventory.models import Room as _Room
+                selected_rooms = list(_Room.objects.filter(id__in=parsed_ids))
+
+        # Build refreshments text
+        refreshment_items = request.POST.getlist('refreshments[]')
+        others_text  = request.POST.get('refreshments_others', '').strip()
+        others_text2 = request.POST.get('refreshments_others_2', '').strip()
+        requirements_text = None
+        if refreshment_items:
+            items_list = [i for i in refreshment_items if i != 'others']
+            if 'others' in refreshment_items:
+                if others_text:
+                    items_list.append(f"Others: {others_text}")
+                if others_text2:
+                    items_list.append(f"Others: {others_text2}")
+            if items_list:
+                requirements_text = "Refreshments requested: " + ", ".join(items_list)
+
+        # Unique filename for requirements doc
+        req_doc = form.cleaned_data.get('requirements_doc')
+        if req_doc:
+            orig_name = _os.path.basename(req_doc.name)
+            name_root, ext = _os.path.splitext(orig_name)
+            unique_name = f"{name_root}_{_uuid.uuid4().hex[:8]}{ext}"
+            req_doc.name = _os.path.join(_os.path.dirname(req_doc.name), unique_name)
+
+        admin_name  = f"{profile.first_name} {profile.last_name}".strip() or request.user.email
+        admin_email = request.user.email
+
+        # Create confirmed RoomBooking directly
+        booking = RoomBooking(
+            room              = form.cleaned_data['room'] if form.cleaned_data.get('room') else (selected_rooms[0] if selected_rooms else None),
+            department        = form.cleaned_data.get('department'),
+            faculty_name      = form.cleaned_data['faculty_name'],
+            faculty_email     = form.cleaned_data['faculty_email'],
+            start_datetime    = start_dt,
+            end_datetime      = end_dt,
+            purpose           = form.cleaned_data.get('purpose'),
+            requirements_doc  = req_doc,
+            requirements_text = requirements_text,
+            approved_by_name  = admin_name,
+            approved_note     = f"Directly booked by {admin_name} (Admin)",
+        )
+        booking.save()
+        if selected_rooms:
+            booking.rooms.set(selected_rooms)
+
+        room_name     = format_room_list(booking)
+        faculty_name  = booking.faculty_name
+        faculty_email = booking.faculty_email
+        sl = timezone.localtime(start_dt)
+        el = timezone.localtime(end_dt)
+
+        # ── Build plain-text details ──────────────────────────────────────
+        from inventory.booking_utils import format_booking_details
+        details = format_booking_details(
+            selected_rooms or booking,
+            faculty_name,
+            start_dt,
+            end_dt,
+            booking.purpose,
+            booking.department,
+        )
+
+        # ── Build HTML email sections ─────────────────────────────────────
+        booking_sections = [
+            {
+                "title": "Booking Details",
+                "rows": [
+                    {"label": "Room(s)",     "value": room_name},
+                    {"label": "Faculty",     "value": faculty_name},
+                    {"label": "Email",       "value": faculty_email},
+                    {"label": "Date",        "value": sl.strftime('%A, %d %B %Y')},
+                    {"label": "Time",        "value": f"{sl.strftime('%I:%M %p')} to {el.strftime('%I:%M %p')}"},
+                    {"label": "Department",  "value": str(booking.department) if booking.department else '—'},
+                    {"label": "Purpose",     "value": booking.purpose or '—'},
+                ],
+            },
+            {
+                "title": "Booking Authority",
+                "rows": [
+                    {"label": "Booked By",   "value": admin_name},
+                    {"label": "Admin Email", "value": admin_email},
+                ],
+            },
+        ]
+
+        # ── Read requirements file for attachment ─────────────────────────
+        _req_attachment = None
+        if booking.requirements_doc and booking.requirements_doc.name:
+            import mimetypes as _mt
+            _fname = booking.requirements_doc.name.split('/')[-1]
+            _mime, _ = _mt.guess_type(_fname)
+            _mime = _mime or 'application/octet-stream'
+            try:
+                with booking.requirements_doc.storage.open(booking.requirements_doc.name, 'rb') as _f:
+                    _req_attachment = (_fname, _f.read(), _mime)
+            except Exception as _ae:
+                print(f"[SubAdminBookVenue] Could not read requirements file: {_ae}", flush=True)
+
+        # ── Email 1: Faculty — booking confirmed ──────────────────────────
+        try:
+            safe_send_mail(
+                subject=f"[Blixtro] Your Room Booking is Confirmed — {room_name}",
+                message=(
+                    f"Dear {faculty_name},\n\n"
+                    f"Your room booking has been confirmed by {admin_name} (Admin).\n"
+                    f"{details}\n\n"
+                    "Your booking is confirmed. Please contact the admin team for any assistance.\n\n"
+                    "Best regards,\nBlixtro — SFS College Inventory & Booking System"
+                ),
+                recipient_list=[faculty_email],
+                html_message=build_email_shell(
+                    title="Booking Confirmed",
+                    intro_html=(
+                        f"Dear <strong>{faculty_name}</strong>, your room booking has been confirmed "
+                        f"by <strong>{admin_name}</strong> (Admin)."
+                    ),
+                    sections=booking_sections,
+                    outro_html="Please keep this email for reference.",
+                ),
+                attachments=[_req_attachment] if _req_attachment else None,
+            )
+        except Exception as _e:
+            print(f"[SubAdminBookVenue] Faculty email failed: {_e}", flush=True)
+
+        # ── Email 2: All other sub-admins and central admins ──────────────
+        all_admin_emails = list(
+            UserProfile.objects.filter(
+                Q(is_central_admin=True) | Q(is_sub_admin=True)
+            ).values_list('user__email', flat=True)
+        )
+        # Exclude the booking admin themselves
+        notify_admins = [e for e in all_admin_emails if e.lower() != admin_email.lower()]
+        if notify_admins:
+            try:
+                safe_send_mail(
+                    subject=f"[Blixtro] Admin Booking — {room_name} | {sl.strftime('%d %b %Y')}",
+                    message=(
+                        f"{admin_name} has directly booked a room for {faculty_name}.\n\n"
+                        f"{details}\n\n"
+                        "This booking was made directly by an admin and is already confirmed.\n\n"
+                        "Blixtro — SFS College Inventory & Booking System"
+                    ),
+                    recipient_list=notify_admins,
+                    html_message=build_email_shell(
+                        title="Admin Room Booking Notification",
+                        intro_html=(
+                            f"<strong>{admin_name}</strong> has directly booked a room for "
+                            f"<strong>{faculty_name}</strong>. This booking is already confirmed."
+                        ),
+                        sections=booking_sections,
+                        outro_html="No action required — this is an informational notification.",
+                    ),
+                    attachments=[_req_attachment] if _req_attachment else None,
+                )
+            except Exception as _e:
+                print(f"[SubAdminBookVenue] Admin notification email failed: {_e}", flush=True)
+
+        # ── Email 3: BOOKING_NOTIFICATION_EMAILS (the 5 configured recipients) ──
+        if BOOKING_NOTIFICATION_EMAILS:
+            try:
+                safe_send_mail(
+                    subject=(
+                        f"[Blixtro] Room Booking Notification — "
+                        f"{room_name} | {sl.strftime('%d %b %Y')}"
+                    ),
+                    message=(
+                        f"A room booking has been confirmed by {admin_name} (Admin).\n\n"
+                        f"{details}\n\n"
+                        "Please make the necessary arrangements as per the details above.\n\n"
+                        "Blixtro — SFS College Inventory & Booking System"
+                    ),
+                    recipient_list=BOOKING_NOTIFICATION_EMAILS,
+                    html_message=build_email_shell(
+                        title="Approved Booking Notification",
+                        intro_html=(
+                            f"A room booking has been confirmed by <strong>{admin_name}</strong>. "
+                            "Please review the complete booking details and make the necessary arrangements."
+                        ),
+                        sections=booking_sections,
+                        outro_html="This notification was automatically issued after the admin confirmed the booking.",
+                    ),
+                    attachments=[_req_attachment] if _req_attachment else None,
+                )
+            except Exception as _e:
+                print(f"[SubAdminBookVenue] Notification list email failed: {_e}", flush=True)
+
+        messages.success(
+            request,
+            f"Booking for {room_name} confirmed successfully. "
+            f"Faculty, all admins, and notification recipients have been emailed."
+        )
+        return redirect('central_admin:sub_admin_book_venue')

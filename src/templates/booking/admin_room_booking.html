@@ -7,7 +7,7 @@
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <title>Premium Venue Booking | Blixtro</title>
+    <title>Admin Venue Booking | Blixtro</title>
 
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css" rel="stylesheet">
@@ -22,11 +22,11 @@
         --accent: #10b981;
         --bg-gradient: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
         --glass-bg: rgba(255, 255, 255, 0.85);
-        --glass-border: rgba(255, 255, 255, 0.5);
         --sat: env(safe-area-inset-top, 0px);
         --sab: env(safe-area-inset-bottom, 0px);
         --sal: env(safe-area-inset-left, 0px);
         --sar: env(safe-area-inset-right, 0px);
+        --glass-border: rgba(255, 255, 255, 0.5);
     }
 
     body {
@@ -629,23 +629,23 @@
 <body>
 
 <!-- ════════════════════════════════════════════════
-     AUTH GATE — shown on page load, hidden after valid login
+     ADMIN AUTH GATE — uses Django login credentials
 ════════════════════════════════════════════════ -->
 <div id="authGateOverlay">
     <div class="auth-gate-modal">
-        <div class="ag-icon"><i class="bi bi-shield-lock-fill"></i></div>
-        <h3>Faculty Verification</h3>
-        <p class="ag-sub">Enter your college credentials to access the room booking system. Only authorised faculty may proceed.</p>
+        <div class="ag-icon"><i class="bi bi-shield-fill-check"></i></div>
+        <h3>Admin Booking Portal</h3>
+        <p class="ag-sub">Sign in with your Blixtro admin credentials to book a venue directly on behalf of faculty.</p>
 
         <div class="ag-field">
-            <label class="cm-label">College Email <span style="color:#ef4444;">*</span></label>
-            <input type="email" id="agEmail" class="cm-input" placeholder="you@sfscollege.in"
+            <label class="cm-label">Admin Email <span style="color:#ef4444;">*</span></label>
+            <input type="email" id="agEmail" class="cm-input" placeholder="admin@sfscollege.in"
                    oninput="document.getElementById('agAlert').style.display='none'">
         </div>
         <div class="ag-field">
-            <label class="cm-label">Booking Password <span style="color:#ef4444;">*</span></label>
+            <label class="cm-label">Admin Password <span style="color:#ef4444;">*</span></label>
             <div class="cm-input-wrap">
-                <input type="password" id="agPassword" class="cm-input" placeholder="Your booking password"
+                <input type="password" id="agPassword" class="cm-input" placeholder="Your Blixtro login password"
                        style="padding-right:44px;"
                        oninput="document.getElementById('agAlert').style.display='none'"
                        onkeydown="if(event.key==='Enter') agVerify()">
@@ -658,7 +658,7 @@
         <div class="ag-alert" id="agAlert"></div>
 
         <button class="cm-btn-primary" id="agVerifyBtn" onclick="agVerify()" style="margin-bottom:12px;">
-            <i class="bi bi-unlock-fill me-2"></i>Verify & Continue
+            <i class="bi bi-unlock-fill me-2"></i>Sign In & Continue
         </button>
         <div style="margin-top:12px;">
             <a href="{% url 'landing_page' %}" class="text-muted" style="font-size:0.85rem; text-decoration:none;">
@@ -667,15 +667,15 @@
         </div>
     </div>
 </div>
-<!-- ── /AUTH GATE ── -->
+<!-- ── /ADMIN AUTH GATE ── -->
 
 <div class="booking-container">
     <div class="glass-header">
         <a href="{% url 'landing_page' %}" class="btn btn-sm btn-outline-secondary mb-3 rounded-pill px-3">
             <i class="bi bi-arrow-left me-1"></i> Home
         </a>
-        <h2><i class="bi bi-calendar-check-fill me-2"></i> Premium Venue Reservation</h2>
-        <p class="text-muted">High-end space management for SFS College Faculty</p>
+        <h2><i class="bi bi-calendar-check-fill me-2"></i> Admin Venue Booking</h2>
+        <p class="text-muted">Direct booking portal for Sub-Admin &amp; Central Admin</p>
         <!-- Shown after auth -->
         <div id="authBadgeWrap" style="display:none; margin-top:12px;">
             <span class="auth-badge">
@@ -687,28 +687,15 @@
     </div>
 
     <div class="glass-card">
-        <!-- ── Cancellation Policy Keynote ── -->
-        <div style="background:#fef3c7;border:2px solid #f59e0b;border-radius:18px;padding:18px 22px;margin-bottom:32px;display:flex;gap:12px;align-items:flex-start;">
-            <div style="width:36px;height:36px;border-radius:10px;background:linear-gradient(135deg,#f59e0b,#d97706);display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:2px;">
-                <i class="bi bi-info-circle-fill" style="color:#fff;font-size:1rem;"></i>
-            </div>
-            <div>
-                <strong style="color:#92400e;font-size:0.88rem;display:block;margin-bottom:6px;letter-spacing:0.2px;">📌 Cancellation Policy — Please Read Before Booking</strong>
-                <ul style="margin:0;padding-left:16px;color:#78350f;font-size:0.82rem;line-height:1.85;">
-                    <li>Venue booking is allowed <strong>up to 48 hours before</strong> the event.</li>
-                    <li>You can <strong>cancel your request anytime</strong> before it is approved.</li>
-                    <li>Once the booking is <strong>approved and confirmed</strong>, cancellation is allowed only <strong>before 24 hours</strong> of the booking time.</li>
-                    <li>For <strong>one day prior emergency cancellations</strong> within this period, please <strong>contact the administrator directly</strong>.</li>
-                </ul>
-            </div>
-        </div>
-
-        <form method="post" id="bookingForm" enctype="multipart/form-data">
+        <form method="post" action="{% url 'core:admin_room_booking' %}" id="bookingForm" enctype="multipart/form-data">
             {% csrf_token %}
 
             <!-- Hidden fields auto-filled from auth gate -->
             <input type="hidden" id="hid_faculty_email" name="faculty_email" value="">
             <input type="hidden" id="hid_password" name="password" value="">
+            <!-- Admin credentials passed to backend for re-validation -->
+            <input type="hidden" id="hid_admin_email" name="admin_email" value="">
+            <input type="hidden" id="hid_admin_password" name="admin_password" value="">
 
             <div class="section-title mb-4">
                 <span class="badge bg-primary rounded-pill px-3 mb-2">Step 1</span>
@@ -725,11 +712,9 @@
                     {% if form.faculty_name.errors %}<div class="text-danger small mt-1">{{ form.faculty_name.errors }}</div>{% endif %}
                 </div>
                 <div class="col-md-6">
-                    <label class="form-label"><i class="bi bi-envelope-at-fill"></i> College Email</label>
-                    <div id="emailDisplayBox" style="padding:14px 18px;border:2px solid #e2e8f0;border-radius:14px;background:#f8fafc;color:#64748b;font-weight:600;font-size:0.95rem;">
-                        <i class="bi bi-envelope-check text-success me-2"></i><span id="emailDisplay">—</span>
-                    </div>
-                    <!-- Hidden so Django form validates it -->
+                    <label class="form-label"><i class="bi bi-envelope-at-fill"></i> Faculty College Email</label>
+                    {{ form.faculty_email }}
+                    {% if form.faculty_email.errors %}<div class="text-danger small mt-1">{{ form.faculty_email.errors }}</div>{% endif %}
                 </div>
             </div>
 
@@ -844,9 +829,9 @@
                     <div style="display:flex;gap:10px;align-items:flex-start;">
                         <i class="bi bi-info-circle-fill" style="color:#16a34a;font-size:1.1rem;flex-shrink:0;margin-top:2px;"></i>
                         <div>
-                            <strong style="color:#166534;font-size:0.85rem;display:block;margin-bottom:3px;">No Requirements</strong>
+                            <strong style="color:#166534;font-size:0.85rem;display:block;margin-bottom:3px;">No Requirements Document</strong>
                             <span style="color:#166534;font-size:0.82rem;line-height:1.6;">
-                                No requirements will be provided from the management side for this booking. The booking will proceed without any attached requirement file and will be marked as "No Requirements" in the admin panel.
+                                No requirements document will be provided from the management side for this booking. The booking will proceed without any attached requirement file.
                             </span>
                         </div>
                     </div>
@@ -859,54 +844,57 @@
                 <h4 class="fw-bold">Refreshments &amp; Supplies</h4>
             </div>
             <div class="mb-5">
-                <!-- Note -->
+                <!-- Mandatory highlighted note -->
                 <div style="background:#fef3c7;border:2px solid #f59e0b;border-radius:14px;padding:14px 18px;margin-bottom:18px;display:flex;gap:10px;align-items:flex-start;">
                     <i class="bi bi-exclamation-triangle-fill" style="color:#d97706;font-size:1.1rem;flex-shrink:0;margin-top:2px;"></i>
                     <div>
                         <strong style="color:#92400e;font-size:0.85rem;display:block;margin-bottom:4px;">⚠ Note — Subject to Administration Approval</strong>
                         <span style="color:#78350f;font-size:0.82rem;line-height:1.6;">
-                            Selected refreshments will be arranged <strong>only if validated and approved</strong> by the college administration. Each item max <strong>5 units</strong>.
+                            Selected refreshments and supplies will be arranged <strong>only if validated and approved</strong> by the college administration or management. Selecting an item does not guarantee its provision.
                         </span>
                     </div>
                 </div>
 
-                <!-- 3-column stepper grid -->
-                <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;" id="refreshmentsList">
-                    {% for item in refreshment_options %}
-                    <div style="display:flex;flex-direction:column;align-items:center;gap:8px;padding:14px 10px;background:#fff;border:2px solid #e2e8f0;border-radius:14px;transition:border-color 0.2s,background 0.2s;text-align:center;"
-                         id="rrow-{{ item.value }}" data-label="{{ item.label }}">
-                        <span style="font-weight:600;font-size:0.82rem;color:#1e293b;line-height:1.3;">{{ item.label }}</span>
-                        <div style="display:flex;align-items:center;gap:0;border:1.5px solid #e2e8f0;border-radius:9px;overflow:hidden;background:#f8fafc;">
-                            <button type="button" onclick="adjustQty('{{ item.value }}', -1)"
-                                    style="width:32px;height:32px;border:none;background:transparent;font-size:1rem;font-weight:700;color:#6366f1;cursor:pointer;display:flex;align-items:center;justify-content:center;"
-                                    onmouseover="this.style.background='#ede9fe'" onmouseout="this.style.background='transparent'">−</button>
-                            <span id="qty-display-{{ item.value }}" style="min-width:26px;text-align:center;font-weight:800;font-size:0.95rem;color:#1e293b;padding:0 2px;">0</span>
-                            <button type="button" onclick="adjustQty('{{ item.value }}', 1)"
-                                    style="width:32px;height:32px;border:none;background:transparent;font-size:1rem;font-weight:700;color:#6366f1;cursor:pointer;display:flex;align-items:center;justify-content:center;"
-                                    onmouseover="this.style.background='#ede9fe'" onmouseout="this.style.background='transparent'">+</button>
+                <div style="display:grid;grid-template-columns:1fr auto;gap:20px;align-items:start;">
+                    <!-- Checklist -->
+                    <div>
+                        <label class="form-label mb-3"><i class="bi bi-list-check me-1"></i> Select what you need</label>
+                        <div style="display:flex;flex-direction:column;gap:10px;" id="refreshmentsList">
+                            {% for item in refreshment_options %}
+                            <label style="display:flex;align-items:center;gap:12px;padding:12px 16px;background:#fff;border:2px solid #e2e8f0;border-radius:12px;cursor:pointer;transition:border-color 0.2s;" class="refreshment-row">
+                                <input type="checkbox" name="refreshments[]" value="{{ item.value }}"
+                                       style="width:18px;height:18px;accent-color:#6366f1;cursor:pointer;flex-shrink:0;"
+                                       onchange="updateRefreshmentCount(this)">
+                                <span style="font-weight:600;font-size:0.92rem;color:#1e293b;">{{ item.label }}</span>
+                            </label>
+                            {% endfor %}
+                            <!-- Others row -->
+                            <label style="display:flex;align-items:center;gap:12px;padding:12px 16px;background:#fff;border:2px solid #e2e8f0;border-radius:12px;cursor:pointer;transition:border-color 0.2s;" class="refreshment-row" id="othersRow">
+                                <input type="checkbox" name="refreshments[]" value="others"
+                                       style="width:18px;height:18px;accent-color:#6366f1;cursor:pointer;flex-shrink:0;"
+                                       onchange="toggleOthersBox(this);updateRefreshmentCount(this)">
+                                <span style="font-weight:600;font-size:0.92rem;color:#1e293b;">Others</span>
+                            </label>
+                            <div id="othersTextBox" class="d-none" style="padding:0 4px;">
+                                <input type="text" name="refreshments_others" id="refreshmentsOthersInput"
+                                       class="cm-input" placeholder="Specify item 1…"
+                                       style="border-radius:12px;margin-bottom:8px;">
+                                <input type="text" name="refreshments_others_2" id="refreshmentsOthersInput2"
+                                       class="cm-input" placeholder="Specify item 2 (optional)…"
+                                       style="border-radius:12px;">
+                                <small class="text-muted d-block mt-1" style="font-size:0.78rem;">
+                                    <i class="bi bi-info-circle me-1"></i>Maximum 2 custom items allowed. For more, please attach an approved requirements document.
+                                </small>
+                            </div>
                         </div>
-                        <input type="hidden" name="refreshments[]" id="qty-input-{{ item.value }}" value="" disabled>
                     </div>
-                    {% endfor %}
-                </div>
 
-                <!-- Others — single text box -->
-                <div style="margin-top:12px;">
-                    <label style="display:flex;align-items:center;gap:10px;padding:12px 16px;background:#fff;border:2px solid #e2e8f0;border-radius:12px;cursor:pointer;transition:border-color 0.2s;" id="othersRow">
-                        <input type="checkbox" name="refreshments[]" value="others"
-                               style="width:18px;height:18px;accent-color:#6366f1;cursor:pointer;flex-shrink:0;"
-                               onchange="toggleOthersBox(this)">
-                        <span style="font-weight:600;font-size:0.92rem;color:#1e293b;">Others</span>
-                        <span style="font-size:0.75rem;color:#94a3b8;margin-left:auto;">Specify below when checked</span>
-                    </label>
-                    <div id="othersTextBox" class="d-none" style="padding:4px 0 0;">
-                        <input type="text" name="refreshments_others" id="refreshmentsOthersInput"
-                               class="cm-input" placeholder="Describe your requirement (max 100 characters)…"
-                               maxlength="100"
-                               style="border-radius:12px;">
-                        <small class="text-muted d-block mt-1" style="font-size:0.75rem;">
-                            <i class="bi bi-info-circle me-1"></i>Keep it concise — max 100 characters. For detailed requirements, attach a document above.
-                        </small>
+                    <!-- Count badge -->
+                    <div style="text-align:center;padding-top:36px;">
+                        <div id="refreshmentCountBadge" style="width:64px;height:64px;border-radius:50%;background:linear-gradient(135deg,#6366f1,#9333ea);display:flex;flex-direction:column;align-items:center;justify-content:center;box-shadow:0 4px 12px rgba(99,102,241,0.3);">
+                            <span id="refreshmentCount" style="font-size:1.5rem;font-weight:800;color:#fff;line-height:1;">0</span>
+                            <span style="font-size:0.6rem;font-weight:700;color:rgba(255,255,255,0.8);letter-spacing:0.5px;text-transform:uppercase;">selected</span>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -924,15 +912,7 @@
     </div>
 </div>
 
-<!-- ── Floating action buttons ── -->
-<div style="position:fixed;bottom:32px;right:32px;z-index:900;display:flex;flex-direction:column;gap:12px;align-items:flex-end;">
-    <button class="btn-track-float" onclick="openTrackModal()">
-        <i class="bi bi-search"></i> Track My Requests
-    </button>
-    <button class="btn-cancel-float" onclick="openCancelModal()">
-        <i class="bi bi-calendar-x-fill"></i> Cancel a Booking
-    </button>
-</div>
+<!-- ── No floating cancel/track buttons for admin booking portal ── -->
 
 
 <!-- ════════════════════
@@ -1076,11 +1056,11 @@
 
         <div class="cl-note-box">
             <div class="cl-note-title">
-                <i class="bi bi-info-circle-fill"></i> Cancellation Policy
+                <i class="bi bi-info-circle-fill"></i> Note
             </div>
             <p>
-                Cancellations are allowed only <strong>before 24 hours</strong> of the booking time. Once inside this window, the cancel option is locked to protect confirmed reservations.<br><br>
-                For <strong>one day prior emergency cancellations</strong>, please <strong>contact the administrator directly</strong>. The admin has the authority to override this restriction.
+                Cancellations must be submitted <strong>at least 24 hours before</strong> the booking date. Once inside this window, the cancel option is locked to protect confirmed reservations.<br><br>
+                <strong>In case of an emergency</strong>, please contact the admin directly to request a manual cancellation. The admin has the authority to override this restriction.
             </p>
         </div>
 
@@ -1134,34 +1114,34 @@ function agVerify() {
 
     alert.style.display = 'none';
 
-    if (!email) { agShowAlert('Please enter your college email address.'); return; }
+    if (!email) { agShowAlert('Please enter your admin email address.'); return; }
     if (!email.endsWith('@sfscollege.in')) { agShowAlert('Only @sfscollege.in email addresses are accepted.'); return; }
-    if (!password) { agShowAlert('Please enter your booking password.'); return; }
+    if (!password) { agShowAlert('Please enter your admin password.'); return; }
 
     btn.disabled = true;
     btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2" style="width:14px;height:14px;border-width:2px;"></span>Verifying…';
 
-    const url = `{% url 'core:get_bookings_by_email' %}?email=${encodeURIComponent(email)}&password=${encodeURIComponent(password)}`;
+    const url = `{% url 'core:verify_admin_booking_credentials' %}?email=${encodeURIComponent(email)}&password=${encodeURIComponent(password)}`;
     fetch(url)
         .then(res => res.json())
         .then(data => {
             if (data.error) {
-                agShowAlert(data.error || 'Invalid credentials. You are not authorised to book rooms.');
+                agShowAlert(data.error || 'Invalid credentials. Only sub-admins and central admins can access this portal.');
                 return;
             }
-            // Success — store in session state
+            // Success — store admin credentials in session state
             sessionEmail    = email;
             sessionPassword = password;
 
-            // Fill hidden form fields
-            document.getElementById('hid_faculty_email').value = email;
-            document.getElementById('hid_password').value      = password;
+            // Store admin credentials in hidden form fields for backend re-validation
+            document.getElementById('hid_admin_email').value    = email;
+            document.getElementById('hid_admin_password').value = password;
 
-            // Show email in form
-            document.getElementById('emailDisplay').textContent = email;
+            // Faculty email field stays empty until filled in the form
+            document.getElementById('emailDisplay').textContent = '— (enter faculty email below)';
 
             // Show auth badge in header
-            document.getElementById('authBadgeEmail').textContent  = email;
+            document.getElementById('authBadgeEmail').textContent  = `${data.admin_name} (${data.role})`;
             document.getElementById('authBadgeWrap').style.display = 'block';
 
             // Hide gate
@@ -1170,7 +1150,7 @@ function agVerify() {
         .catch(() => agShowAlert('Network error. Please check your connection and try again.'))
         .finally(() => {
             btn.disabled = false;
-            btn.innerHTML = '<i class="bi bi-unlock-fill me-2"></i>Verify & Continue';
+            btn.innerHTML = '<i class="bi bi-unlock-fill me-2"></i>Sign In & Continue';
         });
 }
 
@@ -1186,21 +1166,17 @@ function agShowAlert(msg) {
 // ═══════════════════════════════════════════════════
 // ── Set minimum selectable date to tomorrow across all date inputs ──────────
 document.addEventListener('DOMContentLoaded', function() {
-    // Minimum selectable date = day after tomorrow (today + 2 days)
-    var minDate = new Date();
-    minDate.setDate(minDate.getDate() + 2);
+    // Admin booking: minimum date is TODAY (same-day and next-day allowed)
+    var today = new Date();
+    var yyyy = today.getFullYear();
+    var mm   = String(today.getMonth() + 1).padStart(2, '0');
+    var dd   = String(today.getDate()).padStart(2, '0');
+    var minDateStr     = yyyy + '-' + mm + '-' + dd;
+    var minDatetimeStr = minDateStr + 'T00:00';
 
-    var yyyy = minDate.getFullYear();
-    var mm   = String(minDate.getMonth() + 1).padStart(2, '0');
-    var dd   = String(minDate.getDate()).padStart(2, '0');
-    var minDateStr      = yyyy + '-' + mm + '-' + dd;       // YYYY-MM-DD
-    var minDatetimeStr  = minDateStr + 'T00:00';             // YYYY-MM-DDTHH:MM
-
-    // Whole-day picker
     var wholeDayInput = document.getElementById('wholeDayDate');
     if (wholeDayInput) wholeDayInput.min = minDateStr;
 
-    // Custom datetime-local pickers
     var startInput = document.getElementById('id_start_datetime');
     if (startInput) startInput.min = minDatetimeStr;
 
@@ -1330,39 +1306,19 @@ function switchRequirement(mode) {
     }
 }
 
-function adjustQty(value, delta) {
-    var displayEl = document.getElementById('qty-display-' + value);
-    var inputEl   = document.getElementById('qty-input-' + value);
-    var rowEl     = document.getElementById('rrow-' + value);
-    var label     = rowEl ? (rowEl.dataset.label || value) : value;
-    var current   = parseInt(displayEl.textContent) || 0;
-    var next      = current + delta;
-    if (next < 0) next = 0;
-    if (next > 5) {
-        showValidationPopup('Maximum 5 units allowed per item.');
-        return;
-    }
-    displayEl.textContent = next;
-    if (next > 0) {
-        inputEl.value    = label + ' - ' + next;
-        inputEl.disabled = false;
-        rowEl.style.borderColor = '#6366f1';
-        rowEl.style.background  = '#f5f3ff';
-    } else {
-        inputEl.value    = '';
-        inputEl.disabled = true;
-        rowEl.style.borderColor = '#e2e8f0';
-        rowEl.style.background  = '#fff';
-    }
-}
-
 function updateRefreshmentCount(checkbox) {
-    // Only used for the Others checkbox now
+    // Highlight the row border when checked
     const row = checkbox.closest('.refreshment-row');
     if (row) {
         row.style.borderColor = checkbox.checked ? '#6366f1' : '#e2e8f0';
         row.style.background  = checkbox.checked ? '#f5f3ff' : '#fff';
     }
+    const total = document.querySelectorAll('#refreshmentsList input[type="checkbox"]:checked').length;
+    document.getElementById('refreshmentCount').textContent = total;
+    // Pulse animation on badge
+    const badge = document.getElementById('refreshmentCountBadge');
+    badge.style.transform = 'scale(1.15)';
+    setTimeout(() => { badge.style.transform = 'scale(1)'; }, 180);
 }
 
 function toggleOthersBox(checkbox) {
@@ -1373,6 +1329,7 @@ function toggleOthersBox(checkbox) {
     } else {
         box.classList.add('d-none');
         document.getElementById('refreshmentsOthersInput').value = '';
+        document.getElementById('refreshmentsOthersInput2').value = '';
     }
 }
 
@@ -1411,11 +1368,11 @@ document.getElementById('bookingForm').addEventListener('submit', function(e) {
     const errors = [];
 
     if (!name)     errors.push('Faculty Full Name is required.');
-    if (!email)    errors.push('Please verify your credentials first (reload to re-authenticate).');
+    if (!email)    errors.push('Please enter the faculty email in the form.');
     if (!category) errors.push('Please select a Room Category.');
     if (!start || !end) errors.push('Please select a valid booking date and time.');
 
-    // Date order validation + same-day / previous-day block
+    // Date order validation — only block past dates for admin
     if (start && end) {
         const startDt = new Date(start);
         const endDt   = new Date(end);
@@ -1425,12 +1382,6 @@ document.getElementById('bookingForm').addEventListener('submit', function(e) {
         const now = new Date();
         if (startDt < now) {
             errors.push('⚠ The start date/time cannot be in the past.');
-        }
-        // Block today, tomorrow, and anything before (min booking = today + 2 days)
-        const todayMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-        const minBookingMidnight = new Date(todayMidnight.getTime() + 2 * 24 * 60 * 60 * 1000);
-        if (startDt < minBookingMidnight) {
-            errors.push('⚠ Bookings must be made <strong>at least 2 days in advance</strong>. You cannot book for today or tomorrow.');
         }
     }
 
@@ -1452,11 +1403,8 @@ document.getElementById('bookingForm').addEventListener('submit', function(e) {
 
     // Validate "others" text if others checkbox is checked
     const othersChecked = document.querySelector('#refreshmentsList input[value="others"]:checked');
-    if (othersChecked) {
-        const val1 = document.getElementById('refreshmentsOthersInput').value.trim();
-        if (!val1) {
-            errors.push('Please specify at least one item under "Others" in the Refreshments section.');
-        }
+    if (othersChecked && !document.getElementById('refreshmentsOthersInput').value.trim()) {
+        errors.push('Please specify what you need under "Others" in the Refreshments section.');
     }
 
     if (errors.length > 0) {

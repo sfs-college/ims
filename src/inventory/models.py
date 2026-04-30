@@ -751,6 +751,12 @@ class StockRequest(models.Model):
 
 
 class RoomBooking(models.Model):
+    STATUS_CHOICES = [
+        ('active', 'Active'),
+        ('completed', 'Completed'),
+        ('cancelled', 'Cancelled'),
+    ]
+    
     room = models.ForeignKey(Room, on_delete=models.CASCADE)
     rooms = models.ManyToManyField(Room, blank=True, related_name='multi_room_bookings')
     department = models.ForeignKey(Department, null=True, blank=True, on_delete=models.SET_NULL)
@@ -761,12 +767,15 @@ class RoomBooking(models.Model):
     created_on = models.DateTimeField(auto_now_add=True)
     purpose = models.TextField(null=True, blank=True)
     reminder_sent = models.BooleanField(default=False)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='active')
+    cancelled_by = models.ForeignKey('core.UserProfile', null=True, blank=True, on_delete=models.SET_NULL, related_name='cancelled_bookings')
+    cancelled_on = models.DateTimeField(null=True, blank=True)
     requirements_doc = models.FileField(
         upload_to='room_bookings/requirements/',
         null=True, 
         blank=True,
-        validators=[FileExtensionValidator(allowed_extensions=['doc', 'docx'])],
-        help_text="Upload a Word document or leave empty if Not Applicable."
+        validators=[FileExtensionValidator(allowed_extensions=['pdf', 'png', 'jpg', 'jpeg', 'heic', 'heif', 'webp', 'gif', 'bmp', 'tiff', 'tif'])],
+        help_text="Upload a PDF or image file, or leave empty if Not Applicable."
     )
     # Inline text requirements (no doc needed)
     requirements_text = models.TextField(
@@ -934,7 +943,7 @@ class RoomBookingRequest(models.Model):
                         upload_to='room_booking_requests/requirements/',
                         null=True, blank=True,
                         validators=[FileExtensionValidator(
-                            allowed_extensions=['doc', 'docx', 'pdf']
+                            allowed_extensions=['pdf', 'png', 'jpg', 'jpeg', 'heic', 'heif', 'webp', 'gif', 'bmp', 'tiff', 'tif']
                         )],
                       )
     # NEW: plain-text requirements typed inline by faculty

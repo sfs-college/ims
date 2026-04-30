@@ -1,0 +1,757 @@
+﻿{% extends 'sidebar_base.html' %}
+{% load static %}
+
+{% block title %} | Book a Venue{% endblock title %}
+
+{% block navbar %}{% include "central_admin/navbar.html" %}{% endblock navbar %}
+{% block sidebar %}{% include "central_admin/sidebar.html" %}{% endblock sidebar %}
+
+{% block style %}
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
+<style>
+/* ── Capacitor / mobile safe-area support ── */
+:root {
+  --sat: env(safe-area-inset-top, 0px);
+  --sab: env(safe-area-inset-bottom, 0px);
+  --sal: env(safe-area-inset-left, 0px);
+  --sar: env(safe-area-inset-right, 0px);
+  --primary: #6366f1;
+  --primary-dark: #4f46e5;
+  --accent: #10b981;
+  --surface: #ffffff;
+  --border: #e8e8f0;
+  --text: #1a1a2e;
+  --text-muted: #64748b;
+  --radius: 14px;
+  --tap-min: 48px; /* minimum tap target for Capacitor */
+}
+
+body { background: #f4f4fb; }
+
+/* ── Page header ── */
+.bv-header {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin: 24px 0 20px;
+  flex-wrap: wrap;
+}
+.bv-header-icon {
+  width: 44px; height: 44px;
+  background: linear-gradient(135deg, var(--primary), #9333ea);
+  border-radius: 12px;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+.bv-header-icon i { color: #fff; font-size: 1.15rem; }
+.bv-header h1 { font-size: 1.25rem; font-weight: 700; color: var(--text); margin: 0; }
+.bv-header p  { font-size: 0.78rem; color: var(--text-muted); margin: 0; }
+
+/* ── Admin identity banner ── */
+.admin-banner {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: #f0fdf4;
+  border: 1.5px solid #bbf7d0;
+  border-radius: var(--radius);
+  padding: 14px 16px;
+  margin-bottom: 20px;
+}
+.admin-banner .ab-icon {
+  width: 40px; height: 40px;
+  background: linear-gradient(135deg, #10b981, #059669);
+  border-radius: 10px;
+  display: flex; align-items: center; justify-content: center;
+  color: #fff; font-size: 1rem; flex-shrink: 0;
+}
+.admin-banner strong { font-size: 0.88rem; color: #166534; display: block; }
+.admin-banner span   { font-size: 0.78rem; color: #4ade80; }
+
+/* ── Alert messages ── */
+.bv-alert {
+  border-radius: var(--radius);
+  padding: 13px 16px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  margin-bottom: 16px;
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+.bv-alert.error   { background: #fef2f2; border: 1px solid #fecaca; color: #dc2626; }
+.bv-alert.success { background: #f0fdf4; border: 1px solid #bbf7d0; color: #166534; }
+
+/* ── Cards ── */
+.bv-card {
+  background: var(--surface);
+  border: 1.5px solid var(--border);
+  border-radius: 18px;
+  padding: 24px;
+  margin-bottom: 16px;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.04);
+}
+
+/* ── Step title ── */
+.step-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 18px;
+}
+.step-badge {
+  width: 28px; height: 28px;
+  background: linear-gradient(135deg, var(--primary), #9333ea);
+  color: #fff;
+  border-radius: 8px;
+  font-size: 0.75rem;
+  font-weight: 800;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+.step-title h5 { font-size: 0.95rem; font-weight: 700; color: var(--text); margin: 0; }
+
+/* ── Form labels ── */
+.bv-label {
+  font-weight: 600;
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  margin-bottom: 7px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* ── Inputs — all touch-friendly ── */
+.bv-input,
+input[type="text"].bv-input,
+input[type="email"].bv-input,
+input[type="date"].bv-input,
+input[type="datetime-local"].bv-input,
+select.bv-input,
+textarea.bv-input {
+  display: block;
+  width: 100%;
+  min-height: var(--tap-min);
+  padding: 12px 14px;
+  font-size: 0.92rem;
+  font-weight: 500;
+  color: var(--text);
+  background: #fff;
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius);
+  transition: border-color 0.2s, box-shadow 0.2s;
+  box-sizing: border-box;
+  -webkit-appearance: none;
+  appearance: none;
+}
+.bv-input:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(99,102,241,0.12);
+}
+textarea.bv-input { min-height: 90px; resize: vertical; }
+select.bv-input { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%2364748b' d='M6 8L1 3h10z'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 14px center; padding-right: 36px; }
+
+/* ── Type toggle cards ── */
+.type-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 18px; }
+.type-card {
+  background: #fff;
+  border: 2px solid var(--border);
+  border-radius: var(--radius);
+  padding: 14px 12px;
+  cursor: pointer;
+  text-align: center;
+  transition: border-color 0.2s, background 0.2s, transform 0.15s;
+  min-height: var(--tap-min);
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+}
+.type-card:active { transform: scale(0.97); }
+.type-card.active { border-color: var(--primary); background: #f5f3ff; }
+.type-card i { font-size: 1.3rem; margin-bottom: 5px; color: var(--primary); }
+.type-card strong { font-size: 0.82rem; color: var(--text); display: block; }
+.type-card small  { font-size: 0.72rem; color: var(--text-muted); }
+
+/* ── Room grid ── */
+#roomGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 12px;
+  margin-bottom: 12px;
+}
+.room-item {
+  background: #fff;
+  border-radius: 14px;
+  padding: 16px;
+  border: 2px solid transparent;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+  cursor: pointer;
+  transition: border-color 0.2s, transform 0.15s, box-shadow 0.2s;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+  min-height: var(--tap-min);
+}
+.room-item:active { transform: scale(0.97); }
+.room-item.selected { border-color: var(--primary); background: #f5f3ff; }
+.room-item.booked   { background: #f8fafc; opacity: 0.6; cursor: not-allowed; pointer-events: none; }
+.room-item.pending  { background: #fffbeb; opacity: 0.7; cursor: not-allowed; pointer-events: none; border-color: #fde68a; }
+.status-pill {
+  display: inline-block; padding: 3px 10px; border-radius: 20px;
+  font-size: 0.7rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.3px;
+}
+.room-item.available .status-pill { background: #dcfce7; color: #166534; }
+.room-item.booked    .status-pill { background: #fee2e2; color: #991b1b; }
+.room-item.pending   .status-pill { background: #fef3c7; color: #92400e; }
+.room-item-name { font-weight: 700; font-size: 0.9rem; color: var(--text); margin: 8px 0 3px; }
+.room-item-meta { font-size: 0.75rem; color: var(--text-muted); }
+
+/* ── Refreshments ── */
+.refresh-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  background: #fff;
+  border: 1.5px solid var(--border);
+  border-radius: 11px;
+  cursor: pointer;
+  transition: border-color 0.2s;
+  margin-bottom: 8px;
+  min-height: var(--tap-min);
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+}
+.refresh-row:active { background: #f5f3ff; }
+.refresh-row input[type="checkbox"] {
+  width: 20px; height: 20px;
+  accent-color: var(--primary);
+  cursor: pointer;
+  flex-shrink: 0;
+  min-width: 20px;
+}
+.refresh-row span { font-weight: 600; font-size: 0.88rem; color: var(--text); }
+
+/* ── Submit button ── */
+.btn-book {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 52px;
+  background: linear-gradient(135deg, var(--primary), #9333ea);
+  color: #fff;
+  border: none;
+  border-radius: var(--radius);
+  font-weight: 700;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: opacity 0.2s, transform 0.15s;
+  box-shadow: 0 6px 20px rgba(99,102,241,0.3);
+  -webkit-tap-highlight-color: transparent;
+  padding: 0 24px;
+  padding-bottom: var(--sab);
+}
+.btn-book:active { transform: scale(0.98); opacity: 0.9; }
+.btn-book:disabled { opacity: 0.55; cursor: not-allowed; transform: none; }
+
+/* ── Info note box ── */
+.note-box {
+  border-radius: var(--radius);
+  padding: 13px 16px;
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  font-size: 0.82rem;
+  line-height: 1.6;
+}
+.note-box.green { background: #f0fdf4; border: 1.5px solid #bbf7d0; color: #166534; }
+.note-box.amber { background: #fffbeb; border: 1.5px solid #fde68a; color: #92400e; }
+.note-box i { flex-shrink: 0; margin-top: 2px; }
+
+/* ── File input ── */
+input[type="file"].bv-input {
+  padding: 10px 14px;
+  background: #fdfdfd;
+  border: 2px dashed #cbd5e1;
+  cursor: pointer;
+  min-height: var(--tap-min);
+}
+
+/* ── Refreshment count badge ── */
+#refreshCountBadge {
+  width: 56px; height: 56px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--primary), #9333ea);
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  box-shadow: 0 4px 12px rgba(99,102,241,0.3);
+  flex-shrink: 0;
+  transition: transform 0.18s;
+}
+#refreshCountBadge span.num { font-size: 1.3rem; font-weight: 800; color: #fff; line-height: 1; }
+#refreshCountBadge span.lbl { font-size: 0.55rem; font-weight: 700; color: rgba(255,255,255,0.8); text-transform: uppercase; letter-spacing: 0.5px; }
+
+/* ── Mobile ── */
+@media (max-width: 600px) {
+  .bv-card { padding: 18px 14px; border-radius: 14px; }
+  #roomGrid { grid-template-columns: 1fr 1fr; gap: 10px; }
+  .type-grid { gap: 8px; }
+  .bv-header h1 { font-size: 1.1rem; }
+}
+@media (max-width: 400px) {
+  #roomGrid { grid-template-columns: 1fr; }
+}
+</style>
+{% endblock style %}
+
+{% block content %}
+
+<!-- Page header -->
+<div class="bv-header">
+  <div class="bv-header-icon"><i class="bi bi-calendar-check-fill"></i></div>
+  <div>
+    <h1>Book a Venue</h1>
+    <p>Confirmed immediately — no approval required</p>
+  </div>
+</div>
+
+<!-- Admin identity banner -->
+<div class="admin-banner">
+  <div class="ab-icon"><i class="bi bi-shield-fill-check"></i></div>
+  <div>
+    <strong>{{ request.user.profile.first_name }} {{ request.user.profile.last_name }} &bull; {{ request.user.email }}</strong>
+    <span>{% if request.user.profile.is_central_admin and not request.user.profile.is_sub_admin %}Central Admin{% else %}Sub Admin{% endif %} — bookings are confirmed instantly</span>
+  </div>
+</div>
+
+<!-- Django messages -->
+{% if messages %}
+  {% for msg in messages %}
+  <div class="bv-alert {% if 'error' in msg.tags %}error{% else %}success{% endif %}">
+    <i class="bi bi-{% if 'error' in msg.tags %}exclamation-circle-fill{% else %}check-circle-fill{% endif %}"></i>
+    <span>{{ msg }}</span>
+  </div>
+  {% endfor %}
+{% endif %}
+
+<form method="post" id="bvForm" enctype="multipart/form-data" autocomplete="off">
+  {% csrf_token %}
+
+  <!-- ── Step 1: Faculty ── -->
+  <div class="bv-card">
+    <div class="step-title">
+      <span class="step-badge">1</span>
+      <h5>Faculty Details</h5>
+    </div>
+    <div class="row g-3">
+      <div class="col-12 col-md-6">
+        <label class="bv-label"><i class="bi bi-person-circle"></i> Faculty Full Name</label>
+        <input type="text" name="faculty_name" id="id_faculty_name" class="bv-input"
+               placeholder="Full name" value="{{ form.faculty_name.value|default:'' }}" required>
+        {% if form.faculty_name.errors %}<div class="text-danger small mt-1">{{ form.faculty_name.errors.0 }}</div>{% endif %}
+      </div>
+      <div class="col-12 col-md-6">
+        <label class="bv-label"><i class="bi bi-envelope-at-fill"></i> Faculty College Email</label>
+        <input type="email" name="faculty_email" id="id_faculty_email" class="bv-input"
+               placeholder="faculty@sfscollege.in" value="{{ form.faculty_email.value|default:'' }}" required>
+        {% if form.faculty_email.errors %}<div class="text-danger small mt-1">{{ form.faculty_email.errors.0 }}</div>{% endif %}
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Step 2: Purpose ── -->
+  <div class="bv-card">
+    <div class="step-title">
+      <span class="step-badge">2</span>
+      <h5>Purpose of Booking</h5>
+    </div>
+    <label class="bv-label"><i class="bi bi-chat-left-text-fill"></i> Description</label>
+    <textarea name="purpose" id="id_purpose" class="bv-input" placeholder="Enter the purpose of this booking…" required>{{ form.purpose.value|default:'' }}</textarea>
+    {% if form.purpose.errors %}<div class="text-danger small mt-1">{{ form.purpose.errors.0 }}</div>{% endif %}
+  </div>
+
+  <!-- ── Step 3: Scheduling ── -->
+  <div class="bv-card">
+    <div class="step-title">
+      <span class="step-badge">3</span>
+      <h5>Scheduling</h5>
+    </div>
+
+    <div class="type-grid">
+      <div class="type-card active" id="typeWholeDay" onclick="switchType('whole')">
+        <i class="bi bi-clock-fill"></i>
+        <strong>Whole Day</strong>
+        <small>08:00 AM – 04:00 PM</small>
+      </div>
+      <div class="type-card" id="typeCustom" onclick="switchType('custom')">
+        <i class="bi bi-sliders2-vertical"></i>
+        <strong>Custom Time</strong>
+        <small>Specific start &amp; end</small>
+      </div>
+    </div>
+
+    <div id="wholeDaySection">
+      <label class="bv-label">Booking Date</label>
+      <input type="date" id="wholeDayDate" class="bv-input" onchange="updateWholeDayTimes()">
+    </div>
+
+    <div id="customTimeSection" class="row g-3 d-none">
+      <div class="col-12 col-sm-6">
+        <label class="bv-label">From</label>
+        <input type="datetime-local" name="start_datetime" id="id_start_datetime" class="bv-input"
+               value="{{ form.start_datetime.value|default:'' }}">
+        {% if form.start_datetime.errors %}<div class="text-danger small mt-1">{{ form.start_datetime.errors.0 }}</div>{% endif %}
+      </div>
+      <div class="col-12 col-sm-6">
+        <label class="bv-label">To</label>
+        <input type="datetime-local" name="end_datetime" id="id_end_datetime" class="bv-input"
+               value="{{ form.end_datetime.value|default:'' }}">
+        {% if form.end_datetime.errors %}<div class="text-danger small mt-1">{{ form.end_datetime.errors.0 }}</div>{% endif %}
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Step 4: Space Selection ── -->
+  <div class="bv-card">
+    <div class="step-title">
+      <span class="step-badge">4</span>
+      <h5>Space Selection</h5>
+    </div>
+
+    <label class="bv-label">Category</label>
+    <select name="category" id="id_category" class="bv-input" style="margin-bottom:16px;">
+      {% for val, label in form.fields.category.choices %}
+      <option value="{{ val }}" {% if form.category.value == val %}selected{% endif %}>{{ label }}</option>
+      {% endfor %}
+    </select>
+
+    <p class="text-muted small mb-3" style="font-size:0.78rem;">Tap a room to select it. Tap again to deselect.</p>
+    <div id="roomGrid"><p class="text-muted small">Select a category to load rooms.</p></div>
+
+    <input type="hidden" name="room"     id="id_room">
+    <input type="hidden" name="room_ids" id="id_room_ids">
+    <div id="roomSummary" class="small mt-2" style="color:var(--text-muted);font-size:0.78rem;">No rooms selected yet.</div>
+
+    <div class="mt-3">
+      <label class="bv-label">Department / Office</label>
+      <select name="department" id="id_department" class="bv-input">
+        <option value="">— Select department —</option>
+        {% for dept in form.fields.department.queryset %}
+        <option value="{{ dept.pk }}" {% if form.department.value == dept.pk|stringformat:"s" %}selected{% endif %}>{{ dept }}</option>
+        {% endfor %}
+      </select>
+    </div>
+  </div>
+
+  <!-- ── Step 5: Requirements ── -->
+  <div class="bv-card">
+    <div class="step-title">
+      <span class="step-badge">5</span>
+      <h5>Additional Requirements</h5>
+    </div>
+
+    <div class="type-grid mb-3">
+      <div class="type-card" id="reqAttach" onclick="switchReq('attach')">
+        <i class="bi bi-file-earmark-arrow-up"></i>
+        <strong>Attach Document</strong>
+        <small>PDF or Image</small>
+      </div>
+      <div class="type-card active" id="reqNA" onclick="switchReq('na')">
+        <i class="bi bi-dash-circle"></i>
+        <strong>Not Applicable</strong>
+        <small>No document</small>
+      </div>
+    </div>
+
+    <input type="hidden" name="requirements_type" id="reqTypeInput" value="na">
+
+    <div id="fileUploadSection" class="d-none">
+      <input type="file" name="requirements_doc" id="id_requirements_doc" class="bv-input"
+             accept=".pdf,.png,.jpg,.jpeg,.heic,.heif,.webp,.gif,.bmp,.tiff,.tif">
+      <small class="text-muted d-block mt-2" style="font-size:0.75rem;">Accepted: PDF, PNG, JPG, JPEG, HEIC and other image types.</small>
+    </div>
+
+    <div id="naSection" class="note-box green">
+      <i class="bi bi-info-circle-fill"></i>
+      <span>No requirements document will be attached for this booking.</span>
+    </div>
+  </div>
+
+  <!-- ── Step 6: Refreshments ── -->
+  <div class="bv-card">
+    <div class="step-title">
+      <span class="step-badge">6</span>
+      <h5>Refreshments &amp; Supplies</h5>
+    </div>
+
+    <div class="note-box amber mb-3">
+      <i class="bi bi-exclamation-triangle-fill"></i>
+      <span>Subject to administration approval. Each item max <strong>5 units</strong>. Selecting an item does not guarantee its provision.</span>
+    </div>
+
+    <!-- 3-column stepper grid -->
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:12px;" id="refreshmentsList">
+      {% for item in refreshment_options %}
+      <div style="display:flex;flex-direction:column;align-items:center;gap:8px;padding:12px 8px;background:#fff;border:1.5px solid var(--border);border-radius:12px;transition:border-color 0.2s,background 0.2s;text-align:center;"
+           id="bv-rrow-{{ item.value }}" data-label="{{ item.label }}">
+        <span style="font-weight:600;font-size:0.78rem;color:var(--text);line-height:1.3;">{{ item.label }}</span>
+        <div style="display:flex;align-items:center;gap:0;border:1.5px solid var(--border);border-radius:8px;overflow:hidden;background:#f8fafc;">
+          <button type="button" onclick="bvAdjustQty('{{ item.value }}', -1)"
+                  style="width:30px;height:30px;border:none;background:transparent;font-size:1rem;font-weight:700;color:var(--primary);cursor:pointer;display:flex;align-items:center;justify-content:center;"
+                  onmouseover="this.style.background='#ede9fe'" onmouseout="this.style.background='transparent'">−</button>
+          <span id="bv-qty-display-{{ item.value }}" style="min-width:24px;text-align:center;font-weight:800;font-size:0.9rem;color:var(--text);padding:0 2px;">0</span>
+          <button type="button" onclick="bvAdjustQty('{{ item.value }}', 1)"
+                  style="width:30px;height:30px;border:none;background:transparent;font-size:1rem;font-weight:700;color:var(--primary);cursor:pointer;display:flex;align-items:center;justify-content:center;"
+                  onmouseover="this.style.background='#ede9fe'" onmouseout="this.style.background='transparent'">+</button>
+        </div>
+        <input type="hidden" name="refreshments[]" id="bv-qty-input-{{ item.value }}" value="" disabled>
+      </div>
+      {% endfor %}
+    </div>
+
+    <!-- Others — single text box -->
+    <div>
+      <label style="display:flex;align-items:center;gap:10px;padding:11px 14px;background:#fff;border:1.5px solid var(--border);border-radius:11px;cursor:pointer;" id="othersRow">
+        <input type="checkbox" name="refreshments[]" value="others" onchange="toggleOthers(this)" style="width:18px;height:18px;accent-color:var(--primary);flex-shrink:0;">
+        <span style="font-weight:600;font-size:0.85rem;color:var(--text);">Others</span>
+        <span style="font-size:0.72rem;color:#94a3b8;margin-left:auto;">Specify below</span>
+      </label>
+      <div id="othersBox" class="d-none" style="padding:6px 0 0;">
+        <input type="text" name="refreshments_others" class="bv-input" placeholder="Describe your requirement (max 100 characters)…" maxlength="100">
+        <small class="text-muted d-block mt-1" style="font-size:0.72rem;"><i class="bi bi-info-circle me-1"></i>Max 100 characters. For detailed requirements, attach a document above.</small>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Non-field errors ── -->
+  {% if form.non_field_errors %}
+  <div class="bv-alert error">
+    <i class="bi bi-exclamation-circle-fill"></i>
+    <span>{% for err in form.non_field_errors %}{{ err }}{% endfor %}</span>
+  </div>
+  {% endif %}
+
+  <!-- ── Confirm card ── -->
+  <div class="bv-card" style="padding:20px 24px;">
+    <div class="note-box green mb-4">
+      <i class="bi bi-shield-fill-check"></i>
+      <div>
+        <strong style="display:block;margin-bottom:3px;">Direct Booking — Confirmed Immediately</strong>
+        Faculty, all other admins, and the 5 notification recipients will be emailed automatically.
+        Same-day and next-day bookings are allowed. Past bookings are not accepted.
+      </div>
+    </div>
+    <button type="submit" class="btn-book" id="submitBtn">
+      <i class="bi bi-calendar-check-fill"></i>
+      <span>Confirm Booking</span>
+    </button>
+  </div>
+
+</form>
+{% endblock content %}
+
+{% block scripts %}
+<script>
+// ── Scheduling type ──────────────────────────────────────────────────
+function switchType(type) {
+  const wholeCard    = document.getElementById('typeWholeDay');
+  const customCard   = document.getElementById('typeCustom');
+  const wholeSection = document.getElementById('wholeDaySection');
+  const customSection = document.getElementById('customTimeSection');
+  if (type === 'whole') {
+    wholeCard.classList.add('active');   customCard.classList.remove('active');
+    wholeSection.classList.remove('d-none'); customSection.classList.add('d-none');
+    updateWholeDayTimes();
+  } else {
+    customCard.classList.add('active');  wholeCard.classList.remove('active');
+    customSection.classList.remove('d-none'); wholeSection.classList.add('d-none');
+  }
+}
+
+function updateWholeDayTimes() {
+  const d = document.getElementById('wholeDayDate').value;
+  if (!d) return;
+  const s = document.getElementById('id_start_datetime');
+  const e = document.getElementById('id_end_datetime');
+  if (s) s.value = d + 'T08:00';
+  if (e) e.value = d + 'T16:00';
+}
+
+// ── Requirements type ────────────────────────────────────────────────
+function switchReq(type) {
+  const attachCard    = document.getElementById('reqAttach');
+  const naCard        = document.getElementById('reqNA');
+  const fileSection   = document.getElementById('fileUploadSection');
+  const naSection     = document.getElementById('naSection');
+  const reqTypeInput  = document.getElementById('reqTypeInput');
+  if (type === 'attach') {
+    attachCard.classList.add('active'); naCard.classList.remove('active');
+    fileSection.classList.remove('d-none'); naSection.classList.add('d-none');
+    reqTypeInput.value = 'attach';
+  } else {
+    naCard.classList.add('active'); attachCard.classList.remove('active');
+    naSection.classList.remove('d-none'); fileSection.classList.add('d-none');
+    reqTypeInput.value = 'na';
+  }
+}
+
+// ── Refreshments ─────────────────────────────────────────────────────
+function bvAdjustQty(value, delta) {
+  var displayEl = document.getElementById('bv-qty-display-' + value);
+  var inputEl   = document.getElementById('bv-qty-input-' + value);
+  var rowEl     = document.getElementById('bv-rrow-' + value);
+  var label     = rowEl ? (rowEl.dataset.label || value) : value;
+  var current   = parseInt(displayEl.textContent) || 0;
+  var next      = current + delta;
+  if (next < 0) next = 0;
+  if (next > 5) {
+    // Show popup warning
+    var w = document.getElementById('bccWarnOverlay') || null;
+    if (w) { document.getElementById('bccWarnMsg').textContent = 'Maximum 5 units allowed per item.'; w.style.display = 'flex'; }
+    else alert('Maximum 5 units allowed per item.');
+    return;
+  }
+  displayEl.textContent = next;
+  if (next > 0) {
+    inputEl.value    = label + ' - ' + next;
+    inputEl.disabled = false;
+    rowEl.style.borderColor = 'var(--primary)';
+    rowEl.style.background  = '#f5f3ff';
+  } else {
+    inputEl.value    = '';
+    inputEl.disabled = true;
+    rowEl.style.borderColor = 'var(--border)';
+    rowEl.style.background  = '#fff';
+  }
+}
+function updateRefreshCount() { /* no-op — count badge removed */ }
+function toggleOthers(cb) {
+  document.getElementById('othersBox').classList.toggle('d-none', !cb.checked);
+}
+
+// ── Room grid ─────────────────────────────────────────────────────────
+let selectedRoomIds = [];
+
+function loadRooms(category) {
+  if (!category) return;
+  const grid = document.getElementById('roomGrid');
+  grid.innerHTML = '<p class="text-muted small" style="font-size:0.78rem;">Loading rooms…</p>';
+  selectedRoomIds = [];
+  updateRoomSummary();
+
+  const startVal = document.getElementById('id_start_datetime').value;
+  const endVal   = document.getElementById('id_end_datetime').value;
+  let url = '/core/api/rooms-by-category/?category=' + encodeURIComponent(category);
+  if (startVal) url += '&start=' + encodeURIComponent(startVal);
+  if (endVal)   url += '&end='   + encodeURIComponent(endVal);
+
+  fetch(url)
+    .then(r => r.json())
+    .then(data => {
+      grid.innerHTML = '';
+      const rooms = Array.isArray(data) ? data : (data.rooms || []);
+      if (!rooms.length) {
+        grid.innerHTML = '<p class="text-muted small" style="font-size:0.78rem;">No rooms found for this category.</p>';
+        return;
+      }
+      rooms.forEach(room => {
+        const isBooked  = room.is_booked;
+        const isPending = room.has_pending;
+        const statusClass = isBooked ? 'booked' : (isPending ? 'pending' : 'available');
+        const statusLabel = isBooked ? 'Booked'  : (isPending ? 'Pending' : 'Available');
+        const div = document.createElement('div');
+        div.className = 'room-item ' + statusClass;
+        div.dataset.roomId = room.id;
+        div.innerHTML =
+          '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">' +
+            '<span class="status-pill">' + statusLabel + '</span>' +
+            '<span style="font-size:0.7rem;color:#94a3b8;">' + (room.label || '') + '</span>' +
+          '</div>' +
+          '<div class="room-item-name">' + (room.name || room.room_name || '') + '</div>' +
+          '<div class="room-item-meta">' + (room.capacity ? 'Capacity: ' + room.capacity : '') + '</div>';
+        if (!isBooked && !isPending) {
+          div.addEventListener('click', () => toggleRoom(div, room.id));
+        }
+        grid.appendChild(div);
+      });
+    })
+    .catch(() => {
+      grid.innerHTML = '<p class="text-danger small" style="font-size:0.78rem;">Failed to load rooms. Please try again.</p>';
+    });
+}
+
+function toggleRoom(el, roomId) {
+  const idx = selectedRoomIds.indexOf(roomId);
+  if (idx === -1) { selectedRoomIds.push(roomId); el.classList.add('selected'); }
+  else            { selectedRoomIds.splice(idx, 1); el.classList.remove('selected'); }
+  updateRoomSummary();
+}
+
+function updateRoomSummary() {
+  const summary   = document.getElementById('roomSummary');
+  const roomInput = document.getElementById('id_room');
+  const idsInput  = document.getElementById('id_room_ids');
+  if (selectedRoomIds.length === 0) {
+    summary.textContent = 'No rooms selected yet.';
+    roomInput.value = ''; idsInput.value = '';
+  } else {
+    summary.textContent = selectedRoomIds.length + ' room(s) selected.';
+    roomInput.value = selectedRoomIds[0];
+    idsInput.value  = selectedRoomIds.join(',');
+  }
+}
+
+// ── Init ──────────────────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', function () {
+  // Default whole-day date = today
+  const today = new Date();
+  const pad   = n => String(n).padStart(2, '0');
+  const todayStr = today.getFullYear() + '-' + pad(today.getMonth()+1) + '-' + pad(today.getDate());
+  const wdDate = document.getElementById('wholeDayDate');
+  if (wdDate) { wdDate.value = todayStr; updateWholeDayTimes(); }
+
+  // Category change → reload rooms
+  const catSel = document.getElementById('id_category');
+  if (catSel) {
+    catSel.addEventListener('change', function () { loadRooms(this.value); });
+    if (catSel.value) loadRooms(catSel.value);
+  }
+
+  // Reload rooms when datetime changes (availability check)
+  ['id_start_datetime','id_end_datetime'].forEach(function(id) {
+    const el = document.getElementById(id);
+    if (el) el.addEventListener('change', function () {
+      const cat = document.getElementById('id_category').value;
+      if (cat) loadRooms(cat);
+    });
+  });
+});
+
+// ── Form submit guard ─────────────────────────────────────────────────
+document.getElementById('bvForm').addEventListener('submit', function (e) {
+  const ids = document.getElementById('id_room_ids').value;
+  if (!ids) {
+    e.preventDefault();
+    // Scroll to room grid and show inline error
+    const grid = document.getElementById('roomGrid');
+    if (grid) grid.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    let errEl = document.getElementById('roomSelectError');
+    if (!errEl) {
+      errEl = document.createElement('div');
+      errEl.id = 'roomSelectError';
+      errEl.className = 'bv-alert error';
+      errEl.style.marginTop = '8px';
+      errEl.innerHTML = '<i class="bi bi-exclamation-circle-fill"></i><span>Please select at least one room before confirming.</span>';
+      grid.parentNode.insertBefore(errEl, grid.nextSibling);
+    }
+    return;
+  }
+  const btn = document.getElementById('submitBtn');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner-border spinner-border-sm" style="width:16px;height:16px;border-width:2px;"></span><span>Confirming…</span>';
+});
+</script>
+{% endblock scripts %}
