@@ -251,6 +251,14 @@ def aura_data_manager(request):
                     row['faculty_name'] = obj.faculty_name
                     row['faculty_email'] = obj.faculty_email
                     row['schedule'] = f"{start_local.strftime('%d %b, %Y')} | {start_local.strftime('%H:%M')} – {end_local.strftime('%H:%M')}"
+                    # Booking status: use stored status field, but also auto-detect completed
+                    now = timezone.now()
+                    if obj.status == 'cancelled':
+                        row['booking_status'] = 'cancelled'
+                    elif obj.end_datetime < now:
+                        row['booking_status'] = 'completed'
+                    else:
+                        row['booking_status'] = 'active'
                 elif model_name == 'issues':
                     row['label_head'] = "Issue"
                     row['label'] = f"{obj.subject}"
@@ -338,7 +346,7 @@ def aura_data_manager(request):
     return JsonResponse({'results': data})
 
 def aura_delete_record(request):
-    if request.method == 'POST' and request.user.profile.is_central_admin:
+    if request.method == 'POST' and (request.user.profile.is_central_admin or request.user.profile.is_sub_admin):
         data = json.loads(request.body)
         model_name = data.get('model')
         record_id = data.get('id')
@@ -358,26 +366,43 @@ def aura_delete_record(request):
             
         if is_owner:
             if model_name == 'bookings':
-                # Send email to faculty about cancellation
+                # Cancel the booking (mark as cancelled, keep in history)
+                profile = request.user.profile
+                room_name = format_room_list(obj)
+                cancelled_by_name = f"{profile.first_name} {profile.last_name}".strip() or str(profile)
+                obj.status = 'cancelled'
+                obj.cancelled_by = profile
+                obj.cancelled_on = timezone.now()
+                obj.save(update_fields=['status', 'cancelled_by', 'cancelled_on'])
+
+                admin_emails = list(
+                    UserProfile.objects.filter(
+                        Q(is_central_admin=True) | Q(is_sub_admin=True)
+                    ).values_list('user__email', flat=True)
+                )[:5]
+                all_recipients = list({obj.faculty_email} | set(admin_emails))
                 try:
                     send_mail(
-                        subject="Room Booking Cancelled by Administrator",
+                        subject=f"[Blixtro] Room Booking Cancelled — {room_name}",
                         message=(
                             f"Dear {obj.faculty_name},\n\n"
-                            f"Your room booking for {obj.room.room_name} has been cancelled by the administrator.\n\n"
+                            f"Your confirmed room booking has been cancelled by the administration.\n\n"
                             f"Booking Details:\n"
-                            f"- Room: {obj.room.room_name}\n"
-                            f"- Date & Time: {obj.start_datetime.strftime('%d %b %Y, %H:%M')} to {obj.end_datetime.strftime('%d %b %Y, %H:%M')}\n"
-                            f"- Purpose: {obj.purpose or 'Not specified'}\n\n"
-                            "If you have any questions, please contact the administration.\n\n"
-                            "Regards,\nAdmin Team"
+                            f"  Room    : {room_name}\n"
+                            f"  Date    : {obj.start_datetime.strftime('%d %b %Y, %H:%M')} – {obj.end_datetime.strftime('%H:%M')}\n"
+                            f"  Purpose : {obj.purpose or 'Not specified'}\n"
+                            f"  Cancelled by : {cancelled_by_name}\n\n"
+                            "The room slot has been freed and is now available for others to book.\n"
+                            "If you have questions, please contact the administration.\n\n"
+                            "Regards,\nBlixtro — SFS College Inventory & Booking System"
                         ),
                         from_email=None,
-                        recipient_list=[obj.faculty_email],
+                        recipient_list=all_recipients,
                         fail_silently=True,
                     )
                 except Exception as _e:
                     print(f"[aura_delete_record] Email failed (non-fatal): {_e}", flush=True)
+                return JsonResponse({'status': 'success'})
             
             obj.delete()
             return JsonResponse({'status': 'success'})
@@ -649,6 +674,47 @@ def aura_bulk_delete(request):
             return JsonResponse({'status': 'error', 'message': 'Invalid request'}, status=400)
             
         # Filter records belonging to the user's organization and delete
+        if model_name == 'bookings':
+            # Bookings are cancelled (kept in history), not hard-deleted
+            now = timezone.now()
+            profile = request.user.profile
+            cancelled_by_name = f"{profile.first_name} {profile.last_name}".strip() or str(profile)
+            admin_emails = list(
+                UserProfile.objects.filter(
+                    Q(is_central_admin=True) | Q(is_sub_admin=True)
+                ).values_list('user__email', flat=True)
+            )[:5]
+            bookings_qs = RoomBooking.objects.filter(id__in=record_ids).exclude(status='cancelled')
+            count = bookings_qs.count()
+            for booking in bookings_qs:
+                booking.status = 'cancelled'
+                booking.cancelled_by = profile
+                booking.cancelled_on = now
+                booking.save(update_fields=['status', 'cancelled_by', 'cancelled_on'])
+                room_name = format_room_list(booking)
+                all_recipients = list({booking.faculty_email} | set(admin_emails))
+                try:
+                    send_mail(
+                        subject=f"[Blixtro] Room Booking Cancelled — {room_name}",
+                        message=(
+                            f"Dear {booking.faculty_name},\n\n"
+                            f"Your confirmed room booking has been cancelled by the administration.\n\n"
+                            f"  Room    : {room_name}\n"
+                            f"  Date    : {timezone.localtime(booking.start_datetime).strftime('%d %b %Y, %H:%M')} – "
+                            f"{timezone.localtime(booking.end_datetime).strftime('%H:%M')}\n"
+                            f"  Purpose : {booking.purpose or 'Not specified'}\n"
+                            f"  Cancelled by : {cancelled_by_name}\n\n"
+                            "The room slot has been freed and is now available for others to book.\n\n"
+                            "Regards,\nBlixtro — SFS College Inventory & Booking System"
+                        ),
+                        from_email=None,
+                        recipient_list=all_recipients,
+                        fail_silently=True,
+                    )
+                except Exception as _e:
+                    print(f"[aura_bulk_delete] Email failed for booking {booking.id}: {_e}", flush=True)
+            return JsonResponse({'status': 'success', 'deleted_count': count})
+
         if model_name == 'credentials':
             qs = model.objects.filter(id__in=record_ids)
         elif model_name == 'rooms':
@@ -808,6 +874,7 @@ def confirmed_booking_files(request):
             # click), so a silent storage failure here never hides the buttons.
             has_doc  = bool(b.requirements_doc and b.requirements_doc.name)
             doc_name = b.requirements_doc.name.split('/')[-1] if has_doc else None
+            doc_type = _get_doc_type(doc_name) if doc_name else None
 
             # Safe datetime localisation
             try:
@@ -820,6 +887,15 @@ def confirmed_booking_files(request):
             # Inline text requirements (typed by faculty instead of uploading a doc)
             inline_text     = (b.requirements_text or '').strip()
             has_inline_text = bool(inline_text)
+
+            # Compute booking status dynamically
+            now = timezone.now()
+            if b.status == 'cancelled':
+                booking_status = 'cancelled'
+            elif b.end_datetime < now:
+                booking_status = 'completed'
+            else:
+                booking_status = 'active'
 
             booking_data = {
                 'id':              b.id,
@@ -835,9 +911,11 @@ def confirmed_booking_files(request):
                 'doc_name':        doc_name,
                 # True whenever a doc file is attached
                 'has_doc_text':    has_doc,
+                'doc_type':        doc_type,
                 # Inline text requirements (no file upload — typed directly)
                 'has_inline_text': has_inline_text,
                 'inline_text':     inline_text if has_inline_text else '',
+                'booking_status':  booking_status,
             }
             
             results.append(booking_data)
@@ -849,38 +927,88 @@ def confirmed_booking_files(request):
 
 
 # ─────────────────────────────────────────────
-# DELETE CONFIRMED BOOKING (central admin only)
+# CANCEL CONFIRMED BOOKING (central admin + sub-admin)
 # ─────────────────────────────────────────────
 
 @require_POST
-def delete_confirmed_booking(request, booking_id):
+def cancel_confirmed_booking(request, booking_id):
     """
-    Delete a single confirmed RoomBooking.
-    Central admin only — sub-admins cannot delete bookings.
+    Cancel a single confirmed RoomBooking.
+    Accessible by both central admin and sub-admin.
+    - Marks booking status as 'cancelled' (does NOT delete it — kept in history).
+    - Frees the room slot for new bookings.
+    - Sends cancellation emails to faculty + all central/sub admins (up to 5 recipients).
     """
     profile = getattr(request.user, 'profile', None)
-    if not profile or not profile.is_central_admin:
-        return JsonResponse({'error': 'Only central admins can delete bookings.'}, status=403)
+    if not profile or not (profile.is_central_admin or profile.is_sub_admin):
+        return JsonResponse({'error': 'Unauthorized. Only admins can cancel bookings.'}, status=403)
 
     booking = get_object_or_404(RoomBooking, id=booking_id)
-    room_name = format_room_list(booking) if booking.room else str(booking_id)
+
+    if booking.status == 'cancelled':
+        return JsonResponse({'error': 'This booking is already cancelled.'}, status=400)
+
+    # Mark as cancelled — keep the record in history
+    booking.status = 'cancelled'
+    booking.cancelled_by = profile
+    booking.cancelled_on = timezone.now()
+    booking.save(update_fields=['status', 'cancelled_by', 'cancelled_on'])
+
+    room_name = format_room_list(booking)
+    cancelled_by_name = f"{profile.first_name} {profile.last_name}".strip() or str(profile)
+    start_str = timezone.localtime(booking.start_datetime).strftime('%d %b %Y, %H:%M')
+    end_str   = timezone.localtime(booking.end_datetime).strftime('%H:%M')
+
+    email_body = (
+        f"Dear {booking.faculty_name},\n\n"
+        f"Your confirmed room booking has been cancelled by the administration.\n\n"
+        f"Booking Details:\n"
+        f"  Room     : {room_name}\n"
+        f"  Date     : {start_str} – {end_str}\n"
+        f"  Purpose  : {booking.purpose or 'Not specified'}\n"
+        f"  Cancelled by : {cancelled_by_name}\n\n"
+        f"The room slot has been freed and is now available for others to book.\n"
+        f"If you believe this was done in error or have questions, please contact the administration.\n\n"
+        f"Regards,\nBlixtro — SFS College Inventory & Booking System"
+    )
+
+    # Collect recipients: faculty + up to 5 admin emails
+    admin_emails = list(
+        UserProfile.objects.filter(
+            Q(is_central_admin=True) | Q(is_sub_admin=True)
+        ).values_list('user__email', flat=True)
+    )[:5]
+
+    all_recipients = list({booking.faculty_email} | set(admin_emails))
+
     try:
-        booking.delete()
-        return JsonResponse({'status': 'success', 'message': f'Booking for {room_name} deleted.'})
-    except Exception as e:
-        return JsonResponse({'error': f'Could not delete booking: {str(e)}'}, status=500)
+        send_mail(
+            subject=f"[Blixtro] Room Booking Cancelled — {room_name}",
+            message=email_body,
+            from_email=None,
+            recipient_list=all_recipients,
+            fail_silently=True,
+        )
+    except Exception as _e:
+        print(f"[cancel_confirmed_booking] Email failed (non-fatal): {_e}", flush=True)
+
+    return JsonResponse({
+        'status': 'success',
+        'message': f'Booking for {room_name} has been cancelled and all parties notified.',
+    })
 
 
 @require_POST
 def bulk_delete_confirmed_bookings(request):
     """
-    Bulk-delete confirmed RoomBookings by a list of IDs.
-    Central admin only — sub-admins cannot delete bookings.
+    Bulk-cancel confirmed RoomBookings by a list of IDs.
+    Central admin only. Marks bookings as cancelled (kept in history — not hard-deleted).
+    Sends cancellation emails to faculty + admins for each booking.
     Expects JSON body: { "ids": [1, 2, 3, ...] }
     """
     profile = getattr(request.user, 'profile', None)
     if not profile or not profile.is_central_admin:
-        return JsonResponse({'error': 'Only central admins can delete bookings.'}, status=403)
+        return JsonResponse({'error': 'Only central admins can cancel bookings.'}, status=403)
 
     try:
         body = json.loads(request.body)
@@ -888,18 +1016,55 @@ def bulk_delete_confirmed_bookings(request):
         if not ids or not isinstance(ids, list):
             return JsonResponse({'error': 'No booking IDs provided.'}, status=400)
 
-        # Only valid integers
         ids = [int(i) for i in ids if str(i).isdigit()]
         if not ids:
             return JsonResponse({'error': 'No valid booking IDs provided.'}, status=400)
 
-        qs      = RoomBooking.objects.filter(id__in=ids)
-        count   = qs.count()
-        qs.delete()
+        now = timezone.now()
+        cancelled_by_name = f"{profile.first_name} {profile.last_name}".strip() or str(profile)
+
+        admin_emails = list(
+            UserProfile.objects.filter(
+                Q(is_central_admin=True) | Q(is_sub_admin=True)
+            ).values_list('user__email', flat=True)
+        )[:5]
+
+        bookings = RoomBooking.objects.filter(id__in=ids).exclude(status='cancelled')
+        count = bookings.count()
+
+        for booking in bookings:
+            booking.status = 'cancelled'
+            booking.cancelled_by = profile
+            booking.cancelled_on = now
+            booking.save(update_fields=['status', 'cancelled_by', 'cancelled_on'])
+
+            room_name = format_room_list(booking)
+            all_recipients = list({booking.faculty_email} | set(admin_emails))
+            try:
+                send_mail(
+                    subject=f"[Blixtro] Room Booking Cancelled — {room_name}",
+                    message=(
+                        f"Dear {booking.faculty_name},\n\n"
+                        f"Your confirmed room booking has been cancelled by the administration.\n\n"
+                        f"  Room    : {room_name}\n"
+                        f"  Date    : {timezone.localtime(booking.start_datetime).strftime('%d %b %Y, %H:%M')} – "
+                        f"{timezone.localtime(booking.end_datetime).strftime('%H:%M')}\n"
+                        f"  Purpose : {booking.purpose or 'Not specified'}\n"
+                        f"  Cancelled by : {cancelled_by_name}\n\n"
+                        "The room slot has been freed and is now available for others to book.\n\n"
+                        "Regards,\nBlixtro — SFS College Inventory & Booking System"
+                    ),
+                    from_email=None,
+                    recipient_list=all_recipients,
+                    fail_silently=True,
+                )
+            except Exception as _e:
+                print(f"[bulk_delete_confirmed_bookings] Email failed for booking {booking.id}: {_e}", flush=True)
+
         return JsonResponse({'status': 'success', 'deleted_count': count,
-                             'message': f'{count} booking(s) deleted successfully.'})
+                             'message': f'{count} booking(s) cancelled successfully.'})
     except Exception as e:
-        return JsonResponse({'error': f'Bulk delete failed: {str(e)}'}, status=500)
+        return JsonResponse({'error': f'Bulk cancel failed: {str(e)}'}, status=500)
 
 
 
@@ -909,16 +1074,8 @@ def bulk_delete_confirmed_bookings(request):
 
 def download_booking_doc(request, booking_id):
     """
-    Proxy view that streams a booking's requirements document.
-
-    Works for BOTH local development (local filesystem) and production
-    (DigitalOcean Spaces / S3-compatible storage).
-
-    On S3/Spaces the file object returned by the storage backend is not a
-    regular file — calling .read() on it opens a network stream.  We read
-    it in chunks to handle large files without exhausting memory, and we
-    explicitly close the storage handle afterwards.
-
+    Proxy view that streams a booking's requirements document as a download.
+    Works for both local filesystem and S3/DigitalOcean Spaces.
     Central admin and sub-admin only.
     """
     import mimetypes
@@ -973,56 +1130,120 @@ def download_booking_doc(request, booking_id):
         return HttpResponse(f"Failed to retrieve document: {str(e)}", status=500)
 
 
+def _serve_file_inline(doc_field):
+    """
+    Helper: stream a FileField with inline Content-Disposition so the browser
+    opens it directly (images display, PDFs open in the viewer).
+    Falls back to a redirect for S3/Spaces pre-signed URLs.
+    """
+    import mimetypes
+    file_name = doc_field.name.split('/')[-1]
+    content_type, _ = mimetypes.guess_type(file_name)
+    if not content_type:
+        content_type = 'application/octet-stream'
+
+    try:
+        storage = doc_field.storage
+        with storage.open(doc_field.name, 'rb') as f:
+            file_data = f.read()
+        response = HttpResponse(file_data, content_type=content_type)
+        response['Content-Disposition'] = f'inline; filename="{file_name}"'
+        return response
+    except Exception:
+        try:
+            url = doc_field.url
+            if url:
+                from django.http import HttpResponseRedirect
+                return HttpResponseRedirect(url)
+        except Exception:
+            pass
+    return HttpResponse("Failed to retrieve file.", status=500)
+
+
+def serve_booking_doc_inline(request, booking_id):
+    """
+    Serve a confirmed RoomBooking requirements file inline (browser opens it).
+    Used for image/PDF preview. Central admin and sub-admin only.
+    """
+    profile = getattr(request.user, 'profile', None)
+    if not profile or not (profile.is_central_admin or profile.is_sub_admin):
+        return HttpResponse("Unauthorized", status=403)
+    booking = get_object_or_404(RoomBooking, id=booking_id)
+    if not booking.requirements_doc or not booking.requirements_doc.name:
+        return HttpResponse("No document attached to this booking.", status=404)
+    return _serve_file_inline(booking.requirements_doc)
+
+
+def serve_booking_request_doc_inline(request, pk):
+    """
+    Serve a RoomBookingRequest requirements file inline (browser opens it).
+    Used for image/PDF preview in the approval hub. Central admin and sub-admin only.
+    """
+    profile = getattr(request.user, 'profile', None)
+    if not profile or not (profile.is_central_admin or profile.is_sub_admin):
+        return HttpResponse("Unauthorized", status=403)
+    req = get_object_or_404(RoomBookingRequest, pk=pk)
+    if not req.requirements_doc or not req.requirements_doc.name:
+        return HttpResponse("No document attached to this request.", status=404)
+    return _serve_file_inline(req.requirements_doc)
+
+
+def _get_doc_type(file_name):
+    """Return 'image', 'pdf', or 'other' based on file extension."""
+    ext = file_name.rsplit('.', 1)[-1].lower() if '.' in file_name else ''
+    if ext in ('png', 'jpg', 'jpeg', 'heic', 'heif', 'webp', 'gif', 'bmp', 'tiff', 'tif'):
+        return 'image'
+    if ext == 'pdf':
+        return 'pdf'
+    return 'other'
+
+
 def get_booking_doc_text(request, booking_id):
     """
-    Returns structured document content as JSON for the "View Doc" panel.
+    Returns document metadata for the "View Doc" panel.
 
-    Response format:
-      {
-        'doc_name': 'filename.docx',
-        'blocks': [
-            {'type': 'paragraph', 'text': '...'},
-            {'type': 'table', 'rows': [['cell', 'cell'], ...]},
-            ...
-        ],
-        'text': 'plain text cache string'   # also returned for compatibility
-      }
-
-    Covers body paragraphs, tables, and text boxes in document order.
-    Skips the fast-path cache if it contains a stale sentinel value so that
-    old bookings automatically get proper re-extraction.
+    For images and PDFs: returns {'type': 'image'|'pdf', 'url': '<inline-view-url>',
+                                   'doc_name': '...', 'download_url': '...'}
+    For other types (legacy): returns structured blocks as before.
     """
-    import traceback as _tb
+    from django.urls import reverse as _reverse
 
     profile = getattr(request.user, 'profile', None)
     if not profile or not (profile.is_central_admin or profile.is_sub_admin):
         return JsonResponse({'error': 'Unauthorized'}, status=403)
 
     booking = get_object_or_404(RoomBooking, id=booking_id)
-    doc_name = (
-        booking.requirements_doc.name.split('/')[-1]
-        if booking.requirements_doc and booking.requirements_doc.name
-        else 'Document'
-    )
 
-    # ── Always re-parse from the file so tables/textboxes are returned as ──────
-    # structured blocks, not flat pipe-separated text rebuilt from cache.
-    # The file read is fast (typically <1 MB) and ensures the View Doc panel
-    # always shows real table structure.
     if not (booking.requirements_doc and booking.requirements_doc.name):
         return JsonResponse({'error': 'No document is attached to this booking.'}, status=404)
 
+    doc_name = booking.requirements_doc.name.split('/')[-1]
+    doc_type = _get_doc_type(doc_name)
+
+    # For images and PDFs — return URLs so the frontend can display/open them directly
+    if doc_type in ('image', 'pdf'):
+        inline_url   = _reverse('central_admin:serve_booking_doc_inline',   args=[booking_id])
+        download_url = _reverse('central_admin:download_booking_doc', args=[booking_id])
+        return JsonResponse({
+            'doc_name':     doc_name,
+            'type':         doc_type,
+            'url':          inline_url,
+            'download_url': download_url,
+        })
+
+    # Legacy: parse as document (kept for any old .docx files still in storage)
+    import traceback as _tb
     try:
         _storage = booking.requirements_doc.storage
         with _storage.open(booking.requirements_doc.name, 'rb') as _f:
             raw = _f.read()
     except Exception as e:
         print(f"[get_booking_doc_text] Storage read failed booking={booking_id}: {e}\n{_tb.format_exc()}")
-        # Fall back to cached plain text if storage is unavailable
         cached = (booking.requirements_doc_text or '').strip()
         if cached:
             return JsonResponse({
                 'doc_name': doc_name,
+                'type':     'blocks',
                 'text':     cached,
                 'blocks':   [{'type': 'paragraph', 'text': line}
                              for line in cached.split('\n') if line.strip()],
@@ -1031,21 +1252,20 @@ def get_booking_doc_text(request, booking_id):
 
     try:
         from django.core.files.base import ContentFile
-        temp_field = ContentFile(raw, name=booking.requirements_doc.name.split('/')[-1])
+        temp_field = ContentFile(raw, name=doc_name)
         blocks = extract_requirement_blocks_from_field(temp_field)
         plain_text = requirement_blocks_to_plain_text(blocks) or '(No readable content found in this document)'
     except Exception as e:
         print(f"[get_booking_doc_text] Parse failed booking={booking_id}: {e}\n{_tb.format_exc()}")
         return JsonResponse({'error': f'Could not parse document: {str(e)}'}, status=500)
 
-    # Persist/update plain text cache
     try:
         booking.requirements_doc_text = plain_text
         booking.save(update_fields=['requirements_doc_text'])
     except Exception as e:
         print(f"[get_booking_doc_text] Failed to persist text booking={booking_id}: {e}")
 
-    return JsonResponse({'doc_name': doc_name, 'blocks': blocks, 'text': plain_text})
+    return JsonResponse({'doc_name': doc_name, 'type': 'blocks', 'blocks': blocks, 'text': plain_text})
 
 
 def download_booking_doc_as_pdf(request, booking_id):
@@ -2825,3 +3045,716 @@ def forward_booking_requirements(request, booking_id):
         return JsonResponse({'status': 'success', 'message': f'Requirements recorded for {email}. Email will be retried.'})
 
     return JsonResponse({'status': 'success', 'message': f'Requirements forwarded to {email}.'})
+
+
+# ═══════════════════════════════════════════════════════════════
+# BOOKING CONTROL CENTER — Edit & Swap endpoints
+# ═══════════════════════════════════════════════════════════════
+
+def _booking_control_auth(request):
+    """Return profile if user is sub-admin or central admin, else None."""
+    if not request.user.is_authenticated:
+        return None
+    profile = getattr(request.user, 'profile', None)
+    if not profile or not (profile.is_central_admin or profile.is_sub_admin):
+        return None
+    return profile
+
+
+def get_booking_for_edit(request, booking_id):
+    """
+    GET — return full booking details for the edit modal.
+    """
+    profile = _booking_control_auth(request)
+    if not profile:
+        return JsonResponse({'error': 'Unauthorized'}, status=403)
+
+    booking = get_object_or_404(RoomBooking, id=booking_id)
+
+    from inventory.models import Department as _Dept
+    departments = list(_Dept.objects.values('id', 'department_name').order_by('department_name'))
+
+    rooms_all = list(
+        Room.objects.values('id', 'room_name', 'label', 'room_category').order_by('label', 'room_name')
+    )
+
+    sl = timezone.localtime(booking.start_datetime)
+    el = timezone.localtime(booking.end_datetime)
+
+    selected_room_ids = [booking.room_id] if booking.room_id else []
+    selected_room_ids += list(booking.rooms.values_list('id', flat=True))
+    selected_room_ids = list(dict.fromkeys(selected_room_ids))  # dedupe, preserve order
+
+    return JsonResponse({
+        'id':               booking.id,
+        'faculty_name':     booking.faculty_name,
+        'faculty_email':    booking.faculty_email,
+        'purpose':          booking.purpose or '',
+        'department_id':    booking.department_id,
+        'start_datetime':   sl.strftime('%Y-%m-%dT%H:%M'),
+        'end_datetime':     el.strftime('%Y-%m-%dT%H:%M'),
+        'requirements_text': booking.requirements_text or '',
+        'approved_note':    booking.approved_note or '',
+        'selected_room_ids': selected_room_ids,
+        'departments':      departments,
+        'rooms_all':        rooms_all,
+        'room_categories':  Room.ROOM_CATEGORIES,
+    })
+
+
+@require_POST
+def edit_booking(request, booking_id):
+    """
+    POST (JSON) — edit an existing confirmed RoomBooking.
+    Editable fields: faculty_name, faculty_email, purpose, department,
+                     start_datetime, end_datetime, requirements_text, approved_note.
+    Conflict-checks the new time slot against all other bookings on the same room(s).
+    Sends edit-notification emails to faculty + all admins + BOOKING_NOTIFICATION_EMAILS.
+    """
+    from inventory.views.central_admin import BOOKING_NOTIFICATION_EMAILS
+    from inventory.email import safe_send_mail, build_email_shell
+    from inventory.booking_utils import format_booking_details, format_room_list as _frl
+
+    profile = _booking_control_auth(request)
+    if not profile:
+        return JsonResponse({'error': 'Unauthorized'}, status=403)
+
+    booking = get_object_or_404(RoomBooking, id=booking_id)
+
+    try:
+        data = json.loads(request.body)
+    except Exception:
+        return JsonResponse({'error': 'Invalid JSON'}, status=400)
+
+    # ── Collect changes for the notification email ────────────────────
+    changes = []
+
+    def _track(field_label, old_val, new_val):
+        old_s = str(old_val or '').strip()
+        new_s = str(new_val or '').strip()
+        if old_s != new_s:
+            changes.append({'field': field_label, 'from': old_s or '—', 'to': new_s or '—'})
+
+    # Faculty name — required
+    new_faculty_name = (data.get('faculty_name') or '').strip()
+    if not new_faculty_name:
+        return JsonResponse({'error': 'Faculty name is required.'}, status=400)
+    _track('Faculty Name', booking.faculty_name, new_faculty_name)
+    booking.faculty_name = new_faculty_name
+
+    # Faculty email — required + domain check
+    new_faculty_email = (data.get('faculty_email') or '').strip().lower()
+    if not new_faculty_email:
+        return JsonResponse({'error': 'Faculty email is required.'}, status=400)
+    from django.conf import settings as _settings
+    allowed_domain = getattr(_settings, 'ALLOWED_EMAIL_DOMAIN', 'sfscollege.in')
+    if not new_faculty_email.endswith(f'@{allowed_domain}'):
+        return JsonResponse({'error': f'Faculty email must be a @{allowed_domain} address.'}, status=400)
+    _track('Faculty Email', booking.faculty_email, new_faculty_email)
+    booking.faculty_email = new_faculty_email
+
+    # Purpose — required
+    new_purpose = (data.get('purpose') or '').strip()
+    if not new_purpose:
+        return JsonResponse({'error': 'Purpose is required.'}, status=400)
+    _track('Purpose', booking.purpose, new_purpose)
+    booking.purpose = new_purpose
+
+    # Department
+    new_dept_id = data.get('department_id')
+    if new_dept_id:
+        try:
+            from inventory.models import Department as _D
+            new_dept = _D.objects.get(id=int(new_dept_id))
+            _track('Department', str(booking.department) if booking.department else '—', str(new_dept))
+            booking.department = new_dept
+        except Exception:
+            pass
+
+    # Start datetime — required
+    new_start = (data.get('start_datetime') or '').strip()
+    if not new_start:
+        return JsonResponse({'error': 'Start date and time is required.'}, status=400)
+    from django.utils.dateparse import parse_datetime as _pd
+    parsed_start = _pd(new_start)
+    if not parsed_start:
+        return JsonResponse({'error': 'Invalid start date/time format.'}, status=400)
+    if timezone.is_naive(parsed_start):
+        parsed_start = timezone.make_aware(parsed_start)
+    _track('Start Time', timezone.localtime(booking.start_datetime).strftime('%d %b %Y %H:%M'),
+           timezone.localtime(parsed_start).strftime('%d %b %Y %H:%M'))
+    booking.start_datetime = parsed_start
+
+    # End datetime — required
+    new_end = (data.get('end_datetime') or '').strip()
+    if not new_end:
+        return JsonResponse({'error': 'End date and time is required.'}, status=400)
+    from django.utils.dateparse import parse_datetime as _pd2
+    parsed_end = _pd2(new_end)
+    if not parsed_end:
+        return JsonResponse({'error': 'Invalid end date/time format.'}, status=400)
+    if timezone.is_naive(parsed_end):
+        parsed_end = timezone.make_aware(parsed_end)
+    _track('End Time', timezone.localtime(booking.end_datetime).strftime('%d %b %Y %H:%M'),
+           timezone.localtime(parsed_end).strftime('%d %b %Y %H:%M'))
+    booking.end_datetime = parsed_end
+
+    # Requirements text (checklist / notes)
+    new_req_text = (data.get('requirements_text') or '').strip()
+    _track('Requirements', booking.requirements_text, new_req_text)
+    booking.requirements_text = new_req_text
+
+    # Admin remark — internal note visible in booking files, included in emails
+    new_note = (data.get('approved_note') or '').strip()
+    _track('Admin Remark', booking.approved_note, new_note)
+    booking.approved_note = new_note
+
+    # ── Validate: start < end ─────────────────────────────────────────
+    if booking.start_datetime >= booking.end_datetime:
+        return JsonResponse({'error': 'End time must be after start time.'}, status=400)
+
+    # ── Validate: not in the past ─────────────────────────────────────
+    if booking.start_datetime < timezone.now():
+        return JsonResponse({'error': 'Cannot set a booking to a past date/time.'}, status=400)
+
+    # ── Conflict check: new time slot vs same room(s) ─────────────────
+    # Collect all rooms this booking uses
+    booking_rooms = list(booking.rooms.all())
+    if booking.room_id:
+        primary = Room.objects.filter(pk=booking.room_id).first()
+        if primary and primary not in booking_rooms:
+            booking_rooms.append(primary)
+
+    if booking_rooms:
+        time_conflicts = RoomBooking.objects.filter(
+            Q(room__in=booking_rooms) | Q(rooms__in=booking_rooms),
+            start_datetime__lt=booking.end_datetime,
+            end_datetime__gt=booking.start_datetime,
+        ).exclude(pk=booking.pk).exclude(status='cancelled').distinct()
+
+        if time_conflicts.exists():
+            conflict_details = '; '.join(
+                f"{_frl(c)} ({timezone.localtime(c.start_datetime).strftime('%d %b %H:%M')}–{timezone.localtime(c.end_datetime).strftime('%H:%M')})"
+                for c in time_conflicts[:3]
+            )
+            return JsonResponse({
+                'error': f'Time slot conflict: the room(s) are already booked during this period — {conflict_details}.'
+            }, status=400)
+
+    try:
+        booking.save()
+    except Exception as exc:
+        return JsonResponse({'error': f'Save failed: {exc}'}, status=400)
+
+    if not changes:
+        return JsonResponse({'status': 'ok', 'message': 'No changes detected.'})
+
+    # ── Build email ───────────────────────────────────────────────────
+    admin_name  = f"{profile.first_name} {profile.last_name}".strip() or request.user.email
+    room_name   = _frl(booking)
+    sl = timezone.localtime(booking.start_datetime)
+    el = timezone.localtime(booking.end_datetime)
+
+    change_rows = [{'label': c['field'], 'value': f"{c['from']}  →  {c['to']}"} for c in changes]
+
+    sections = [
+        {
+            'title': 'Booking Details (Updated)',
+            'rows': [
+                {'label': 'Room(s)',    'value': room_name},
+                {'label': 'Faculty',   'value': booking.faculty_name},
+                {'label': 'Email',     'value': booking.faculty_email},
+                {'label': 'Date',      'value': sl.strftime('%A, %d %B %Y')},
+                {'label': 'Time',      'value': f"{sl.strftime('%I:%M %p')} to {el.strftime('%I:%M %p')}"},
+                {'label': 'Department','value': str(booking.department) if booking.department else '—'},
+                {'label': 'Purpose',   'value': booking.purpose or '—'},
+            ],
+        },
+        {
+            'title': 'Changes Made',
+            'rows': change_rows,
+        },
+        {
+            'title': 'Edited By',
+            'rows': [
+                {'label': 'Admin',  'value': admin_name},
+                {'label': 'Email',  'value': request.user.email},
+                {'label': 'Remark', 'value': booking.approved_note or '—'},
+            ],
+        },
+    ]
+
+    plain_changes = '\n'.join(f"  {c['field']}: {c['from']} → {c['to']}" for c in changes)
+    plain_body = (
+        f"Dear {booking.faculty_name},\n\n"
+        f"Your confirmed room booking has been updated by {admin_name} (Admin).\n\n"
+        f"Room: {room_name}\n"
+        f"New Schedule: {sl.strftime('%d %b %Y, %I:%M %p')} – {el.strftime('%I:%M %p')}\n\n"
+        f"Changes:\n{plain_changes}\n\n"
+        f"Admin Remark: {booking.approved_note or '—'}\n\n"
+        "Please contact the admin team if you have any questions.\n\n"
+        "Best regards,\nBlixtro — SFS College Inventory & Booking System"
+    )
+
+    # Email faculty
+    try:
+        safe_send_mail(
+            subject=f"[Blixtro] Your Room Booking Has Been Updated — {room_name}",
+            message=plain_body,
+            recipient_list=[booking.faculty_email],
+            html_message=build_email_shell(
+                title="Booking Updated",
+                intro_html=f"Dear <strong>{booking.faculty_name}</strong>, your room booking has been updated by <strong>{admin_name}</strong> (Admin).",
+                sections=sections,
+                outro_html="Please keep this email for reference.",
+                accent="#6366f1",
+            ),
+        )
+    except Exception as _e:
+        print(f"[edit_booking] Faculty email failed: {_e}", flush=True)
+
+    # Email all other admins
+    all_admin_emails = list(
+        UserProfile.objects.filter(
+            Q(is_central_admin=True) | Q(is_sub_admin=True)
+        ).values_list('user__email', flat=True)
+    )
+    notify_admins = [e for e in all_admin_emails if e.lower() != request.user.email.lower()]
+    if notify_admins:
+        try:
+            safe_send_mail(
+                subject=f"[Blixtro] Booking Edited — {room_name} | {sl.strftime('%d %b %Y')}",
+                message=f"{admin_name} has edited a booking for {booking.faculty_name}.\n\n{plain_changes}",
+                recipient_list=notify_admins,
+                html_message=build_email_shell(
+                    title="Booking Edit Notification",
+                    intro_html=f"<strong>{admin_name}</strong> has edited a confirmed booking for <strong>{booking.faculty_name}</strong>.",
+                    sections=sections,
+                    outro_html="No action required — this is an informational notification.",
+                    accent="#6366f1",
+                ),
+            )
+        except Exception as _e:
+            print(f"[edit_booking] Admin email failed: {_e}", flush=True)
+
+    # Email BOOKING_NOTIFICATION_EMAILS
+    if BOOKING_NOTIFICATION_EMAILS:
+        try:
+            safe_send_mail(
+                subject=f"[Blixtro] Booking Updated — {room_name} | {sl.strftime('%d %b %Y')}",
+                message=f"A booking has been updated by {admin_name}.\n\n{plain_changes}",
+                recipient_list=BOOKING_NOTIFICATION_EMAILS,
+                html_message=build_email_shell(
+                    title="Booking Update Notification",
+                    intro_html=f"A confirmed booking has been updated by <strong>{admin_name}</strong>. Please review the changes below.",
+                    sections=sections,
+                    outro_html="This notification was automatically issued after the admin updated the booking.",
+                    accent="#6366f1",
+                ),
+            )
+        except Exception as _e:
+            print(f"[edit_booking] Notification list email failed: {_e}", flush=True)
+
+    return JsonResponse({
+        'status': 'ok',
+        'message': f'Booking updated. {len(changes)} change(s) saved and all parties notified.',
+    })
+
+
+@require_POST
+def swap_booking_rooms(request, booking_id):
+    """
+    POST (JSON) — two swap modes:
+
+    Mode 1 — MUTUAL SWAP (swap_with_booking_id provided):
+      Two bookings at the same time slot exchange their rooms.
+      Body: { "swap_with_booking_id": 42, "admin_remark": "..." }
+      - Booking A gets Booking B's room(s), Booking B gets Booking A's room(s).
+      - No conflict possible since both bookings already occupy those rooms at that time.
+      - Emails both faculties + all admins + BOOKING_NOTIFICATION_EMAILS.
+
+    Mode 2 — MOVE TO FREE ROOM (room_ids provided):
+      Move this booking to a different, currently-free room.
+      Body: { "room_ids": [1, 2], "admin_remark": "..." }
+      - Conflict-checks the target rooms for the same time slot.
+      - Emails faculty + all admins + BOOKING_NOTIFICATION_EMAILS.
+    """
+    from inventory.views.central_admin import BOOKING_NOTIFICATION_EMAILS
+    from inventory.email import safe_send_mail, build_email_shell
+    from inventory.booking_utils import format_room_list as _frl
+    from django.db import transaction as _tx
+
+    profile = _booking_control_auth(request)
+    if not profile:
+        return JsonResponse({'error': 'Unauthorized'}, status=403)
+
+    booking_a = get_object_or_404(RoomBooking, id=booking_id)
+
+    try:
+        data = json.loads(request.body)
+    except Exception:
+        return JsonResponse({'error': 'Invalid JSON'}, status=400)
+
+    admin_name   = f"{profile.first_name} {profile.last_name}".strip() or request.user.email
+    admin_remark = (data.get('admin_remark') or '').strip()
+
+    # ── MODE 1: Mutual swap ───────────────────────────────────────────
+    swap_with_id = data.get('swap_with_booking_id')
+    if swap_with_id:
+        try:
+            swap_with_id = int(swap_with_id)
+        except (ValueError, TypeError):
+            return JsonResponse({'error': 'Invalid swap_with_booking_id.'}, status=400)
+
+        if swap_with_id == booking_a.pk:
+            return JsonResponse({'error': 'Cannot swap a booking with itself.'}, status=400)
+
+        booking_b = get_object_or_404(RoomBooking, id=swap_with_id)
+
+        # Both must be active (not cancelled)
+        if booking_a.status == 'cancelled' or booking_b.status == 'cancelled':
+            return JsonResponse({'error': 'Cannot swap a cancelled booking.'}, status=400)
+
+        # Capture old room names before swap
+        old_a_rooms = _frl(booking_a)
+        old_b_rooms = _frl(booking_b)
+
+        # Collect room IDs for each booking
+        a_room_ids = list(booking_a.rooms.values_list('id', flat=True))
+        a_primary  = booking_a.room_id
+        b_room_ids = list(booking_b.rooms.values_list('id', flat=True))
+        b_primary  = booking_b.room_id
+
+        with _tx.atomic():
+            # Swap primary rooms
+            booking_a.room_id = b_primary
+            booking_b.room_id = a_primary
+            booking_a.save(update_fields=['room'])
+            booking_b.save(update_fields=['room'])
+            # Swap M2M rooms
+            booking_a.rooms.set(b_room_ids)
+            booking_b.rooms.set(a_room_ids)
+
+        new_a_rooms = _frl(booking_a)
+        new_b_rooms = _frl(booking_b)
+
+        sl_a = timezone.localtime(booking_a.start_datetime)
+        el_a = timezone.localtime(booking_a.end_datetime)
+        sl_b = timezone.localtime(booking_b.start_datetime)
+        el_b = timezone.localtime(booking_b.end_datetime)
+
+        def _swap_sections(booking, old_room, new_room, other_faculty):
+            return [
+                {
+                    'title': 'Your Booking (Updated)',
+                    'rows': [
+                        {'label': 'Faculty',       'value': booking.faculty_name},
+                        {'label': 'Date',          'value': timezone.localtime(booking.start_datetime).strftime('%A, %d %B %Y')},
+                        {'label': 'Time',          'value': f"{timezone.localtime(booking.start_datetime).strftime('%I:%M %p')} to {timezone.localtime(booking.end_datetime).strftime('%I:%M %p')}"},
+                        {'label': 'Purpose',       'value': booking.purpose or '—'},
+                    ],
+                },
+                {
+                    'title': 'Room Swap Details',
+                    'rows': [
+                        {'label': 'Previous Room', 'value': old_room},
+                        {'label': 'New Room',      'value': new_room},
+                        {'label': 'Swapped With',  'value': other_faculty},
+                    ],
+                },
+                {
+                    'title': 'Authorised By',
+                    'rows': [
+                        {'label': 'Admin',  'value': admin_name},
+                        {'label': 'Remark', 'value': admin_remark or '—'},
+                    ],
+                },
+            ]
+
+        # Email Booking A faculty
+        try:
+            safe_send_mail(
+                subject=f"[Blixtro] Your Booking Room Has Been Swapped — {new_a_rooms}",
+                message=(
+                    f"Dear {booking_a.faculty_name},\n\n"
+                    f"Your booking room has been swapped by {admin_name} (Admin).\n\n"
+                    f"Previous Room: {old_a_rooms}\nNew Room: {new_a_rooms}\n"
+                    f"Swapped with: {booking_b.faculty_name}\n"
+                    f"Admin Remark: {admin_remark or '—'}\n\n"
+                    "Best regards,\nBlixtro — SFS College Inventory & Booking System"
+                ),
+                recipient_list=[booking_a.faculty_email],
+                html_message=build_email_shell(
+                    title="Booking Room Swapped",
+                    intro_html=f"Dear <strong>{booking_a.faculty_name}</strong>, your booking room has been swapped by <strong>{admin_name}</strong>.",
+                    sections=_swap_sections(booking_a, old_a_rooms, new_a_rooms, booking_b.faculty_name),
+                    outro_html="Please keep this email for reference.",
+                    accent="#0d9488",
+                ),
+            )
+        except Exception as _e:
+            print(f"[swap_booking_rooms] Faculty A email failed: {_e}", flush=True)
+
+        # Email Booking B faculty
+        try:
+            safe_send_mail(
+                subject=f"[Blixtro] Your Booking Room Has Been Swapped — {new_b_rooms}",
+                message=(
+                    f"Dear {booking_b.faculty_name},\n\n"
+                    f"Your booking room has been swapped by {admin_name} (Admin).\n\n"
+                    f"Previous Room: {old_b_rooms}\nNew Room: {new_b_rooms}\n"
+                    f"Swapped with: {booking_a.faculty_name}\n"
+                    f"Admin Remark: {admin_remark or '—'}\n\n"
+                    "Best regards,\nBlixtro — SFS College Inventory & Booking System"
+                ),
+                recipient_list=[booking_b.faculty_email],
+                html_message=build_email_shell(
+                    title="Booking Room Swapped",
+                    intro_html=f"Dear <strong>{booking_b.faculty_name}</strong>, your booking room has been swapped by <strong>{admin_name}</strong>.",
+                    sections=_swap_sections(booking_b, old_b_rooms, new_b_rooms, booking_a.faculty_name),
+                    outro_html="Please keep this email for reference.",
+                    accent="#0d9488",
+                ),
+            )
+        except Exception as _e:
+            print(f"[swap_booking_rooms] Faculty B email failed: {_e}", flush=True)
+
+        # Email all other admins
+        all_admin_emails = list(
+            UserProfile.objects.filter(
+                Q(is_central_admin=True) | Q(is_sub_admin=True)
+            ).values_list('user__email', flat=True)
+        )
+        notify_admins = [e for e in all_admin_emails if e.lower() != request.user.email.lower()]
+        admin_sections = [
+            {
+                'title': 'Mutual Room Swap',
+                'rows': [
+                    {'label': 'Booking A Faculty', 'value': booking_a.faculty_name},
+                    {'label': 'A: Old Room',        'value': old_a_rooms},
+                    {'label': 'A: New Room',        'value': new_a_rooms},
+                    {'label': 'Booking B Faculty', 'value': booking_b.faculty_name},
+                    {'label': 'B: Old Room',        'value': old_b_rooms},
+                    {'label': 'B: New Room',        'value': new_b_rooms},
+                    {'label': 'Date',               'value': sl_a.strftime('%A, %d %B %Y')},
+                    {'label': 'Time',               'value': f"{sl_a.strftime('%I:%M %p')} – {el_a.strftime('%I:%M %p')}"},
+                ],
+            },
+            {
+                'title': 'Authorised By',
+                'rows': [
+                    {'label': 'Admin',  'value': admin_name},
+                    {'label': 'Remark', 'value': admin_remark or '—'},
+                ],
+            },
+        ]
+        if notify_admins:
+            try:
+                safe_send_mail(
+                    subject=f"[Blixtro] Room Swap — {booking_a.faculty_name} ↔ {booking_b.faculty_name} | {sl_a.strftime('%d %b %Y')}",
+                    message=f"{admin_name} swapped rooms: {booking_a.faculty_name} ({old_a_rooms}→{new_a_rooms}) ↔ {booking_b.faculty_name} ({old_b_rooms}→{new_b_rooms}). Remark: {admin_remark or '—'}",
+                    recipient_list=notify_admins,
+                    html_message=build_email_shell(
+                        title="Mutual Room Swap Notification",
+                        intro_html=f"<strong>{admin_name}</strong> has performed a mutual room swap between two confirmed bookings.",
+                        sections=admin_sections,
+                        outro_html="No action required — this is an informational notification.",
+                        accent="#0d9488",
+                    ),
+                )
+            except Exception as _e:
+                print(f"[swap_booking_rooms] Admin email failed: {_e}", flush=True)
+
+        if BOOKING_NOTIFICATION_EMAILS:
+            try:
+                safe_send_mail(
+                    subject=f"[Blixtro] Room Swap Notification | {sl_a.strftime('%d %b %Y')}",
+                    message=f"Mutual room swap by {admin_name}: {booking_a.faculty_name} ({old_a_rooms}→{new_a_rooms}) ↔ {booking_b.faculty_name} ({old_b_rooms}→{new_b_rooms})",
+                    recipient_list=BOOKING_NOTIFICATION_EMAILS,
+                    html_message=build_email_shell(
+                        title="Room Swap Notification",
+                        intro_html=f"<strong>{admin_name}</strong> has performed a mutual room swap. Please review the updated details.",
+                        sections=admin_sections,
+                        outro_html="This notification was automatically issued after the admin performed the swap.",
+                        accent="#0d9488",
+                    ),
+                )
+            except Exception as _e:
+                print(f"[swap_booking_rooms] Notification list email failed: {_e}", flush=True)
+
+        return JsonResponse({
+            'status': 'ok',
+            'message': f'Rooms swapped: {booking_a.faculty_name} now has {new_a_rooms}, {booking_b.faculty_name} now has {new_b_rooms}. Both faculties and all parties notified.',
+        })
+
+    # ── MODE 2: Move to free room ─────────────────────────────────────
+    new_room_ids = data.get('room_ids', [])
+    if not new_room_ids or not isinstance(new_room_ids, list):
+        return JsonResponse({'error': 'Provide either swap_with_booking_id (mutual swap) or room_ids (move to free room).'}, status=400)
+
+    try:
+        new_room_ids = [int(i) for i in new_room_ids]
+    except (ValueError, TypeError):
+        return JsonResponse({'error': 'Invalid room IDs.'}, status=400)
+
+    new_rooms = list(Room.objects.filter(id__in=new_room_ids))
+    if len(new_rooms) != len(new_room_ids):
+        return JsonResponse({'error': 'One or more selected rooms not found.'}, status=400)
+
+    # Conflict check: target rooms must be free for this time slot
+    conflicts = RoomBooking.objects.filter(
+        Q(room__in=new_rooms) | Q(rooms__in=new_rooms),
+        start_datetime__lt=booking_a.end_datetime,
+        end_datetime__gt=booking_a.start_datetime,
+    ).exclude(pk=booking_a.pk).exclude(status='cancelled').distinct()
+
+    if conflicts.exists():
+        conflict_details = '; '.join(
+            f"{_frl(c)} — {c.faculty_name} ({timezone.localtime(c.start_datetime).strftime('%d %b %H:%M')}–{timezone.localtime(c.end_datetime).strftime('%H:%M')})"
+            for c in conflicts[:3]
+        )
+        return JsonResponse({
+            'error': f'Room conflict: the selected room(s) are already booked during this time slot — {conflict_details}.'
+        }, status=400)
+
+    old_room_name = _frl(booking_a)
+
+    booking_a.room = new_rooms[0]
+    booking_a.save(update_fields=['room'])
+    booking_a.rooms.set(new_rooms)
+
+    new_room_name = _frl(booking_a)
+    sl = timezone.localtime(booking_a.start_datetime)
+    el = timezone.localtime(booking_a.end_datetime)
+
+    sections = [
+        {
+            'title': 'Booking Details',
+            'rows': [
+                {'label': 'Faculty',       'value': booking_a.faculty_name},
+                {'label': 'Email',         'value': booking_a.faculty_email},
+                {'label': 'Date',          'value': sl.strftime('%A, %d %B %Y')},
+                {'label': 'Time',          'value': f"{sl.strftime('%I:%M %p')} to {el.strftime('%I:%M %p')}"},
+                {'label': 'Purpose',       'value': booking_a.purpose or '—'},
+            ],
+        },
+        {
+            'title': 'Room Change',
+            'rows': [
+                {'label': 'Previous Room', 'value': old_room_name},
+                {'label': 'New Room',      'value': new_room_name},
+            ],
+        },
+        {
+            'title': 'Authorised By',
+            'rows': [
+                {'label': 'Admin',  'value': admin_name},
+                {'label': 'Remark', 'value': admin_remark or '—'},
+            ],
+        },
+    ]
+
+    plain_body = (
+        f"Dear {booking_a.faculty_name},\n\n"
+        f"Your booking room has been changed by {admin_name} (Admin).\n\n"
+        f"Previous Room: {old_room_name}\nNew Room: {new_room_name}\n"
+        f"Schedule: {sl.strftime('%d %b %Y, %I:%M %p')} – {el.strftime('%I:%M %p')}\n"
+        f"Admin Remark: {admin_remark or '—'}\n\n"
+        "Best regards,\nBlixtro — SFS College Inventory & Booking System"
+    )
+
+    try:
+        safe_send_mail(
+            subject=f"[Blixtro] Your Booking Room Has Been Changed — {new_room_name}",
+            message=plain_body,
+            recipient_list=[booking_a.faculty_email],
+            html_message=build_email_shell(
+                title="Booking Room Changed",
+                intro_html=f"Dear <strong>{booking_a.faculty_name}</strong>, your booking room has been changed by <strong>{admin_name}</strong>.",
+                sections=sections,
+                outro_html="Please keep this email for reference.",
+                accent="#0d9488",
+            ),
+        )
+    except Exception as _e:
+        print(f"[swap_booking_rooms] Faculty email failed: {_e}", flush=True)
+
+    all_admin_emails = list(
+        UserProfile.objects.filter(
+            Q(is_central_admin=True) | Q(is_sub_admin=True)
+        ).values_list('user__email', flat=True)
+    )
+    notify_admins = [e for e in all_admin_emails if e.lower() != request.user.email.lower()]
+    if notify_admins:
+        try:
+            safe_send_mail(
+                subject=f"[Blixtro] Room Change — {old_room_name} → {new_room_name} | {sl.strftime('%d %b %Y')}",
+                message=f"{admin_name} moved {booking_a.faculty_name}'s booking: {old_room_name} → {new_room_name}. Remark: {admin_remark or '—'}",
+                recipient_list=notify_admins,
+                html_message=build_email_shell(
+                    title="Room Change Notification",
+                    intro_html=f"<strong>{admin_name}</strong> has moved a confirmed booking to a different room.",
+                    sections=sections,
+                    outro_html="No action required — this is an informational notification.",
+                    accent="#0d9488",
+                ),
+            )
+        except Exception as _e:
+            print(f"[swap_booking_rooms] Admin email failed: {_e}", flush=True)
+
+    if BOOKING_NOTIFICATION_EMAILS:
+        try:
+            safe_send_mail(
+                subject=f"[Blixtro] Room Change Notification — {new_room_name} | {sl.strftime('%d %b %Y')}",
+                message=f"Room changed by {admin_name}: {old_room_name} → {new_room_name} for {booking_a.faculty_name}",
+                recipient_list=BOOKING_NOTIFICATION_EMAILS,
+                html_message=build_email_shell(
+                    title="Room Change Notification",
+                    intro_html=f"A confirmed booking room has been changed by <strong>{admin_name}</strong>.",
+                    sections=sections,
+                    outro_html="This notification was automatically issued after the admin changed the booking room.",
+                    accent="#0d9488",
+                ),
+            )
+        except Exception as _e:
+            print(f"[swap_booking_rooms] Notification list email failed: {_e}", flush=True)
+
+    return JsonResponse({
+        'status': 'ok',
+        'message': f'Room changed from {old_room_name} to {new_room_name}. All parties notified.',
+        'new_room_name': new_room_name,
+    })
+
+
+def get_swappable_bookings(request, booking_id):
+    """
+    GET — return other active bookings that overlap in time with this booking.
+    Used to populate the mutual-swap picker in the BCC swap modal.
+    """
+    profile = _booking_control_auth(request)
+    if not profile:
+        return JsonResponse({'error': 'Unauthorized'}, status=403)
+
+    booking = get_object_or_404(RoomBooking, id=booking_id)
+
+    # Find bookings that overlap in time (same day / same time window), excluding this one
+    overlapping = RoomBooking.objects.filter(
+        start_datetime__lt=booking.end_datetime,
+        end_datetime__gt=booking.start_datetime,
+    ).exclude(pk=booking.pk).exclude(status='cancelled').select_related('room', 'department').prefetch_related('rooms').order_by('start_datetime')
+
+    results = []
+    for b in overlapping:
+        sl = timezone.localtime(b.start_datetime)
+        el = timezone.localtime(b.end_datetime)
+        results.append({
+            'id':           b.id,
+            'room':         format_room_list(b),
+            'faculty':      b.faculty_name,
+            'email':        b.faculty_email,
+            'from':         sl.strftime('%d %b %Y, %H:%M'),
+            'to':           el.strftime('%H:%M'),
+            'purpose':      b.purpose or '',
+        })
+
+    return JsonResponse({'results': results, 'count': len(results)})

@@ -176,7 +176,7 @@ class RoomBookingForm(forms.ModelForm):
             }),
             'department': forms.Select(attrs={'class': 'form-control'}),
             'room': forms.HiddenInput(attrs={'id': 'id_room'}),
-            'requirements_doc': forms.FileInput(attrs={'class': 'form-control'}),
+            'requirements_doc': forms.FileInput(attrs={'class': 'form-control', 'accept': '.pdf,.png,.jpg,.jpeg,.heic,.heif,.webp,.gif,.bmp,.tiff,.tif'}),
         }
 
     def __init__(self, *args, **kwargs):
@@ -241,6 +241,51 @@ class RoomBookingForm(forms.ModelForm):
         if len(selected_rooms) != len(parsed_room_ids):
             self.add_error('room_ids', 'One or more selected rooms could not be found.')
             return cleaned_data
+
+
+class AdminRoomBookingForm(RoomBookingForm):
+    """
+    Variant of RoomBookingForm for sub-admin / central-admin direct bookings.
+    - Skips RoomBookingCredentials validation (admin uses Django login credentials).
+    - Password field is not required (admin credentials are passed separately).
+    """
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['password'].required = False
+
+    def clean(self):
+        cleaned_data = super(RoomBookingForm, self).clean()  # skip RoomBookingForm.clean entirely
+        room_ids = self.data.get('room_ids', '').strip()
+
+        # Timezone-aware datetimes
+        start = cleaned_data.get('start_datetime')
+        end   = cleaned_data.get('end_datetime')
+        if start and timezone.is_naive(start):
+            cleaned_data['start_datetime'] = timezone.make_aware(start)
+        if end and timezone.is_naive(end):
+            cleaned_data['end_datetime'] = timezone.make_aware(end)
+
+        # Room IDs
+        parsed_room_ids = []
+        for value in room_ids.split(','):
+            value = value.strip()
+            if not value:
+                continue
+            if value.isdigit():
+                parsed_room_ids.append(int(value))
+
+        parsed_room_ids = list(dict.fromkeys(parsed_room_ids))
+        if not parsed_room_ids:
+            self.add_error(None, 'Please select at least one room.')
+            return cleaned_data
+
+        selected_rooms = list(Room.objects.filter(id__in=parsed_room_ids))
+        if len(selected_rooms) != len(parsed_room_ids):
+            self.add_error(None, 'One or more selected rooms could not be found.')
+            return cleaned_data
+
+        cleaned_data['room_ids'] = room_ids
+        return cleaned_data
 
 
 class CustomPasswordResetForm(PasswordResetForm):

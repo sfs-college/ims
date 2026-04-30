@@ -232,8 +232,7 @@
                 <i class="bi bi-arrow-left me-1"></i> Dashboard
             </a>
             <h2>Approval Hub</h2>
-            <p class="text-muted mb-0 small">
-            </p>
+            <p class="text-muted mb-0 small">Review and act on pending requests — bookings, stock, time extensions &amp; cancellations</p>
         </div>
 
         <div class="type-toggle" id="typeToggle">
@@ -247,7 +246,7 @@
                 <span class="tab-count">{{ issue_tat_count }}</span>
             </a>
             <a class="tab-btn" data-target="panel-booking-req">
-                <i class="bi bi-calendar-check"></i>
+                <i class="bi bi-calendar-check"></i>Booking Requests
                 <span class="tab-count">{{ booking_req_count }}</span>
             </a>
             <a class="tab-btn" data-target="panel-cancel-req">
@@ -391,7 +390,7 @@
                     </button>
                     <div class="req-inline-panel" id="req-panel-doc-{{ r.pk }}">
                         <div class="req-panel-header">
-                            <span><i class="bi bi-file-earmark-word me-1"></i>Requirements Document</span>
+                            <span><i class="bi bi-file-earmark me-1"></i>Requirements Document</span>
                             <button class="req-panel-close" onclick="closeReqPanel('doc-{{ r.pk }}')">✕ Close</button>
                         </div>
                         <div class="req-panel-body" id="req-content-doc-{{ r.pk }}"></div>
@@ -400,7 +399,7 @@
                 {% endif %}
 
                 <div class="action-group">
-                    <form method="post" action="{% url 'central_admin:approve_room_booking_request' r.pk %}" class="flex-grow-1">
+                    <form method="post" action="{% url 'central_admin:approve_booking_request' r.pk %}" class="flex-grow-1">
                         {% csrf_token %}
                         <input type="hidden" name="next_type" value="booking_req">
                         <textarea name="note" rows="2"
@@ -418,7 +417,7 @@
 
                 <!-- Inline rejection note panel -->
                 <div id="reject-note-{{ r.pk }}" style="display:none; margin-top:12px;">
-                    <form method="post" action="{% url 'central_admin:reject_room_booking_request' r.pk %}">
+                    <form method="post" action="{% url 'central_admin:reject_booking_request' r.pk %}">
                         {% csrf_token %}
                         <input type="hidden" name="next_type" value="booking_req">
                         <textarea name="note" rows="3"
@@ -548,12 +547,35 @@ function toggleDocReq(pk, btn, textUrl) {
     panel.classList.add('open');
     btn.innerHTML = '<i class="bi bi-eye-slash me-1"></i>Hide Requirements';
     if (!content || content.dataset.loaded) return;
-    content.innerHTML = '<div style="text-align:center;padding:12px;color:#64748b;"><div class="spinner-border spinner-border-sm me-2"></div>Loading document…</div>';
+    content.innerHTML = '<div style="text-align:center;padding:12px;color:#64748b;"><div class="spinner-border spinner-border-sm me-2"></div>Loading…</div>';
     fetch(textUrl, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
         .then(function(r) { return r.json(); })
         .then(function(d) {
             if (d.error) {
                 content.innerHTML = '<span style="color:#dc2626;font-size:0.82rem;">' + escapeHtml(d.error) + '</span>';
+            } else if (d.type === 'image') {
+                // Display image inline
+                content.innerHTML =
+                    '<div style="text-align:center;margin-bottom:8px;">' +
+                    '<img src="' + d.url + '" alt="Requirements" style="max-width:100%;max-height:480px;border-radius:8px;border:1px solid #e2e8f0;">' +
+                    '</div>' +
+                    '<div style="display:flex;gap:8px;justify-content:center;margin-top:8px;">' +
+                    '<a href="' + d.download_url + '" download class="btn-view-req" style="font-size:0.78rem;padding:5px 12px;text-decoration:none;">' +
+                    '<i class="bi bi-download me-1"></i>Download</a>' +
+                    '</div>';
+            } else if (d.type === 'pdf') {
+                // Open PDF — use system browser on Capacitor (reliable), new tab on web
+                var pdfUrl = d.url;
+                var dlUrl  = d.download_url;
+                var openFn = 'IS_CAPACITOR && window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.Browser ? window.Capacitor.Plugins.Browser.open({url:"' + pdfUrl + '"}) : window.open("' + pdfUrl + '","_blank")';
+                content.innerHTML =
+                    '<div style="margin-bottom:8px;">' +
+                    '<button onclick="' + openFn + '" class="btn-view-req" style="font-size:0.78rem;padding:5px 12px;border:none;cursor:pointer;margin-right:8px;">' +
+                    '<i class="bi bi-file-earmark-pdf me-1"></i>Open PDF</button>' +
+                    '<a href="' + dlUrl + '" download class="btn-view-req" style="font-size:0.78rem;padding:5px 12px;text-decoration:none;background:linear-gradient(135deg,#10b981,#059669);">' +
+                    '<i class="bi bi-download me-1"></i>Download PDF</a>' +
+                    '</div>' +
+                    '<p style="font-size:0.78rem;color:#64748b;margin:4px 0 0;">Tap "Open PDF" to view the requirements document.</p>';
             } else {
                 renderDocBlocks(content, d.blocks);
             }

@@ -16,6 +16,11 @@ urlpatterns = [
      path('complete-password-reset/', views.CompletePasswordResetView.as_view(),
           name='complete_password_reset'),
      path("book-room/", views.room_booking_view, name="room_booking"),
+     # admin-book-room removed — admin booking is now at central_admin:sub_admin_book_venue (session-authenticated)
+     # Keep these URLs as redirects so old bookmarks and the existing template don't 404
+     path("admin-book-room/", views.admin_room_booking_redirect, name="admin_room_booking"),
+     path("admin-book-room/verify/", views.admin_room_booking_redirect, name="verify_admin_booking_credentials"),
+     path("app/", views.app_home_view, name="app_home"),
      path('api/rooms-by-category/', views.rooms_by_category, name='rooms_by_category'),
      path("aura/import-creds/", views.import_booking_credentials, name="import_booking_credentials"),
      path("aura/create-cred/", views.create_booking_credentials, name="create_booking_credentials"),

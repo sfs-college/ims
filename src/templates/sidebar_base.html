@@ -4,7 +4,10 @@
 
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <title>Blixtro {% block title %}{% endblock title %}</title>
     <link rel="icon" type="image/x-icon" href="{% static 'images/logo-icon.svg' %}">
     <script src="{% static 'utils/htmx/htmx.min.js' %}"></script>
@@ -13,6 +16,18 @@
     {% block style %}{% endblock style %}
     <script src="{% static 'utils/mobile-utils.js' %}?v=3"></script>
 <style>
+    /* ── Capacitor safe-area support ── */
+    :root {
+        --sat: env(safe-area-inset-top, 0px);
+        --sab: env(safe-area-inset-bottom, 0px);
+        --sal: env(safe-area-inset-left, 0px);
+        --sar: env(safe-area-inset-right, 0px);
+    }
+    body {
+        padding-top: var(--sat);
+        padding-bottom: var(--sab);
+        /* Do NOT add padding-left/right here — sidebar layout manages its own offsets */
+    }
     /* Universal Back Button Styles */
     .universal-back-btn {
         position: fixed;

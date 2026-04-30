@@ -16,13 +16,16 @@ def safe_send_mail(
     from_email=None,
     html_message=None,
     fail_silently=True,
+    attachments=None,   # list of (filename, file_bytes, mime_type) tuples
 ):
     """
     Production-safe email sender.
     - Uses Mailjet REST API (Railway-safe)
     - Keyword-only arguments enforced
     - Never crashes app
+    - attachments: optional list of (filename, bytes, mime_type) tuples
     """
+    import base64
 
     api_key = getattr(settings, "EMAIL_HOST_USER", None)
     api_secret = getattr(settings, "EMAIL_HOST_PASSWORD", None)
@@ -36,20 +39,29 @@ def safe_send_mail(
         logger.warning("[safe_send_mail] Empty recipient list")
         return False
 
-    payload = {
-        "Messages": [
-            {
-                "From": {
-                    "Email": sender_email,
-                    "Name": "Blixtro IMS",
-                },
-                "To": [{"Email": r} for r in recipient_list],
-                "Subject": subject,
-                "TextPart": message,
-                **({"HTMLPart": html_message} if html_message else {}),
-            }
-        ]
+    message_obj = {
+        "From": {
+            "Email": sender_email,
+            "Name": "Blixtro IMS",
+        },
+        "To": [{"Email": r} for r in recipient_list],
+        "Subject": subject,
+        "TextPart": message,
+        **({"HTMLPart": html_message} if html_message else {}),
     }
+
+    # Add attachments if provided
+    if attachments:
+        message_obj["Attachments"] = [
+            {
+                "Filename": fname,
+                "ContentType": mime_type,
+                "Base64Content": base64.b64encode(file_bytes).decode('utf-8'),
+            }
+            for fname, file_bytes, mime_type in attachments
+        ]
+
+    payload = {"Messages": [message_obj]}
 
     try:
         response = requests.post(

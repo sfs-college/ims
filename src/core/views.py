@@ -12,7 +12,7 @@ from . forms import CustomAuthenticationForm, UserRegisterForm, CustomPasswordRe
 from core.models import UserProfile, Organisation
 from config.mixins.access_mixins import RedirectLoggedInUsersMixin
 from django.contrib import messages
-from core.forms import RoomBookingForm
+from core.forms import RoomBookingForm, AdminRoomBookingForm
 from inventory.models import Room, RoomBooking, RoomBookingRequest, RoomCancellationRequest, RoomBookingCredentials
 from django.http import JsonResponse
 from django.utils.dateparse import parse_datetime
@@ -34,6 +34,29 @@ User = get_user_model()
 # ─────────────────────────────────────────────────────────────────────
 # HELPERS
 # ─────────────────────────────────────────────────────────────────────
+
+def admin_room_booking_redirect(request):
+    """
+    Redirect the old standalone admin booking page to the new
+    session-authenticated booking view inside the dashboard.
+    Handles both GET (old page visit) and GET (verify endpoint).
+    """
+    from django.http import HttpResponseRedirect
+    from django.urls import reverse
+    return HttpResponseRedirect(reverse('central_admin:sub_admin_book_venue'))
+
+
+def app_home_view(request):
+    """
+    Capacitor app home screen — shown instead of the website landing page
+    when running inside the Android/iOS app.
+    Passes admin_exists flag so the Register card can show the restriction popup
+    without a round-trip.
+    """
+    from core.models import UserProfile
+    admin_exists = UserProfile.objects.filter(is_central_admin=True).exists()
+    return render(request, 'app_home.html', {'admin_exists': admin_exists})
+
 
 def _safe_mail(subject, message, recipient_list, fail_silently=True, html_message=None):
     """Wrapper around safe_send_mail — imported lazily to avoid circular imports."""
@@ -116,6 +139,19 @@ def _booking_email_sections(rooms_or_instance, faculty_name, faculty_email, star
 
 class LandingPageView(RedirectLoggedInUsersMixin, TemplateView):
     template_name = 'landing_page.html'
+
+    def dispatch(self, request, *args, **kwargs):
+        # Capacitor WebView sends a user-agent containing 'Capacitor' or the app
+        # can pass ?app=1 to force the mobile home screen.
+        ua = request.META.get('HTTP_USER_AGENT', '')
+        is_capacitor = (
+            'Capacitor' in ua
+            or request.GET.get('app') == '1'
+        )
+        if is_capacitor:
+            from django.shortcuts import redirect as _redir
+            return _redir('core:app_home')
+        return super().dispatch(request, *args, **kwargs)
     
     
 class LoginView(LoginView):
@@ -257,6 +293,17 @@ def _is_booking_too_soon(dt):
     return booking_date <= today + timedelta(days=1)
 
 
+REFRESHMENT_OPTIONS = [
+    {'value': 'water_bottle', 'label': 'Water Bottle'},
+    {'value': 'juice',        'label': 'Juice'},
+    {'value': 'sapling',      'label': 'Sapling'},
+    {'value': 'tissue',       'label': 'Tissue'},
+    {'value': 'refreshments', 'label': 'Refreshments'},
+    {'value': 'mic',          'label': 'Mic'},
+    {'value': 'tray',         'label': 'Tray'},
+]
+
+
 def room_booking_view(request):
     # Run TAT expiry check on every booking page load
     try:
@@ -283,12 +330,24 @@ def room_booking_view(request):
                     "Bookings cannot be made for today, tomorrow, or a previous date. "
                     "Please select a date at least 2 days in advance."
                 )
-                return render(request, "booking/room_booking.html", {"form": form})
+                return render(request, "booking/room_booking.html", {"form": form, "refreshment_options": REFRESHMENT_OPTIONS})
 
             # ── Inline requirements text ─────────────────────────────────────
             req_type = request.POST.get('requirements_type', 'na')
-            if req_type == 'text':
-                booking_req.requirements_text = request.POST.get('requirements_text_input', '').strip() or None
+            # 'text' mode removed — refreshments checklist is stored separately
+            # Store refreshments checklist selections in requirements_text
+            refreshment_items = request.POST.getlist('refreshments[]')
+            others_text = request.POST.get('refreshments_others', '').strip()
+            others_text2 = request.POST.get('refreshments_others_2', '').strip()
+            if refreshment_items:
+                items_list = [i for i in refreshment_items if i != 'others']
+                if 'others' in refreshment_items:
+                    if others_text:
+                        items_list.append(f"Others: {others_text}")
+                    if others_text2:
+                        items_list.append(f"Others: {others_text2}")
+                if items_list:
+                    booking_req.requirements_text = "Refreshments requested: " + ", ".join(items_list)
 
             # Ensure each uploaded document gets a unique storage name
             if booking_req.requirements_doc:
@@ -392,7 +451,282 @@ def room_booking_view(request):
         else:
             messages.error(request, "Please correct the errors below.")
 
-    return render(request, "booking/room_booking.html", {"form": form})
+    return render(request, "booking/room_booking.html", {"form": form, "refreshment_options": REFRESHMENT_OPTIONS})
+
+
+def verify_admin_booking_credentials(request):
+    """
+    AJAX GET — validates sub-admin / central-admin Django login credentials
+    for the admin booking portal. Returns admin name and role on success.
+    """
+    email    = request.GET.get('email', '').strip().lower()
+    password = request.GET.get('password', '').strip()
+
+    if not email or not password:
+        return JsonResponse({'error': 'Email and password are required.'}, status=400)
+
+    from django.contrib.auth import authenticate as _auth
+    user = _auth(request, username=email, password=password)
+    if user is None:
+        return JsonResponse({'error': 'Invalid credentials.'}, status=403)
+
+    profile = getattr(user, 'profile', None)
+    if not profile or not (profile.is_central_admin or profile.is_sub_admin):
+        return JsonResponse({'error': 'Only sub-admins and central admins can use this booking portal.'}, status=403)
+
+    full_name = f"{profile.first_name} {profile.last_name}".strip() or user.email
+    role = 'Central Admin' if profile.is_central_admin and not profile.is_sub_admin else 'Sub Admin'
+    return JsonResponse({
+        'admin_name': full_name,
+        'admin_email': user.email,
+        'role': role,
+    })
+
+
+def admin_room_booking_view(request):
+    """
+    Sub-admin / central-admin direct booking portal.
+    - Authenticates using Django login credentials (not RoomBookingCredentials).
+    - Bypasses approval workflow — creates RoomBooking directly (confirmed).
+    - No 2-day advance restriction; same-day and next-day bookings allowed.
+    - Past bookings are rejected.
+    - On success: emails faculty + 5 notification recipients + all admins.
+    """
+    from inventory.email import safe_send_mail
+    from inventory.views.central_admin import BOOKING_NOTIFICATION_EMAILS
+
+    # Run TAT expiry check
+    try:
+        process_booking_tat_reminders_and_expiry()
+    except Exception as _e:
+        print(f"[admin_room_booking_view] TAT check failed: {_e}", flush=True)
+
+    form = AdminRoomBookingForm()
+
+    if request.method == "POST":
+        form = AdminRoomBookingForm(request.POST, request.FILES)
+
+        # Validate admin credentials from POST
+        admin_email    = request.POST.get('admin_email', '').strip().lower()
+        admin_password = request.POST.get('admin_password', '').strip()
+
+        from django.contrib.auth import authenticate as _auth
+        admin_user = _auth(request, username=admin_email, password=admin_password)
+        if admin_user is None:
+            messages.error(request, "Admin credentials are invalid.")
+            return render(request, "booking/admin_room_booking.html", {
+                "form": form, "refreshment_options": REFRESHMENT_OPTIONS
+            })
+
+        admin_profile = getattr(admin_user, 'profile', None)
+        if not admin_profile or not (admin_profile.is_central_admin or admin_profile.is_sub_admin):
+            messages.error(request, "Only sub-admins and central admins can use this portal.")
+            return render(request, "booking/admin_room_booking.html", {
+                "form": form, "refreshment_options": REFRESHMENT_OPTIONS
+            })
+
+        admin_name = f"{admin_profile.first_name} {admin_profile.last_name}".strip() or admin_email
+
+        if form.is_valid():
+            import uuid as _uuid
+            import os as _os
+
+            # ── Past booking block (no future restriction for admins) ──────────
+            start_dt = form.cleaned_data.get('start_datetime')
+            end_dt   = form.cleaned_data.get('end_datetime')
+            now      = timezone.now()
+
+            if start_dt and start_dt < now:
+                messages.error(request, "Past bookings are not accepted.")
+                return render(request, "booking/admin_room_booking.html", {
+                    "form": form, "refreshment_options": REFRESHMENT_OPTIONS
+                })
+
+            selected_rooms = form.cleaned_data.get('selected_rooms', [])
+
+            # ── Build refreshments text ──────────────────────────────────────
+            refreshment_items = request.POST.getlist('refreshments[]')
+            others_text = request.POST.get('refreshments_others', '').strip()
+            others_text2 = request.POST.get('refreshments_others_2', '').strip()
+            requirements_text = None
+            if refreshment_items:
+                items_list = [i for i in refreshment_items if i != 'others']
+                if 'others' in refreshment_items:
+                    if others_text:
+                        items_list.append(f"Others: {others_text}")
+                    if others_text2:
+                        items_list.append(f"Others: {others_text2}")
+                if items_list:
+                    requirements_text = "Refreshments requested: " + ", ".join(items_list)
+
+            # ── Handle requirements doc unique name ──────────────────────────
+            req_doc = form.cleaned_data.get('requirements_doc')
+            if req_doc:
+                orig_name = _os.path.basename(req_doc.name)
+                name_root, ext = _os.path.splitext(orig_name)
+                unique_name = f"{name_root}_{_uuid.uuid4().hex[:8]}{ext}"
+                req_doc.name = _os.path.join(_os.path.dirname(req_doc.name), unique_name)
+
+            # ── Create confirmed RoomBooking directly (no approval needed) ───
+            import uuid as _uuid2
+            from django.utils.text import slugify as _slugify
+            booking = RoomBooking(
+                room              = form.cleaned_data['room'] if form.cleaned_data.get('room') else (selected_rooms[0] if selected_rooms else None),
+                department        = form.cleaned_data.get('department'),
+                faculty_name      = form.cleaned_data['faculty_name'],
+                faculty_email     = form.cleaned_data['faculty_email'],
+                start_datetime    = start_dt,
+                end_datetime      = end_dt,
+                purpose           = form.cleaned_data.get('purpose'),
+                requirements_doc  = req_doc,
+                requirements_text = requirements_text,
+                approved_by_name  = admin_name,
+                approved_note     = f"Directly booked by {admin_name} (Admin)",
+            )
+            booking.save()
+            if selected_rooms:
+                booking.rooms.set(selected_rooms)
+
+            room_name    = format_room_list(booking)
+            faculty_name = booking.faculty_name
+            faculty_email = booking.faculty_email
+            sl = timezone.localtime(start_dt)
+            el = timezone.localtime(end_dt)
+
+            details = _format_booking_details(
+                selected_rooms or booking,
+                faculty_name,
+                start_dt,
+                end_dt,
+                booking.purpose,
+                booking.department,
+            )
+            booking_sections = _booking_email_sections(
+                selected_rooms or booking,
+                faculty_name,
+                faculty_email,
+                start_dt,
+                end_dt,
+                booking.purpose,
+                booking.department,
+            ) + [{
+                "title": "Booking Authority",
+                "rows": [
+                    {"label": "Booked By", "value": admin_name},
+                    {"label": "Admin Email", "value": admin_email},
+                ],
+            }]
+
+            # Read requirements file for attachment
+            _req_attachment = None
+            if booking.requirements_doc and booking.requirements_doc.name:
+                import mimetypes as _mt
+                _fname = booking.requirements_doc.name.split('/')[-1]
+                _mime, _ = _mt.guess_type(_fname)
+                _mime = _mime or 'application/octet-stream'
+                try:
+                    with booking.requirements_doc.storage.open(booking.requirements_doc.name, 'rb') as _f:
+                        _req_attachment = (_fname, _f.read(), _mime)
+                except Exception as _ae:
+                    print(f"[admin_room_booking_view] Could not read requirements file: {_ae}", flush=True)
+
+            # Email 1: Faculty — booking confirmed
+            try:
+                safe_send_mail(
+                    subject=f"[Blixtro] Your Room Booking is Confirmed — {room_name}",
+                    message=(
+                        f"Dear {faculty_name},\n\n"
+                        f"Your room booking has been confirmed by {admin_name} (Admin).\n"
+                        f"{details}\n\n"
+                        "Your booking is confirmed. Please contact the admin team for any assistance.\n\n"
+                        "Best regards,\nBlixtro — SFS College Inventory & Booking System"
+                    ),
+                    recipient_list=[faculty_email],
+                    html_message=build_email_shell(
+                        title="Booking Confirmed",
+                        intro_html=(
+                            f"Dear <strong>{faculty_name}</strong>, your room booking has been confirmed "
+                            f"by <strong>{admin_name}</strong> (Admin)."
+                        ),
+                        sections=booking_sections,
+                        outro_html="Please keep this email for reference.",
+                    ),
+                    attachments=[_req_attachment] if _req_attachment else None,
+                )
+            except Exception as _e:
+                print(f"[admin_room_booking_view] Faculty email failed: {_e}", flush=True)
+
+            # Email 2: All admins (central + sub) — notification
+            all_admin_emails = _admin_emails()
+            # Exclude the booking admin themselves to avoid duplicate
+            notify_admins = [e for e in all_admin_emails if e.lower() != admin_email]
+            if notify_admins:
+                try:
+                    safe_send_mail(
+                        subject=f"[Blixtro] Admin Booking — {room_name} | {sl.strftime('%d %b %Y')}",
+                        message=(
+                            f"{admin_name} has directly booked a room for {faculty_name}.\n\n"
+                            f"{details}\n\n"
+                            "This booking was made directly by an admin and is already confirmed.\n\n"
+                            "Blixtro — SFS College Inventory & Booking System"
+                        ),
+                        recipient_list=notify_admins,
+                        html_message=build_email_shell(
+                            title="Admin Room Booking Notification",
+                            intro_html=(
+                                f"<strong>{admin_name}</strong> has directly booked a room for "
+                                f"<strong>{faculty_name}</strong>. This booking is already confirmed."
+                            ),
+                            sections=booking_sections,
+                            outro_html="No action required — this is an informational notification.",
+                        ),
+                        attachments=[_req_attachment] if _req_attachment else None,
+                    )
+                except Exception as _e:
+                    print(f"[admin_room_booking_view] Admin notification email failed: {_e}", flush=True)
+
+            # Email 3: 5 notification recipients
+            if BOOKING_NOTIFICATION_EMAILS:
+                try:
+                    safe_send_mail(
+                        subject=(
+                            f"[Blixtro] Room Booking Notification — "
+                            f"{room_name} | {sl.strftime('%d %b %Y')}"
+                        ),
+                        message=(
+                            f"A room booking has been confirmed by {admin_name} (Admin).\n\n"
+                            f"{details}\n\n"
+                            "Please make the necessary arrangements as per the details above.\n\n"
+                            "Blixtro — SFS College Inventory & Booking System"
+                        ),
+                        recipient_list=BOOKING_NOTIFICATION_EMAILS,
+                        html_message=build_email_shell(
+                            title="Approved Booking Notification",
+                            intro_html=(
+                                f"A room booking has been confirmed by <strong>{admin_name}</strong>. "
+                                "Please review the complete booking details and make the necessary arrangements."
+                            ),
+                            sections=booking_sections,
+                            outro_html="This notification was automatically issued after the admin confirmed the booking.",
+                        ),
+                        attachments=[_req_attachment] if _req_attachment else None,
+                    )
+                except Exception as _e:
+                    print(f"[admin_room_booking_view] Notification list email failed: {_e}", flush=True)
+
+            return render(request, "booking/booking_success.html", {
+                "booking": booking,
+                "pending": False,
+                "admin_booked": True,
+                "admin_name": admin_name,
+            })
+        else:
+            messages.error(request, "Please correct the errors below.")
+
+    return render(request, "booking/admin_room_booking.html", {
+        "form": form,
+        "refreshment_options": REFRESHMENT_OPTIONS,
+    })
 
 
 def get_bookings_by_email(request):
@@ -427,7 +761,9 @@ def get_bookings_by_email(request):
         start_local = timezone.localtime(b.start_datetime)
         end_local   = timezone.localtime(b.end_datetime)
         
-        # Check if booking has pending cancellation (used for disabling cancel button)
+        # Check if booking is within 24-hour cancellation lock window
+        hours_until = (b.start_datetime - timezone.now()).total_seconds() / 3600
+        within_24h  = hours_until < 24
         
         data.append({
             'id':                b.id,
@@ -438,6 +774,7 @@ def get_bookings_by_email(request):
             # ISO timestamp so JS can calculate 24hr window for cancel button
             'start_raw':         b.start_datetime.isoformat(),
             'has_pending_cancel': has_pending_cancel,
+            'within_48h':        within_24h,
         })
 
     # 2. Pending booking requests (not yet approved / rejected / expired)
@@ -622,7 +959,7 @@ def submit_cancellation_request(request):
     hours_until = (booking.start_datetime - _tz.now()).total_seconds() / 3600
     if hours_until < 24:
         return JsonResponse({
-            'error': 'Cancellation requests cannot be submitted within 24 hours of the booking date.'
+            'error': 'Cancellation requests cannot be submitted within 24 hours of the booking date. If this is an emergency, please contact the admin directly.'
         }, status=400)
 
     # Prevent a duplicate pending cancellation request
@@ -967,7 +1304,7 @@ def check_document_name(request):
 
 def process_booking_tat_reminders_and_expiry():
     """
-    For EACH pending/recommended booking request:
+    For EACH pending booking request:
       - Detect TAT type (12h or 48h) from (tat_deadline - created_on).
       - 48h TAT → 24h reminder then 12h reminder.
       - 12h TAT → 6h reminder then 3h reminder.
@@ -1000,11 +1337,8 @@ def process_booking_tat_reminders_and_expiry():
         tat_duration = req.tat_deadline - req.created_on
         is_12h_tat = tat_duration <= timezone.timedelta(hours=14)
 
-        # Determine who to remind based on stage
-        if req.workflow_stage == 'central_admin':
-            reminder_emails = _central_admin_only_emails()
-        else:
-            reminder_emails = _sub_admin_emails()
+        # All pending requests notify all admins (both sub-admin and central admin)
+        reminder_emails = _admin_emails()
 
         if is_12h_tat:
             if (not req.reminder_24h_sent and

@@ -45,10 +45,31 @@
     transform: translateY(-2px);
     box-shadow: 0 6px 20px rgba(99,102,241,0.3);
   }
+  /* Password field wrapper */
+  .pw-wrap { position: relative; }
+  .pw-wrap .form-control { padding-right: 48px; }
+  .pw-eye {
+    position: absolute;
+    right: 14px;
+    top: 50%;
+    transform: translateY(-50%);
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: #94a3b8;
+    font-size: 1.1rem;
+    padding: 0;
+    line-height: 1;
+    min-width: 28px;
+    min-height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .pw-eye:hover { color: #6366f1; }
   @media (max-width: 480px) {
-    .login-card {
-      padding: 24px 20px;
-    }
+    .login-card { padding: 24px 20px; }
   }
 </style>
 {% endblock style %}
@@ -56,13 +77,30 @@
 <div class="container d-flex flex-column justify-content-center align-items-center" style="min-height: 70vh;">
   <div class="login-card shadow-sm" style="max-width: 400px; width: 100%;">
     <div class="text-center">
-      <img class="mb-3" src="{% static 'images/logo-icon.svg' %}" width="48" alt="logo" />
+      <img class="mb-3" src="{% static 'images/blixtro.svg' %}" style="height: 80px; width: auto; max-width: 220px; object-fit: contain;" alt="Blixtro" />
       <h3 class="mb-4">Welcome Back</h3>
     </div>
-    <form method="post">
+    <form method="post" id="loginForm">
       {% csrf_token %}
       <div class="mb-3">
-        {{ form.as_p | safe}}
+        {% for field in form %}
+          <div class="mb-3">
+            <label class="form-label fw-semibold" style="font-size:0.88rem;color:#64748b;">{{ field.label }}</label>
+            {% if field.field.widget.input_type == 'password' %}
+              <div class="pw-wrap">
+                {{ field }}
+                <button type="button" class="pw-eye" onclick="togglePwd(this)" aria-label="Show/hide password">
+                  <i class="bi bi-eye" id="pwEyeIcon"></i>
+                </button>
+              </div>
+            {% else %}
+              {{ field }}
+            {% endif %}
+            {% if field.errors %}
+              <div class="text-danger small mt-1">{{ field.errors.0 }}</div>
+            {% endif %}
+          </div>
+        {% endfor %}
       </div>
       <div class="d-grid">
         <input type="submit" class="btn btn-primary" value="Login" />
@@ -73,4 +111,19 @@
     </div>
   </div>
 </div>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
+<script>
+function togglePwd(btn) {
+  const wrap  = btn.closest('.pw-wrap');
+  const input = wrap.querySelector('input');
+  const icon  = btn.querySelector('i');
+  if (input.type === 'password') {
+    input.type = 'text';
+    icon.className = 'bi bi-eye-slash';
+  } else {
+    input.type = 'password';
+    icon.className = 'bi bi-eye';
+  }
+}
+</script>
 {% endblock content %}
