@@ -838,13 +838,40 @@ def get_booking_status(request):
             review_note = f"Approved by {approver}"
             if getattr(req, 'approved_note', ''):
                 review_note += f" — {req.approved_note}"
+
+        # Determine display status for approved bookings
+        display_status = req.status
+        if req.status == 'approved':
+            now = timezone.now()
+            # Find the confirmed booking linked to this request
+            try:
+                from inventory.models import RoomBooking as _RB
+                confirmed = _RB.objects.filter(
+                    faculty_email=email,
+                    start_datetime=req.start_datetime,
+                    end_datetime=req.end_datetime,
+                ).first()
+                if confirmed:
+                    if confirmed.status == 'cancelled':
+                        display_status = 'cancelled'
+                    elif confirmed.end_datetime < now:
+                        display_status = 'completed'
+                    elif confirmed.start_datetime <= now <= confirmed.end_datetime:
+                        display_status = 'in_progress'
+                    else:
+                        display_status = 'approved'
+                else:
+                    display_status = 'approved'
+            except Exception:
+                display_status = 'approved'
+
         results.append({
             'type':        'Booking Request',
             'room':        format_room_list(req),
             'from':        start_local.strftime('%d %b %Y, %H:%M'),
             'to':          end_local.strftime('%H:%M'),
             'purpose':     req.purpose or '—',
-            'status':      req.status,      # pending / approved / rejected / expired
+            'status':      display_status,
             'review_note': review_note,
             'submitted':   req.created_on.strftime('%d %b %Y'),
         })
@@ -1025,10 +1052,10 @@ def rooms_by_category(request):
     start    = request.GET.get("start")
     end      = request.GET.get("end")
 
-    # Exclude washrooms and officerooms from booking categories
+    # Exclude washrooms, officerooms, staffrooms from booking categories
     rooms = list(
         Room.objects.filter(room_category=category)
-        .exclude(room_category__in=['washrooms', 'officerooms'])
+        .exclude(room_category__in=['washrooms', 'officerooms', 'staffrooms'])
     )
     rooms = sort_rooms_iterable(rooms)
     start_dt = parse_datetime(start) if start else None

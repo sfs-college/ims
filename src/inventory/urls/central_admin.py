@@ -102,6 +102,7 @@ urlpatterns = [
     path('booking-control/<int:booking_id>/edit/',   aura.edit_booking,          name='booking_control_edit'),
     path('booking-control/<int:booking_id>/swap/',   aura.swap_booking_rooms,    name='booking_control_swap'),
     path('booking-control/<int:booking_id>/swappable/', aura.get_swappable_bookings, name='booking_control_swappable'),
+    path('booking-control/<int:booking_id>/add-return/', aura.booking_add_return_note, name='booking_control_add_return'),
     path('api/save-product-code/', aura.save_product_code, name='save_product_code'),
     path('api/save-item-edit/', aura.save_item_edit, name='save_item_edit'),
     path('api/asset-tags/', aura.get_asset_tags, name='get_asset_tags'),

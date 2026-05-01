@@ -117,10 +117,10 @@ class RoomBookingForm(forms.ModelForm):
     directly creating a confirmed RoomBooking.
     The password field is used only for validation — never stored.
     """
-    # Filter out washrooms and officerooms from booking categories
+    # Filter out washrooms, officerooms, and staffrooms from booking categories
     BOOKING_CATEGORIES = [
         (cat, label) for cat, label in Room.ROOM_CATEGORIES 
-        if cat not in ['washrooms', 'officerooms']
+        if cat not in ['washrooms', 'officerooms', 'staffrooms']
     ]
     
     category = forms.ChoiceField(

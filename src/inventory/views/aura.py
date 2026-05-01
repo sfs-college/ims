@@ -422,7 +422,7 @@ def get_rooms_by_category(request):
     rooms = list(Room.objects.filter(
         organisation=org,
         room_category=category
-    ))
+    ).exclude(room_category__in=['washrooms', 'officerooms', 'staffrooms']))
     rooms = sort_rooms_iterable(rooms)
 
     return JsonResponse({
@@ -3759,3 +3759,56 @@ def get_swappable_bookings(request, booking_id):
         })
 
     return JsonResponse({'results': results, 'count': len(results)})
+
+
+
+def booking_add_return_note(request, booking_id):
+    """
+    GET  — return the current add_return_note for the booking.
+    POST — save a new add_return_note (internal only, never emailed).
+    """
+    profile = _booking_control_auth(request)
+    if not profile:
+        return JsonResponse({'error': 'Unauthorized'}, status=403)
+
+    booking = get_object_or_404(RoomBooking, id=booking_id)
+
+    if request.method == 'GET':
+        return JsonResponse({
+            'id':              booking.id,
+            'add_return_note': booking.add_return_note or '',
+            'faculty_name':    booking.faculty_name,
+            'room':            format_room_list(booking),
+        })
+
+    # POST — save note
+    try:
+        data = json.loads(request.body)
+    except Exception:
+        return JsonResponse({'error': 'Invalid JSON'}, status=400)
+
+    note_type = (data.get('note_type') or '').strip()   # 'add' or 'return'
+    note_text = (data.get('note') or '').strip()
+
+    if not note_text:
+        return JsonResponse({'error': 'Note cannot be empty.'}, status=400)
+    if note_type not in ('add', 'return'):
+        return JsonResponse({'error': 'Invalid note type.'}, status=400)
+
+    prefix = 'Items Added/Taken' if note_type == 'add' else 'Items Returned'
+
+    # Append to existing note (with timestamp) so history is preserved
+    from django.utils import timezone as _tz
+    admin_name = f"{profile.first_name} {profile.last_name}".strip() or request.user.email
+    timestamp  = _tz.localtime(_tz.now()).strftime('%d %b %Y %H:%M')
+    new_entry  = f"[{timestamp} — {admin_name}] {prefix}: {note_text}"
+
+    existing = (booking.add_return_note or '').strip()
+    booking.add_return_note = f"{existing}\n{new_entry}".strip() if existing else new_entry
+    booking.save(update_fields=['add_return_note'])
+
+    return JsonResponse({
+        'status':  'ok',
+        'message': 'Note saved (internal record only).',
+        'add_return_note': booking.add_return_note,
+    })

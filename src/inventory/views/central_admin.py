@@ -1109,7 +1109,7 @@ class ApprovalRequestListView(LoginRequiredMixin, ListView):
  
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        VALID_TABS = {'item_edit', 'issue_tat', 'booking_req', 'cancel_req'}
+        VALID_TABS = {'item_edit', 'issue_tat', 'booking_req', 'cancel_req', 'history'}
         raw = self.request.GET.get('type', 'item_edit')
         context['active_tab'] = raw if raw in VALID_TABS else 'item_edit'
         context['request_type'] = raw if raw in VALID_TABS else 'item_edit'
@@ -1153,11 +1153,40 @@ class ApprovalRequestListView(LoginRequiredMixin, ListView):
             .select_related('booking', 'booking__room')
             .order_by('-created_on')
         )
+
+        # History — all reviewed booking requests and cancellation requests
+        context['history_booking'] = (
+            RoomBookingRequest.objects
+            .exclude(status='pending')
+            .select_related('room', 'department', 'reviewed_by', 'reviewed_by__user', 'approved_by', 'approved_by__user')
+            .prefetch_related('rooms')
+            .order_by('-updated_on')[:100]
+        )
+        context['history_cancel'] = (
+            RoomCancellationRequest.objects
+            .exclude(status='pending')
+            .select_related('booking', 'booking__room', 'reviewed_by', 'reviewed_by__user')
+            .order_by('-updated_on')[:50]
+        )
  
         context['item_edit_count']   = context['stock_requests'].count()
         context['issue_tat_count']   = context['tat_requests'].count()
         context['booking_req_count'] = booking_qs.count()
         context['cancel_req_count']  = context['cancel_requests'].count()
+
+        # History for stock requests and TAT extensions
+        context['history_stock'] = (
+            StockRequest.objects
+            .exclude(status='pending')
+            .select_related('item', 'room', 'requested_by', 'reviewed_by', 'reviewed_by__user')
+            .order_by('-created_on')[:50]
+        )
+        context['history_tat'] = (
+            IssueTimeExtensionRequest.objects
+            .exclude(status='pending')
+            .select_related('issue', 'requested_by', 'reviewed_by', 'reviewed_by__user')
+            .order_by('-created_on')[:50]
+        )
         return context
 
 
@@ -1341,12 +1370,46 @@ class ApproveRoomBookingRequestView(LoginRequiredMixin, View):
             )
         except Exception as _e:
             print(f"[ApproveBooking] Notification list email failed: {_e}", flush=True)
- 
- 
+
+        # Email 3: All OTHER admins — notify that this admin approved the booking
+        from core.models import UserProfile as _UP
+        from django.db.models import Q as _Q
+        _all_admin_emails = list(
+            _UP.objects.filter(
+                _Q(is_central_admin=True) | _Q(is_sub_admin=True)
+            ).values_list('user__email', flat=True)
+        )
+        _notify_admins = [e for e in _all_admin_emails if e.lower() != request.user.email.lower()]
+        if _notify_admins:
+            try:
+                safe_send_mail(
+                    subject=f"[Blixtro] Booking Approved by {approved_by_name} — {format_room_list(req)} | {sl.strftime('%d %b %Y')}",
+                    message=(
+                        f"{approved_by_name} has approved a room booking request.\n\n"
+                        f"Faculty : {req.faculty_name} ({req.faculty_email})\n"
+                        f"Room    : {format_room_list(req)}\n"
+                        f"Date    : {sl.strftime('%d %b %Y, %I:%M %p')} – {timezone.localtime(req.end_datetime).strftime('%I:%M %p')}\n"
+                        f"Remark  : {approval_remark or 'No remark added.'}\n\n"
+                        "This is an informational notification.\n\nBlixtro — SFS College"
+                    ),
+                    recipient_list=_notify_admins,
+                    html_message=build_email_shell(
+                        title="Booking Approved — Admin Notification",
+                        intro_html=(
+                            f"<strong>{approved_by_name}</strong> has approved a room booking request. "
+                            "This is an informational notification — no action required."
+                        ),
+                        sections=sections,
+                        outro_html="No action required — this is an informational notification.",
+                        accent="#6366f1",
+                    ),
+                )
+            except Exception as _e:
+                print(f"[ApproveBooking] Other admins email failed: {_e}", flush=True)
+
         messages.success(request, f"Booking for {format_room_list(req)} approved and all parties notified.")
         next_type = request.POST.get("next_type", "booking_req")
         return redirect(f"{reverse('central_admin:approval_requests')}?type={next_type}")
- 
 
 
 
