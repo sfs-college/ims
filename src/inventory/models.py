@@ -216,6 +216,10 @@ class Issue(models.Model):
 
     created_by = models.CharField(max_length=255, blank=True, null = True)
     closure_reason = models.TextField(blank=True, null=True)
+    incharge_remark = models.TextField(
+        blank=True, null=True,
+        help_text="Progress update from room incharge sent to the reporter."
+    )
     reporter_email = models.EmailField(
         max_length=255,
         null=True,
@@ -794,6 +798,12 @@ class RoomBooking(models.Model):
     recommended_note = models.TextField(blank=True)
     approved_by_name = models.CharField(max_length=255, blank=True)
     approved_note = models.TextField(blank=True)
+    is_edited = models.BooleanField(default=False, help_text="True if this booking was edited after initial creation.")
+    # Internal admin note for extra items added or returned (refreshments only, not emailed)
+    add_return_note = models.TextField(
+        null=True, blank=True,
+        help_text="Internal admin note for extra items added/taken or returned for this booking. Not emailed."
+    )
     
     slug = models.SlugField(unique=True, max_length=255, blank=True, null=True)
 

@@ -57,6 +57,33 @@
         vertical-align: middle !important;
         line-height: 1 !important;
     }
+    /* BCC entry card badges container */
+    .bcc-entry-badges {
+        display: flex;
+        gap: 6px;
+        flex-wrap: wrap;
+        flex-shrink: 0;
+        align-items: center;
+    }
+    @media (max-width: 600px) {
+        .bcc-entry-manager-card {
+            flex-direction: column !important;
+            align-items: flex-start !important;
+            padding: 18px 16px !important;
+            gap: 12px !important;
+        }
+        .bcc-entry-badges {
+            width: 100%;
+            gap: 6px;
+        }
+        .bcc-entry-manager-card h5 {
+            font-size: 0.92rem !important;
+            white-space: normal !important;
+        }
+        .bcc-entry-manager-card p.small {
+            font-size: 0.75rem !important;
+        }
+    }
     
     /* Modal Customization */
     .modal-content { border-radius: 20px; border: none; }
@@ -430,18 +457,18 @@
 
         <!-- ══ BOOKING CONTROL CENTER — full-width card ══ -->
         <div class="col-12 mb-4">
-            <div class="manager-card" onclick="openBookingControlCenter()" style="flex-direction:row;justify-content:space-between;align-items:center;padding:24px 28px;text-align:left;gap:16px;flex-wrap:wrap;">
+            <div class="manager-card bcc-entry-manager-card" onclick="openBookingControlCenter()" style="flex-direction:row;justify-content:space-between;align-items:center;padding:24px 28px;text-align:left;gap:16px;flex-wrap:wrap;">
                 <div style="display:flex;align-items:center;gap:16px;flex:1;min-width:0;">
                     <div class="bcc-card-icon-box" style="width:48px;height:48px;background:linear-gradient(135deg,#6366f1,#9333ea);border-radius:13px;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
                         <i class="bi bi-sliders2" style="color:#fff !important;"></i>
                     </div>
                     <div style="min-width:0;">
-                        <h5 class="fw-bold mb-1" style="font-size:1rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">Booking Control Center</h5>
+                        <h5 class="fw-bold mb-1" style="font-size:1rem;">Booking Control Center</h5>
                         <p class="small mb-0 opacity-75" style="line-height:1.4;">Edit details · Swap rooms · Manage requirements &amp; notes</p>
                     </div>
                 </div>
                 <!-- Badges — compact pills with properly sized icons -->
-                <div style="display:flex;gap:6px;flex-wrap:wrap;flex-shrink:0;" onclick="event.stopPropagation();openBookingControlCenter();">
+                <div class="bcc-entry-badges" onclick="event.stopPropagation();openBookingControlCenter();">
                     <span class="bcc-badge-pill" style="background:#e0e7ff !important;color:#4f46e5 !important;border-radius:999px;padding:6px 14px;font-size:0.78rem;font-weight:700;white-space:nowrap;display:inline-flex;align-items:center;gap:5px;line-height:1;">
                         <i class="bi bi-pencil-fill" style="color:#4f46e5 !important;"></i>
                         <span style="color:#4f46e5 !important;">Edit</span>
@@ -520,9 +547,14 @@
 .bcc-badge.teal   { background: rgba(13,148,136,0.18); border-color: rgba(13,148,136,0.35); color: #5eead4; }
 .bcc-badge.purple { background: rgba(147,51,234,0.18); border-color: rgba(147,51,234,0.35); color: #d8b4fe; }
 @media (max-width: 640px) {
-    .bcc-entry-card { flex-direction: column; align-items: flex-start; padding: 20px; }
-    .bcc-badges { margin-top: 4px; }
-    .bcc-title { font-size: 1rem; }
+    .bcc-entry-card { flex-direction: column; align-items: flex-start; padding: 18px 16px; gap: 12px; }
+    .bcc-badges { margin-top: 0; flex-wrap: wrap; gap: 6px; width: 100%; }
+    .bcc-badge { font-size: 0.72rem; padding: 4px 10px; }
+    .bcc-title { font-size: 0.95rem; }
+    .bcc-sub { font-size: 0.75rem; }
+    .bcc-icon-wrap { width: 44px; height: 44px; }
+    .bcc-icon-wrap i { font-size: 1.2rem; }
+    .bcc-left { gap: 12px; }
 }
 </style>
 
@@ -608,6 +640,59 @@
   </div>
   <div style="padding:24px;" id="bccSwapBody">
     <div style="text-align:center;padding:32px;color:#64748b;"><div class="spinner-border text-primary"></div></div>
+  </div>
+</div>
+</div>
+
+<!-- ── BCC Add/Return Modal ── -->
+<div id="bccAddReturnOverlay" style="display:none;position:fixed;inset:0;z-index:1600;background:rgba(10,14,26,0.8);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);align-items:center;justify-content:center;padding:16px;overflow-y:auto;">
+<div style="background:#fff;border-radius:24px;max-width:560px;width:100%;margin:auto;box-shadow:0 40px 80px rgba(0,0,0,0.4);overflow:hidden;animation:bccSlideUp 0.28s ease;">
+  <div style="background:linear-gradient(135deg,#f59e0b,#d97706);padding:20px 24px;display:flex;align-items:center;justify-content:space-between;">
+    <div style="display:flex;align-items:center;gap:12px;">
+      <i class="bi bi-arrow-left-right" style="color:#fff;font-size:1.1rem;"></i>
+      <div>
+        <h6 style="color:#fff;font-weight:800;margin:0;" id="bccARTitle">Add / Return Items</h6>
+        <p style="color:rgba(255,255,255,0.75);font-size:0.72rem;margin:0;" id="bccARSubtitle"></p>
+      </div>
+    </div>
+    <button onclick="closeBccAddReturn()" style="background:rgba(255,255,255,0.15);border:none;color:#fff;border-radius:8px;width:32px;height:32px;cursor:pointer;font-size:1rem;display:flex;align-items:center;justify-content:center;">&#x2715;</button>
+  </div>
+  <div style="padding:24px;">
+    <div style="background:#fffbeb;border:1.5px solid #fde68a;border-radius:12px;padding:12px 16px;margin-bottom:18px;font-size:0.82rem;color:#92400e;">
+      <i class="bi bi-info-circle-fill me-1"></i>
+      This note is for <strong>internal record only</strong> — it will <strong>not</strong> be emailed to anyone. Use it to track extra items taken or returned for this booking.
+    </div>
+
+    <!-- Type selector -->
+    <div style="display:flex;gap:8px;margin-bottom:16px;">
+      <button id="bccARTypeAdd" onclick="setBccARType('add')"
+              style="flex:1;padding:9px;border-radius:10px;font-size:0.82rem;font-weight:700;cursor:pointer;border:2px solid #f59e0b;background:#fffbeb;color:#92400e;transition:all 0.2s;">
+        <i class="bi bi-plus-circle me-1"></i>Items Added / Taken
+      </button>
+      <button id="bccARTypeReturn" onclick="setBccARType('return')"
+              style="flex:1;padding:9px;border-radius:10px;font-size:0.82rem;font-weight:700;cursor:pointer;border:2px solid #e2e8f0;background:#f8fafc;color:#64748b;transition:all 0.2s;">
+        <i class="bi bi-arrow-return-left me-1"></i>Items Returned
+      </button>
+    </div>
+
+    <div class="bcc-modal-alert error"   id="bccARAlert"></div>
+    <div class="bcc-modal-alert success" id="bccARSuccess"></div>
+
+    <label class="bcc-form-label" id="bccARLabel">Items Added / Taken</label>
+    <textarea id="bccARNote" class="bcc-form-input" rows="4"
+              placeholder="e.g. 2 extra chairs taken, 1 projector borrowed, 3 water bottles added…"
+              style="margin-bottom:14px;"></textarea>
+
+    <!-- Existing note display -->
+    <div id="bccARExisting" style="display:none;background:#f8fafc;border:1.5px solid #e2e8f0;border-radius:11px;padding:12px 14px;margin-bottom:14px;font-size:0.82rem;color:#475569;">
+      <strong style="display:block;margin-bottom:4px;font-size:0.75rem;text-transform:uppercase;letter-spacing:0.5px;color:#94a3b8;">Previous Note</strong>
+      <span id="bccARExistingText"></span>
+    </div>
+
+    <button class="bcc-save-btn" id="bccARSaveBtn" onclick="saveBccAddReturn()"
+            style="background:linear-gradient(135deg,#f59e0b,#d97706);">
+      <i class="bi bi-floppy me-2"></i>Save Note (Internal Only)
+    </button>
   </div>
 </div>
 </div>
@@ -707,9 +792,22 @@ textarea.bcc-form-input { resize:vertical; min-height:80px; }
 .bcc-modal-alert.success { background:#f0fdf4; border:1px solid #bbf7d0; color:#166534; }
 @media (max-width:600px) {
   #bccPanel { border-radius:18px; }
-  .bcc-card { flex-direction:column; gap:10px; }
+  .bcc-card { flex-direction:column; gap:10px; padding:14px 16px; }
   .bcc-card-icon { display:none; }
-  #bccListWrap { padding:14px 16px; }
+  .bcc-card-body { width:100%; }
+  .bcc-card-room { font-size:0.88rem; }
+  .bcc-card-meta { font-size:0.72rem; line-height:1.6; }
+  .bcc-card-actions { flex-wrap:wrap; gap:6px; }
+  .bcc-btn { font-size:0.7rem; padding:5px 10px; }
+  #bccListWrap { padding:12px 14px; }
+  #bccPanel > div:first-child { padding:16px 14px; flex-wrap:wrap; gap:10px; }
+  #bccSearch { font-size:0.82rem; }
+  #bccStatusFilter { font-size:0.82rem; min-width:100px; }
+}
+@media (max-width:400px) {
+  .bcc-card-actions { flex-direction:column; }
+  .bcc-btn { width:100%; justify-content:center; }
+  .bcc-status-pill { font-size:0.62rem; }
 }
 </style>
 
@@ -2810,11 +2908,15 @@ function bccRenderList(bookings) {
     const st = b.booking_status || 'active';
     const iconMap = {active:'calendar-check-fill', completed:'check-circle-fill', cancelled:'x-circle-fill'};
     const icon = iconMap[st] || 'calendar-fill';
-    const isCancelled = st === 'cancelled';
-    const actionBtns = isCancelled ? '' : `
-      <button class="bcc-btn edit"   onclick="openBccEdit(${b.id})"><i class="bi bi-pencil-fill"></i>Edit</button>
-      <button class="bcc-btn swap"   onclick="openBccSwap(${b.id})"><i class="bi bi-arrow-left-right"></i>Swap Room</button>
-      <button class="bcc-btn cancel" onclick="bccCancelBooking(${b.id}, '${escHtml(b.room)}')"><i class="bi bi-x-circle-fill"></i>Cancel</button>
+    const isCancelled  = st === 'cancelled';
+    const isCompleted  = st === 'completed';
+    const isActive     = !isCancelled && !isCompleted;
+    // Edit + Add/Return always visible; Swap + Cancel only for active bookings
+    const actionBtns = `
+      <button class="bcc-btn edit" onclick="openBccEdit(${b.id})"><i class="bi bi-pencil-fill"></i>Edit</button>
+      ${isActive ? `<button class="bcc-btn swap" onclick="openBccSwap(${b.id})"><i class="bi bi-arrow-left-right"></i>Swap Room</button>` : ''}
+      ${isActive ? `<button class="bcc-btn cancel" onclick="bccCancelBooking(${b.id}, '${escHtml(b.room)}')"><i class="bi bi-x-circle-fill"></i>Cancel</button>` : ''}
+      <button class="bcc-btn" style="background:rgba(245,158,11,0.15);border:1px solid rgba(245,158,11,0.4);color:#fcd34d;" onclick="openBccAddReturn(${b.id}, '${escHtml(b.room)}', '${escHtml(b.faculty)}')"><i class="bi bi-plus-slash-minus"></i>Add / Return</button>
     `;
     return `
     <div class="bcc-card" id="bcc-card-${b.id}">
@@ -3155,8 +3257,14 @@ function renderBccSwapForm(d, swappableBookings) {
         <span style="font-weight:700;font-size:0.9rem;color:#1e293b;">Move to Free Room</span>
         <span style="font-size:0.72rem;color:#64748b;background:#f1f5f9;border-radius:20px;padding:2px 10px;">Pick any available room — conflict checked on save</span>
       </div>
-      <div style="display:flex;gap:8px;align-items:center;margin-bottom:10px;">
-        <select id="bccCatFilter" onchange="bccFilterRoomsByCategory()" style="flex:1;padding:8px 12px;border:1.5px solid #e2e8f0;border-radius:10px;font-size:0.82rem;color:#1e293b;background:#fff;outline:none;">
+      <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px;flex-wrap:wrap;">
+        <div style="position:relative;flex:1;min-width:140px;">
+          <i class="bi bi-search" style="position:absolute;left:10px;top:50%;transform:translateY(-50%);color:#94a3b8;font-size:0.82rem;pointer-events:none;"></i>
+          <input type="text" id="bccRoomSearch" placeholder="Search rooms…" oninput="bccSearchRooms()"
+                 style="width:100%;padding:8px 12px 8px 30px;border:1.5px solid #e2e8f0;border-radius:10px;font-size:0.82rem;color:#1e293b;background:#fff;outline:none;box-sizing:border-box;"
+                 onfocus="this.style.borderColor='#6366f1'" onblur="this.style.borderColor='#e2e8f0'">
+        </div>
+        <select id="bccCatFilter" onchange="bccFilterRoomsByCategory()" style="flex:1;min-width:120px;padding:8px 12px;border:1.5px solid #e2e8f0;border-radius:10px;font-size:0.82rem;color:#1e293b;background:#fff;outline:none;">
           <option value="">All Categories</option>
           ${catFilterOptions}
         </select>
@@ -3223,6 +3331,27 @@ function bccFilterRoomsByCategory() {
   var chosen = sel.value;
   document.querySelectorAll('.bcc-cat-section').forEach(function(section) {
     section.style.display = (!chosen || section.dataset.cat === chosen) ? '' : 'none';
+  });
+}
+
+function bccSearchRooms() {
+  var searchEl = document.getElementById('bccRoomSearch');
+  var catEl    = document.getElementById('bccCatFilter');
+  if (!searchEl) return;
+  var q      = searchEl.value.toLowerCase().trim();
+  var catSel = catEl ? catEl.value : '';
+  document.querySelectorAll('.bcc-cat-section').forEach(function(section) {
+    var catMatch = !catSel || section.dataset.cat === catSel;
+    var tiles = section.querySelectorAll('.bcc-room-tile');
+    var anyVisible = false;
+    tiles.forEach(function(tile) {
+      var name  = (tile.querySelector('.bcc-room-tile-name')  || {}).textContent || '';
+      var label = (tile.querySelector('.bcc-room-tile-label') || {}).textContent || '';
+      var match = !q || name.toLowerCase().includes(q) || label.toLowerCase().includes(q);
+      tile.style.display = (match && catMatch) ? '' : 'none';
+      if (match && catMatch) anyVisible = true;
+    });
+    section.style.display = (catMatch && anyVisible) ? '' : 'none';
   });
 }
 
@@ -3312,6 +3441,123 @@ function bccPopupWarn(msg) {
   overlay.style.display = 'flex';
 }
 
+// ── Add / Return Items ───────────────────────────────────────────────
+const BCC_ADD_RETURN_URL = "{% url 'central_admin:booking_control_add_return' booking_id=0 %}";
+let _bccCurrentARId = null;
+let _bccARType      = 'add';   // 'add' | 'return'
+
+function openBccAddReturn(bookingId, roomName, facultyName) {
+  _bccCurrentARId = bookingId;
+  _bccARType      = 'add';
+
+  // Reset UI
+  document.getElementById('bccARTitle').textContent    = 'Add / Return Items';
+  document.getElementById('bccARSubtitle').textContent = roomName + ' — ' + facultyName;
+  document.getElementById('bccARNote').value           = '';
+  document.getElementById('bccARAlert').style.display  = 'none';
+  document.getElementById('bccARSuccess').style.display = 'none';
+  document.getElementById('bccARExisting').style.display = 'none';
+  document.getElementById('bccARExistingText').textContent = '';
+  setBccARType('add');
+
+  // Load existing note from server
+  const url = BCC_ADD_RETURN_URL.replace('/0/', '/' + bookingId + '/');
+  fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+    .then(r => r.json())
+    .then(data => {
+      if (data.add_return_note) {
+        document.getElementById('bccARExistingText').textContent = data.add_return_note;
+        document.getElementById('bccARExisting').style.display = 'block';
+      }
+    })
+    .catch(() => {});   // non-fatal — modal still usable without existing note
+
+  document.getElementById('bccAddReturnOverlay').style.display = 'flex';
+}
+
+function closeBccAddReturn() {
+  document.getElementById('bccAddReturnOverlay').style.display = 'none';
+  _bccCurrentARId = null;
+}
+
+function setBccARType(type) {
+  _bccARType = type;
+  const addBtn    = document.getElementById('bccARTypeAdd');
+  const returnBtn = document.getElementById('bccARTypeReturn');
+  const label     = document.getElementById('bccARLabel');
+
+  if (type === 'add') {
+    addBtn.style.background    = '#fffbeb';
+    addBtn.style.borderColor   = '#f59e0b';
+    addBtn.style.color         = '#92400e';
+    returnBtn.style.background = '#f8fafc';
+    returnBtn.style.borderColor = '#e2e8f0';
+    returnBtn.style.color      = '#64748b';
+    label.textContent          = 'Items Added / Taken';
+    document.getElementById('bccARNote').placeholder = 'e.g. 2 extra chairs taken, 1 projector borrowed, 3 water bottles added…';
+  } else {
+    returnBtn.style.background  = '#fffbeb';
+    returnBtn.style.borderColor = '#f59e0b';
+    returnBtn.style.color       = '#92400e';
+    addBtn.style.background     = '#f8fafc';
+    addBtn.style.borderColor    = '#e2e8f0';
+    addBtn.style.color          = '#64748b';
+    label.textContent           = 'Items Returned';
+    document.getElementById('bccARNote').placeholder = 'e.g. 2 chairs returned, projector returned in good condition…';
+  }
+}
+
+function saveBccAddReturn() {
+  const alertEl   = document.getElementById('bccARAlert');
+  const successEl = document.getElementById('bccARSuccess');
+  const saveBtn   = document.getElementById('bccARSaveBtn');
+  const note      = (document.getElementById('bccARNote').value || '').trim();
+
+  alertEl.style.display   = 'none';
+  successEl.style.display = 'none';
+
+  if (!note) {
+    alertEl.textContent    = 'Please enter a note before saving.';
+    alertEl.style.display  = 'block';
+    return;
+  }
+
+  saveBtn.disabled    = true;
+  saveBtn.innerHTML   = '<span class="spinner-border spinner-border-sm me-2" style="width:14px;height:14px;border-width:2px;"></span>Saving…';
+
+  const url = BCC_ADD_RETURN_URL.replace('/0/', '/' + _bccCurrentARId + '/');
+  fetch(url, {
+    method:  'POST',
+    headers: { 'X-CSRFToken': CSRF_TOKEN, 'Content-Type': 'application/json' },
+    body:    JSON.stringify({ note_type: _bccARType, note: note }),
+  })
+  .then(r => r.json())
+  .then(data => {
+    if (data.error) {
+      alertEl.textContent   = data.error;
+      alertEl.style.display = 'block';
+      return;
+    }
+    successEl.textContent   = data.message || 'Note saved.';
+    successEl.style.display = 'block';
+    document.getElementById('bccARNote').value = '';
+    // Update existing note display
+    if (data.add_return_note) {
+      document.getElementById('bccARExistingText').textContent = data.add_return_note;
+      document.getElementById('bccARExisting').style.display   = 'block';
+    }
+    setTimeout(() => { successEl.style.display = 'none'; }, 3000);
+  })
+  .catch(() => {
+    alertEl.textContent   = 'Network error. Please try again.';
+    alertEl.style.display = 'block';
+  })
+  .finally(() => {
+    saveBtn.disabled  = false;
+    saveBtn.innerHTML = '<i class="bi bi-floppy me-2"></i>Save Note (Internal Only)';
+  });
+}
+
 // Close overlays on backdrop click
 document.getElementById('bccEditOverlay').addEventListener('click', function(e) {
   if (e.target === this) closeBccEdit();
@@ -3319,11 +3565,15 @@ document.getElementById('bccEditOverlay').addEventListener('click', function(e) 
 document.getElementById('bccSwapOverlay').addEventListener('click', function(e) {
   if (e.target === this) closeBccSwap();
 });
+document.getElementById('bccAddReturnOverlay').addEventListener('click', function(e) {
+  if (e.target === this) closeBccAddReturn();
+});
 // ESC key closes all BCC panels
 document.addEventListener('keydown', function(e) {
   if (e.key === 'Escape') {
     const warnOverlay = document.getElementById('bccWarnOverlay');
     if (warnOverlay && warnOverlay.style.display === 'flex') { warnOverlay.style.display = 'none'; return; }
+    if (document.getElementById('bccAddReturnOverlay').style.display === 'flex') { closeBccAddReturn(); return; }
     if (document.getElementById('bccSwapOverlay').style.display === 'flex') { closeBccSwap(); return; }
     if (document.getElementById('bccEditOverlay').style.display === 'flex') { closeBccEdit(); return; }
     if (document.getElementById('bccOverlay').style.display === 'block')    { closeBookingControlCenter(); }

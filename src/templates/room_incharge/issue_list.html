@@ -166,6 +166,14 @@
                         </button>
                         {% endif %}
 
+                        {# Send Remark — available for open and in_progress #}
+                        {% if issue.status == "open" or issue.status == "in_progress" %}
+                        <button class="btn btn-sm btn-outline-info w-100"
+                            onclick="openRemarkModal('{{ issue.id }}', '{{ issue.ticket_id|escapejs }}', '{{ room_slug }}')">
+                            <i class="bi bi-chat-left-text me-1"></i>Send Update
+                        </button>
+                        {% endif %}
+
                         {# Time Extension — only for non-closed, non-escalated issues #}
                         {% if issue.status != "closed" %}
                             {% with latest=issue.time_extension_requests.last %}
@@ -387,5 +395,51 @@ function openCloseIssueModal(issueId, ticketId, roomSlug) {
     `/room_incharge/${roomSlug}/issues/${issueId}/close/`;
   new bootstrap.Modal(document.getElementById('closeIssueModal')).show();
 }
+
+function openRemarkModal(issueId, ticketId, roomSlug) {
+  document.getElementById('remarkTicketId').textContent = ticketId;
+  document.getElementById('remarkForm').action =
+    `/room_incharge/rooms/${roomSlug}/issue/${issueId}/remark/`;
+  document.getElementById('remarkText').value = '';
+  new bootstrap.Modal(document.getElementById('remarkModal')).show();
+}
 </script>
+
+<!-- Send Update / Remark Modal -->
+<div class="modal fade" id="remarkModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content" style="border-radius:16px; border:none;">
+      <div class="modal-header" style="background:linear-gradient(135deg,#6366f1,#9333ea); color:white; border-radius:16px 16px 0 0;">
+        <h5 class="modal-title fw-bold">
+          <i class="bi bi-chat-left-text me-2"></i>Send Progress Update
+        </h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <form id="remarkForm" method="POST">
+        {% csrf_token %}
+        <div class="modal-body p-4">
+          <p style="font-size:0.88rem; color:#475569; margin-bottom:4px;">
+            Ticket: <strong id="remarkTicketId"></strong>
+          </p>
+          <div style="background:#f0fdf4; border:1px solid #bbf7d0; border-radius:10px; padding:10px 14px; margin-bottom:16px; font-size:0.82rem; color:#166534;">
+            <i class="bi bi-info-circle me-1"></i>
+            This update will be emailed to the student who raised the issue. The issue status will <strong>not</strong> change — it remains in progress.
+          </div>
+          <label style="font-size:0.78rem; font-weight:700; color:#475569; text-transform:uppercase; letter-spacing:0.05em; display:block; margin-bottom:6px;">
+            Your Update / Remark <span class="text-danger">*</span>
+          </label>
+          <textarea id="remarkText" name="incharge_remark" class="form-control" rows="4" required
+              placeholder="e.g. We have identified the issue and are working on a fix. Expected resolution by tomorrow…"
+              style="border-radius:10px; border:1.5px solid #e2e8f0; font-size:0.9rem;"></textarea>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn fw-bold" style="background:linear-gradient(135deg,#6366f1,#9333ea);color:#fff;border:none;">
+            <i class="bi bi-send me-1"></i>Send Update to Student
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
 {% endblock content %}

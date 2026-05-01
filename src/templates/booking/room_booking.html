@@ -13,6 +13,23 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <script src="{% static 'utils/mobile-utils.js' %}?v=3"></script>
+    <script>
+    /* Ensure Bootstrap Icons load — fallback for Capacitor offline mode */
+    (function() {
+        var testEl = document.createElement('span');
+        testEl.className = 'bi bi-house';
+        testEl.style.cssText = 'position:absolute;visibility:hidden;font-size:16px;';
+        document.head.appendChild(testEl);
+        setTimeout(function() {
+            var w = testEl.offsetWidth;
+            document.head.removeChild(testEl);
+            if (w === 0) {
+                // Icons not loaded — inject local fallback or use text symbols
+                document.documentElement.classList.add('icons-fallback');
+            }
+        }, 500);
+    })();
+    </script>
 
     <style>
     :root {
@@ -144,8 +161,22 @@
         font-size: 0.88rem;
         font-weight: 700;
         color: #166534;
+        max-width: 100%;
+        box-sizing: border-box;
+        overflow: hidden;
     }
-    .auth-badge i { color: #16a34a; }
+    .auth-badge i { color: #16a34a; flex-shrink: 0; }
+    #authBadgeEmail {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        min-width: 0;
+        flex: 1;
+    }
+    #authBadgeWrap {
+        max-width: 100%;
+        overflow: hidden;
+    }
 
     .booking-type-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 30px; }
     .type-card {
@@ -310,12 +341,16 @@
     .tr-room { font-weight:800;color:#1e293b;font-size:0.95rem;margin-bottom:4px; }
     .tr-meta { font-size:0.82rem;color:#64748b;margin-bottom:8px; }
     .tr-status-badge { display:inline-flex;align-items:center;gap:5px;padding:4px 12px;border-radius:999px;font-size:0.78rem;font-weight:700; }
-    .badge-approved { background:#dcfce7;color:#166534; }
-    .badge-rejected { background:#fee2e2;color:#991b1b; }
-    .badge-pending  { background:#fef3c7;color:#92400e; }
+    .badge-approved    { background:#dcfce7;color:#166534; }
+    .badge-rejected    { background:#fee2e2;color:#991b1b; }
+    .badge-pending     { background:#fef3c7;color:#92400e; }
+    .badge-completed   { background:#e0f2fe;color:#0369a1; }
+    .badge-in-progress { background:#fef9c3;color:#b45309; }
+    .tr-req-card.status-completed   { border-left-color:#0ea5e9; }
+    .tr-req-card.status-in_progress { border-left-color:#f59e0b; }
+    .tr-req-card.status-cancelled   { border-left-color:#94a3b8; }
+    .tr-req-card.status-expired     { border-left-color:#94a3b8; }
     .tr-note { font-size:0.82rem;color:#64748b;background:#fff;border-radius:8px;padding:7px 10px;margin-top:6px;border:1px solid #e2e8f0; }
-
-    /* ── Cancellation Locked Modal ── */
     .cancel-locked-modal {
         background: #fff; border-radius: 28px; padding: 42px;
         max-width: 500px; width: 100%; position: relative;
@@ -410,29 +445,8 @@
             gap: 10px;
         }
         
-        /* Mobile positioning for track/cancel buttons next to home button */
-        div[style*="position:fixed;bottom:32px;right:32px"] {
-            position: fixed !important;
-            bottom: auto !important;
-            right: auto !important;
-            top: 20px !important;
-            left: 50% !important;
-            transform: translateX(-50%) !important;
-            flex-direction: row !important;
-            gap: 8px !important;
-            align-items: center !important;
-            z-index: 1000 !important;
-        }
-        
-        .btn-cancel-float, .btn-track-float {
-            padding: 10px 16px !important;
-            font-size: 0.8rem !important;
-            border-radius: 12px !important;
-            white-space: nowrap !important;
-        }
-        
         .glass-header {
-            padding-top: 80px !important;
+            padding-top: 24px !important;
         }
         
         /* Requirements type cards - stack vertically on mobile */
@@ -461,10 +475,38 @@
             margin-top: 24px;
         }
         
-        .btn-cancel-float, .btn-track-float {
-            padding: 12px 20px;
-            font-size: 0.85rem;
+        /* ── Floating buttons: top bar on mobile ── */
+        .float-action-bar {
+            bottom: auto !important;
+            right: auto !important;
+            top: 0 !important;
+            left: 0 !important;
+            width: 100% !important;
+            flex-direction: row !important;
+            justify-content: center !important;
+            align-items: center !important;
+            gap: 10px !important;
+            padding: 10px 12px !important;
+            background: rgba(255,255,255,0.92) !important;
+            backdrop-filter: blur(10px) !important;
+            -webkit-backdrop-filter: blur(10px) !important;
+            border-bottom: 1px solid #e2e8f0 !important;
+            box-shadow: 0 2px 12px rgba(0,0,0,0.08) !important;
+            z-index: 1000 !important;
         }
+        
+        .btn-cancel-float, .btn-track-float {
+            padding: 10px 16px !important;
+            font-size: 0.8rem !important;
+            border-radius: 14px !important;
+            white-space: nowrap !important;
+            flex: 1 !important;
+            justify-content: center !important;
+            max-width: 200px !important;
+        }
+        
+        /* Push page content down so it doesn't hide under the top bar */
+        body { padding-top: 68px !important; }
         
         .auth-gate-modal {
             padding: 32px 24px;
@@ -671,8 +713,8 @@
 
 <div class="booking-container">
     <div class="glass-header">
-        <a href="{% url 'landing_page' %}" class="btn btn-sm btn-outline-secondary mb-3 rounded-pill px-3">
-            <i class="bi bi-arrow-left me-1"></i> Home
+        <a href="{% url 'landing_page' %}" class="btn btn-sm btn-outline-secondary mb-3 rounded-pill px-3" style="display:inline-flex;align-items:center;gap:6px;">
+            <i class="bi bi-arrow-left" aria-hidden="true" style="font-size:0.9rem;line-height:1;"></i><span class="home-btn-text">Home</span>
         </a>
         <h2><i class="bi bi-calendar-check-fill me-2"></i> Premium Venue Reservation</h2>
         <p class="text-muted">High-end space management for SFS College Faculty</p>
@@ -693,7 +735,7 @@
                 <i class="bi bi-info-circle-fill" style="color:#fff;font-size:1rem;"></i>
             </div>
             <div>
-                <strong style="color:#92400e;font-size:0.88rem;display:block;margin-bottom:6px;letter-spacing:0.2px;">📌 Cancellation Policy — Please Read Before Booking</strong>
+                <strong style="color:#92400e;font-size:0.88rem;display:block;margin-bottom:6px;letter-spacing:0.2px;">📌 Booking Policy — Please Read Before Booking</strong>
                 <ul style="margin:0;padding-left:16px;color:#78350f;font-size:0.82rem;line-height:1.85;">
                     <li>Venue booking is allowed <strong>up to 48 hours before</strong> the event.</li>
                     <li>You can <strong>cancel your request anytime</strong> before it is approved.</li>
@@ -829,7 +871,7 @@
                         <div>
                             <strong style="color:#92400e;font-size:0.85rem;display:block;margin-bottom:4px;">⚠ Important — Approved Documents Only</strong>
                             <span style="color:#78350f;font-size:0.82rem;line-height:1.6;">
-                                Only <strong>signed, sealed, or officially approved</strong> requirement documents are accepted — issued or approved by the <strong>college management or administration</strong>, or an official approval message/email confirming the booking and its requirements. Bookings submitted with unapproved or informal documents <strong>will be rejected</strong> by the admin.
+                                Only <strong>signed, sealed, or officially approved</strong> requirement documents are accepted — issued or approved by the <strong>college management or administration Team</strong>, or an official approval message/email confirming the booking and its requirements. Bookings submitted with unapproved or informal documents <strong>will be rejected</strong> by the admin.
                             </span>
                         </div>
                     </div>
@@ -863,9 +905,9 @@
                 <div style="background:#fef3c7;border:2px solid #f59e0b;border-radius:14px;padding:14px 18px;margin-bottom:18px;display:flex;gap:10px;align-items:flex-start;">
                     <i class="bi bi-exclamation-triangle-fill" style="color:#d97706;font-size:1.1rem;flex-shrink:0;margin-top:2px;"></i>
                     <div>
-                        <strong style="color:#92400e;font-size:0.85rem;display:block;margin-bottom:4px;">⚠ Note — Subject to Administration Approval</strong>
+                        <strong style="color:#92400e;font-size:0.85rem;display:block;margin-bottom:4px;">⚠ Note — Subject to Administrator Approval</strong>
                         <span style="color:#78350f;font-size:0.82rem;line-height:1.6;">
-                            Selected refreshments will be arranged <strong>only if validated and approved</strong> by the college administration. Each item max <strong>5 units</strong>.
+                            Selected refreshments will be arranged <strong>only if validated and approved</strong> by the college administrator Team. Each item max <strong>5 units</strong>.
                         </span>
                     </div>
                 </div>
@@ -925,7 +967,7 @@
 </div>
 
 <!-- ── Floating action buttons ── -->
-<div style="position:fixed;bottom:32px;right:32px;z-index:900;display:flex;flex-direction:column;gap:12px;align-items:flex-end;">
+<div class="float-action-bar" style="position:fixed;bottom:32px;right:32px;z-index:900;display:flex;flex-direction:column;gap:12px;align-items:flex-end;">
     <button class="btn-track-float" onclick="openTrackModal()">
         <i class="bi bi-search"></i> Track My Requests
     </button>
@@ -1202,10 +1244,16 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Custom datetime-local pickers
     var startInput = document.getElementById('id_start_datetime');
-    if (startInput) startInput.min = minDatetimeStr;
+    if (startInput) {
+        startInput.min = minDatetimeStr;
+        startInput.removeAttribute('required');  // JS validation handles this — prevents "not focusable" error when field is hidden
+    }
 
     var endInput = document.getElementById('id_end_datetime');
-    if (endInput) endInput.min = minDatetimeStr;
+    if (endInput) {
+        endInput.min = minDatetimeStr;
+        endInput.removeAttribute('required');  // JS validation handles this
+    }
 });
 
 let currentMode = 'whole';
@@ -1393,6 +1441,42 @@ function checkFileNameUnique(filename, callback) {
         .catch(() => callback(true)); // fail open — server-side will catch it
 }
 
+// ── Real-time file size & type validation on file select ──
+document.addEventListener('DOMContentLoaded', function() {
+    var fileSection = document.getElementById('fileUploadSection');
+    if (fileSection) {
+        var fileInput = fileSection.querySelector('input[type="file"]');
+        if (fileInput) {
+            fileInput.addEventListener('change', function() {
+                var alertEl = document.getElementById('fileNameAlert');
+                if (!alertEl) return;
+                if (!this.files || !this.files.length) {
+                    alertEl.style.display = 'none';
+                    return;
+                }
+                var file = this.files[0];
+                var maxSizeMB = 5;
+                var fileSizeMB = file.size / (1024 * 1024);
+                var allowedExts = ['pdf','png','jpg','jpeg','heic','heif','webp','gif','bmp','tiff','tif'];
+                var ext = file.name.toLowerCase().split('.').pop();
+                if (fileSizeMB > maxSizeMB) {
+                    alertEl.innerHTML = '<i class="bi bi-exclamation-triangle-fill me-1"></i> File is <strong>' + fileSizeMB.toFixed(1) + ' MB</strong> — maximum allowed is <strong>5 MB</strong>. Please reduce the file size.';
+                    alertEl.style.display = 'block';
+                    // Highlight the file input
+                    fileInput.style.borderColor = '#dc2626';
+                } else if (!allowedExts.includes(ext)) {
+                    alertEl.innerHTML = '<i class="bi bi-exclamation-triangle-fill me-1"></i> Invalid file type <strong>.' + ext + '</strong>. Only PDF and image files are accepted.';
+                    alertEl.style.display = 'block';
+                    fileInput.style.borderColor = '#dc2626';
+                } else {
+                    alertEl.style.display = 'none';
+                    fileInput.style.borderColor = '';
+                }
+            });
+        }
+    }
+});
+
 // ── Form submission with all validations ──
 document.getElementById('bookingForm').addEventListener('submit', function(e) {
     e.preventDefault();
@@ -1413,6 +1497,17 @@ document.getElementById('bookingForm').addEventListener('submit', function(e) {
     if (!name)     errors.push('Faculty Full Name is required.');
     if (!email)    errors.push('Please verify your credentials first (reload to re-authenticate).');
     if (!category) errors.push('Please select a Room Category.');
+
+    // Purpose validation
+    const purposeEl = document.querySelector('[name="purpose"]');
+    const purpose = purposeEl ? purposeEl.value.trim() : '';
+    if (!purpose) {
+        errors.push('Purpose of Booking is required. Please describe the reason for your booking.');
+        if (purposeEl) { purposeEl.style.borderColor = '#dc2626'; purposeEl.focus(); }
+    } else if (purposeEl) {
+        purposeEl.style.borderColor = '';
+    }
+
     if (!start || !end) errors.push('Please select a valid booking date and time.');
 
     // Date order validation + same-day / previous-day block
@@ -1447,6 +1542,12 @@ document.getElementById('bookingForm').addEventListener('submit', function(e) {
         const ext   = fname.split('.').pop();
         if (!allowedExts.includes(ext)) {
             errors.push('⚠ Invalid file type. Only <strong>PDF and image files</strong> (PNG, JPG, JPEG, HEIC, etc.) are accepted.');
+        }
+        // File size validation — max 5MB
+        const maxSizeMB = 5;
+        const fileSizeMB = fileInput.files[0].size / (1024 * 1024);
+        if (fileSizeMB > maxSizeMB) {
+            errors.push(`⚠ The requirements file is <strong>${fileSizeMB.toFixed(1)} MB</strong> — maximum allowed is <strong>5 MB</strong>. Please compress or reduce the file size.`);
         }
     }
 
@@ -1765,7 +1866,22 @@ function trRenderResults(requests) {
     requests.forEach(function(r) {
         var statusClass = 'status-' + r.status;
         var badgeClass  = 'badge-' + r.status;
-        var icon = r.status === 'approved' ? 'bi-check-circle-fill' : r.status === 'rejected' ? 'bi-x-circle-fill' : 'bi-clock-fill';
+        var icon, badgeLabel;
+        if (r.status === 'approved') {
+            icon = 'bi-check-circle-fill'; badgeLabel = 'Approved'; badgeClass = 'badge-approved';
+        } else if (r.status === 'completed') {
+            icon = 'bi-check2-all'; badgeLabel = 'Completed'; badgeClass = 'badge-completed';
+        } else if (r.status === 'in_progress') {
+            icon = 'bi-play-circle-fill'; badgeLabel = 'In Progress'; badgeClass = 'badge-in-progress';
+        } else if (r.status === 'rejected') {
+            icon = 'bi-x-circle-fill'; badgeLabel = 'Rejected'; badgeClass = 'badge-rejected';
+        } else if (r.status === 'cancelled') {
+            icon = 'bi-slash-circle-fill'; badgeLabel = 'Cancelled'; badgeClass = 'badge-rejected';
+        } else if (r.status === 'expired') {
+            icon = 'bi-clock-history'; badgeLabel = 'Expired'; badgeClass = 'badge-rejected';
+        } else {
+            icon = 'bi-clock-fill'; badgeLabel = r.status.charAt(0).toUpperCase() + r.status.slice(1); badgeClass = 'badge-pending';
+        }
         var noteHtml    = r.review_note ? '<div class="tr-note"><i class="bi bi-chat-left-text me-1"></i>' + escapeHtml(r.review_note) + '</div>' : '';
         var purposeHtml = (r.purpose && r.purpose !== '—') ? '<div class="tr-meta" style="margin-top:4px;"><i class="bi bi-chat-left-text me-1"></i>' + escapeHtml(r.purpose) + '</div>' : '';
         container.innerHTML +=
@@ -1774,7 +1890,7 @@ function trRenderResults(requests) {
             '<div class="tr-room">' + escapeHtml(r.room) + '</div>' +
             '<div class="tr-meta"><i class="bi bi-calendar3 me-1"></i>' + r.from + ' → ' + r.to + ' &nbsp;|&nbsp; Submitted: ' + r.submitted + '</div>' +
             purposeHtml +
-            '<span class="tr-status-badge ' + badgeClass + '"><i class="bi ' + icon + '"></i> ' + r.status.charAt(0).toUpperCase() + r.status.slice(1) + '</span>' +
+            '<span class="tr-status-badge ' + badgeClass + '"><i class="bi ' + icon + '"></i> ' + badgeLabel + '</span>' +
             noteHtml +
             '</div>';
     });

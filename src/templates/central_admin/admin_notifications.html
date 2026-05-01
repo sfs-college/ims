@@ -109,6 +109,59 @@
         #toastWrap { position: fixed; bottom: 28px; left: 50%; transform: translateX(-50%); z-index: 9999; pointer-events: none; }
         .mini-toast { background: #1e293b; color: #fff; border-radius: 999px; padding: 10px 24px; font-size: 0.81rem; font-weight: 600; opacity: 0; transform: translateY(10px); transition: opacity 0.25s ease, transform 0.25s ease; white-space: nowrap; }
         .mini-toast.show { opacity: 1; transform: translateY(0); }
+
+        /* ── Mobile Responsive ── */
+        @media (max-width: 600px) {
+            .top-bar {
+                padding: 0 12px;
+                height: auto;
+                min-height: 56px;
+                flex-wrap: wrap;
+                gap: 8px;
+                padding-top: 10px;
+                padding-bottom: 10px;
+            }
+            .top-bar-left {
+                flex-wrap: wrap;
+                gap: 8px;
+                flex: 1;
+                min-width: 0;
+            }
+            .back-btn {
+                padding: 6px 12px;
+                font-size: 0.78rem;
+            }
+            .top-bar-title {
+                font-size: 0.9rem;
+                flex-wrap: wrap;
+            }
+            .role-chip { font-size: 0.68rem; }
+            .clear-all-btn {
+                padding: 6px 12px;
+                font-size: 0.76rem;
+                flex-shrink: 0;
+            }
+            .page-body { padding: 16px 12px 80px; }
+            .notif-item {
+                padding: 12px 14px;
+                gap: 10px;
+                border-radius: 12px;
+            }
+            .notif-icon { width: 34px; height: 34px; font-size: 0.9rem; border-radius: 10px; }
+            .notif-title { font-size: 0.82rem; }
+            .notif-sub { font-size: 0.74rem; }
+            .notif-meta { gap: 4px; }
+            .notif-time { font-size: 0.66rem; }
+            .notif-action-link { font-size: 0.72rem; padding: 3px 10px; }
+            .section-title { font-size: 0.72rem; }
+            .section-header { margin-top: 20px; }
+        }
+        @media (max-width: 380px) {
+            .top-bar-left { flex-direction: column; align-items: flex-start; }
+            .notif-item { flex-direction: column; gap: 8px; }
+            .notif-meta { flex-direction: row; align-items: center; justify-content: space-between; width: 100%; }
+            .notif-icon { display: none; }
+        }
     </style>
 </head>
 <body>

@@ -253,6 +253,9 @@
                 <i class="bi bi-calendar-x"></i>Cancellations
                 <span class="tab-count">{{ cancel_req_count }}</span>
             </a>
+            <a class="tab-btn" data-target="panel-history">
+                <i class="bi bi-clock-history"></i>History
+            </a>
         </div>
     </div>
 
@@ -485,6 +488,208 @@
             {% endfor %}
         </div>
     </div>
+    <!-- ═══ PANEL 5 · HISTORY ═══ -->
+    <div class="tab-panel" id="panel-history">
+        <div style="margin-bottom:20px;">
+            <h5 class="fw-bold" style="color:#1e293b;margin-bottom:4px;">Approval History</h5>
+            <p class="text-muted small">All reviewed requests — bookings, cancellations, stock, and time extensions.</p>
+        </div>
+
+        <!-- Booking Request History -->
+        <h6 class="fw-bold text-uppercase" style="font-size:0.72rem;letter-spacing:1px;color:#94a3b8;margin-bottom:12px;">Room Booking Requests</h6>
+        {% if history_booking %}
+        <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:28px;">
+            {% for r in history_booking %}
+            <div style="background:#fff;border-radius:14px;padding:16px 20px;border:1px solid #e2e8f0;box-shadow:0 1px 4px rgba(0,0,0,0.04);">
+                <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap;">
+                    <div style="flex:1;min-width:0;">
+                        <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;flex-wrap:wrap;">
+                            <span style="font-weight:700;font-size:0.92rem;color:#1e293b;">{{ r.room_summary }}</span>
+                            {% if r.status == 'approved' %}
+                                <span style="background:#dcfce7;color:#166534;border-radius:20px;padding:2px 10px;font-size:0.7rem;font-weight:800;text-transform:uppercase;">Approved</span>
+                            {% elif r.status == 'rejected' %}
+                                <span style="background:#fee2e2;color:#991b1b;border-radius:20px;padding:2px 10px;font-size:0.7rem;font-weight:800;text-transform:uppercase;">Rejected</span>
+                            {% elif r.status == 'expired' %}
+                                <span style="background:#fef3c7;color:#92400e;border-radius:20px;padding:2px 10px;font-size:0.7rem;font-weight:800;text-transform:uppercase;">Expired</span>
+                            {% endif %}
+                        </div>
+                        <div style="font-size:0.8rem;color:#64748b;margin-bottom:4px;">
+                            <i class="bi bi-person me-1"></i>{{ r.faculty_name }} &nbsp;·&nbsp;
+                            <i class="bi bi-envelope me-1"></i>{{ r.faculty_email }} &nbsp;·&nbsp;
+                            <i class="bi bi-calendar me-1"></i>{{ r.start_datetime|date:"d M Y, H:i" }}
+                        </div>
+                        {% if r.purpose %}
+                        <div style="font-size:0.78rem;color:#64748b;margin-bottom:4px;">
+                            <i class="bi bi-chat-left-text me-1"></i>{{ r.purpose|truncatechars:80 }}
+                        </div>
+                        {% endif %}
+                        {% if r.approved_by %}
+                        <div style="background:#f0fdf4;border-left:3px solid #10b981;border-radius:0 8px 8px 0;padding:6px 12px;font-size:0.8rem;color:#166534;margin-top:6px;">
+                            <i class="bi bi-person-check-fill me-1"></i>
+                            <strong>Approved by:</strong> {{ r.approved_by.first_name }} {{ r.approved_by.last_name }}
+                            {% if r.approved_note %} — {{ r.approved_note }}{% endif %}
+                        </div>
+                        {% elif r.reviewed_by and r.status == 'rejected' %}
+                        <div style="background:#fef2f2;border-left:3px solid #ef4444;border-radius:0 8px 8px 0;padding:6px 12px;font-size:0.8rem;color:#991b1b;margin-top:6px;">
+                            <i class="bi bi-person-x-fill me-1"></i>
+                            <strong>Rejected by:</strong> {{ r.reviewed_by.first_name }} {{ r.reviewed_by.last_name }}
+                            {% if r.review_note %} — {{ r.review_note }}{% endif %}
+                        </div>
+                        {% elif r.review_note %}
+                        <div style="background:#f8fafc;border-left:3px solid #6366f1;border-radius:0 8px 8px 0;padding:6px 12px;font-size:0.8rem;color:#475569;margin-top:6px;">
+                            <i class="bi bi-chat-left-text me-1" style="color:#6366f1;"></i>
+                            <strong>Remark:</strong> {{ r.review_note }}
+                        </div>
+                        {% endif %}
+                    </div>
+                    <div style="text-align:right;flex-shrink:0;">
+                        {% if r.reviewed_by and not r.approved_by %}
+                        <div style="font-size:0.75rem;color:#94a3b8;">
+                            <i class="bi bi-person-badge me-1"></i>
+                            {{ r.reviewed_by.first_name }} {{ r.reviewed_by.last_name }}
+                        </div>
+                        {% endif %}
+                        <div style="font-size:0.72rem;color:#cbd5e1;margin-top:2px;">{{ r.updated_on|date:"d M Y, H:i" }}</div>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div style="text-align:center;padding:32px;color:#94a3b8;margin-bottom:28px;">
+            <i class="bi bi-inbox" style="font-size:2rem;display:block;margin-bottom:8px;"></i>
+            No booking request history yet.
+        </div>
+        {% endif %}
+
+        <!-- Cancellation History -->
+        <h6 class="fw-bold text-uppercase" style="font-size:0.72rem;letter-spacing:1px;color:#94a3b8;margin-bottom:12px;">Cancellation Requests</h6>
+        {% if history_cancel %}
+        <div style="display:flex;flex-direction:column;gap:10px;">
+            {% for r in history_cancel %}
+            <div style="background:#fff;border-radius:14px;padding:16px 20px;border:1px solid #e2e8f0;box-shadow:0 1px 4px rgba(0,0,0,0.04);">
+                <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap;">
+                    <div style="flex:1;min-width:0;">
+                        <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;flex-wrap:wrap;">
+                            <span style="font-weight:700;font-size:0.92rem;color:#1e293b;">{{ r.booking.room_summary }}</span>
+                            {% if r.status == 'approved' %}
+                                <span style="background:#dcfce7;color:#166534;border-radius:20px;padding:2px 10px;font-size:0.7rem;font-weight:800;text-transform:uppercase;">Cancellation Approved</span>
+                            {% elif r.status == 'rejected' %}
+                                <span style="background:#fee2e2;color:#991b1b;border-radius:20px;padding:2px 10px;font-size:0.7rem;font-weight:800;text-transform:uppercase;">Cancellation Rejected</span>
+                            {% endif %}
+                        </div>
+                        <div style="font-size:0.8rem;color:#64748b;">
+                            <i class="bi bi-person me-1"></i>{{ r.booking.faculty_name }} &nbsp;·&nbsp;
+                            <i class="bi bi-calendar me-1"></i>{{ r.booking.start_datetime|date:"d M Y, H:i" }}
+                        </div>
+                        <div style="font-size:0.8rem;color:#64748b;margin-top:3px;">
+                            <i class="bi bi-chat-left me-1"></i><strong>Reason:</strong> {{ r.reason }}
+                        </div>
+                    </div>
+                    <div style="text-align:right;flex-shrink:0;">
+                        {% if r.reviewed_by %}
+                        <div style="font-size:0.75rem;color:#94a3b8;">
+                            <i class="bi bi-person-badge me-1"></i>
+                            {{ r.reviewed_by.first_name }} {{ r.reviewed_by.last_name }}
+                        </div>
+                        {% endif %}
+                        <div style="font-size:0.72rem;color:#cbd5e1;margin-top:2px;">{{ r.updated_on|date:"d M Y, H:i" }}</div>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div style="text-align:center;padding:32px;color:#94a3b8;">
+            <i class="bi bi-inbox" style="font-size:2rem;display:block;margin-bottom:8px;"></i>
+            No cancellation history yet.
+        </div>
+        {% endif %}
+
+        <!-- Stock Request History -->
+        <h6 class="fw-bold text-uppercase" style="font-size:0.72rem;letter-spacing:1px;color:#94a3b8;margin-bottom:12px;margin-top:28px;">Stock Requests</h6>
+        {% if history_stock %}
+        <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:28px;">
+            {% for r in history_stock %}
+            <div style="background:#fff;border-radius:14px;padding:14px 18px;border:1px solid #e2e8f0;box-shadow:0 1px 4px rgba(0,0,0,0.04);">
+                <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap;">
+                    <div style="flex:1;min-width:0;">
+                        <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;flex-wrap:wrap;">
+                            <span style="font-weight:700;font-size:0.88rem;color:#1e293b;">{{ r.item.item_name }}</span>
+                            {% if r.status == 'approved' %}
+                                <span style="background:#dcfce7;color:#166534;border-radius:20px;padding:2px 10px;font-size:0.68rem;font-weight:800;text-transform:uppercase;">Approved</span>
+                            {% else %}
+                                <span style="background:#fee2e2;color:#991b1b;border-radius:20px;padding:2px 10px;font-size:0.68rem;font-weight:800;text-transform:uppercase;">Rejected</span>
+                            {% endif %}
+                        </div>
+                        <div style="font-size:0.78rem;color:#64748b;">
+                            <i class="bi bi-geo-alt me-1"></i>{{ r.room.room_name }} &nbsp;·&nbsp;
+                            +{{ r.requested_count }} units
+                            {% if r.requested_by %} &nbsp;·&nbsp; <i class="bi bi-person me-1"></i>{{ r.requested_by }}{% endif %}
+                        </div>
+                        {% if r.reviewed_by %}
+                        <div style="font-size:0.76rem;color:#64748b;margin-top:4px;">
+                            <i class="bi bi-person-badge me-1" style="color:#6366f1;"></i>
+                            <strong>Reviewed by:</strong> {{ r.reviewed_by.first_name }} {{ r.reviewed_by.last_name }}
+                        </div>
+                        {% endif %}
+                    </div>
+                    <div style="text-align:right;flex-shrink:0;">
+                        <div style="font-size:0.72rem;color:#cbd5e1;">{{ r.created_on|date:"d M Y" }}</div>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div style="text-align:center;padding:24px;color:#94a3b8;margin-bottom:28px;">
+            <i class="bi bi-box-seam" style="font-size:1.8rem;display:block;margin-bottom:6px;opacity:0.2;"></i>
+            No stock request history yet.
+        </div>
+        {% endif %}
+
+        <!-- TAT Extension History -->
+        <h6 class="fw-bold text-uppercase" style="font-size:0.72rem;letter-spacing:1px;color:#94a3b8;margin-bottom:12px;margin-top:8px;">Time Extension Requests</h6>
+        {% if history_tat %}
+        <div style="display:flex;flex-direction:column;gap:10px;">
+            {% for r in history_tat %}
+            <div style="background:#fff;border-radius:14px;padding:14px 18px;border:1px solid #e2e8f0;box-shadow:0 1px 4px rgba(0,0,0,0.04);">
+                <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap;">
+                    <div style="flex:1;min-width:0;">
+                        <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;flex-wrap:wrap;">
+                            <span style="font-weight:700;font-size:0.88rem;color:#1e293b;">Ticket #{{ r.issue.ticket_id }}</span>
+                            {% if r.status == 'approved' %}
+                                <span style="background:#dcfce7;color:#166534;border-radius:20px;padding:2px 10px;font-size:0.68rem;font-weight:800;text-transform:uppercase;">Approved</span>
+                            {% else %}
+                                <span style="background:#fee2e2;color:#991b1b;border-radius:20px;padding:2px 10px;font-size:0.68rem;font-weight:800;text-transform:uppercase;">Rejected</span>
+                            {% endif %}
+                        </div>
+                        <div style="font-size:0.78rem;color:#64748b;">
+                            {{ r.issue.subject|truncatechars:60 }} &nbsp;·&nbsp;
+                            +{{ r.requested_extra_hours }} hours
+                            {% if r.requested_by %} &nbsp;·&nbsp; <i class="bi bi-person me-1"></i>{{ r.requested_by }}{% endif %}
+                        </div>
+                        {% if r.reviewed_by %}
+                        <div style="font-size:0.76rem;color:#64748b;margin-top:4px;">
+                            <i class="bi bi-person-badge me-1" style="color:#6366f1;"></i>
+                            <strong>Reviewed by:</strong> {{ r.reviewed_by.first_name }} {{ r.reviewed_by.last_name }}
+                        </div>
+                        {% endif %}
+                    </div>
+                    <div style="text-align:right;flex-shrink:0;">
+                        <div style="font-size:0.72rem;color:#cbd5e1;">{{ r.created_on|date:"d M Y" }}</div>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div style="text-align:center;padding:24px;color:#94a3b8;">
+            <i class="bi bi-clock-history" style="font-size:1.8rem;display:block;margin-bottom:6px;opacity:0.2;"></i>
+            No time extension history yet.
+        </div>
+        {% endif %}
+    </div>
 
 </div><!-- /admin-container -->
 
@@ -648,7 +853,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
 /* ── TAB SWITCHER ── */
 (function() {
-    var TAB_MAP = { 'item_edit': 'panel-item-edit', 'issue_tat': 'panel-issue-tat', 'booking_req': 'panel-booking-req', 'cancel_req': 'panel-cancel-req' };
+    var TAB_MAP = { 'item_edit': 'panel-item-edit', 'issue_tat': 'panel-issue-tat', 'booking_req': 'panel-booking-req', 'cancel_req': 'panel-cancel-req', 'history': 'panel-history' };
     var PANEL_MAP = {};
     Object.keys(TAB_MAP).forEach(function(k) { PANEL_MAP[TAB_MAP[k]] = k; });
     var toggle = document.getElementById('typeToggle');

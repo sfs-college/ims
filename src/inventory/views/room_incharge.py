@@ -1888,3 +1888,87 @@ def get_room_asset_tags(request, room_slug):
         assigned_room__slug=room_slug,
     ).order_by('tag_id')
     return JsonResponse({'tags': [{'tag_id': t.tag_id} for t in tags]})
+
+
+# ═══════════════════════════════════════════════════════════════
+# ISSUE REMARK — Room incharge sends a progress update to reporter
+# ═══════════════════════════════════════════════════════════════
+
+class SendIssueRemarkView(LoginRequiredMixin, View):
+    """
+    Room incharge sends a progress remark to the issue reporter.
+    - Does NOT change issue status or resolution state.
+    - Saves the remark on the Issue model (incharge_remark field).
+    - Emails the reporter with the update.
+    """
+
+    def post(self, request, room_slug, pk):
+        profile = request.user.profile
+        room    = get_object_or_404(Room, slug=room_slug, organisation=profile.org)
+
+        if room.incharge != profile and not (profile.is_sub_admin or profile.is_central_admin):
+            return HttpResponseForbidden("Not allowed.")
+
+        issue  = get_object_or_404(Issue, pk=pk, room=room)
+        remark = request.POST.get('incharge_remark', '').strip()
+
+        if not remark:
+            messages.error(request, 'Remark cannot be empty.')
+            return redirect('room_incharge:issue_list', room_slug=room.slug)
+
+        # Save remark on the issue
+        issue.incharge_remark = remark
+        issue.save(update_fields=['incharge_remark', 'updated_on'])
+
+        # Email the reporter
+        if issue.reporter_email:
+            try:
+                from inventory.email import safe_send_mail, build_email_shell
+                incharge_name = f"{profile.first_name} {profile.last_name}".strip() or 'Room Incharge'
+                safe_send_mail(
+                    subject=f"[Blixtro] Update on Your Issue — {issue.ticket_id}",
+                    message=(
+                        f"Dear {issue.created_by or 'Student'},\n\n"
+                        f"The room incharge has sent an update regarding your issue.\n\n"
+                        f"Ticket ID : {issue.ticket_id}\n"
+                        f"Subject   : {issue.subject}\n"
+                        f"Status    : {issue.get_status_display()}\n\n"
+                        f"Update from {incharge_name}:\n{remark}\n\n"
+                        "Your issue is still being tracked. You will be notified once it is resolved.\n\n"
+                        "Best regards,\nBlixtro — SFS College Inventory & Booking System"
+                    ),
+                    recipient_list=[issue.reporter_email],
+                    html_message=build_email_shell(
+                        title="Issue Progress Update",
+                        intro_html=(
+                            f"Dear <strong>{issue.created_by or 'Student'}</strong>, "
+                            f"the room incharge has sent a progress update on your issue."
+                        ),
+                        sections=[
+                            {
+                                "title": "Issue Details",
+                                "rows": [
+                                    {"label": "Ticket ID", "value": issue.ticket_id},
+                                    {"label": "Subject",   "value": issue.subject},
+                                    {"label": "Status",    "value": issue.get_status_display()},
+                                    {"label": "Room",      "value": issue.room.room_name},
+                                ],
+                            },
+                            {
+                                "title": f"Update from {incharge_name}",
+                                "body_html": (
+                                    f'<div style="white-space:pre-line;font-size:13px;line-height:1.7;color:#334155;">'
+                                    f'{remark}'
+                                    f'</div>'
+                                ),
+                            },
+                        ],
+                        outro_html="Your issue is still being tracked. You will be notified once it is fully resolved.",
+                        accent="#6366f1",
+                    ),
+                )
+            except Exception as _e:
+                print(f"[SendIssueRemark] Email failed: {_e}", flush=True)
+
+        messages.success(request, f'Remark sent to {issue.reporter_email}.')
+        return redirect('room_incharge:issue_list', room_slug=room.slug)
