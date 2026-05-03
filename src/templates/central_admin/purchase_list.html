@@ -330,6 +330,29 @@
     border: 1.5px solid #e2e8f0; border-radius: 10px;
     font-weight: 600; font-size: 0.88rem; cursor: pointer;
   }
+
+  /* Mobile responsiveness */
+  @media (max-width: 768px) {
+    .page-header { flex-direction: column; align-items: flex-start; gap: 10px; }
+    .btn-create { width: 100%; justify-content: center; }
+    .data-table thead th,
+    .data-table tbody td { font-size: 0.78rem; padding: 8px 10px !important; }
+    .data-table thead th { font-size: 0.68rem; }
+    .actions-wrap { flex-direction: column; gap: 5px; }
+    .btn-details, .btn-upload, .btn-reupload {
+      width: 100%; justify-content: center; font-size: 0.75rem;
+    }
+    .status-badge { font-size: 0.72rem; padding: 3px 7px; }
+    .pid-code { font-size: 0.72rem; }
+    .invoice-modal-box { width: 98vw; height: 85vh; }
+    .upload-modal-box { width: 96vw; }
+  }
+  @media (max-width: 480px) {
+    .data-table thead th,
+    .data-table tbody td { font-size: 0.72rem; padding: 6px 8px !important; }
+    .modal-footer { flex-direction: column; gap: 8px; }
+    .modal-footer .btn { width: 100%; }
+  }
 </style>
 {% endblock style %}
 

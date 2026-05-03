@@ -258,6 +258,36 @@
 
   .data-table thead th:first-child { text-align: left; }
   .data-table thead th:last-child  { text-align: left; }
+
+  /* Mobile: make table scroll and stack action buttons */
+  @media (max-width: 768px) {
+    .data-table thead th,
+    .data-table tbody td {
+      font-size: 0.78rem;
+      padding: 8px 10px !important;
+    }
+    .actions-wrap {
+      flex-direction: column;
+      gap: 6px;
+    }
+    .btn-stock-request {
+      width: 100%;
+      justify-content: center;
+      font-size: 0.75rem;
+      padding: 8px 10px;
+    }
+    .badge-stock-pending {
+      width: 100%;
+      justify-content: center;
+      font-size: 0.72rem;
+    }
+    .stock-pill { font-size: 0.72rem; padding: 2px 7px; }
+  }
+  @media (max-width: 480px) {
+    .data-table thead th,
+    .data-table tbody td { font-size: 0.72rem; padding: 6px 8px !important; }
+    .page-header { flex-direction: column; align-items: flex-start; gap: 10px; }
+  }
 </style>
 {% endblock style %}
 
@@ -549,33 +579,6 @@ function cycleStatusCol() {
     pill.textContent = val;
     pill.style.cssText = statusStyles[statusColState];
   });
-}
-
-function openRoomTagModal(itemName) {
-    document.getElementById('roomTagItemName').textContent = itemName;
-    document.getElementById('roomTagContent').innerHTML =
-        '<div class="text-center py-4"><div class="spinner-border" style="color:#6c63ff;"></div></div>';
-    document.getElementById('tagOverlay').classList.add('open');
-
-    fetch(`/central_admin/api/room-asset-tags/?item_name=${encodeURIComponent(itemName)}&room_slug={{ room_slug }}`, {
-        headers: { 'X-Requested-With': 'XMLHttpRequest' },
-        credentials: 'same-origin'
-    })
-        .then(r => r.json())
-        .then(data => {
-            if (!data.tags || !data.tags.length) {
-                document.getElementById('roomTagContent').innerHTML =
-                    '<div class="text-center text-muted py-3">No asset tags assigned to this room for this item.</div>';
-                return;
-            }
-            const pills = data.tags.map(t =>
-                `<span style="display:inline-block;font-family:monospace;font-weight:700;
-                    color:#5b21b6;background:#ede9fe;padding:4px 12px;border-radius:8px;
-                    margin:4px;font-size:0.85rem;">${t.tag_id}</span>`
-            ).join('');
-            document.getElementById('roomTagContent').innerHTML =
-                `<div style="display:flex;flex-wrap:wrap;gap:4px;">${pills}</div>`;
-        });
 }
 
 function closeTagModal() {

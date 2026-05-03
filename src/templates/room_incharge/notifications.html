@@ -3,7 +3,10 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <title>Notifications | {{ room.room_name }}</title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -25,6 +28,7 @@
             height: 62px;
             display: flex; align-items: center; justify-content: space-between;
             box-shadow: 0 1px 8px rgba(0,0,0,0.06);
+            padding-top: env(safe-area-inset-top, 0px);
         }
         .top-bar-left { display: flex; align-items: center; gap: 14px; }
         .back-btn {

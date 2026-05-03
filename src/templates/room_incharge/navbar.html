@@ -74,6 +74,22 @@
     object-fit: contain;
   }
 
+  /* ── Mobile: shrink logo so it fits inside the 75px navbar ── */
+  @media (max-width: 768px) {
+    .logo img {
+      height: 52px !important;
+      max-width: 160px !important;
+    }
+    .header-content {
+      padding: 0 12px 0 10px;
+      gap: 8px;
+    }
+    .nb-room-switcher .btn {
+      font-size: 0.7rem;
+      padding: 5px 10px;
+    }
+  }
+
   /* ── Spacer ──────────────────────────────────────────────────────── */
   .nb-spacer { flex: 1; min-width: 0; }
 
@@ -163,10 +179,10 @@
   }
 
   /* ── Body offset so content isn't hidden under fixed header ─────── */
-  body { padding-top: var(--nb-h) !important; }
+  body { padding-top: calc(var(--nb-h) + var(--sat, 0px)) !important; }
 </style>
 
-<header class="header">
+<header class="header" style="top: var(--sat, 0px);">
   <div class="header-content w-100">
 
     <button class="nb-menu-btn" onclick="if(typeof toggleSidebar==='function') toggleSidebar();" aria-label="Toggle sidebar">

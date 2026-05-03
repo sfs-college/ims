@@ -6,15 +6,10 @@ from django.utils import timezone
 from config.utils import generate_unique_slug, generate_unique_code
 from django.db.models.signals import post_delete
 from django.dispatch import receiver
-import json
-from django.db.models import JSONField
-import random, string
 from django.conf import settings
-from inventory.models import UserProfile
 from django.core.mail import send_mail
 import pytz, uuid
 from django.core.validators import FileExtensionValidator
-from inventory.booking_utils import format_room_list
 
 class Room(models.Model):
     # CHANGE: Added fixed room category support for central admin room management

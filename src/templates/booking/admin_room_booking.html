@@ -416,7 +416,7 @@
             gap: 10px;
         }
         
-        /* Mobile positioning for track/cancel buttons next to home button */
+        /* Mobile positioning for track/cancel buttons — not used in this template, kept for safety */
         div[style*="position:fixed;bottom:32px;right:32px"] {
             position: fixed !important;
             bottom: auto !important;
@@ -431,14 +431,19 @@
         }
         
         .btn-cancel-float, .btn-track-float {
-            padding: 10px 16px !important;
-            font-size: 0.8rem !important;
+            padding: 10px 12px !important;
+            font-size: 0.78rem !important;
             border-radius: 12px !important;
             white-space: nowrap !important;
+            flex: 1 !important;
+            min-width: 0 !important;
+            max-width: 48% !important;
+            justify-content: center !important;
         }
         
+        /* No float bar in this template — remove the extra padding-top */
         .glass-header {
-            padding-top: 80px !important;
+            padding-top: 24px !important;
         }
         
         /* Requirements type cards - stack vertically on mobile */

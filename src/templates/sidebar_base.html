@@ -31,7 +31,7 @@
     /* Universal Back Button Styles */
     .universal-back-btn {
         position: fixed;
-        top: 80px; /* Moved down to avoid header conflicts */
+        top: calc(80px + var(--sat)); /* Accounts for navbar + safe area */
         right: 20px;
         z-index: 1040; /* Lowered z-index to avoid conflicts */
         display: flex;
@@ -66,7 +66,7 @@
     /* Mobile adjustments */
     @media (max-width: 768px) {
         .universal-back-btn {
-            top: 70px; /* Adjusted for mobile header */
+            top: calc(70px + var(--sat)); /* Adjusted for mobile header + safe area */
             right: 15px;
             padding: 8px 12px;
             font-size: 13px;
@@ -80,7 +80,7 @@
     
     @media (max-width: 480px) {
         .universal-back-btn {
-            top: 65px; /* Further adjusted for small mobile */
+            top: calc(65px + var(--sat)); /* Further adjusted for small mobile + safe area */
             right: 10px;
             padding: 6px 10px;
             font-size: 12px;
@@ -102,7 +102,7 @@
     /* Mobile footer nav padding */
     @media (max-width: 900px) {
         body {
-            padding-bottom: 90px !important;
+            padding-bottom: calc(90px + var(--sab)) !important;
         }
     }
 </style>
@@ -119,7 +119,8 @@
 
         <!-- Universal Back Button -->
         {% block back_button %}
-        <a href="javascript:history.back()" class="universal-back-btn" id="universalBackBtn">
+        <a href="javascript:void(0)" class="universal-back-btn" id="universalBackBtn"
+           onclick="if(window.IS_CAPACITOR && window.history.length <= 1){ window.location.href='{% url "landing_page" %}'; } else { window.history.back(); }">
             <span class="material-symbols-outlined">arrow_back</span>
             <span>Back</span>
         </a>

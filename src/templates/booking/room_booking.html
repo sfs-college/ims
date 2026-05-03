@@ -496,17 +496,18 @@
         }
         
         .btn-cancel-float, .btn-track-float {
-            padding: 10px 16px !important;
-            font-size: 0.8rem !important;
+            padding: 10px 12px !important;
+            font-size: 0.78rem !important;
             border-radius: 14px !important;
             white-space: nowrap !important;
             flex: 1 !important;
+            min-width: 0 !important;
             justify-content: center !important;
-            max-width: 200px !important;
+            max-width: 48% !important;
         }
         
         /* Push page content down so it doesn't hide under the top bar */
-        body { padding-top: 68px !important; }
+        body { padding-top: 72px !important; }
         
         .auth-gate-modal {
             padding: 32px 24px;
@@ -563,6 +564,20 @@
         /* Requirements cards for very small phones */
         .d-flex.gap-3.mb-3 .type-card { padding: 10px 12px !important; }
         .d-flex.gap-3.mb-3 .type-card strong { font-size: 0.75rem !important; }
+
+        /* Float buttons stack vertically on very small screens */
+        .float-action-bar {
+            flex-direction: column !important;
+            gap: 6px !important;
+            padding: 8px 10px !important;
+        }
+        .btn-cancel-float, .btn-track-float {
+            max-width: 100% !important;
+            width: 100% !important;
+            font-size: 0.75rem !important;
+            padding: 9px 10px !important;
+        }
+        body { padding-top: 110px !important; }
     }
 
     /* Large phones / small tablets */
