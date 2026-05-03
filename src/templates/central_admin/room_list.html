@@ -107,7 +107,7 @@
   .btn-export-pdf:hover   { background:#dc2626; color:#fff; border-color:#dc2626; }
 
   /* ── Action buttons ───────────────────────────────────── */
-  .action-buttons { display: flex; gap: 4px; flex-direction: column; }
+  .action-buttons { display: flex; gap: 6px; flex-direction: row; align-items: center; flex-wrap: nowrap; }
   .action-btn { white-space: nowrap; display: inline-block; }
   .action-btn.btn-dark { 
     background: #0f172a; color: #fff; border: none;
@@ -190,31 +190,37 @@
     #roomsTable.table-responsive-stack td[data-label="Action"]:before {
       display: none;
     }
-    
+
+    /* Action buttons: side-by-side, fixed width — never stretch full card */
     .action-buttons {
-      flex-direction: column;
+      flex-direction: row !important;
       gap: 6px !important;
-      align-items: stretch;
+      align-items: center;
+      flex-wrap: nowrap;
     }
-    
+
     .action-btn {
-      width: 100%;
+      width: auto !important;
+      min-width: 64px;
       text-align: center;
-      min-height: 38px;
-      font-size: 11px !important;
-      padding: 6px 8px !important;
-      white-space: normal;
+      min-height: 34px;
+      font-size: 0.72rem !important;
+      padding: 5px 12px !important;
+      white-space: nowrap;
     }
 
     .room-card-actions {
-      flex-direction: column;
-      align-items: stretch;
+      flex-direction: row;
+      align-items: center;
+      flex-wrap: nowrap;
+      gap: 6px;
     }
 
     .room-card-actions .btn-card-sm {
-      width: 100%;
+      width: auto !important;
+      min-width: 64px;
       justify-content: center;
-      white-space: normal;
+      white-space: nowrap;
     }
   }
 

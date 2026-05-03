@@ -68,24 +68,34 @@
          * Handle deep link URLs (OAuth callbacks)
          */
         handleDeepLink(url) {
-            // Parse the URL for OAuth callbacks
+            console.log('[MobileUtils] Handling deep link:', url);
+
+            // Match both  in.sfscollege.blixtro://auth?...
+            // and any https://blixtro.sfscollege.app/...auth...
+            const isAuthLink = (
+                url.startsWith('in.sfscollege.blixtro://auth') ||
+                url.includes('://auth?') ||
+                url.includes('/auth/')  ||
+                url.includes('firebase')
+            );
+
+            if (!isAuthLink) return;
+
             const urlObj = new URL(url);
             const params = new URLSearchParams(urlObj.search);
             const authStatus = params.get('status');
-            
-            // Handle Firebase/Google auth callback
-            if (url.includes('/auth/') || url.includes('firebase')) {
-                const idToken = params.get('id_token') || params.get('token');
-                if (idToken) {
-                    console.log('[MobileUtils] Auth token received via deep link');
-                    // Submit token to backend
-                    this.submitAuthToken(idToken);
-                    return;
-                }
-                if (authStatus === 'success') {
-                    // Session-based callback completed; route inside app.
-                    window.location.href = '/students/report_issue/?app=1';
-                }
+            const idToken   = params.get('id_token') || params.get('token');
+
+            if (idToken) {
+                console.log('[MobileUtils] Auth token received via deep link');
+                this.submitAuthToken(idToken);
+                return;
+            }
+
+            if (authStatus === 'success') {
+                // Session cookie already set server-side — navigate into the app.
+                console.log('[MobileUtils] Auth success deep link — navigating to issue report');
+                window.location.href = '/students/report_issue/?app=1';
             }
         },
 
@@ -635,11 +645,19 @@
                 
             } catch (err) {
                 PageLoader.hide();
-                console.error('[MobileAuth] Capacitor popup login error:', err);
+                console.error('[MobileAuth] Capacitor popup login error:', err.code, err.message);
                 
-                // If popup was blocked or failed, fall back to redirect
-                if (err.code === 'auth/popup-blocked' || err.code === 'auth/popup-closed-by-user') {
-                    console.log('[MobileAuth] Popup blocked/closed, trying redirect...');
+                // Android WebViews block signInWithPopup entirely — fall back to redirect.
+                // Also handle explicit popup-blocked / popup-closed cases.
+                const popupFailed = (
+                    err.code === 'auth/popup-blocked' ||
+                    err.code === 'auth/popup-closed-by-user' ||
+                    err.code === 'auth/operation-not-supported-in-this-environment' ||
+                    err.code === 'auth/cancelled-popup-request' ||
+                    (err.message && err.message.toLowerCase().includes('popup'))
+                );
+                if (popupFailed) {
+                    console.log('[MobileAuth] Popup not supported, switching to redirect...');
                     return this.capacitorRedirectFallback(firebaseConfig, options);
                 }
                 throw err;

@@ -1227,17 +1227,20 @@ def firebase_login_callback(request):
     # Detection: Capacitor sets a User-Agent containing "Capacitor", OR the
     # JS layer can append ?app=1 to the POST action URL as a fallback.
     ua = request.META.get('HTTP_USER_AGENT', '')
-    referer = request.META.get('HTTP_REFERER', '')
     is_capacitor = (
         'Capacitor' in ua
         or '; wv' in ua
         or request.POST.get('app') == '1'
         or request.GET.get('app') == '1'
-        or 'app=1' in referer
     )
     if is_capacitor:
-        from django.http import HttpResponseRedirect as _Redir
-        return _Redir('in.sfscollege.blixtro://auth?status=success')
+        # Django's HttpResponseRedirect validates the URL scheme and rejects
+        # custom schemes like 'in.sfscollege.blixtro://'.
+        # Use a plain HttpResponse with Location header to bypass that check.
+        from django.http import HttpResponse as _HR
+        response = _HR(status=302)
+        response['Location'] = 'in.sfscollege.blixtro://auth?status=success'
+        return response
     # ── Web browser flow (unchanged) ─────────────────────────────────────────
     return redirect('student:report_issue')
 

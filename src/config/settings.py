@@ -57,6 +57,7 @@ INSTALLED_APPS = [
     'allauth',
     'allauth.account',
     'allauth.socialaccount',
+    'allauth.socialaccount.providers.google',
 ]
 
 SITE_ID = env.int('SITE_ID', default=1)
@@ -162,6 +163,20 @@ CSRF_TRUSTED_ORIGINS = [
     url.strip() for url in env('CSRF_TRUSTED_ORIGINS', default='https://example.com').split(',')
 ]
 
+# ── Session & CSRF cookie settings ───────────────────────────────────────────
+# Required for Capacitor WebView: the app loads pages from the live HTTPS server
+# so cookies must be Secure and SameSite=None to survive cross-context requests.
+if ENVIRONMENT == 'production':
+    SESSION_COOKIE_SECURE = True
+    SESSION_COOKIE_SAMESITE = 'None'
+    CSRF_COOKIE_SECURE = True
+    CSRF_COOKIE_SAMESITE = 'None'
+else:
+    SESSION_COOKIE_SECURE = False
+    SESSION_COOKIE_SAMESITE = 'Lax'
+    CSRF_COOKIE_SECURE = False
+    CSRF_COOKIE_SAMESITE = 'Lax'
+
 
 # Password validation
 # https://docs.djangoproject.com/en/4.2/ref/settings/#auth-password-validators
@@ -216,15 +231,14 @@ else:
     }
 
     # Static Files
-    STATIC_URL = f"{AWS_S3_CUSTOM_DOMAIN}/{AWS_STORAGE_BUCKET_NAME}/static/"
-    STATICFILES_STORAGE = "storages.backends.s3boto3.S3Boto3Storage"
+    STATIC_URL = f"https://{AWS_S3_CUSTOM_DOMAIN}/static/"
+    STATICFILES_STORAGE = "config.storages.StaticStorage"
     STATICFILES_DIRS = [
         os.path.join(BASE_DIR, "static"),
     ]
 
     # Media Files
-    MEDIA_URL = f"{AWS_S3_CUSTOM_DOMAIN}/{AWS_STORAGE_BUCKET_NAME}/media/"
-    STATICFILES_STORAGE = "config.storages.StaticStorage"
+    MEDIA_URL = f"https://{AWS_S3_CUSTOM_DOMAIN}/media/"
     DEFAULT_FILE_STORAGE = "config.storages.MediaStorage"
 
 # Default primary key field type
@@ -239,9 +253,9 @@ else:
     EMAIL_HOST = env('EMAIL_HOST', default='in-v3.mailjet.com')
     EMAIL_PORT = env.int('EMAIL_PORT', default=587)
     EMAIL_USE_TLS = env.bool('EMAIL_USE_TLS', default=True)
-    EMAIL_HOST_USER = env('EMAIL_HOST_USER')
-    EMAIL_HOST_PASSWORD = env('EMAIL_HOST_PASSWORD')
-    DEFAULT_FROM_EMAIL = env('DEFAULT_FROM_EMAIL')
+    EMAIL_HOST_USER = env('EMAIL_HOST_USER', default='')
+    EMAIL_HOST_PASSWORD = env('EMAIL_HOST_PASSWORD', default='')
+    DEFAULT_FROM_EMAIL = env('DEFAULT_FROM_EMAIL', default='noreply@sfscollege.in')
     # Extended timeout for slower networks (Capacitor/mobile environments)
     EMAIL_TIMEOUT = env.int('EMAIL_TIMEOUT', default=30)
     # Connection pooling settings
@@ -251,9 +265,9 @@ else:
     # File-based backend fallback for failed emails
     EMAIL_FILE_PATH = os.path.join(BASE_DIR, 'failed_emails')
 
-COLLEGE_CODE = env("COLLEGE_CODE")
-STUDENT_API_KEY = env("STUDENT_API_KEY")
-STUDENT_API_SECRET_KEY = env("STUDENT_API_SECRET_KEY")
+COLLEGE_CODE = env("COLLEGE_CODE", default="")
+STUDENT_API_KEY = env("STUDENT_API_KEY", default="")
+STUDENT_API_SECRET_KEY = env("STUDENT_API_SECRET_KEY", default="")
 
 
 
@@ -323,12 +337,12 @@ CRON_SECRET = env(
 # Firebase scopes them with Security Rules + the hd domain restriction.
 # Stored in env vars so they never appear hardcoded in source or HTML.
 FIREBASE_CLIENT_CONFIG = {
-    "apiKey":            env('FIREBASE_API_KEY'),
-    "authDomain":        env('FIREBASE_AUTH_DOMAIN'),
-    "projectId":         env('FIREBASE_PROJECT_ID'),
-    "storageBucket":     env('FIREBASE_STORAGE_BUCKET'),
-    "messagingSenderId": env('FIREBASE_MESSAGING_SENDER_ID'),
-    "appId":             env('FIREBASE_APP_ID'),
+    "apiKey":            env('FIREBASE_API_KEY',            default=''),
+    "authDomain":        env('FIREBASE_AUTH_DOMAIN',        default=''),
+    "projectId":         env('FIREBASE_PROJECT_ID',         default=''),
+    "storageBucket":     env('FIREBASE_STORAGE_BUCKET',     default=''),
+    "messagingSenderId": env('FIREBASE_MESSAGING_SENDER_ID', default=''),
+    "appId":             env('FIREBASE_APP_ID',             default=''),
 }
 
 # ── Firebase Admin SDK Initialization ────────────────────────────────────────
