@@ -10,6 +10,7 @@ from django.conf import settings
 from django.core.mail import send_mail
 import pytz, uuid
 from django.core.validators import FileExtensionValidator
+from inventory.booking_utils import format_room_list
 
 class Room(models.Model):
     # CHANGE: Added fixed room category support for central admin room management

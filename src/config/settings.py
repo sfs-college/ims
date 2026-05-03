@@ -94,7 +94,7 @@ SOCIALACCOUNT_ADAPTER = 'core.adapters.SocialAccountAdapter'
 SOCIALACCOUNT_EMAIL_VERIFICATION = "none" 
 SOCIALACCOUNT_EMAIL_REQUIRED = True
 
-LOGIN_REDIRECT_URL = '/inventory/report_issue/'
+LOGIN_REDIRECT_URL = '/students/report_issue/'
 LOGOUT_REDIRECT_URL = '/'
 
 MIDDLEWARE = [

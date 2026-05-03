@@ -148,6 +148,7 @@ class LandingPageView(RedirectLoggedInUsersMixin, TemplateView):
         is_capacitor = (
             request.GET.get('app') == '1'
             or 'Capacitor' in ua
+            or '; wv' in ua
         )
         if is_capacitor:
             from django.shortcuts import redirect as _redir
@@ -1226,7 +1227,14 @@ def firebase_login_callback(request):
     # Detection: Capacitor sets a User-Agent containing "Capacitor", OR the
     # JS layer can append ?app=1 to the POST action URL as a fallback.
     ua = request.META.get('HTTP_USER_AGENT', '')
-    is_capacitor = 'Capacitor' in ua or request.POST.get('app') == '1'
+    referer = request.META.get('HTTP_REFERER', '')
+    is_capacitor = (
+        'Capacitor' in ua
+        or '; wv' in ua
+        or request.POST.get('app') == '1'
+        or request.GET.get('app') == '1'
+        or 'app=1' in referer
+    )
     if is_capacitor:
         from django.http import HttpResponseRedirect as _Redir
         return _Redir('in.sfscollege.blixtro://auth?status=success')

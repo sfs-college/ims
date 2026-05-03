@@ -6,7 +6,7 @@ const config: CapacitorConfig = {
   webDir: 'www',
   server: {
     // ── Points to live Django server ──────────────────────────────────
-    url: 'https://blixtro.sfscollege.app/',
+    url: 'https://blixtro.sfscollege.app/core/app/?app=1',
     cleartext: false,
     allowNavigation: ['blixtro.sfscollege.app'],
   },

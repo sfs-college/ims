@@ -1459,11 +1459,14 @@ def download_booking_doc_as_pdf(request, booking_id):
 
     # ── Content blocks ──────────────────────────────────────────────────────────
     for block in blocks:
-        if block['type'] == 'paragraph':
-            txt = _esc(block['text'])
+        if not isinstance(block, dict):
+            continue
+        block_type = block.get('type')
+        if block_type == 'paragraph':
+            txt = _esc(block.get('text', ''))
             elements.append(Paragraph(txt, s_body))
 
-        elif block['type'] == 'table':
+        elif block_type == 'table':
             rows = block.get('rows', [])
             if not rows:
                 continue
