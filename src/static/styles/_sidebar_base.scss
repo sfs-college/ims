@@ -153,3 +153,16 @@ tr {
   overflow-wrap: break-word;
   word-wrap: break-word;
 }
+
+/* Wrap all tables in a horizontally scrollable container on mobile */
+@media screen and (max-width: 900px) {
+  .table-responsive,
+  .main-content .table-responsive {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  /* If table is not already inside .table-responsive, make it scroll */
+  .main-content table {
+    min-width: 600px;
+  }
+}

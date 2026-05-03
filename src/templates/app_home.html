@@ -12,6 +12,8 @@
   <link rel="icon" type="image/x-icon" href="{% static 'images/logo-icon.svg' %}">
   <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css" rel="stylesheet">
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <!-- mobile-utils must load before any page script so IS_CAPACITOR and DownloadManager are available -->
+  <script src="{% static 'utils/mobile-utils.js' %}?v=3"></script>
   <style>
     /* ── Reset & base ── */
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -482,6 +484,16 @@
 </div>
 
 <script>
+// ── Capacitor bootstrap: runs before anything else ───────────────────
+// If we're inside the Capacitor WebView but landed here without ?app=1,
+// the server already routed us correctly via LandingPageView. Nothing to do.
+// Initialize MobileUtils as soon as DOM is ready.
+document.addEventListener('DOMContentLoaded', function () {
+  if (window.MobileUtils) {
+    window.MobileUtils.init();
+  }
+});
+
 // ── Splash → App transition ──────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', function () {
   // Minimum splash duration: 1.8s

@@ -11,15 +11,15 @@
     --text-hover: rgba(255,255,255,0.88);
     --border: rgba(255,255,255,0.06);
     /* must match --nb-h in navbar.html */
-    --nb-h: 58px;
+    --nb-h: 75px;
   }
 
   /* ── Sidebar shell ───────────────────────────────────────────────── */
   .sidebar {
     width: var(--sb-w);
-    /* sit below the fixed navbar */
-    height: calc(100vh - var(--nb-h));
-    top: var(--nb-h);
+    /* sit below the fixed navbar, accounting for Capacitor safe-area-inset-top */
+    height: calc(100vh - var(--nb-h) - var(--sat, 0px));
+    top: calc(var(--nb-h) + var(--sat, 0px));
     background: var(--sb-bg);
     display: flex;
     flex-direction: column;

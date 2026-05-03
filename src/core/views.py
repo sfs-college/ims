@@ -141,12 +141,13 @@ class LandingPageView(RedirectLoggedInUsersMixin, TemplateView):
     template_name = 'landing_page.html'
 
     def dispatch(self, request, *args, **kwargs):
-        # Capacitor WebView sends a user-agent containing 'Capacitor' or the app
-        # can pass ?app=1 to force the mobile home screen.
+        # Two reliable detection methods:
+        # 1. JS sets ?app=1 on first load when window.Capacitor.isNativePlatform() is true
+        # 2. Capacitor WebView User-Agent contains 'wv' (Android WebView) — used as secondary signal
         ua = request.META.get('HTTP_USER_AGENT', '')
         is_capacitor = (
-            'Capacitor' in ua
-            or request.GET.get('app') == '1'
+            request.GET.get('app') == '1'
+            or 'Capacitor' in ua
         )
         if is_capacitor:
             from django.shortcuts import redirect as _redir
@@ -948,7 +949,6 @@ def submit_cancellation_request(request):
         booking_req.review_note = f"Withdrawn by faculty: {reason}"
         booking_req.save(update_fields=['status', 'review_note', 'updated_on'])
 
-        # Email only to faculty
         details = _format_booking_details(
             booking_req,
             booking_req.faculty_name,
@@ -957,6 +957,8 @@ def submit_cancellation_request(request):
             booking_req.purpose,
             booking_req.department,
         )
+
+        # Email to faculty confirming withdrawal
         _safe_mail(
             subject="[Blixtro] Room Booking Request Withdrawn",
             message=(
@@ -969,6 +971,21 @@ def submit_cancellation_request(request):
             ).format(reason=reason),
             recipient_list=[email],
         )
+
+        # Email to admins notifying them of the withdrawal
+        admin_emails = _admin_emails()
+        if admin_emails:
+            _safe_mail(
+                subject=f"[Blixtro] Booking Request Cancelled by Faculty — {format_room_list(booking_req)}",
+                message=(
+                    f"A faculty member has cancelled (withdrawn) a pending room booking request.\n"
+                    f"{details}\n\n"
+                    f"Reason provided by faculty: {reason}\n\n"
+                    "No admin action is required — the request has been automatically removed.\n\n"
+                    "Blixtro — SFS College Inventory & Booking System"
+                ),
+                recipient_list=admin_emails,
+            )
 
         return JsonResponse({
             'status': 'success',
@@ -1202,6 +1219,18 @@ def firebase_login_callback(request):
     storage.used = True
 
     print(f"[firebase_login] Logged in successfully: {email}", flush=True)
+
+    # ── Capacitor deep-link redirect ─────────────────────────────────────────
+    # When the request comes from the Android/iOS app, redirect back via the
+    # custom URL scheme so the WebView catches the auth callback.
+    # Detection: Capacitor sets a User-Agent containing "Capacitor", OR the
+    # JS layer can append ?app=1 to the POST action URL as a fallback.
+    ua = request.META.get('HTTP_USER_AGENT', '')
+    is_capacitor = 'Capacitor' in ua or request.POST.get('app') == '1'
+    if is_capacitor:
+        from django.http import HttpResponseRedirect as _Redir
+        return _Redir('in.sfscollege.blixtro://auth?status=success')
+    # ── Web browser flow (unchanged) ─────────────────────────────────────────
     return redirect('student:report_issue')
 
 

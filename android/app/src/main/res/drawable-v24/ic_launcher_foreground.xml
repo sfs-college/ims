@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Blixtro foreground drawable (API 24-25 fallback).
+    On API 26+ the adaptive icon system uses @mipmap/ic_launcher_foreground (PNG) directly.
+    This file is only referenced on API 24-25 where adaptive icons are not supported,
+    so the full ic_launcher.png from the mipmap folder is used instead.
+    We keep this as a simple inset of the mipmap PNG so it renders correctly.
+-->
+<inset xmlns:android="http://schemas.android.com/apk/res/android"
+    android:drawable="@mipmap/ic_launcher"
+    android:inset="0dp" />

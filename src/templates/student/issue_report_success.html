@@ -199,6 +199,7 @@
         gap: 12px;
         justify-content: center;
         margin-bottom: 1rem;
+        flex-wrap: wrap;
     }
 
     /* ── CTA Button ── */
@@ -210,7 +211,7 @@
         color: #fff;
         border: none;
         border-radius: 14px;
-        padding: 14px 36px;
+        padding: 14px 28px;
         font-family: 'DM Sans', sans-serif;
         font-size: 0.95rem;
         font-weight: 600;
@@ -220,6 +221,21 @@
         transition: all 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
         animation: fadeUp 0.5s ease 0.9s both;
         cursor: pointer;
+        min-width: 140px;
+        justify-content: center;
+    }
+
+    @media (max-width: 480px) {
+        .success-card { padding: 2rem 1.25rem; border-radius: 20px; }
+        .action-buttons { flex-direction: column; align-items: stretch; }
+        .btn-logout { width: 100%; padding: 14px 20px; font-size: 0.9rem; }
+        .success-title { font-size: 1.7rem; }
+        .info-pills { gap: 0.5rem; }
+        .info-pill { font-size: 0.75rem; padding: 5px 10px; }
+    }
+    @media (max-width: 320px) {
+        .success-card { padding: 1.5rem 1rem; }
+        .success-title { font-size: 1.4rem; }
     }
     .btn-logout:hover {
         transform: translateY(-3px) scale(1.03);
@@ -231,6 +247,35 @@
     }
     .btn-logout .material-symbols-outlined {
         font-size: 1.1rem;
+    }
+
+    /* ── Mobile home button (Capacitor / mobile only) ── */
+    .mobile-home-btn {
+        display: none;
+        position: fixed;
+        bottom: calc(24px + env(safe-area-inset-bottom, 0px));
+        right: 20px;
+        z-index: 1050;
+        align-items: center;
+        gap: 7px;
+        padding: 11px 18px;
+        background: linear-gradient(135deg, var(--green-deep), var(--green-mid));
+        color: white;
+        border: none;
+        border-radius: 50px;
+        font-weight: 700;
+        font-size: 13px;
+        text-decoration: none;
+        box-shadow: 0 4px 16px rgba(10,92,58,0.35);
+        transition: all 0.25s ease;
+        cursor: pointer;
+        font-family: 'DM Sans', sans-serif;
+        -webkit-tap-highlight-color: transparent;
+    }
+    .mobile-home-btn:hover, .mobile-home-btn:active {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(10,92,58,0.45);
+        color: white;
     }
 
     /* ── Confetti particles ── */
@@ -347,6 +392,20 @@
     // Remove confetti from DOM after animation
     setTimeout(() => container.remove(), 5000);
 })();
+
+// Show mobile home button only on Capacitor or mobile devices
+document.addEventListener('DOMContentLoaded', function () {
+    if (window.IS_CAPACITOR || window.IS_MOBILE) {
+        var btn = document.getElementById('mobileHomeBtn');
+        if (btn) btn.style.display = 'flex';
+    }
+});
 </script>
+
+<!-- Mobile-only home button (shown via JS when IS_CAPACITOR or IS_MOBILE) -->
+<a href="{% url 'student:portal_login' %}" class="mobile-home-btn" id="mobileHomeBtn">
+    <span class="material-symbols-outlined" style="font-size:15px;">home</span>
+    Home
+</a>
 
 {% endblock content %}

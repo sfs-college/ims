@@ -154,6 +154,36 @@
             min-height: 44px;
         }
     }
+
+    /* ── Mobile home button (Capacitor / mobile only) ── */
+    .mobile-home-btn {
+        display: none;
+        position: fixed;
+        bottom: calc(24px + env(safe-area-inset-bottom, 0px));
+        right: 20px;
+        z-index: 1050;
+        align-items: center;
+        gap: 7px;
+        padding: 11px 18px;
+        background: linear-gradient(135deg, #6366f1, #8b5cf6);
+        color: white;
+        border: none;
+        border-radius: 50px;
+        font-weight: 700;
+        font-size: 13px;
+        text-decoration: none;
+        box-shadow: 0 4px 16px rgba(99,102,241,0.4);
+        transition: all 0.25s ease;
+        cursor: pointer;
+        font-family: 'DM Sans', sans-serif;
+        -webkit-tap-highlight-color: transparent;
+    }
+    .mobile-home-btn:hover, .mobile-home-btn:active {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(99,102,241,0.5);
+        color: white;
+    }
+    .mobile-home-btn i { font-size: 15px; }
 </style>
 
 <div class="bg-blob" style="top: -100px; right: -100px;"></div>
@@ -387,7 +417,19 @@ document.addEventListener('DOMContentLoaded', function () {
             }
         });
     }
+
+    // Show mobile home button only on Capacitor or mobile devices
+    if (window.IS_CAPACITOR || window.IS_MOBILE) {
+        var btn = document.getElementById('mobileHomeBtn');
+        if (btn) btn.style.display = 'flex';
+    }
 });
 </script>
+
+<!-- Mobile-only home button — goes to student portal login (safe for Firebase-auth students) -->
+<a href="{% url 'student:portal_login' %}" class="mobile-home-btn" id="mobileHomeBtn">
+    <i class="bi bi-house-door-fill"></i>
+    Home
+</a>
 
 {% endblock %}

@@ -765,22 +765,35 @@ function toggleDocReq(pk, btn, textUrl) {
                     '<img src="' + d.url + '" alt="Requirements" style="max-width:100%;max-height:480px;border-radius:8px;border:1px solid #e2e8f0;">' +
                     '</div>' +
                     '<div style="display:flex;gap:8px;justify-content:center;margin-top:8px;">' +
-                    '<a href="' + d.download_url + '" download class="btn-view-req" style="font-size:0.78rem;padding:5px 12px;text-decoration:none;">' +
-                    '<i class="bi bi-download me-1"></i>Download</a>' +
+                    '<button class="btn-view-req" style="font-size:0.78rem;padding:5px 12px;" onclick="DownloadManager.download(\'' + escapeHtml(d.download_url) + '\', \'requirements\', {mimeType:\'image/*\',openAfterDownload:true})">' +
+                    '<i class="bi bi-download me-1"></i>Download</button>' +
                     '</div>';
             } else if (d.type === 'pdf') {
                 // Open PDF — use system browser on Capacitor (reliable), new tab on web
                 var pdfUrl = d.url;
                 var dlUrl  = d.download_url;
-                var openFn = 'IS_CAPACITOR && window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.Browser ? window.Capacitor.Plugins.Browser.open({url:"' + pdfUrl + '"}) : window.open("' + pdfUrl + '","_blank")';
+                // Use data attributes + a named handler to avoid inline-onclick quoting issues
+                var openBtnId = 'openPdfBtn_' + Date.now();
                 content.innerHTML =
                     '<div style="margin-bottom:8px;">' +
-                    '<button onclick="' + openFn + '" class="btn-view-req" style="font-size:0.78rem;padding:5px 12px;border:none;cursor:pointer;margin-right:8px;">' +
+                    '<button id="' + openBtnId + '" data-pdf-url="' + escapeHtml(pdfUrl) + '" class="btn-view-req" style="font-size:0.78rem;padding:5px 12px;border:none;cursor:pointer;margin-right:8px;">' +
                     '<i class="bi bi-file-earmark-pdf me-1"></i>Open PDF</button>' +
-                    '<a href="' + dlUrl + '" download class="btn-view-req" style="font-size:0.78rem;padding:5px 12px;text-decoration:none;background:linear-gradient(135deg,#10b981,#059669);">' +
-                    '<i class="bi bi-download me-1"></i>Download PDF</a>' +
+                    '<button class="btn-view-req" style="font-size:0.78rem;padding:5px 12px;background:linear-gradient(135deg,#10b981,#059669);border:none;cursor:pointer;" onclick="DownloadManager.download(\'' + escapeHtml(dlUrl) + '\', \'requirements.pdf\', {mimeType:\'application/pdf\',openAfterDownload:false})">' +
+                    '<i class="bi bi-download me-1"></i>Download PDF</button>' +
                     '</div>' +
                     '<p style="font-size:0.78rem;color:#64748b;margin:4px 0 0;">Tap "Open PDF" to view the requirements document.</p>';
+                // Attach click handler after DOM insertion to avoid inline-onclick issues
+                var openBtn = document.getElementById(openBtnId);
+                if (openBtn) {
+                    openBtn.addEventListener('click', function() {
+                        var url = this.getAttribute('data-pdf-url');
+                        if (window.IS_CAPACITOR && window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.Browser) {
+                            window.Capacitor.Plugins.Browser.open({ url: url });
+                        } else {
+                            window.open(url, '_blank');
+                        }
+                    });
+                }
             } else {
                 renderDocBlocks(content, d.blocks);
             }

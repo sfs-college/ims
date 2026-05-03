@@ -1,36 +1,86 @@
 {% extends "sidebar_base.html" %}
 {% load static %}
 
-{% block title %} | People Delete{% endblock title %}
+{% block title %} | Remove Person{% endblock title %}
 
 {% block style %}
-<link rel="stylesheet" href="{% static 'styles/inventory/central_admin/people_delete/style.css' %}">
+<style>
+  .delete-wrap {
+    max-width: 480px;
+    margin: 48px auto;
+    font-family: 'DM Sans', sans-serif;
+  }
+  .delete-card {
+    background: #fff;
+    border: 1px solid #e2e8f0;
+    border-radius: 20px;
+    padding: 36px 32px;
+    box-shadow: 0 4px 24px rgba(0,0,0,0.06);
+    text-align: center;
+  }
+  .delete-icon-wrap {
+    width: 72px; height: 72px;
+    background: linear-gradient(135deg, #fee2e2, #fecaca);
+    border-radius: 50%;
+    display: inline-flex; align-items: center; justify-content: center;
+    margin-bottom: 20px;
+    box-shadow: 0 4px 16px rgba(239,68,68,0.2);
+  }
+  .delete-icon-wrap i { font-size: 2rem; color: #dc2626; }
+  .delete-card h4 { font-weight: 800; color: #0f172a; margin-bottom: 8px; }
+  .delete-card p  { color: #64748b; font-size: 0.92rem; margin-bottom: 28px; line-height: 1.6; }
+  .delete-actions { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
+  .btn-confirm-delete {
+    padding: 12px 28px; border-radius: 12px;
+    background: linear-gradient(135deg, #ef4444, #dc2626);
+    color: #fff; border: none; font-weight: 700; font-size: 0.92rem;
+    cursor: pointer; transition: opacity 0.2s, transform 0.15s;
+    font-family: 'DM Sans', sans-serif; min-width: 140px;
+  }
+  .btn-confirm-delete:hover { opacity: 0.88; transform: translateY(-1px); }
+  .btn-cancel {
+    padding: 12px 28px; border-radius: 12px;
+    background: #f1f5f9; color: #475569;
+    border: 1px solid #e2e8f0; font-weight: 700; font-size: 0.92rem;
+    text-decoration: none; display: inline-flex; align-items: center;
+    transition: background 0.18s; min-width: 120px; justify-content: center;
+    font-family: 'DM Sans', sans-serif;
+  }
+  .btn-cancel:hover { background: #e2e8f0; color: #1e293b; }
+  @media (max-width: 480px) {
+    .delete-card { padding: 24px 16px; }
+    .delete-actions { flex-direction: column; align-items: stretch; }
+    .btn-confirm-delete, .btn-cancel { width: 100%; text-align: center; justify-content: center; }
+  }
+</style>
 {% endblock style %}
 
-{% block navbar %}
-{% include "central_admin/navbar.html" %}
-{% endblock navbar %}
-
-{% block sidebar %}
-{% include "central_admin/sidebar.html" %}
-{% endblock sidebar %}
+{% block navbar %}{% include "central_admin/navbar.html" %}{% endblock navbar %}
+{% block sidebar %}{% include "central_admin/sidebar.html" %}{% endblock sidebar %}
 
 {% block content %}
-<h4>Are you sure you want to remove {{ object.first_name }} {{ object.last_name }}?</h4>
-<p>This action cannot be undone.</p>
-
-<form method="post">
-    {% csrf_token %}
-    <button class="btn btn-danger me-2" type="submit">Yes remove</button>
-    <a class="btn text-primary" href="{% url 'central_admin:people_list' %}">Cancel</a>
-</form>
+<div class="delete-wrap">
+  <div class="delete-card">
+    <div class="delete-icon-wrap">
+      <i class="bi bi-person-x-fill"></i>
+    </div>
+    <h4>Remove Person?</h4>
+    <p>
+      You are about to permanently remove
+      <strong>{{ object.first_name }} {{ object.last_name }}</strong>
+      from the system. This action cannot be undone.
+    </p>
+    <form method="post">
+      {% csrf_token %}
+      <div class="delete-actions">
+        <button type="submit" class="btn-confirm-delete">
+          <i class="bi bi-trash3 me-2"></i>Yes, Remove
+        </button>
+        <a href="{% url 'central_admin:people_list' %}" class="btn-cancel">
+          Cancel
+        </a>
+      </div>
+    </form>
+  </div>
+</div>
 {% endblock content %}
-
-<h4>Are you sure you want to remove {{ object.first_name }} {{ object.last_name }}?</h4>
-<p>This action cannot be undone.</p>
-
-<form method="post">
-    {% csrf_token %}
-    <button class="btn btn-danger me-2" type="submit">Yes remove</button>
-    <a class="btn text-primary" href="{% url 'central_admin:people_list' %}">Cancel</a>
-</form>

@@ -6,8 +6,6 @@ from django.utils.text import slugify
 from config.utils import generate_unique_slug
 from django.db.models.signals import post_delete
 from django.dispatch import receiver
-# from django.utils import generate_unique_slug  # keep whatever you already had
-# from inventory.models import Organisation  # or your actual Organisation import
     
 class User(AbstractUser):
     username = None

@@ -24,21 +24,3 @@
         <a href="{% url 'central_admin:department_list' %}" class="btn text-primary fw-semibold">Cancel</a>
     </form>
 {% endblock content %}
-
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Delete Department</title>
-</head>
-<body>
-    <h1>Delete Department</h1>
-    <p>Are you sure you want to delete the department "{{ object.department_name }}"?</p>
-    <form method="post">
-        {% csrf_token %}
-        <button type="submit">Yes, delete</button>
-        <a href="{% url 'central_admin:department_list' %}">Cancel</a>
-    </form>
-</body>
-</html>

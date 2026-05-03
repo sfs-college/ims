@@ -101,8 +101,15 @@
     white-space: nowrap;
     position: relative;
     transition: background 0.16s;
+    flex-shrink: 0;
   }
   .aura-entry-card:hover .aura-action { background: rgba(255,255,255,0.18); }
+
+  @media (max-width: 480px) {
+    .aura-entry-card { flex-direction: column; align-items: flex-start; padding: 24px 20px; gap: 14px; }
+    .aura-action { align-self: flex-start; padding: 9px 18px; font-size: 12px; }
+    .aura-text h2 { font-size: 18px; }
+  }
 
   /* ── Nav Cards Grid — strict 2 columns ── */
   .nav-grid {

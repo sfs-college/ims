@@ -56,6 +56,21 @@
         transition: color 0.2s;
     }
     .bx-toast-close:hover { color: #333; }
+
+    /* Mobile table responsiveness */
+    @media (max-width: 768px) {
+        .table th, .table td {
+            font-size: 0.78rem;
+            padding: 7px 8px !important;
+            white-space: normal !important;
+        }
+        .table th { font-size: 0.68rem; }
+        .d-grid.gap-1 .btn { font-size: 0.72rem; padding: 5px 8px; }
+    }
+    @media (max-width: 480px) {
+        .table th, .table td { font-size: 0.72rem; padding: 5px 6px !important; }
+        .d-grid.gap-1 .btn { font-size: 0.68rem; padding: 4px 6px; }
+    }
 </style>
 {% endblock style %}
 
@@ -125,8 +140,8 @@
             </td>
 
             <!-- ACTIONS -->
-            <td class="text-center" style="width:210px;">
-                <div class="d-grid gap-1">
+            <td class="text-center" style="min-width:180px; max-width:220px;">
+              <div class="d-grid gap-1">
 
                     {% if issue.status == "escalated" %}
                         {# ── ESCALATED: no actions allowed ── #}

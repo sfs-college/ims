@@ -64,11 +64,55 @@
     .info-row { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; margin: 22px 0; animation: fadeUp 0.5s ease 0.82s both; }
     .info-pill { display: flex; align-items: center; gap: 6px; background: rgba(99,102,241,0.07); border: 1px solid rgba(99,102,241,0.15); border-radius: 999px; padding: 6px 14px; font-size: 0.8rem; font-weight: 600; color: #4f46e5; }
 
-    .btn-row { display: flex; gap: 12px; margin-top: 28px; animation: fadeUp 0.5s ease 0.88s both; }
-    .btn-primary-action { flex:2; display:inline-flex; align-items:center; justify-content:center; gap:8px; background:linear-gradient(135deg,#6366f1,#9333ea); color:#fff; border:none; border-radius:16px; padding:16px 28px; font-weight:800; font-size:0.92rem; text-decoration:none; box-shadow:0 8px 20px rgba(99,102,241,0.3); transition:all 0.25s cubic-bezier(0.34,1.56,0.64,1); cursor:pointer; font-family:inherit; }
+    .btn-row { display: flex; gap: 12px; margin-top: 28px; animation: fadeUp 0.5s ease 0.88s both; flex-wrap: wrap; }
+    .btn-primary-action { flex: 2; min-width: 160px; display:inline-flex; align-items:center; justify-content:center; gap:8px; background:linear-gradient(135deg,#6366f1,#9333ea); color:#fff; border:none; border-radius:16px; padding:16px 28px; font-weight:800; font-size:0.92rem; text-decoration:none; box-shadow:0 8px 20px rgba(99,102,241,0.3); transition:all 0.25s cubic-bezier(0.34,1.56,0.64,1); cursor:pointer; font-family:inherit; }
     .btn-primary-action:hover { transform:translateY(-3px) scale(1.02); box-shadow:0 14px 28px rgba(99,102,241,0.4); color:#fff; }
-    .btn-secondary-action { flex:1; display:inline-flex; align-items:center; justify-content:center; gap:8px; background:#f1f5f9; color:#475569; border:1px solid #e2e8f0; border-radius:16px; padding:16px 20px; font-weight:700; font-size:0.88rem; text-decoration:none; transition:all 0.2s ease; }
+    .btn-secondary-action { flex: 1; min-width: 120px; display:inline-flex; align-items:center; justify-content:center; gap:8px; background:#f1f5f9; color:#475569; border:1px solid #e2e8f0; border-radius:16px; padding:16px 20px; font-weight:700; font-size:0.88rem; text-decoration:none; transition:all 0.2s ease; }
     .btn-secondary-action:hover { background:#e2e8f0; color:#1e293b; transform:translateY(-2px); }
+
+    /* Mobile: stack summary label/value, wrap buttons */
+    @media (max-width: 480px) {
+        .success-card { padding: 2rem 1.25rem; border-radius: 20px; }
+        .summary-item { flex-direction: column; gap: 4px; }
+        .summary-value { text-align: left; }
+        .btn-row { flex-direction: column; }
+        .btn-primary-action, .btn-secondary-action { flex: none; width: 100%; }
+        h2.main-title { font-size: 1.6rem; }
+    }
+    @media (max-width: 320px) {
+        .success-card { padding: 1.5rem 1rem; }
+        h2.main-title { font-size: 1.3rem; }
+        .booking-summary { padding: 16px; }
+    }
+
+    /* ── Mobile home button (Capacitor / mobile only) ── */
+    .mobile-home-btn {
+        display: none;
+        position: fixed;
+        bottom: calc(24px + env(safe-area-inset-bottom, 0px));
+        right: 20px;
+        z-index: 1050;
+        align-items: center;
+        gap: 7px;
+        padding: 11px 18px;
+        background: linear-gradient(135deg, #6366f1, #9333ea);
+        color: white;
+        border: none;
+        border-radius: 50px;
+        font-weight: 700;
+        font-size: 13px;
+        text-decoration: none;
+        box-shadow: 0 4px 16px rgba(99,102,241,0.4);
+        transition: all 0.25s ease;
+        cursor: pointer;
+        font-family: 'Plus Jakarta Sans', sans-serif;
+        -webkit-tap-highlight-color: transparent;
+    }
+    .mobile-home-btn:hover, .mobile-home-btn:active {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(99,102,241,0.5);
+        color: white;
+    }
 
     .confetti-container { position:fixed; inset:0; pointer-events:none; z-index:0; overflow:hidden; }
     .confetti-piece { position:absolute; opacity:0; animation:confettiFall linear both; }
@@ -134,19 +178,19 @@
             <span class="info-pill"><i class="bi bi-shield-check"></i> Request Logged</span>
         </div>
 
-        <!-- ── Cancellation Policy Keynote ── -->
+        <!-- ── Booking Policy Keynote ── -->
         <div style="background:#fef3c7;border:2px solid #f59e0b;border-radius:18px;padding:20px 24px;margin:4px 0 24px;text-align:left;">
             <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
                 <div style="width:34px;height:34px;border-radius:10px;background:linear-gradient(135deg,#f59e0b,#d97706);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
                     <i class="bi bi-info-circle-fill" style="color:#fff;font-size:1rem;"></i>
                 </div>
-                <strong style="color:#92400e;font-size:0.88rem;letter-spacing:0.3px;">Important — Cancellation Policy</strong>
+                <strong style="color:#92400e;font-size:0.88rem;letter-spacing:0.3px;">📌 Booking Policy — Please Read</strong>
             </div>
             <ul style="margin:0;padding-left:18px;color:#78350f;font-size:0.83rem;line-height:1.8;">
-                <li>If you made a mistake or need to change your booking, you can <strong>cancel it directly</strong> at any time <strong>before it is approved</strong> — no admin action needed.</li>
-                <li>Once your booking is <strong>approved and confirmed</strong>, cancellations are allowed <strong>up to 24 hours before</strong> the booking date.</li>
-                <li>After the <strong>24-hour window</strong> has passed, the cancel option will be <strong>locked</strong> and no further cancellations can be submitted through the portal.</li>
-                <li>For <strong>emergencies or urgent situations</strong> within the locked window, please <strong>contact the administration directly</strong> for a manual override.</li>
+                <li>Venue booking is allowed <strong>up to 48 hours before</strong> the event.</li>
+                <li>You can <strong>cancel your request anytime</strong> before it is approved.</li>
+                <li>Once the booking is <strong>approved and confirmed</strong>, cancellation is allowed only <strong>before 24 hours</strong> of the booking time.</li>
+                <li>For <strong>one day prior emergency cancellations</strong> within this period, please <strong>contact the administrator directly</strong>.</li>
             </ul>
         </div>
 
@@ -175,5 +219,20 @@
     }
     setTimeout(function() { if (container.parentNode) container.remove(); }, 5500);
 })();
+
+// Show mobile home button only on Capacitor or mobile devices
+document.addEventListener('DOMContentLoaded', function () {
+    if (window.IS_CAPACITOR || window.IS_MOBILE) {
+        var btn = document.getElementById('mobileHomeBtn');
+        if (btn) btn.style.display = 'flex';
+    }
+});
 </script>
+
+<!-- Mobile-only home button (shown via JS when IS_CAPACITOR or IS_MOBILE) -->
+<a href="{% url 'landing_page' %}" class="mobile-home-btn" id="mobileHomeBtn">
+    <i class="bi bi-house-door-fill"></i>
+    Home
+</a>
+
 {% endblock %}

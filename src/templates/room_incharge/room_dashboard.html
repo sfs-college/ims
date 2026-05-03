@@ -186,6 +186,14 @@
   .card-amber  { --card-color: #d97706; --card-color-lt: #fbbf24; --card-icon-bg: rgba(217,119,6,0.1); }
   .card-rose   { --card-color: #e11d48; --card-color-lt: #fb7185; --card-icon-bg: rgba(225,29,72,0.1); }
   .card-indigo { --card-color: #4338ca; --card-color-lt: #818cf8; --card-icon-bg: rgba(67,56,202,0.1); }
+
+  /* Mobile: wrap header right buttons */
+  @media (max-width: 480px) {
+    .dash-header { flex-direction: column; align-items: flex-start; }
+    .dash-header-right { flex-wrap: wrap; gap: 8px; }
+    .btn-report { font-size: 0.78rem; padding: 7px 12px; }
+    .bell-btn { width: 38px; height: 38px; }
+  }
 </style>
 {% endblock style %}
 

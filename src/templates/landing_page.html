@@ -16,6 +16,7 @@
     body {
       background: #f8fafc;
       font-family: 'Plus Jakarta Sans', 'Segoe UI', Arial, sans-serif;
+      overflow-x: hidden;
     }
 
     /* ── NAVBAR ── */
@@ -228,8 +229,18 @@
 
     @media (max-width: 768px) {
       .hero { padding: 60px 0 40px 0; }
+      .hero h1 { font-size: 1.6rem; }
+      .hero p { font-size: 1rem; }
       .features-section { margin: 32px 0 24px 0; }
       .room-booking-wrap { padding: 32px 16px; }
+      .navbar-brand img { height: 52px !important; max-width: 160px !important; }
+    }
+    @media (max-width: 480px) {
+      .hero { padding: 40px 0 28px 0; }
+      .hero h1 { font-size: 1.3rem; }
+      .btn-custom { padding: 10px 24px; font-size: 0.9rem; }
+      .btn-book-room { padding: 12px 28px; font-size: 0.95rem; }
+      header { margin-top: 12px; margin-bottom: 12px; }
     }
   </style>
 </head>

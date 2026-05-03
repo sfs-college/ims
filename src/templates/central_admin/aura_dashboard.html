@@ -2208,7 +2208,7 @@ textarea.bcc-form-input { resize:vertical; min-height:80px; }
                             <button class="btn-view-file" onclick="toggleDocText(this, '${escHtml(textUrl)}')" data-booking-id="${b.id}" data-doc-type="image" data-inline-url="${escHtml(inlineUrl)}" data-download-url="${escHtml(downloadUrl)}">
                                 <i class="bi bi-image me-1"></i>View Image
                             </button>
-                            <a href="${escHtml(downloadUrl)}" download class="btn-dl-file"><i class="bi bi-download me-1"></i>Download</a>
+                            <button class="btn-dl-file" onclick="DownloadManager.download('${escHtml(downloadUrl)}', 'requirements_${b.id}', {mimeType:'image/*',openAfterDownload:true})"><i class="bi bi-download me-1"></i>Download</button>
                         `;
                     } else if (b.doc_type === 'pdf') {
                         // PDF open in new tab + download
@@ -2217,7 +2217,7 @@ textarea.bcc-form-input { resize:vertical; min-height:80px; }
                             <button class="btn-view-file" onclick="toggleDocText(this, '${escHtml(textUrl)}')" data-booking-id="${b.id}" data-doc-type="pdf" data-inline-url="${escHtml(inlineUrl)}" data-download-url="${escHtml(downloadUrl)}">
                                 <i class="bi bi-file-earmark-pdf me-1"></i>View PDF
                             </button>
-                            <a href="${escHtml(downloadUrl)}" download class="btn-dl-file"><i class="bi bi-download me-1"></i>Download</a>
+                            <button class="btn-dl-file" onclick="DownloadManager.download('${escHtml(downloadUrl)}', 'requirements_${b.id}.pdf', {mimeType:'application/pdf',openAfterDownload:false})"><i class="bi bi-download me-1"></i>Download</button>
                         `;
                     } else {
                         // Legacy doc (blocks)
@@ -2677,8 +2677,8 @@ textarea.bcc-form-input { resize:vertical; min-height:80px; }
                         : `<a href="${pdfUrl}" target="_blank" rel="noopener" class="btn-view-file" style="font-size:0.78rem;padding:5px 12px;text-decoration:none;margin-right:8px;"><i class="bi bi-box-arrow-up-right me-1"></i>Open PDF in New Tab</a>`;
                     textEl.innerHTML =
                         `<div style="margin-bottom:8px;">${openBtn}` +
-                        `<a href="${dlUrl}" download class="btn-dl-file" style="font-size:0.78rem;padding:5px 12px;">` +
-                        `<i class="bi bi-download me-1"></i>Download</a>` +
+                        `<button class="btn-dl-file" style="font-size:0.78rem;padding:5px 12px;" onclick="DownloadManager.download('${dlUrl}', 'requirements.pdf', {mimeType:'application/pdf',openAfterDownload:false})">` +
+                        `<i class="bi bi-download me-1"></i>Download</button>` +
                         `</div>` +
                         (window.IS_CAPACITOR ? '' : `<iframe src="${pdfUrl}" style="width:100%;height:420px;border:1px solid #e2e8f0;border-radius:8px;" title="Requirements PDF"></iframe>`);
                 } else {
@@ -2934,6 +2934,7 @@ function bccRenderList(bookings) {
         </div>
         ${b.purpose ? `<div class="bcc-card-purpose">${escHtml(b.purpose)}</div>` : ''}
         ${b.has_inline_text && b.inline_text ? `<div class="bcc-card-purpose" style="border-left-color:rgba(13,148,136,0.5);"><i class="bi bi-list-check me-1" style="color:#5eead4;"></i>${escHtml(b.inline_text)}</div>` : ''}
+        ${b.add_return_note ? `<div class="bcc-card-purpose" style="border-left-color:rgba(245,158,11,0.6);background:rgba(245,158,11,0.08);"><i class="bi bi-journal-text me-1" style="color:#fcd34d;"></i><span style="font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:rgba(255,255,255,0.45);display:block;margin-bottom:3px;">Add/Return Log</span><span style="white-space:pre-line;font-size:0.78rem;color:rgba(255,255,255,0.75);">${escHtml(b.add_return_note)}</span></div>` : ''}
         <div class="bcc-card-actions">${actionBtns}</div>
       </div>
     </div>`;

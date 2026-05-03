@@ -916,6 +916,8 @@ def confirmed_booking_files(request):
                 'has_inline_text': has_inline_text,
                 'inline_text':     inline_text if has_inline_text else '',
                 'booking_status':  booking_status,
+                # Internal add/return note (admin-only, never emailed)
+                'add_return_note': (b.add_return_note or '').strip(),
             }
             
             results.append(booking_data)

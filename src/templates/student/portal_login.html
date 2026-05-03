@@ -48,6 +48,8 @@
             font-size: 13px;
             min-height: 44px;
         }
+        .main-portal-card .card-body { padding: 1.5rem !important; }
+        .google-auth-box { padding: 2rem 1rem !important; }
     }
     
     @media (max-width: 480px) {
@@ -58,6 +60,11 @@
             font-size: 12px;
             min-height: 40px;
         }
+        .main-portal-card .card-body { padding: 1rem !important; }
+        .google-auth-box { padding: 1.5rem 0.75rem !important; }
+        .google-auth-box h4 { font-size: 1.1rem; }
+        .google-auth-box p { font-size: 0.85rem; }
+        .btn.btn-danger.btn-lg { padding: 12px 24px; font-size: 0.95rem; }
     }
 </style>
 
@@ -84,8 +91,8 @@
     </div>
 </div>
 
-<!-- Universal Back Button -->
-<a href="javascript:history.back()" class="universal-back-button">
+<!-- Universal Back Button — navigates to landing page on mobile/Capacitor, history.back() on desktop -->
+<a href="{% url 'landing_page' %}" class="universal-back-button" id="portalBackBtn">
     <i class="bi bi-arrow-left"></i>
     Back
 </a>
