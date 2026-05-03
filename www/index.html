@@ -2,16 +2,18 @@
 <html>
 <head>
   <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>Blixtro IMS</title>
   <script>
-    // Capacitor loads this file first. Redirect to the live server with ?app=1
-    // so Django's LandingPageView knows to serve the app home screen.
-    // The server.url in capacitor.config.ts points to the live server, so
-    // window.location.href here is already on that origin.
-    window.location.replace('/?app=1');
+    // This file is the Capacitor web root fallback.
+    // capacitor.config.ts already sets server.url to the live Django server,
+    // so this file is never shown in normal operation.
+    // If it does load (e.g. during development without a server.url), redirect
+    // to the app home with the ?app=1 flag so Django routes correctly.
+    window.location.replace('/core/app/?app=1');
   </script>
 </head>
-<body>
+<body style="background:#0f172a;color:#f1f5f9;font-family:sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;">
   <p>Loading Blixtro...</p>
 </body>
 </html>

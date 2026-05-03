@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Blixtro brand colours -->
+    <color name="colorPrimary">#6366f1</color>
+    <color name="colorPrimaryDark">#4f46e5</color>
+    <color name="colorAccent">#10b981</color>
+</resources>

@@ -1,6 +1,6 @@
 from django.contrib import admin
 from django.urls import path, include
-from django.views.generic import TemplateView
+from django.views.generic import TemplateView, RedirectView
 from core.views import LandingPageView
 from django.conf import settings
 from django.conf.urls.static import static
@@ -19,6 +19,8 @@ urlpatterns = [
     path('core/', include('core.urls', namespace='core')),
     path('central_admin/', include('inventory.urls.central_admin', namespace='central_admin')),
     path('room_incharge/', include('inventory.urls.room_incharge', namespace='room_incharge')),
+    path('student/', RedirectView.as_view(url='/students/', permanent=False)),
+    path('student/<path:subpath>/', RedirectView.as_view(url='/students/%(subpath)s', permanent=False)),
     path('students/', include('inventory.urls.student', namespace='student')),
     path("internal/escalate/", run_escalation, name="run_escalation"),
     path('accounts/', include('allauth.urls')),

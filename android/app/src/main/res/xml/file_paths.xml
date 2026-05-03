@@ -1,5 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <paths xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- External storage root (Android ≤ 9) -->
     <external-path name="my_images" path="." />
+    <!-- App-specific external files (Android 10+, no extra permission needed) -->
+    <external-files-path name="my_external_files" path="." />
+    <!-- Internal cache (always writable, used as fallback) -->
     <cache-path name="my_cache_images" path="." />
+    <!-- App-specific files dir -->
+    <files-path name="my_files" path="." />
 </paths>

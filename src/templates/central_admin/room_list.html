@@ -107,7 +107,7 @@
   .btn-export-pdf:hover   { background:#dc2626; color:#fff; border-color:#dc2626; }
 
   /* ── Action buttons ───────────────────────────────────── */
-  .action-buttons { display: flex; gap: 4px; flex-direction: column; }
+  .action-buttons { display: flex; gap: 6px; flex-direction: row; align-items: center; flex-wrap: nowrap; }
   .action-btn { white-space: nowrap; display: inline-block; }
   .action-btn.btn-dark { 
     background: #0f172a; color: #fff; border: none;
@@ -182,19 +182,45 @@
     #roomsTable.table-responsive-stack td:first-child:before {
       display: none;
     }
-    
-    .action-buttons {
-      flex-direction: row;
-      gap: 6px !important;
-      justify-content: stretch;
+
+    #roomsTable.table-responsive-stack td[data-label="Action"] {
+      padding-left: 0 !important;
     }
-    
+
+    #roomsTable.table-responsive-stack td[data-label="Action"]:before {
+      display: none;
+    }
+
+    /* Action buttons: side-by-side, fixed width — never stretch full card */
+    .action-buttons {
+      flex-direction: row !important;
+      gap: 6px !important;
+      align-items: center;
+      flex-wrap: nowrap;
+    }
+
     .action-btn {
-      flex: 1;
+      width: auto !important;
+      min-width: 64px;
       text-align: center;
-      min-height: 38px;
-      font-size: 11px !important;
-      padding: 6px 8px !important;
+      min-height: 34px;
+      font-size: 0.72rem !important;
+      padding: 5px 12px !important;
+      white-space: nowrap;
+    }
+
+    .room-card-actions {
+      flex-direction: row;
+      align-items: center;
+      flex-wrap: nowrap;
+      gap: 6px;
+    }
+
+    .room-card-actions .btn-card-sm {
+      width: auto !important;
+      min-width: 64px;
+      justify-content: center;
+      white-space: nowrap;
     }
   }
 
@@ -444,7 +470,7 @@
                 <td data-label="Created On">{{ room.created_on|date:"d-M-Y H:i:s" }}</td>
                 <td data-label="Action">
                     <!-- Both central admin AND sub-admin can edit/delete -->
-                    <div class="d-flex gap-1 action-buttons">
+                    <div class="action-buttons">
                         <a href="{% url 'central_admin:room_update' room_slug=room.slug %}" class="btn btn-dark btn-sm action-btn">Edit</a>
                         <a href="{% url 'central_admin:room_delete' room_slug=room.slug %}" class="btn btn-danger btn-sm action-btn">Delete</a>
                     </div>

@@ -91,15 +91,27 @@
     </div>
 </div>
 
-<!-- Universal Back Button — navigates to landing page on mobile/Capacitor, history.back() on desktop -->
-<a href="{% url 'landing_page' %}" class="universal-back-button" id="portalBackBtn">
+<!-- Universal Back Button — navigates to app home on mobile/Capacitor, landing page on desktop -->
+<a href="{% url 'core:app_home' %}" class="universal-back-button" id="portalBackBtn">
     <i class="bi bi-arrow-left"></i>
     Back
 </a>
 
+<script>
+  // On desktop (non-Capacitor), go back in history if possible, else go to landing page
+  (function() {
+    var btn = document.getElementById('portalBackBtn');
+    if (!window.IS_CAPACITOR && window.history.length > 1) {
+      btn.addEventListener('click', function(e) {
+        e.preventDefault();
+        window.history.back();
+      });
+    }
+  })();
+</script>
+
 <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
-<script src="{% static 'utils/mobile-utils.js' %}?v=2"></script>
 <script>
     // Values injected server-side from settings.py via context processor.
     // No secrets are hardcoded here.
@@ -142,6 +154,15 @@
                 csrfInput.value = '{{ csrf_token }}';
                 form.appendChild(tokenInput); 
                 form.appendChild(csrfInput);
+                // Only tell Django this is a Capacitor request when actually inside the app.
+                // On desktop the deep-link redirect must NOT fire.
+                if (window.IS_CAPACITOR) {
+                    const appInput = document.createElement('input');
+                    appInput.type = 'hidden';
+                    appInput.name = 'app';
+                    appInput.value = '1';
+                    form.appendChild(appInput);
+                }
                 document.body.appendChild(form);
                 form.submit();
             } else if (result.method === 'firebase-redirect') {
@@ -200,6 +221,14 @@
                 csrfInput.value = '{{ csrf_token }}';
                 form.appendChild(tokenInput); 
                 form.appendChild(csrfInput);
+                // Only send app=1 when inside the Capacitor app
+                if (window.IS_CAPACITOR) {
+                    const appInput = document.createElement('input');
+                    appInput.type = 'hidden';
+                    appInput.name = 'app';
+                    appInput.value = '1';
+                    form.appendChild(appInput);
+                }
                 document.body.appendChild(form);
                 form.submit();
             }

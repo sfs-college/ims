@@ -68,18 +68,34 @@
          * Handle deep link URLs (OAuth callbacks)
          */
         handleDeepLink(url) {
-            // Parse the URL for OAuth callbacks
+            console.log('[MobileUtils] Handling deep link:', url);
+
+            // Match both  in.sfscollege.blixtro://auth?...
+            // and any https://blixtro.sfscollege.app/...auth...
+            const isAuthLink = (
+                url.startsWith('in.sfscollege.blixtro://auth') ||
+                url.includes('://auth?') ||
+                url.includes('/auth/')  ||
+                url.includes('firebase')
+            );
+
+            if (!isAuthLink) return;
+
             const urlObj = new URL(url);
             const params = new URLSearchParams(urlObj.search);
-            
-            // Handle Firebase/Google auth callback
-            if (url.includes('/auth/') || url.includes('firebase')) {
-                const idToken = params.get('id_token') || params.get('token');
-                if (idToken) {
-                    console.log('[MobileUtils] Auth token received via deep link');
-                    // Submit token to backend
-                    this.submitAuthToken(idToken);
-                }
+            const authStatus = params.get('status');
+            const idToken   = params.get('id_token') || params.get('token');
+
+            if (idToken) {
+                console.log('[MobileUtils] Auth token received via deep link');
+                this.submitAuthToken(idToken);
+                return;
+            }
+
+            if (authStatus === 'success') {
+                // Session cookie already set server-side — navigate into the app.
+                console.log('[MobileUtils] Auth success deep link — navigating to issue report');
+                window.location.href = '/students/report_issue/?app=1';
             }
         },
 
@@ -92,12 +108,17 @@
                 
                 const form = document.createElement('form');
                 form.method = 'POST';
-                form.action = '/core/firebase-login/';
+                form.action = '/core/firebase-login/?app=1';
                 
                 const tokenInput = document.createElement('input');
                 tokenInput.type = 'hidden';
                 tokenInput.name = 'id_token';
                 tokenInput.value = idToken;
+
+                const appInput = document.createElement('input');
+                appInput.type = 'hidden';
+                appInput.name = 'app';
+                appInput.value = '1';
                 
                 const csrfInput = document.createElement('input');
                 csrfInput.type = 'hidden';
@@ -106,6 +127,7 @@
                 csrfInput.value = this.getCsrfToken();
                 
                 form.appendChild(tokenInput);
+                form.appendChild(appInput);
                 form.appendChild(csrfInput);
                 document.body.appendChild(form);
                 form.submit();
@@ -623,11 +645,19 @@
                 
             } catch (err) {
                 PageLoader.hide();
-                console.error('[MobileAuth] Capacitor popup login error:', err);
+                console.error('[MobileAuth] Capacitor popup login error:', err.code, err.message);
                 
-                // If popup was blocked or failed, fall back to redirect
-                if (err.code === 'auth/popup-blocked' || err.code === 'auth/popup-closed-by-user') {
-                    console.log('[MobileAuth] Popup blocked/closed, trying redirect...');
+                // Android WebViews block signInWithPopup entirely — fall back to redirect.
+                // Also handle explicit popup-blocked / popup-closed cases.
+                const popupFailed = (
+                    err.code === 'auth/popup-blocked' ||
+                    err.code === 'auth/popup-closed-by-user' ||
+                    err.code === 'auth/operation-not-supported-in-this-environment' ||
+                    err.code === 'auth/cancelled-popup-request' ||
+                    (err.message && err.message.toLowerCase().includes('popup'))
+                );
+                if (popupFailed) {
+                    console.log('[MobileAuth] Popup not supported, switching to redirect...');
                     return this.capacitorRedirectFallback(firebaseConfig, options);
                 }
                 throw err;
@@ -1081,10 +1111,10 @@
                     { icon: 'dashboard', label: 'Dashboard', url: '/central-admin/dashboard/' },
                     { icon: 'settings', label: 'Settings', url: '/central-admin/aura-dashboard/' }
                 ];
-            } else if (path.includes('/student/')) {
+            } else if (path.includes('/students/') || path.includes('/student/')) {
                 items = [
-                    { icon: 'edit_note', label: 'Report', url: '/student/report-issue/' },
-                    { icon: 'person', label: 'Profile', url: '/student/profile/' }
+                    { icon: 'edit_note', label: 'Report', url: '/students/report_issue/' },
+                    { icon: 'person', label: 'Portal', url: '/students/portal/' }
                 ];
             }
             
@@ -1331,7 +1361,7 @@
             // Fallback: detect from URL pattern
             const isCentralAdmin = path.includes('/central-admin/');
             const isRoomIncharge = path.includes('/room-incharge/');
-            const isStudent = path.includes('/student/');
+            const isStudent = path.includes('/students/') || path.includes('/student/');
 
             if (isCentralAdmin) {
                 items.push(
@@ -1351,9 +1381,9 @@
                 );
             } else if (isStudent) {
                 items.push(
-                    { icon: 'edit_note', label: 'Report', url: '/student/report-issue/' },
-                    { icon: 'history', label: 'History', url: '/student/my-issues/' },
-                    { icon: 'person', label: 'Profile', url: '/student/profile/' }
+                    { icon: 'edit_note', label: 'Report', url: '/students/report_issue/' },
+                    { icon: 'history', label: 'Track', url: '/students/track_ticket/' },
+                    { icon: 'person', label: 'Portal', url: '/students/portal/' }
                 );
             }
 
@@ -1483,12 +1513,17 @@
                 // Submit token to backend
                 const form = document.createElement('form');
                 form.method = 'POST';
-                form.action = '/core/firebase-login/';
+                form.action = '/core/firebase-login/?app=1';
                 const tokenInput = document.createElement('input');
                 tokenInput.type = 'hidden';
                 tokenInput.name = 'id_token';
                 tokenInput.value = result.idToken;
+                const appInput = document.createElement('input');
+                appInput.type = 'hidden';
+                appInput.name = 'app';
+                appInput.value = '1';
                 form.appendChild(tokenInput);
+                form.appendChild(appInput);
                 document.body.appendChild(form);
                 form.submit();
             }
