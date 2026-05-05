@@ -239,18 +239,20 @@
             return new Promise((resolve, reject) => {
                 try {
                     const link = document.createElement('a');
-                    link.href = url;
                     link.download = filename || 'download';
                     link.target = '_blank';
                     link.rel = 'noopener noreferrer';
-                    if (options.blob) {
+                    // Prefer blob if provided (client-side generated files)
+                    if (options.blob instanceof Blob) {
                         link.href = URL.createObjectURL(options.blob);
+                    } else {
+                        link.href = url;
                     }
                     document.body.appendChild(link);
                     link.click();
                     document.body.removeChild(link);
-                    if (options.blob) {
-                        setTimeout(() => URL.revokeObjectURL(link.href), 100);
+                    if (options.blob instanceof Blob) {
+                        setTimeout(() => URL.revokeObjectURL(link.href), 1000);
                     }
                     this.showNotification('Download started', 'success');
                     resolve({ success: true, method: 'browser' });
@@ -262,15 +264,21 @@
         },
 
         async downloadNative(url, filename, options) {
-            // On Android Capacitor: fetch the file and try to save it.
-            // If Filesystem plugin is unavailable or write fails, open the URL
-            // in the system browser — Android's download manager handles it natively.
+            // On Android Capacitor: save the file via Filesystem plugin.
+            // If a blob is provided directly (client-side generated files like PDF/Excel),
+            // use it directly instead of fetching the URL.
+            // Falls back to opening in system browser if Filesystem is unavailable.
             
             try {
                 const { Filesystem } = window.Capacitor.Plugins || {};
                 
                 if (!Filesystem) {
-                    // No Filesystem plugin — open in system browser for native download
+                    // No Filesystem plugin — for blob files, use browser download fallback
+                    if (options.blob instanceof Blob) {
+                        console.log('[DownloadManager] No Filesystem plugin, using browser blob download');
+                        return this.downloadBrowser('', filename, options);
+                    }
+                    // For URL-based files, open in system browser
                     console.log('[DownloadManager] No Filesystem plugin, opening in browser');
                     this.showNotification('Opening download...', 'info');
                     if (window.Capacitor.Plugins?.Browser) {
@@ -283,14 +291,23 @@
 
                 // Show progress
                 const progressNote = this.showNotification('Downloading...', 'info', 0);
-                
-                const response = await fetch(url, { cache: 'no-cache' });
-                if (!response.ok) throw new Error('HTTP ' + response.status);
-                
-                const blob = await response.blob();
+
+                let blob, mimeType;
+
+                // ── Path A: blob provided directly (client-side generated files) ──
+                if (options.blob instanceof Blob) {
+                    blob = options.blob;
+                    mimeType = blob.type || options.mimeType || 'application/octet-stream';
+                } else {
+                    // ── Path B: fetch from URL (server-side files) ──
+                    const response = await fetch(url, { cache: 'no-cache', credentials: 'include' });
+                    if (!response.ok) throw new Error('HTTP ' + response.status);
+                    blob = await response.blob();
+                    mimeType = blob.type || options.mimeType || 'application/octet-stream';
+                }
+
                 const arrayBuffer = await blob.arrayBuffer();
                 const base64Data = this.arrayBufferToBase64(arrayBuffer);
-                const mimeType = blob.type || options.mimeType || 'application/octet-stream';
                 const finalFilename = filename || ('download_' + Date.now());
 
                 // Android 10+ — use Documents directory (always accessible)
@@ -324,11 +341,17 @@
                 if (progressNote) progressNote.remove();
 
                 if (!writeResult) {
-                    // All write attempts failed — open in browser as last resort
+                    // All write attempts failed
+                    if (options.blob instanceof Blob) {
+                        // For client-side blobs, fall back to browser download
+                        this.showNotification('Saved via browser fallback', 'info');
+                        return this.downloadBrowser('', filename, options);
+                    }
+                    // For URL-based files, open in system browser
                     this.showNotification('Opening in browser...', 'info');
-                    if (window.Capacitor.Plugins?.Browser) {
+                    if (url && window.Capacitor.Plugins?.Browser) {
                         await window.Capacitor.Plugins.Browser.open({ url: url });
-                    } else {
+                    } else if (url) {
                         window.open(url, '_system');
                     }
                     return { success: true, method: 'browser-fallback' };
@@ -360,13 +383,17 @@
 
             } catch (err) {
                 console.error('[DownloadManager] Native download failed:', err);
-                this.showNotification('Download failed — opening in browser', 'error');
-                // Final fallback: open URL in system browser
+                this.showNotification('Download failed — trying browser fallback', 'error');
+                // Final fallback: if we have a blob, use browser download; otherwise open URL
                 try {
-                    if (window.Capacitor.Plugins?.Browser) {
-                        await window.Capacitor.Plugins.Browser.open({ url: url });
-                    } else {
-                        window.open(url, '_system');
+                    if (options.blob instanceof Blob) {
+                        return this.downloadBrowser('', filename, options);
+                    } else if (url) {
+                        if (window.Capacitor.Plugins?.Browser) {
+                            await window.Capacitor.Plugins.Browser.open({ url: url });
+                        } else {
+                            window.open(url, '_system');
+                        }
                     }
                 } catch (_) {}
                 return { success: false, method: 'browser-fallback', error: err.message };
@@ -593,8 +620,10 @@
     const MobileAuth = {
         async googleLogin(firebaseConfig, options = {}) {
             if (!MobileUtils.isCapacitor) {
+                // ── Browser path: use Firebase popup (unchanged, works perfectly) ──
                 return this.traditionalGoogleLogin(firebaseConfig, options);
             }
+            // ── Capacitor path: use in-app browser overlay ──
             try {
                 return await this.capacitorGoogleLogin(firebaseConfig, options);
             } catch (err) {
@@ -603,6 +632,7 @@
             }
         },
 
+        // ── BROWSER: Firebase popup (desktop/mobile browser, unchanged) ──
         async traditionalGoogleLogin(firebaseConfig, options) {
             if (!window.firebase) {
                 throw new Error('Firebase not loaded');
@@ -616,66 +646,135 @@
             return { success: true, idToken, user: result.user, method: 'firebase-popup' };
         },
 
+        // ── CAPACITOR: Open Google auth in Capacitor Browser plugin (in-app overlay) ──
+        // This keeps the user inside the app — no external browser switch.
+        // Flow: open in-app browser → user signs in → Google redirects to our server
+        //       → server sets session → redirects to /students/report_issue/ or deep link
+        //       → app detects the redirect and closes the browser.
         async capacitorGoogleLogin(firebaseConfig, options) {
-            console.log('[MobileAuth] Using Capacitor in-app Google Sign-In (popup)');
-            
+            console.log('[MobileAuth] Capacitor: opening Google Sign-In in in-app browser');
             PageLoader.show('Opening Google Sign-In...', 'overlay');
-            
+
             try {
-                // Initialize Firebase if not already done
-                if (!window.firebase?.apps?.length) {
+                // Initialize Firebase if not already done (needed for getRedirectResult later)
+                if (window.firebase && (!window.firebase.apps || !window.firebase.apps.length)) {
                     window.firebase.initializeApp(firebaseConfig);
                 }
-                
-                const provider = new firebase.auth.GoogleAuthProvider();
-                if (options.domain) {
-                    provider.setCustomParameters({
-                        hd: options.domain,
-                        prompt: 'select_account',
-                    });
-                }
-                
-                // signInWithPopup works inside Capacitor WebView — no external browser needed.
-                // The Google sign-in sheet appears as an overlay within the app.
-                const result = await firebase.auth().signInWithPopup(provider);
-                const idToken = await result.user.getIdToken();
-                
-                PageLoader.hide();
-                return { success: true, idToken, user: result.user, method: 'capacitor-popup' };
-                
-            } catch (err) {
-                PageLoader.hide();
-                console.error('[MobileAuth] Capacitor popup login error:', err.code, err.message);
-                
-                // Android WebViews block signInWithPopup entirely — fall back to redirect.
-                // Also handle explicit popup-blocked / popup-closed cases.
-                const popupFailed = (
-                    err.code === 'auth/popup-blocked' ||
-                    err.code === 'auth/popup-closed-by-user' ||
-                    err.code === 'auth/operation-not-supported-in-this-environment' ||
-                    err.code === 'auth/cancelled-popup-request' ||
-                    (err.message && err.message.toLowerCase().includes('popup'))
-                );
-                if (popupFailed) {
-                    console.log('[MobileAuth] Popup not supported, switching to redirect...');
+
+                // Use the Capacitor Browser plugin to open an in-app browser overlay
+                const Browser = window.Capacitor?.Plugins?.Browser;
+                if (!Browser) {
+                    // No Browser plugin — fall back to signInWithRedirect
+                    console.log('[MobileAuth] No Browser plugin, falling back to redirect');
+                    PageLoader.hide();
                     return this.capacitorRedirectFallback(firebaseConfig, options);
                 }
+
+                // Mark that we're waiting for auth to complete
+                sessionStorage.setItem('pendingGoogleLogin', 'true');
+
+                // Open the Django allauth Google OAuth URL in the in-app browser.
+                // After successful auth, allauth redirects to /students/report_issue/
+                // We detect this URL change and treat it as auth success.
+                const authUrl = 'https://blixtro.sfscollege.app/accounts/google/login/?process=login';
+
+                await Browser.open({
+                    url: authUrl,
+                    presentationStyle: 'popover',
+                    toolbarColor: '#6366f1',
+                });
+
+                // Listen for auth completion signals
+                return new Promise((resolve, reject) => {
+                    let resolved = false;
+
+                    const appPlugin = window.Capacitor?.Plugins?.App;
+                    let urlListener = null;
+                    let browserCloseListener = null;
+                    let browserPageListener = null;
+
+                    const cleanup = async () => {
+                        try { urlListener?.remove?.(); } catch (_) {}
+                        try { browserCloseListener?.remove?.(); } catch (_) {}
+                        try { browserPageListener?.remove?.(); } catch (_) {}
+                    };
+
+                    const handleAuthSuccess = async () => {
+                        if (resolved) return;
+                        resolved = true;
+                        await cleanup();
+                        PageLoader.hide();
+                        sessionStorage.removeItem('pendingGoogleLogin');
+                        // Close the in-app browser
+                        try { await Browser.close(); } catch (_) {}
+                        // Session is already set server-side — navigate to issue report
+                        resolve({ success: true, method: 'capacitor-inapp-browser', sessionSet: true });
+                    };
+
+                    // Signal 1: Deep link callback (in.sfscollege.blixtro://auth?status=success)
+                    if (appPlugin) {
+                        urlListener = appPlugin.addListener('appUrlOpen', async (data) => {
+                            console.log('[MobileAuth] Deep link received:', data.url);
+                            if (
+                                data.url.includes('in.sfscollege.blixtro://auth') ||
+                                data.url.includes('status=success')
+                            ) {
+                                await handleAuthSuccess();
+                            }
+                        });
+                    }
+
+                    // Signal 2: In-app browser navigates to the success page
+                    // Capacitor Browser fires 'browserPageLoaded' on each page load
+                    browserPageListener = Browser.addListener('browserPageLoaded', async () => {
+                        // We can't read the URL directly, but we can check if auth completed
+                        // by polling the session status
+                        try {
+                            const resp = await fetch('/core/auth-status/', {
+                                credentials: 'include',
+                                cache: 'no-cache'
+                            });
+                            if (resp.ok) {
+                                const data = await resp.json();
+                                if (data.authenticated) {
+                                    console.log('[MobileAuth] Auth confirmed via session check');
+                                    await handleAuthSuccess();
+                                }
+                            }
+                        } catch (_) {}
+                    });
+
+                    // Signal 3: User closes the browser without completing auth
+                    browserCloseListener = Browser.addListener('browserFinished', async () => {
+                        if (resolved) return;
+                        resolved = true;
+                        await cleanup();
+                        PageLoader.hide();
+                        sessionStorage.removeItem('pendingGoogleLogin');
+                        reject(new Error('Sign-in cancelled'));
+                    });
+                });
+
+            } catch (err) {
+                PageLoader.hide();
+                console.error('[MobileAuth] Capacitor in-app browser login error:', err.code, err.message);
                 throw err;
             }
         },
 
+        // ── CAPACITOR FALLBACK: signInWithRedirect (if Browser plugin unavailable) ──
         async capacitorRedirectFallback(firebaseConfig, options) {
-            // Last resort: signInWithRedirect — opens system browser.
-            // User will need to return to the app manually after auth.
             PageLoader.show('Redirecting to Google...', 'overlay');
             try {
+                if (!window.firebase?.apps?.length) {
+                    window.firebase.initializeApp(firebaseConfig);
+                }
                 const provider = new firebase.auth.GoogleAuthProvider();
                 if (options.domain) {
                     provider.setCustomParameters({ hd: options.domain, prompt: 'select_account' });
                 }
                 sessionStorage.setItem('pendingGoogleLogin', 'true');
                 sessionStorage.setItem('loginAuthUrl', options.authUrl || '/core/firebase-login/');
-                await new Promise(r => setTimeout(r, 400));
                 await firebase.auth().signInWithRedirect(provider);
                 return { success: true, method: 'firebase-redirect' };
             } catch (err) {
@@ -702,8 +801,14 @@
                 }
                 
                 // Otherwise try Firebase redirect result
+                // Ensure Firebase is initialized before calling getRedirectResult
+                if (!window.firebase.apps || !window.firebase.apps.length) {
+                    console.log('[MobileAuth] Firebase not initialized, cannot get redirect result');
+                    return null;
+                }
+                
                 const result = await firebase.auth().getRedirectResult();
-                if (result.user) {
+                if (result && result.user) {
                     sessionStorage.removeItem('pendingGoogleLogin');
                     const idToken = await result.user.getIdToken();
                     return { success: true, idToken, user: result.user, method: 'firebase-redirect-result' };
@@ -1077,6 +1182,24 @@
                 return;
             }
 
+            // Don't show footer nav on pages that have their own full-screen UI
+            // or their own dedicated navigation (app_home, room booking page)
+            const path = window.location.pathname;
+            const suppressFooterNav = (
+                window.SUPPRESS_MOBILE_FOOTER === true ||
+                path === '/' ||
+                path === '/core/app/' ||
+                path.endsWith('/app/') ||
+                path.includes('/core/book-room') ||
+                path.includes('/book-room') ||
+                document.getElementById('appScreen') !== null ||
+                document.getElementById('authGateOverlay') !== null
+            );
+            if (suppressFooterNav) {
+                console.log('[MobileNav] Page has own navigation, skipping footer nav');
+                return;
+            }
+
             const navItems = this.getNavItems();
             console.log('[MobileNav] Nav items found:', navItems.length, navItems);
             
@@ -1104,18 +1227,18 @@
         createFallbackNavItems() {
             // Create minimal fallback items based on URL
             const path = window.location.pathname;
-            let items = [{ icon: 'home', label: 'Home', url: '/' }];
+            // Use app home URL for Capacitor, landing page for browser
+            const homeUrl = window.IS_CAPACITOR ? '/core/app/?app=1' : '/';
+            let items = [{ icon: 'home', label: 'Home', url: homeUrl }];
             
             if (path.includes('/central-admin/')) {
                 items = [
                     { icon: 'dashboard', label: 'Dashboard', url: '/central-admin/dashboard/' },
-                    { icon: 'settings', label: 'Settings', url: '/central-admin/aura-dashboard/' }
+                    { icon: 'settings', label: 'Aura', url: '/central-admin/aura-dashboard/' }
                 ];
             } else if (path.includes('/students/') || path.includes('/student/')) {
-                items = [
-                    { icon: 'edit_note', label: 'Report', url: '/students/report_issue/' },
-                    { icon: 'person', label: 'Portal', url: '/students/portal/' }
-                ];
+                const homeUrl = window.IS_CAPACITOR ? '/core/app/?app=1' : '/';
+                items = [{ icon: 'home', label: 'Home', url: homeUrl }];
             }
             
             this.buildFooter(items);
@@ -1228,6 +1351,19 @@
                     color: ${DIM};
                     transition: color 0.25s ease;
                     line-height: 1;
+                    /* Ensure icon renders even if font not loaded */
+                    font-family: 'Material Symbols Outlined', 'Material Icons', sans-serif;
+                    font-style: normal;
+                    font-weight: normal;
+                    letter-spacing: normal;
+                    text-transform: none;
+                    display: inline-block;
+                    white-space: nowrap;
+                    word-wrap: normal;
+                    direction: ltr;
+                    -webkit-font-feature-settings: 'liga';
+                    font-feature-settings: 'liga';
+                    -webkit-font-smoothing: antialiased;
                 }
 
                 /* ── label ── */
@@ -1299,17 +1435,12 @@
                     const targetPath = new URL(item.url, window.location.href).pathname;
                     
                     if (targetPath !== currentPath) {
-                        // Show loading animation
-                        PageLoader.show(`Loading ${item.label}...`, 'overlay');
+                        // Show a lightweight loading indicator (not full overlay)
+                        // to reduce perceived load time
+                        a.style.opacity = '0.6';
+                        setTimeout(() => { a.style.opacity = ''; }, 300);
                         
-                        // Add visual feedback to clicked item
-                        a.style.transform = 'scale(0.92)';
-                        setTimeout(() => {
-                            a.style.transform = '';
-                        }, 150);
-                        
-                        // Allow navigation to proceed
-                        // PageLoader will be hidden by page unload/navigation
+                        // Allow navigation to proceed naturally
                     }
                 });
                 
@@ -1339,6 +1470,23 @@
             const items = [];
             const path = window.location.pathname;
 
+            // ── Explicit page-level override: set window.MOBILE_NAV_HOME_ONLY = true
+            //    as an inline <script> (outside DOMContentLoaded) on any page that
+            //    should show only the Home tab, regardless of sidebar contents.
+            if (window.MOBILE_NAV_HOME_ONLY === true) {
+                const homeUrl = window.IS_CAPACITOR ? '/core/app/?app=1' : '/';
+                return [{ icon: 'home', label: 'Home', url: homeUrl }];
+            }
+
+            // ── Student pages: ALWAYS return only a Home link, no matter what the
+            //    sidebar contains. base.html may have Report/Track/Portal navlinks
+            //    that would otherwise be picked up and shown as 3 tabs.
+            const isStudent = path.includes('/students/') || path.includes('/student/');
+            if (isStudent) {
+                const homeUrl = window.IS_CAPACITOR ? '/core/app/?app=1' : '/';
+                return [{ icon: 'home', label: 'Home', url: homeUrl }];
+            }
+
             // First, try to extract nav items from existing sidebar (server-rendered)
             const sidebar = document.getElementById('mainSidebar');
             if (sidebar) {
@@ -1361,7 +1509,6 @@
             // Fallback: detect from URL pattern
             const isCentralAdmin = path.includes('/central-admin/');
             const isRoomIncharge = path.includes('/room-incharge/');
-            const isStudent = path.includes('/students/') || path.includes('/student/');
 
             if (isCentralAdmin) {
                 items.push(
@@ -1379,17 +1526,22 @@
                     { icon: 'report', label: 'Issues', url: `/room-incharge/room/${roomSlug}/issues/` },
                     { icon: 'settings', label: 'Settings', url: `/room-incharge/room/${roomSlug}/settings/` }
                 );
-            } else if (isStudent) {
-                items.push(
-                    { icon: 'edit_note', label: 'Report', url: '/students/report_issue/' },
-                    { icon: 'history', label: 'Track', url: '/students/track_ticket/' },
-                    { icon: 'person', label: 'Portal', url: '/students/portal/' }
-                );
             }
 
-            // Always return at least home link so footer shows
+            // Always return at least a home link so footer shows.
+            // For admin pages, home = admin dashboard.
+            // For Capacitor, home = app home screen.
+            // For everything else, home = landing page.
             if (items.length === 0) {
-                items.push({ icon: 'home', label: 'Home', url: '/' });
+                let homeUrl;
+                if (path.includes('/central-admin/') || path.includes('/room-incharge/')) {
+                    homeUrl = '/central-admin/dashboard/';
+                } else if (window.IS_CAPACITOR) {
+                    homeUrl = '/core/app/?app=1';
+                } else {
+                    homeUrl = '/';
+                }
+                items.push({ icon: 'home', label: 'Home', url: homeUrl });
             }
 
             return items;
@@ -1506,30 +1658,33 @@
         ResponsiveCards.init();
         MobileNav.init();
         
-        // Handle Firebase redirect result
-        MobileAuth.handleRedirectResult().then(result => {
-            if (result) {
-                console.log('[MobileAuth] Redirect login successful');
-                // Submit token to backend
-                const form = document.createElement('form');
-                form.method = 'POST';
-                form.action = '/core/firebase-login/?app=1';
-                const tokenInput = document.createElement('input');
-                tokenInput.type = 'hidden';
-                tokenInput.name = 'id_token';
-                tokenInput.value = result.idToken;
-                const appInput = document.createElement('input');
-                appInput.type = 'hidden';
-                appInput.name = 'app';
-                appInput.value = '1';
-                form.appendChild(tokenInput);
-                form.appendChild(appInput);
-                document.body.appendChild(form);
-                form.submit();
-            }
-        }).catch(err => {
-            console.error('[MobileAuth] Redirect result error:', err);
-        });
+        // Handle Firebase redirect result — only if Firebase is already initialized
+        // (portal_login.html initializes Firebase and calls this itself)
+        if (window.firebase && window.firebase.apps && window.firebase.apps.length > 0) {
+            MobileAuth.handleRedirectResult().then(result => {
+                if (result && result.idToken) {
+                    console.log('[MobileAuth] Redirect login successful');
+                    // Submit token to backend
+                    const form = document.createElement('form');
+                    form.method = 'POST';
+                    form.action = '/core/firebase-login/?app=1';
+                    const tokenInput = document.createElement('input');
+                    tokenInput.type = 'hidden';
+                    tokenInput.name = 'id_token';
+                    tokenInput.value = result.idToken;
+                    const appInput = document.createElement('input');
+                    appInput.type = 'hidden';
+                    appInput.name = 'app';
+                    appInput.value = '1';
+                    form.appendChild(tokenInput);
+                    form.appendChild(appInput);
+                    document.body.appendChild(form);
+                    form.submit();
+                }
+            }).catch(err => {
+                console.error('[MobileAuth] Redirect result error:', err);
+            });
+        }
     }
 
     // Manual force function for testing

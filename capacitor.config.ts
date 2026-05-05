@@ -8,7 +8,12 @@ const config: CapacitorConfig = {
     // ── Points to live Django server ──────────────────────────────────
     url: 'https://blixtro.sfscollege.app/core/app/?app=1',
     cleartext: false,
-    allowNavigation: ['blixtro.sfscollege.app'],
+    allowNavigation: [
+      'blixtro.sfscollege.app',
+      '*.firebaseapp.com',
+      '*.googleapis.com',
+      'accounts.google.com',
+    ],
   },
   android: {
     allowMixedContent: false,
@@ -21,7 +26,7 @@ const config: CapacitorConfig = {
   },
   plugins: {
     SplashScreen: {
-      launchShowDuration: 2000,
+      launchShowDuration: 800,
       launchAutoHide: true,
       backgroundColor: '#0d0f14',
       androidSplashResourceName: 'splash',

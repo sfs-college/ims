@@ -33,7 +33,7 @@
         position: fixed;
         top: calc(80px + var(--sat)); /* Accounts for navbar + safe area */
         right: 20px;
-        z-index: 1040; /* Lowered z-index to avoid conflicts */
+        z-index: 1045; /* Above page content, below Bootstrap modals (1050+) */
         display: flex;
         align-items: center;
         gap: 8px;
@@ -120,10 +120,26 @@
         <!-- Universal Back Button -->
         {% block back_button %}
         <a href="javascript:void(0)" class="universal-back-btn" id="universalBackBtn"
-           onclick="if(window.IS_CAPACITOR && window.history.length <= 1){ window.location.href='{% url "landing_page" %}'; } else { window.history.back(); }">
+           onclick="handleUniversalBack()">
             <span class="material-symbols-outlined">arrow_back</span>
             <span>Back</span>
         </a>
+        <script>
+        function handleUniversalBack() {
+            // On Capacitor with no history, go to the appropriate home page
+            if (window.IS_CAPACITOR && window.history.length <= 1) {
+                window.location.href = '{% url "core:app_home" %}';
+                return;
+            }
+            // If we have history, go back
+            if (window.history.length > 1) {
+                window.history.back();
+                return;
+            }
+            // Final fallback: go to landing page
+            window.location.href = '{% url "landing_page" %}';
+        }
+        </script>
         {% endblock back_button %}
 
         <!-- Main Content -->

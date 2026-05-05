@@ -6,6 +6,16 @@
 {% block extra_head %}
 <input type="hidden" name="csrfmiddlewaretoken" value="{% csrf_token %}">
 {% endblock %}
+{% block back_button %}
+<a href="javascript:void(0)" class="universal-back-btn" id="universalBackBtn"
+   onclick="(function(){
+       if(window.history.length > 1){ window.history.back(); }
+       else { window.location.href='{% url "central_admin:dashboard" %}'; }
+   })()">
+    <span class="material-symbols-outlined">arrow_back</span>
+    <span>Back</span>
+</a>
+{% endblock back_button %}
 
 {% block style %}
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
@@ -114,11 +124,23 @@
 
     /* Mobile Responsive Styles for Modals */
     @media (max-width: 767px) {
+        /* Modal backdrop — ensure modal is centered vertically when shown */
+        .modal.show {
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+        }
+        
         /* Modal responsive adjustments */
         .modal-dialog {
-            margin: 10px;
+            margin: 10px auto !important;
             max-width: calc(100vw - 20px) !important;
             width: calc(100vw - 20px) !important;
+            /* Center vertically */
+            align-self: center !important;
+            position: relative !important;
+            top: auto !important;
+            transform: none !important;
         }
         
         .modal-dialog.modal-xl {
@@ -136,6 +158,7 @@
             padding: 15px !important;
             max-height: calc(100vh - 140px);
             overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
         }
         
         .modal-header {
@@ -2101,7 +2124,7 @@ textarea.bcc-form-input { resize:vertical; min-height:80px; }
             return;
         }
 
-        // Use mobile-aware download manager
+        // Use mobile-aware download manager (works on both browser and Capacitor)
         const baseUrl = '{% url "central_admin:aura_api_excel" %}';   
         const downloadUrl = `${baseUrl}?model=${moduleName}&date_from=${dateFrom}&date_to=${dateTo}`;
         const filename = `aura_report_${moduleName}_${dateFrom || 'all'}_to_${dateTo || 'all'}.xlsx`;
@@ -2109,11 +2132,39 @@ textarea.bcc-form-input { resize:vertical; min-height:80px; }
         try {
             await DownloadManager.download(downloadUrl, filename, {
                 mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-                openAfterDownload: false
+                openAfterDownload: true
             });
         } catch (err) {
             console.error('Excel download failed:', err);
-            // Fallback to browser method
+            window.open(downloadUrl, '_blank');
+        }
+    }
+
+    // PDF Download Logic — uses server-side PDF generation endpoint
+    async function downloadAuraPDF() {
+        const moduleName = document.getElementById('reportModule').value;
+        const dateFrom   = document.getElementById('dateFrom').value;
+        const dateTo     = document.getElementById('dateTo').value;
+        const content    = document.getElementById('reportContent');
+
+        if (!content || content.children.length === 0 || content.innerText.includes('Records loading')) {
+            alert("Please generate the report results first.");
+            return;
+        }
+
+        // Use the server-side PDF generation endpoint
+        const baseUrl     = '{% url "central_admin:aura_api_pdf" %}';
+        const downloadUrl = `${baseUrl}?model=${moduleName}&date_from=${dateFrom}&date_to=${dateTo}`;
+        const filename    = `aura_report_${moduleName}_${dateFrom || 'all'}_to_${dateTo || 'all'}.pdf`;
+
+        try {
+            // DownloadManager handles both browser (anchor click) and Capacitor (Filesystem save)
+            await DownloadManager.download(downloadUrl, filename, {
+                mimeType: 'application/pdf',
+                openAfterDownload: true
+            });
+        } catch (err) {
+            console.error('PDF download failed:', err);
             window.open(downloadUrl, '_blank');
         }
     }

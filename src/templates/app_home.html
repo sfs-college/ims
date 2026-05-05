@@ -102,7 +102,6 @@
       width: 52px;
       height: 52px;
       object-fit: contain;
-      filter: brightness(0) invert(1);
     }
     @keyframes splashSpin {
       from { transform: rotate(0deg); }
@@ -223,7 +222,6 @@
       width: 44px;
       height: 44px;
       object-fit: contain;
-      filter: brightness(0) invert(1);
     }
     .app-title {
       font-size: 1.7rem;
@@ -509,7 +507,7 @@ document.addEventListener('DOMContentLoaded', function () {
     setTimeout(function () { splash.style.display = 'none'; }, 520);
   }
 
-  setTimeout(function () { splashDone = true; showApp(); }, 1800);
+  setTimeout(function () { splashDone = true; showApp(); }, 800);
 });
 
 // ── Register: check if admin exists ─────────────────────────────────

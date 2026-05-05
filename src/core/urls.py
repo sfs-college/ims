@@ -27,6 +27,7 @@ urlpatterns = [
      path("aura/delete-cred/<int:pk>/", views.delete_booking_credential, name="delete_cred"),
      path('access-denied/', views.TemplateView.as_view(template_name='core/access_denied.html'), name='access_denied'),
      path('firebase-login/', views.firebase_login_callback, name='firebase_login'),
+     path('auth-status/', views.auth_status_view, name='auth_status'),
      path('booking/get-bookings/', views.get_bookings_by_email, name='get_bookings_by_email'),
      path('booking/cancel/', views.submit_cancellation_request, name='submit_cancellation_request'),
      path('booking-status/', views.get_booking_status, name='get_booking_status'),

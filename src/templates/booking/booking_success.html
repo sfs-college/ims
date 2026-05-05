@@ -198,7 +198,8 @@
             <a href="{% url 'core:room_booking' %}" class="btn-primary-action">
                 <i class="bi bi-calendar-plus"></i> Book Another Space
             </a>
-            <a href="{% url 'landing_page' %}" class="btn-secondary-action">
+            <a href="{% url 'core:app_home' %}" class="btn-secondary-action" id="homeBtn"
+               onclick="if(!window.IS_CAPACITOR && window.history.length > 1){ event.preventDefault(); window.location.href='{% url "landing_page" %}'; }">
                 <i class="bi bi-house-door"></i> Home
             </a>
         </div>
@@ -229,10 +230,10 @@ document.addEventListener('DOMContentLoaded', function () {
 });
 </script>
 
-<!-- Mobile-only home button (shown via JS when IS_CAPACITOR or IS_MOBILE) -->
-<a href="{% url 'landing_page' %}" class="mobile-home-btn" id="mobileHomeBtn">
+{% comment %} <!-- Mobile-only home button (shown via JS when IS_CAPACITOR or IS_MOBILE) -->
+<a href="{% url 'core:app_home' %}" class="mobile-home-btn" id="mobileHomeBtn">
     <i class="bi bi-house-door-fill"></i>
     Home
-</a>
+</a> {% endcomment %}
 
 {% endblock %}
