@@ -219,12 +219,14 @@
 
       <!-- Report Generator -->
       <a href="{% url 'room_incharge:room_report' room_slug=room_slug %}?format=pdf"
-         class="btn-report" style="color:#e11d48; border-color:#fecaca;">
+         class="btn-report" style="color:#e11d48; border-color:#fecaca;"
+         onclick="return handleReportDownload(event, this.href, '{{ room.room_name|escapejs }}_report.pdf', 'application/pdf')">
         <span class="material-symbols-outlined" style="font-size:16px">picture_as_pdf</span>
         PDF
       </a>
       <a href="{% url 'room_incharge:room_report' room_slug=room_slug %}?format=excel"
-         class="btn-report" style="color:#16a34a; border-color:#bbf7d0;">
+         class="btn-report" style="color:#16a34a; border-color:#bbf7d0;"
+         onclick="return handleReportDownload(event, this.href, '{{ room.room_name|escapejs }}_report.xlsx', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')">
         <span class="material-symbols-outlined" style="font-size:16px">table_view</span>
         Excel
       </a>
@@ -273,3 +275,30 @@
   </div>
 </section>
 {% endblock content %}
+
+{% block scripts %}
+<script>
+/**
+ * Handle report download — uses DownloadManager on Capacitor for proper file saving,
+ * falls back to normal browser download on desktop.
+ */
+async function handleReportDownload(event, url, filename, mimeType) {
+    if (window.IS_CAPACITOR && window.DownloadManager) {
+        event.preventDefault();
+        try {
+            if (window.PageLoader) window.PageLoader.show('Generating report...', 'overlay');
+            await window.DownloadManager.download(url, filename, { mimeType: mimeType, openAfterDownload: true });
+        } catch (err) {
+            console.error('[handleReportDownload] Error:', err);
+            // Fallback: open in browser
+            window.open(url, '_system');
+        } finally {
+            if (window.PageLoader) window.PageLoader.hide();
+        }
+        return false;
+    }
+    // Desktop: let the browser handle it normally
+    return true;
+}
+</script>
+{% endblock scripts %}

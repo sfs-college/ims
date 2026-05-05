@@ -405,6 +405,9 @@
 
 <script src="https://unpkg.com/htmx.org@1.9.10"></script>
 <script>
+// Restrict mobile footer nav to Home-only on this page
+window.MOBILE_NAV_HOME_ONLY = true;
+
 document.addEventListener('DOMContentLoaded', function () {
     const form      = document.getElementById('issueForm');
     const submitBtn = document.getElementById('submitBtn');

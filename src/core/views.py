@@ -58,6 +58,15 @@ def app_home_view(request):
     return render(request, 'app_home.html', {'admin_exists': admin_exists})
 
 
+def auth_status_view(request):
+    """
+    Lightweight JSON endpoint used by the Capacitor in-app browser to poll
+    whether the user has successfully authenticated.
+    Returns {"authenticated": true/false} — no sensitive data.
+    """
+    return JsonResponse({'authenticated': request.user.is_authenticated})
+
+
 def _safe_mail(subject, message, recipient_list, fail_silently=True, html_message=None):
     """Wrapper around safe_send_mail — imported lazily to avoid circular imports."""
     try:

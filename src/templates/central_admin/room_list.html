@@ -107,18 +107,18 @@
   .btn-export-pdf:hover   { background:#dc2626; color:#fff; border-color:#dc2626; }
 
   /* ── Action buttons ───────────────────────────────────── */
-  .action-buttons { display: flex; gap: 6px; flex-direction: row; align-items: center; flex-wrap: nowrap; }
-  .action-btn { white-space: nowrap; display: inline-block; }
+  .action-buttons { display: flex; gap: 6px; flex-direction: row; align-items: center; flex-wrap: nowrap; min-width: 130px; }
+  .action-btn { white-space: nowrap; display: inline-flex; align-items: center; }
   .action-btn.btn-dark { 
     background: #0f172a; color: #fff; border: none;
-    border-radius: 6px; padding: 4px 10px;
-    font-size: 0.70rem; font-weight: 600;
+    border-radius: 6px; padding: 5px 12px;
+    font-size: 0.72rem; font-weight: 600;
     text-decoration: none; text-align: center;
   }
   .action-btn.btn-danger { 
     background: #fef2f2; color: #dc2626; border: 1px solid #fecaca;
-    border-radius: 6px; padding: 4px 10px;
-    font-size: 0.70rem; font-weight: 600;
+    border-radius: 6px; padding: 5px 12px;
+    font-size: 0.72rem; font-weight: 600;
     text-decoration: none; text-align: center;
   }
   .action-btn:hover { opacity: 0.85; }
@@ -252,7 +252,13 @@
     border-radius: 18px; overflow: hidden;
     box-shadow: 0 4px 20px rgba(0,0,0,0.05);
   }
-  #roomsTable .table { margin-bottom: 0; font-size: 0.875rem; }
+  /* Make the table horizontally scrollable on all screen sizes */
+  #roomsTable .table-scroll-wrap {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    border-radius: 18px;
+  }
+  #roomsTable .table { margin-bottom: 0; font-size: 0.875rem; min-width: 900px; }
   #roomsTable .table thead tr { background: #0f172a; }
   #roomsTable .table thead th {
     padding: 13px 16px;
@@ -445,6 +451,7 @@
      LIST VIEW (original table)
 ════════════════════════════════ -->
 <div class="table-responsive table-responsive-stack" id="roomsTable">
+  <div class="table-scroll-wrap">
     <table class="table">
         <thead>
             <tr>
@@ -455,7 +462,7 @@
                 <th>Incharge</th>
                 <th>Department</th>
                 <th>Created On</th>
-                <th style="width: 90px;">Action</th>
+                <th style="width: 140px; min-width: 140px;">Action</th>
             </tr>
         </thead>
         <tbody>
@@ -481,6 +488,7 @@
             {% endfor %}
         </tbody>
     </table>
+  </div>
 </div>
 
 {% else %}
@@ -743,7 +751,7 @@ function getSummary() {
 // ══════════════════════════════════════════════════════════════════
 //  PDF EXPORT
 // ══════════════════════════════════════════════════════════════════
-function exportPDF() {
+function _buildPDFDoc() {
     var { jsPDF } = window.jspdf;
     var doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
 
@@ -906,14 +914,20 @@ function exportPDF() {
         doc.text('Page ' + p + ' of ' + pageCount, pageW - margin, pageH - 2.5, { align: 'right' });
     }
 
-    var slug = filterLabel.toLowerCase().replace(/\s+/g, '_');
+    return doc;
+}
+
+function exportPDF() {
+    var doc = _buildPDFDoc();
+    var now = new Date();
+    var slug = getFilterLabel().toLowerCase().replace(/\s+/g, '_');
     doc.save('room_report_' + slug + '_' + now.toISOString().slice(0,10) + '.pdf');
 }
 
 // ══════════════════════════════════════════════════════════════════
 //  EXCEL EXPORT
 // ══════════════════════════════════════════════════════════════════
-function exportExcel() {
+function _buildExcelWorkbook() {
     var now = new Date();
     var filterLabel = getFilterLabel();
     var rows = getFilteredRows();
@@ -1120,31 +1134,64 @@ function exportExcel() {
     XLSX.utils.book_append_sheet(wb, ws2, 'Room Directory');
 
     var slug = filterLabel.toLowerCase().replace(/\s+/g, '_');
+    return wb;
+}
+
+function exportExcel() {
+    var wb = _buildExcelWorkbook();
+    var now = new Date();
+    var filterLabel = getFilterLabel();
+    var slug = filterLabel.toLowerCase().replace(/\s+/g, '_');
     XLSX.writeFile(wb, 'room_report_' + slug + '_' + now.toISOString().slice(0,10) + '.xlsx');
 }
 
 // ── Main export dispatcher ────────────────────────────────────────
 async function exportRooms(type) {
     if (type === 'pdf') {
-        exportPDF();
-        // Show mobile notification if on mobile
-        if (window.IS_MOBILE || window.IS_CAPACITOR) {
-            setTimeout(() => {
-                if (window.DownloadManager) {
-                    DownloadManager.showNotification('PDF report generated', 'success');
-                }
-            }, 500);
+        if (window.IS_CAPACITOR && window.DownloadManager) {
+            // Capacitor: generate blob and save via DownloadManager (writes to Documents folder)
+            try {
+                var doc = _buildPDFDoc();
+                var pdfBlob = doc.output('blob');
+                var now = new Date();
+                var slug = getFilterLabel().toLowerCase().replace(/\s+/g, '_');
+                var filename = 'room_report_' + slug + '_' + now.toISOString().slice(0,10) + '.pdf';
+                await window.DownloadManager.download('', filename, {
+                    blob: pdfBlob,
+                    mimeType: 'application/pdf',
+                    openAfterDownload: true
+                });
+            } catch(e) {
+                console.error('[exportRooms] PDF Capacitor error:', e);
+                exportPDF(); // fallback to browser save
+            }
+        } else {
+            exportPDF(); // browser: triggers normal file-save dialog
         }
     }
     if (type === 'excel') {
-        exportExcel();
-        // Show mobile notification if on mobile
-        if (window.IS_MOBILE || window.IS_CAPACITOR) {
-            setTimeout(() => {
-                if (window.DownloadManager) {
-                    DownloadManager.showNotification('Excel report generated', 'success');
-                }
-            }, 500);
+        if (window.IS_CAPACITOR && window.DownloadManager) {
+            // Capacitor: generate blob and save via DownloadManager
+            try {
+                var wb = _buildExcelWorkbook();
+                var now = new Date();
+                var slug = getFilterLabel().toLowerCase().replace(/\s+/g, '_');
+                var filename = 'room_report_' + slug + '_' + now.toISOString().slice(0,10) + '.xlsx';
+                var excelBuffer = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+                var excelBlob = new Blob([excelBuffer], {
+                    type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+                });
+                await window.DownloadManager.download('', filename, {
+                    blob: excelBlob,
+                    mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                    openAfterDownload: true
+                });
+            } catch(e) {
+                console.error('[exportRooms] Excel Capacitor error:', e);
+                exportExcel(); // fallback to browser save
+            }
+        } else {
+            exportExcel(); // browser: triggers normal file-save dialog
         }
     }
 }
