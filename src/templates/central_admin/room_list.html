@@ -1149,15 +1149,16 @@ function exportExcel() {
 async function exportRooms(type) {
     if (type === 'pdf') {
         if (window.IS_CAPACITOR && window.DownloadManager) {
-            // Capacitor: generate blob and save via DownloadManager (writes to Documents folder)
+            // Capacitor: generate base64 and save via DownloadManager (writes to Documents folder)
             try {
                 var doc = _buildPDFDoc();
-                var pdfBlob = doc.output('blob');
+                // Get pure base64 string without data URI prefix
+                var pdfBase64 = btoa(doc.output());
                 var now = new Date();
                 var slug = getFilterLabel().toLowerCase().replace(/\s+/g, '_');
                 var filename = 'room_report_' + slug + '_' + now.toISOString().slice(0,10) + '.pdf';
                 await window.DownloadManager.download('', filename, {
-                    blob: pdfBlob,
+                    base64Data: pdfBase64,
                     mimeType: 'application/pdf',
                     openAfterDownload: true
                 });
@@ -1171,18 +1172,15 @@ async function exportRooms(type) {
     }
     if (type === 'excel') {
         if (window.IS_CAPACITOR && window.DownloadManager) {
-            // Capacitor: generate blob and save via DownloadManager
+            // Capacitor: generate base64 and save via DownloadManager
             try {
                 var wb = _buildExcelWorkbook();
                 var now = new Date();
                 var slug = getFilterLabel().toLowerCase().replace(/\s+/g, '_');
                 var filename = 'room_report_' + slug + '_' + now.toISOString().slice(0,10) + '.xlsx';
-                var excelBuffer = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
-                var excelBlob = new Blob([excelBuffer], {
-                    type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-                });
+                var excelBase64 = XLSX.write(wb, { bookType: 'xlsx', type: 'base64' });
                 await window.DownloadManager.download('', filename, {
-                    blob: excelBlob,
+                    base64Data: excelBase64,
                     mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
                     openAfterDownload: true
                 });

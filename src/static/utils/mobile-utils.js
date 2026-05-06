@@ -312,21 +312,29 @@
                 const progressNote = this.showNotification('Downloading...', 'info', 0);
 
                 let blob, mimeType;
+                let base64Data = null;
 
-                // ── Path A: blob provided directly (client-side generated files) ──
-                if (options.blob instanceof Blob) {
+                // ── Path A: base64 provided directly (best for client-side generated files) ──
+                if (options.base64Data) {
+                    base64Data = options.base64Data;
+                    mimeType = options.mimeType || 'application/octet-stream';
+                }
+                // ── Path B: blob provided directly ──
+                else if (options.blob instanceof Blob) {
                     blob = options.blob;
                     mimeType = blob.type || options.mimeType || 'application/octet-stream';
                 } else {
-                    // ── Path B: fetch from URL (server-side files) ──
+                    // ── Path C: fetch from URL (server-side files) ──
                     const response = await fetch(url, { cache: 'no-cache', credentials: 'include' });
                     if (!response.ok) throw new Error('HTTP ' + response.status);
                     blob = await response.blob();
                     mimeType = blob.type || options.mimeType || 'application/octet-stream';
                 }
 
-                const arrayBuffer = await blob.arrayBuffer();
-                const base64Data = this.arrayBufferToBase64(arrayBuffer);
+                if (!base64Data) {
+                    const arrayBuffer = await blob.arrayBuffer();
+                    base64Data = this.arrayBufferToBase64(arrayBuffer);
+                }
                 const finalFilename = filename || ('download_' + Date.now());
 
                 // Android 10+ — use Documents directory (always accessible)
@@ -649,9 +657,11 @@
                 // ── Browser path: use Firebase popup (unchanged, works perfectly) ──
                 return this.traditionalGoogleLogin(firebaseConfig, options);
             }
-            // ── Capacitor path: use in-app browser overlay ──
+            // ── Capacitor path: use app-based redirect (no external browser) ──
+            // Since we override the UserAgent in capacitor.config.ts, Google
+            // allows the OAuth flow directly inside the WebView without the 403 error.
             try {
-                return await this.capacitorGoogleLogin(firebaseConfig, options);
+                return await this.capacitorRedirectFallback(firebaseConfig, options);
             } catch (err) {
                 console.error('[MobileAuth] Capacitor login failed:', err);
                 return this.fallbackEmailLogin(options);
@@ -1492,6 +1502,11 @@
         getNavItems() {
             const items = [];
             const path = window.location.pathname;
+
+            // ── Suppress footer entirely on app_home ──
+            if (path.includes('/core/app')) {
+                return [];
+            }
 
             // ── Explicit page-level override: set window.MOBILE_NAV_HOME_ONLY = true
             //    as an inline <script> (outside DOMContentLoaded) on any page that

@@ -259,6 +259,11 @@
             <p class="text-muted mb-0" style="font-size:0.95rem;">College-wide unassigned stock</p>
         </div>
         <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+            <!-- Search Box -->
+            <div class="input-group input-group-sm" style="width:250px;">
+                <span class="input-group-text bg-white border-end-0"><i class="bi bi-search text-muted"></i></span>
+                <input type="text" id="inventorySearchBox" class="form-control border-start-0 ps-0" placeholder="Search inventory..." onkeyup="searchMainInventory()">
+            </div>
             <button style="display:inline-flex;align-items:center;gap:5px;padding:7px 14px;
                 background:white;color:var(--purple);border:1.5px solid var(--purple);
                 border-radius:8px;font-size:0.8rem;font-weight:600;cursor:pointer;
@@ -527,32 +532,8 @@
             </div>
             <div class="modal-body p-4">
                 <h6 class="fw-bold text-muted mb-4">Item: <span id="modalItemName" class="text-dark"></span></h6>
-                <div class="row g-3 mb-4">
-                    <div class="col-md-6">
-                        <label class="form-label small fw-bold text-muted text-uppercase">Room Category</label>
-                        <select class="form-select" id="filterCategory" onchange="loadRoomsByCategory()">
-                            <option value="">-- Select Category --</option>
-                            <option value="classrooms">Classrooms</option>
-                            <option value="labs">Labs</option>
-                            <option value="staffrooms">Staffrooms</option>
-                            <option value="halls">Halls</option>
-                            <option value="outdoors">Outdoors</option>
-                            <option value="washrooms">Washrooms</option>
-                            <option value="officerooms">Officerooms</option>
-                        </select>
-                    </div>
-                    <div class="col-md-6">
-                        <label class="form-label small fw-bold text-muted text-uppercase">Room</label>
-                        <select class="form-select" id="filterRoom" onchange="loadAssignmentDetails()">
-                            <option value="">-- Select Room --</option>
-                        </select>
-                    </div>
-                </div>
                 <div id="assignmentResults">
-                    <div class="text-center text-muted py-5">
-                        <i class="bi bi-search fs-1 d-block mb-3 opacity-50"></i>
-                        <p>Select a category and room to view assignment details</p>
-                    </div>
+                    <div class="text-center py-5"><div class="spinner-border text-primary"></div><p class="mt-3 text-muted">Loading assignment details...</p></div>
                 </div>
             </div>
         </div>
@@ -677,84 +658,75 @@ function viewAssignments(itemId, itemName) {
     currentItemId = itemId;
     currentItemName = itemName;
     document.getElementById('modalItemName').textContent = itemName;
-    document.getElementById('filterCategory').value = '';
-    document.getElementById('filterRoom').innerHTML = '<option value="">-- Select Room --</option>';
-    document.getElementById('assignmentResults').innerHTML = `
-        <div class="text-center text-muted py-5">
-            <i class="bi bi-search fs-1 d-block mb-3 opacity-50"></i>
-            <p>Select a category and room to view assignment details</p>
-        </div>`;
-    new bootstrap.Modal(document.getElementById('viewAssignmentsModal')).show();
-}
-
-function loadRoomsByCategory() {
-    const category = document.getElementById('filterCategory').value;
-    const roomSelect = document.getElementById('filterRoom');
-    if (!category) { roomSelect.innerHTML = '<option value="">-- Select Room --</option>'; return; }
-    roomSelect.innerHTML = '<option value="">Loading…</option>';
-    fetch(`{% url 'central_admin:get_rooms_by_category' %}?category=${category}`)
-        .then(r => r.json())
-        .then(data => {
-            roomSelect.innerHTML = '<option value="">-- Select Room --</option>';
-            (data.rooms || []).forEach(r => {
-                roomSelect.innerHTML += `<option value="${r.id}">${r.name}</option>`;
-            });
-        })
-        .catch(() => { roomSelect.innerHTML = '<option value="">Error</option>'; });
-}
-
-function loadAssignmentDetails() {
-    const roomId = document.getElementById('filterRoom').value;
     const resultsDiv = document.getElementById('assignmentResults');
-    if (!roomId) {
-        resultsDiv.innerHTML = `<div class="text-center text-muted py-5"><i class="bi bi-search fs-1 d-block mb-3 opacity-50"></i><p>Select a room to view assignment details</p></div>`;
-        return;
-    }
-    resultsDiv.innerHTML = `<div class="text-center py-5"><div class="spinner-border text-primary"></div><p class="mt-3 text-muted">Loading…</p></div>`;
-    fetch(`{% url 'central_admin:get_assignment_details' %}?item_id=${currentItemId}&room_id=${roomId}`)
+    resultsDiv.innerHTML = `<div class="text-center py-5"><div class="spinner-border text-primary"></div><p class="mt-3 text-muted">Loading assignment details...</p></div>`;
+    new bootstrap.Modal(document.getElementById('viewAssignmentsModal')).show();
+
+    fetch(`{% url 'central_admin:get_assignment_details' %}?item_id=${itemId}`)
         .then(r => r.json())
         .then(data => {
-            if (data.assigned_quantity > 0) {
-                resultsDiv.innerHTML = `
-                    <div class="alert alert-success border-0 shadow-sm rounded-3 mb-3">
-                        <div class="d-flex align-items-center">
-                            <i class="bi bi-check-circle-fill fs-3 me-3"></i>
-                            <div>
-                                <h6 class="mb-1 fw-bold">${currentItemName}</h6>
-                                <p class="mb-0">Assigned to <strong>${data.room_name}</strong>: <span class="badge bg-success">${data.assigned_quantity} units</span></p>
-                            </div>
+            let html = `
+                <div class="row g-3 mb-4">
+                    <div class="col-4">
+                        <div class="p-3 bg-light rounded text-center border">
+                            <h5 class="mb-1 text-dark fw-bold">${data.master_stats.total}</h5>
+                            <small class="text-muted fw-bold text-uppercase" style="font-size:0.7rem;">Total</small>
                         </div>
                     </div>
-                    <div>
-                        <label style="font-size:0.78rem;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:0.05em;display:block;margin-bottom:6px;">
-                            Units to Return to Master Stock
-                        </label>
-                        <div style="display:flex;gap:10px;align-items:center;">
-                            <input type="number" id="unassignQtyInput" min="1" max="${data.assigned_quantity}"
-                                placeholder="e.g. 10"
-                                style="flex:1;padding:10px 14px;border-radius:10px;border:1.5px solid #e2e8f0;font-size:0.95rem;">
-                            <button onclick="submitUnassign('${data.room_item_id}', ${data.assigned_quantity})"
-                                style="padding:10px 20px;background:linear-gradient(135deg,#ef4444,#dc2626);color:white;border:none;border-radius:10px;font-weight:700;font-size:0.88rem;cursor:pointer;white-space:nowrap;">
-                                <i class="bi bi-arrow-return-left me-1"></i>Return Stock
-                            </button>
+                    <div class="col-4">
+                        <div class="p-3 bg-success bg-opacity-10 rounded text-center border border-success border-opacity-25">
+                            <h5 class="mb-1 text-success fw-bold">${data.master_stats.available}</h5>
+                            <small class="text-success fw-bold text-uppercase" style="font-size:0.7rem;">Available</small>
                         </div>
-                        <div id="unassignMsg" style="margin-top:10px;font-size:0.83rem;display:none;"></div>
-                    </div>`;
+                    </div>
+                    <div class="col-4">
+                        <div class="p-3 bg-primary bg-opacity-10 rounded text-center border border-primary border-opacity-25">
+                            <h5 class="mb-1 text-primary fw-bold">${data.master_stats.assigned}</h5>
+                            <small class="text-primary fw-bold text-uppercase" style="font-size:0.7rem;">Assigned</small>
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            if (data.assignments && data.assignments.length > 0) {
+                html += `<div class="list-group list-group-flush border rounded-3 overflow-hidden">`;
+                data.assignments.forEach(a => {
+                    html += `
+                        <div class="list-group-item d-flex justify-content-between align-items-center p-3 bg-white">
+                            <div>
+                                <h6 class="mb-1 fw-bold text-dark">${a.room_name}</h6>
+                                <span class="badge bg-light text-dark border">${a.room_category}</span>
+                            </div>
+                            <div class="text-end">
+                                <span class="badge bg-primary rounded-pill mb-2">${a.assigned_quantity} units</span>
+                                <div class="input-group input-group-sm" style="width: 140px;">
+                                    <input type="number" id="unassignQty_${a.room_item_id}" class="form-control text-center" min="1" max="${a.assigned_quantity}" placeholder="Qty">
+                                    <button class="btn btn-danger" onclick="submitUnassign('${a.room_item_id}', ${a.assigned_quantity}, 'unassignQty_${a.room_item_id}')" title="Return to Master Stock">
+                                        <i class="bi bi-arrow-return-left"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                });
+                html += `</div><div id="unassignMsg" class="mt-3 text-center" style="font-size:0.85rem;display:none;"></div>`;
             } else {
-                resultsDiv.innerHTML = `
+                html += `
                     <div class="alert alert-warning border-0 shadow-sm rounded-3">
                         <div class="d-flex align-items-center">
                             <i class="bi bi-info-circle-fill fs-3 me-3"></i>
                             <div>
-                                <h6 class="mb-1 fw-bold">No Assignment Found</h6>
-                                <p class="mb-0">${currentItemName} is not assigned to <strong>${data.room_name}</strong></p>
+                                <h6 class="mb-1 fw-bold">Not Assigned</h6>
+                                <p class="mb-0">This item is not currently assigned to any rooms.</p>
                             </div>
                         </div>
-                    </div>`;
+                    </div>
+                `;
             }
+            resultsDiv.innerHTML = html;
         })
-        .catch(() => {
-            resultsDiv.innerHTML = `<div class="alert alert-danger border-0 shadow-sm rounded-3"><i class="bi bi-exclamation-triangle-fill me-2"></i>Error loading. Try again.</div>`;
+        .catch(e => {
+            resultsDiv.innerHTML = `<div class="alert alert-danger border-0 shadow-sm rounded-3"><i class="bi bi-exclamation-triangle-fill me-2"></i>Error loading assignment details.</div>`;
         });
 }
 
@@ -934,10 +906,11 @@ function getCsrf() {
     return c ? decodeURIComponent(c.trim().split('=')[1]) : '';
 }
 
-function submitUnassign(roomItemId, maxQty) {
-    const qty   = parseInt(document.getElementById('unassignQtyInput').value, 10);
+function submitUnassign(roomItemId, maxQty, inputId) {
+    const qtyInput = document.getElementById(inputId || 'unassignQtyInput');
+    const qty = parseInt(qtyInput ? qtyInput.value : 0, 10);
     const msgEl = document.getElementById('unassignMsg');
-    const btn   = document.querySelector('button[onclick^="submitUnassign"]');
+    const btn = qtyInput ? qtyInput.nextElementSibling : null;
     msgEl.style.display = 'none';
 
     if (!qty || qty < 1) {
@@ -949,47 +922,41 @@ function submitUnassign(roomItemId, maxQty) {
         msgEl.textContent = `Cannot return more than ${maxQty} units.`; return;
     }
 
-    btn.disabled = true;
-    btn.style.opacity = '0.5';
-    btn.style.cursor = 'not-allowed';
-    btn.innerHTML = '<span style="display:inline-block;width:12px;height:12px;border:2px solid white;border-top-color:transparent;border-radius:50%;animation:spin 0.7s linear infinite;margin-right:6px;vertical-align:middle;"></span>Processing...';
-
-    const minWaitTimer = setTimeout(() => {
-        if (btn.disabled) {
-            btn.disabled = false; btn.style.opacity = '1'; btn.style.cursor = 'pointer';
-            btn.innerHTML = '<i class="bi bi-arrow-return-left me-1"></i>Return Stock';
-        }
-    }, 10000);
+    if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
+    }
 
     fetch('{% url "central_admin:unassign_inventory_api" %}', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCsrf() },
-        body: JSON.stringify({ room_item_id: roomItemId, quantity: qty }),
+        body: JSON.stringify({
+            room_item_id: roomItemId,
+            quantity: qty
+        })
     })
     .then(r => r.json())
     .then(data => {
-        clearTimeout(minWaitTimer);
-        if (data.success) {
-            btn.innerHTML = '<i class="bi bi-check-lg me-1"></i>Returned!';
+        if (data.status === 'success') {
             msgEl.style.display = 'block'; msgEl.style.color = '#059669';
-            msgEl.textContent = data.message;
-            setTimeout(() => {
-                bootstrap.Modal.getInstance(document.getElementById('viewAssignmentsModal')).hide();
-                location.reload();
-            }, 1200);
+            msgEl.textContent = 'Stock returned successfully! Reloading...';
+            setTimeout(() => location.reload(), 1000);
         } else {
-            btn.disabled = false; btn.style.opacity = '1'; btn.style.cursor = 'pointer';
-            btn.innerHTML = '<i class="bi bi-arrow-return-left me-1"></i>Return Stock';
             msgEl.style.display = 'block'; msgEl.style.color = '#dc2626';
-            msgEl.textContent = data.error || 'Failed. Try again.';
+            msgEl.textContent = data.message || 'Error returning stock.';
+            if (btn) {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="bi bi-arrow-return-left"></i>';
+            }
         }
     })
-    .catch(() => {
-        clearTimeout(minWaitTimer);
-        btn.disabled = false; btn.style.opacity = '1'; btn.style.cursor = 'pointer';
-        btn.innerHTML = '<i class="bi bi-arrow-return-left me-1"></i>Return Stock';
+    .catch(err => {
         msgEl.style.display = 'block'; msgEl.style.color = '#dc2626';
         msgEl.textContent = 'Network error. Try again.';
+        if (btn) {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="bi bi-arrow-return-left"></i>';
+        }
     });
 }
 
@@ -1356,6 +1323,24 @@ function showErrorModal(message) {
     modal.show();
 }
 
+function searchMainInventory() {
+    const input = document.getElementById("inventorySearchBox");
+    const filter = input.value.toLowerCase();
+    const table = document.getElementById("inventoryTable");
+    if (!table) return;
+    const tr = table.getElementsByTagName("tr");
+    
+    // Loop through all table rows, and hide those who don't match the search query
+    // Start from 1 to skip the header row
+    for (let i = 1; i < tr.length; i++) {
+        let textContent = tr[i].textContent || tr[i].innerText;
+        if (textContent.toLowerCase().indexOf(filter) > -1) {
+            tr[i].style.display = "";
+        } else {
+            tr[i].style.display = "none";
+        }
+    }
+}
 </script>
 
 {% endblock content %}

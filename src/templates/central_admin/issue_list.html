@@ -108,6 +108,16 @@
             </div>
             <div class="modal-body">
               <div class="mb-3"><h6 class="fw-bold">Description</h6><p>{{ issue.description }}</p></div>
+              <div class="mb-3">
+                <h6 class="fw-bold text-primary"><i class="bi bi-chat-square-text me-1"></i>Room Incharge Remark</h6>
+                <div class="p-3 bg-light rounded border border-primary border-opacity-25" style="font-size:0.9rem;">
+                  {% if issue.incharge_remark %}
+                    {{ issue.incharge_remark|linebreaksbr }}
+                  {% else %}
+                    <span class="text-muted fst-italic">No remark provided yet.</span>
+                  {% endif %}
+                </div>
+              </div>
               <div class="mb-3"><h6 class="fw-bold">Created By</h6><p>{{ issue.created_by }}</p></div>
               <div class="mb-3"><h6 class="fw-bold">Room</h6><p>{{ issue.room.room_name }}</p></div>
               <div class="mb-3">
