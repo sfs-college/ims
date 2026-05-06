@@ -71,20 +71,39 @@
             console.log('[MobileUtils] Handling deep link:', url);
 
             // Match both  in.sfscollege.blixtro://auth?...
-            // and any https://blixtro.sfscollege.app/...auth...
+            // and any https://blixtro.sfscollege.app/core/app-auth-callback/...
             const isAuthLink = (
                 url.startsWith('in.sfscollege.blixtro://auth') ||
                 url.includes('://auth?') ||
+                url.includes('/app-auth-callback') ||
                 url.includes('/auth/')  ||
                 url.includes('firebase')
             );
 
             if (!isAuthLink) return;
 
-            const urlObj = new URL(url);
-            const params = new URLSearchParams(urlObj.search);
-            const authStatus = params.get('status');
-            const idToken   = params.get('id_token') || params.get('token');
+            // Parse parameters — custom scheme URLs may fail with new URL()
+            let authStatus = null;
+            let idToken = null;
+
+            try {
+                const urlObj = new URL(url);
+                const params = new URLSearchParams(urlObj.search);
+                authStatus = params.get('status');
+                idToken = params.get('id_token') || params.get('token');
+            } catch (_) {
+                // Fallback: extract query string manually for custom schemes
+                const queryIdx = url.indexOf('?');
+                if (queryIdx > -1) {
+                    const params = new URLSearchParams(url.substring(queryIdx));
+                    authStatus = params.get('status');
+                    idToken = params.get('id_token') || params.get('token');
+                }
+                // Also check for success indicators in the URL path/fragment
+                if (!authStatus && url.includes('status=success')) {
+                    authStatus = 'success';
+                }
+            }
 
             if (idToken) {
                 console.log('[MobileUtils] Auth token received via deep link');
@@ -92,7 +111,7 @@
                 return;
             }
 
-            if (authStatus === 'success') {
+            if (authStatus === 'success' || url.includes('/app-auth-callback')) {
                 // Session cookie already set server-side — navigate into the app.
                 console.log('[MobileUtils] Auth success deep link — navigating to issue report');
                 window.location.href = '/students/report_issue/?app=1';
@@ -331,6 +350,10 @@
                             data: base64Data,
                             directory: attempt.dir,
                             recursive: true,
+                            // NOTE: encoding must be OMITTED for base64 data.
+                            // When encoding is not set, Capacitor decodes base64 → binary.
+                            // Setting encoding:'utf8' would write the raw base64 text string,
+                            // resulting in corrupted files.
                         });
                         break;
                     } catch (writeErr) {
@@ -402,9 +425,12 @@
 
         arrayBufferToBase64(buffer) {
             const bytes = new Uint8Array(buffer);
+            // Process in 8KB chunks to avoid stack overflow on large files
+            const CHUNK_SIZE = 8192;
             let binary = '';
-            for (let i = 0; i < bytes.byteLength; i++) {
-                binary += String.fromCharCode(bytes[i]);
+            for (let offset = 0; offset < bytes.byteLength; offset += CHUNK_SIZE) {
+                const chunk = bytes.subarray(offset, Math.min(offset + CHUNK_SIZE, bytes.byteLength));
+                binary += String.fromCharCode.apply(null, chunk);
             }
             return window.btoa(binary);
         },
@@ -646,13 +672,14 @@
             return { success: true, idToken, user: result.user, method: 'firebase-popup' };
         },
 
-        // ── CAPACITOR: Open Google auth in Capacitor Browser plugin (in-app overlay) ──
-        // This keeps the user inside the app — no external browser switch.
-        // Flow: open in-app browser → user signs in → Google redirects to our server
-        //       → server sets session → redirects to /students/report_issue/ or deep link
-        //       → app detects the redirect and closes the browser.
+        // ── CAPACITOR: Open Google auth via system browser (NOT in-app WebView) ──
+        // Google blocks OAuth from embedded WebViews with 403: disallowed_useragent.
+        // Using the system default browser avoids this restriction.
+        // Flow: open system browser → user signs in → Google redirects to our server
+        //       → server sets session → server redirects to deep link callback
+        //       → app receives deep link and navigates to authenticated page.
         async capacitorGoogleLogin(firebaseConfig, options) {
-            console.log('[MobileAuth] Capacitor: opening Google Sign-In in in-app browser');
+            console.log('[MobileAuth] Capacitor: opening Google Sign-In in system browser');
             PageLoader.show('Opening Google Sign-In...', 'overlay');
 
             try {
@@ -661,42 +688,26 @@
                     window.firebase.initializeApp(firebaseConfig);
                 }
 
-                // Use the Capacitor Browser plugin to open an in-app browser overlay
-                const Browser = window.Capacitor?.Plugins?.Browser;
-                if (!Browser) {
-                    // No Browser plugin — fall back to signInWithRedirect
-                    console.log('[MobileAuth] No Browser plugin, falling back to redirect');
-                    PageLoader.hide();
-                    return this.capacitorRedirectFallback(firebaseConfig, options);
-                }
-
                 // Mark that we're waiting for auth to complete
                 sessionStorage.setItem('pendingGoogleLogin', 'true');
 
-                // Open the Django allauth Google OAuth URL in the in-app browser.
-                // After successful auth, allauth redirects to /students/report_issue/
-                // We detect this URL change and treat it as auth success.
-                const authUrl = 'https://blixtro.sfscollege.app/accounts/google/login/?process=login';
+                // Build the OAuth URL.
+                // Use Django allauth's Google login which opens in the system browser.
+                // The &app=1 flag is captured by CapacitorAuthMiddleware and stored in
+                // the session so the AccountAdapter redirects to the deep-link callback.
+                const authUrl = 'https://blixtro.sfscollege.app/accounts/google/login/?process=login&app=1';
 
-                await Browser.open({
-                    url: authUrl,
-                    presentationStyle: 'popover',
-                    toolbarColor: '#6366f1',
-                });
-
-                // Listen for auth completion signals
+                // Listen for auth completion signals BEFORE opening the browser
                 return new Promise((resolve, reject) => {
                     let resolved = false;
 
                     const appPlugin = window.Capacitor?.Plugins?.App;
                     let urlListener = null;
-                    let browserCloseListener = null;
-                    let browserPageListener = null;
+                    let resumeListener = null;
 
                     const cleanup = async () => {
                         try { urlListener?.remove?.(); } catch (_) {}
-                        try { browserCloseListener?.remove?.(); } catch (_) {}
-                        try { browserPageListener?.remove?.(); } catch (_) {}
+                        try { resumeListener?.remove?.(); } catch (_) {}
                     };
 
                     const handleAuthSuccess = async () => {
@@ -705,8 +716,6 @@
                         await cleanup();
                         PageLoader.hide();
                         sessionStorage.removeItem('pendingGoogleLogin');
-                        // Close the in-app browser
-                        try { await Browser.close(); } catch (_) {}
                         // Session is already set server-side — navigate to issue report
                         resolve({ success: true, method: 'capacitor-inapp-browser', sessionSet: true });
                     };
@@ -722,42 +731,53 @@
                                 await handleAuthSuccess();
                             }
                         });
-                    }
 
-                    // Signal 2: In-app browser navigates to the success page
-                    // Capacitor Browser fires 'browserPageLoaded' on each page load
-                    browserPageListener = Browser.addListener('browserPageLoaded', async () => {
-                        // We can't read the URL directly, but we can check if auth completed
-                        // by polling the session status
-                        try {
-                            const resp = await fetch('/core/auth-status/', {
-                                credentials: 'include',
-                                cache: 'no-cache'
-                            });
-                            if (resp.ok) {
-                                const data = await resp.json();
-                                if (data.authenticated) {
-                                    console.log('[MobileAuth] Auth confirmed via session check');
-                                    await handleAuthSuccess();
+                        // Signal 2: App resumes after returning from system browser
+                        // Check if auth was completed while we were in the browser
+                        resumeListener = appPlugin.addListener('appStateChange', async (state) => {
+                            if (state.isActive && !resolved) {
+                                console.log('[MobileAuth] App resumed, checking auth status...');
+                                try {
+                                    const resp = await fetch('/core/auth-status/', {
+                                        credentials: 'include',
+                                        cache: 'no-cache'
+                                    });
+                                    if (resp.ok) {
+                                        const data = await resp.json();
+                                        if (data.authenticated) {
+                                            console.log('[MobileAuth] Auth confirmed via session check on resume');
+                                            await handleAuthSuccess();
+                                        } else {
+                                            // User returned without completing auth
+                                            PageLoader.hide();
+                                        }
+                                    }
+                                } catch (_) {
+                                    PageLoader.hide();
                                 }
                             }
-                        } catch (_) {}
-                    });
+                        });
+                    }
 
-                    // Signal 3: User closes the browser without completing auth
-                    browserCloseListener = Browser.addListener('browserFinished', async () => {
-                        if (resolved) return;
-                        resolved = true;
-                        await cleanup();
-                        PageLoader.hide();
-                        sessionStorage.removeItem('pendingGoogleLogin');
-                        reject(new Error('Sign-in cancelled'));
-                    });
+                    // Open in the SYSTEM browser (not in-app WebView)
+                    // This avoids Google's 403 disallowed_useragent error
+                    window.open(authUrl, '_system');
+
+                    // Timeout: if no response in 5 minutes, reject
+                    setTimeout(async () => {
+                        if (!resolved) {
+                            resolved = true;
+                            await cleanup();
+                            PageLoader.hide();
+                            sessionStorage.removeItem('pendingGoogleLogin');
+                            reject(new Error('Sign-in timed out'));
+                        }
+                    }, 300000);
                 });
 
             } catch (err) {
                 PageLoader.hide();
-                console.error('[MobileAuth] Capacitor in-app browser login error:', err.code, err.message);
+                console.error('[MobileAuth] Capacitor system browser login error:', err.code, err.message);
                 throw err;
             }
         },
@@ -1189,6 +1209,7 @@
                 window.SUPPRESS_MOBILE_FOOTER === true ||
                 path === '/' ||
                 path === '/core/app/' ||
+                path.startsWith('/core/app') ||
                 path.endsWith('/app/') ||
                 path.includes('/core/book-room') ||
                 path.includes('/book-room') ||
@@ -1227,9 +1248,7 @@
         createFallbackNavItems() {
             // Create minimal fallback items based on URL
             const path = window.location.pathname;
-            // Use app home URL for Capacitor, landing page for browser
-            const homeUrl = window.IS_CAPACITOR ? '/core/app/?app=1' : '/';
-            let items = [{ icon: 'home', label: 'Home', url: homeUrl }];
+            let items;
             
             if (path.includes('/central-admin/')) {
                 items = [
@@ -1237,6 +1256,10 @@
                     { icon: 'settings', label: 'Aura', url: '/central-admin/aura-dashboard/' }
                 ];
             } else if (path.includes('/students/') || path.includes('/student/')) {
+                const studentHome = window.IS_CAPACITOR ? '/core/app/?app=1' : '/';
+                items = [{ icon: 'home', label: 'Home', url: studentHome }];
+            } else {
+                // Default: use landing page for browser, app home for Capacitor
                 const homeUrl = window.IS_CAPACITOR ? '/core/app/?app=1' : '/';
                 items = [{ icon: 'home', label: 'Home', url: homeUrl }];
             }
@@ -1474,8 +1497,20 @@
             //    as an inline <script> (outside DOMContentLoaded) on any page that
             //    should show only the Home tab, regardless of sidebar contents.
             if (window.MOBILE_NAV_HOME_ONLY === true) {
-                const homeUrl = window.IS_CAPACITOR ? '/core/app/?app=1' : '/';
-                return [{ icon: 'home', label: 'Home', url: homeUrl }];
+                // Even when MOBILE_NAV_HOME_ONLY is set, determine the correct home URL:
+                // Admin pages → dashboard, student pages → app home (Capacitor) or landing (/)
+                let homeOnlyUrl;
+                if (path.includes('/central-admin/')) {
+                    homeOnlyUrl = '/central-admin/dashboard/';
+                } else if (path.includes('/room-incharge/')) {
+                    const roomMatch = path.match(/\/room-incharge\/room\/([^/]+)/);
+                    homeOnlyUrl = roomMatch
+                        ? `/room-incharge/room/${roomMatch[1]}/dashboard/`
+                        : '/central-admin/dashboard/';
+                } else {
+                    homeOnlyUrl = window.IS_CAPACITOR ? '/core/app/?app=1' : '/';
+                }
+                return [{ icon: 'home', label: 'Home', url: homeOnlyUrl }];
             }
 
             // ── Student pages: ALWAYS return only a Home link, no matter what the
@@ -1529,13 +1564,18 @@
             }
 
             // Always return at least a home link so footer shows.
-            // For admin pages, home = admin dashboard.
-            // For Capacitor, home = app home screen.
+            // For admin pages, home = admin dashboard (even on Capacitor).
+            // For student/other pages on Capacitor, home = app home screen.
             // For everything else, home = landing page.
             if (items.length === 0) {
                 let homeUrl;
-                if (path.includes('/central-admin/') || path.includes('/room-incharge/')) {
+                if (path.includes('/central-admin/')) {
                     homeUrl = '/central-admin/dashboard/';
+                } else if (path.includes('/room-incharge/')) {
+                    const roomMatch = path.match(/\/room-incharge\/room\/([^/]+)/);
+                    homeUrl = roomMatch
+                        ? `/room-incharge/room/${roomMatch[1]}/dashboard/`
+                        : '/central-admin/dashboard/';
                 } else if (window.IS_CAPACITOR) {
                     homeUrl = '/core/app/?app=1';
                 } else {

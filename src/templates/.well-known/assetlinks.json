@@ -1,0 +1,12 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "in.sfscollege.blixtro",
+      "sha256_cert_fingerprints": [
+        "2B:64:8E:07:A8:CD:B9:20:42:CA:15:2B:F5:60:25:65:CA:37:FC:D3:73:7C:88:B2:A1:A6:EE:0D:28:56:1C:B2"
+      ]
+    }
+  }
+]
