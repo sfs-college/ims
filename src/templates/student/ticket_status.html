@@ -44,7 +44,12 @@
         <p><strong>TAT Deadline:</strong> {{ ticket.tat_deadline }}</p>
         <p><strong>Description:</strong><br>{{ ticket.description|linebreaks }}</p>
 
-        {% if ticket.closure_reason %}
+        {% if ticket.incharge_remark %}
+        <div style="background:#eff6ff; border:1px solid #bfdbfe; border-left:4px solid #3b82f6; border-radius:10px; padding:12px 16px; margin-top:12px; color:#1e40af; font-size:0.9rem; word-wrap:break-word;">
+            <strong><i class="bi bi-info-circle-fill me-1"></i>Room Incharge Remark:</strong><br>
+            {{ ticket.incharge_remark|linebreaksbr }}
+        </div>
+        {% endif %}
         <div style="background:#fef2f2; border:1px solid #fecaca; border-left:4px solid #dc2626; border-radius:10px; padding:12px 16px; margin-top:12px; color:#991b1b; font-size:0.9rem; word-wrap:break-word;">
             <strong><i class="bi bi-x-circle-fill me-1"></i>Admin Message:</strong><br>
             {{ ticket.closure_reason }}

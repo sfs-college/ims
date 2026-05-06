@@ -19,6 +19,7 @@ const config: CapacitorConfig = {
     allowMixedContent: false,
     captureInput: true,
     webContentsDebuggingEnabled: false,
+    overrideUserAgent: "Mozilla/5.0 (Linux; Android 10; Mobile Safari/537.36) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Mobile Safari/537.36",
   },
   ios: {
     contentInset: 'automatic',

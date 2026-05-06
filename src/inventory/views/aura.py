@@ -447,6 +447,39 @@ def get_assignment_details(request):
     org = profile.org
 
     master_item = get_object_or_404(Item, id=item_id, organisation=org, room__isnull=True)
+
+    if not room_id:
+        # Return all assignments
+        assignments = Item.objects.filter(
+            organisation=org,
+            room__isnull=False,
+            item_name=master_item.item_name
+        ).select_related('room', 'room__department')
+        
+        assignment_list = []
+        assigned_total = 0
+        for item in assignments:
+            if item.total_count > 0:
+                assignment_list.append({
+                    'room_id': item.room.id,
+                    'room_name': f"{item.room.label} - {item.room.room_name}" if item.room.label else item.room.room_name,
+                    'room_category': item.room.get_room_category_display() if hasattr(item.room, 'get_room_category_display') else item.room.room_category,
+                    'assigned_quantity': item.total_count,
+                    'room_item_id': item.id
+                })
+                assigned_total += item.total_count
+
+        return JsonResponse({
+            'master_stats': {
+                'total': master_item.total_count,
+                'available': master_item.available_count,
+                'assigned': assigned_total
+            },
+            'assignments': assignment_list,
+            'item_name': master_item.item_name
+        })
+
+    # Legacy: Specific room assignment details
     room = get_object_or_404(Room, id=room_id, organisation=org)
 
     # Match by item_name only — category object differs between master and room
@@ -459,14 +492,14 @@ def get_assignment_details(request):
     if assigned_item:
         return JsonResponse({
             'assigned_quantity': assigned_item.total_count,
-            'room_name': room.room_name,
+            'room_name': f"{room.label} - {room.room_name}" if room.label else room.room_name,
             'item_name': master_item.item_name,
             'room_item_id': assigned_item.id,
         })
     else:
         return JsonResponse({
             'assigned_quantity': 0,
-            'room_name': room.room_name,
+            'room_name': f"{room.label} - {room.room_name}" if room.label else room.room_name,
             'item_name': master_item.item_name,
             'room_item_id': None,
         })
