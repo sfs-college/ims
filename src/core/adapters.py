@@ -6,6 +6,19 @@ class AccountAdapter(DefaultAccountAdapter):
     def is_open_for_signup(self, request):
         return False
 
+    def get_login_redirect_url(self, request):
+        """
+        After a successful social login (Google), redirect Capacitor app users
+        to a dedicated deep-link callback page instead of the normal student portal.
+
+        Detection: The Capacitor app passes ?app=1 when starting the OAuth flow.
+        We store this flag in the session so it persists through the Google redirect chain.
+        """
+        is_capacitor = request.session.pop('capacitor_auth', False)
+        if is_capacitor:
+            return '/core/app-auth-callback/'
+        return super().get_login_redirect_url(request)
+
 
 class SocialAccountAdapter(DefaultSocialAccountAdapter):
     """
@@ -20,6 +33,14 @@ class SocialAccountAdapter(DefaultSocialAccountAdapter):
     def is_open_for_signup(self, request, sociallogin):
         # Domain restriction is handled in the Firebase view login logic
         return True
+
+    def pre_social_login(self, request, sociallogin):
+        """
+        Called right before the social login is completed.
+        Preserve the Capacitor flag that was set in the session during the
+        initial OAuth redirect (via the allauth middleware).
+        """
+        super().pre_social_login(request, sociallogin)
 
     def populate_user(self, request, sociallogin, data):
         """

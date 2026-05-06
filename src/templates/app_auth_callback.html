@@ -1,0 +1,143 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Redirecting to Blixtro...</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: linear-gradient(160deg, #0f172a 0%, #1e293b 60%, #0f172a 100%);
+      font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+      color: #f1f5f9;
+      padding: 24px;
+    }
+    .callback-card {
+      max-width: 380px;
+      width: 100%;
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 24px;
+      backdrop-filter: blur(20px);
+      padding: 48px 32px;
+      text-align: center;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+    }
+    .success-ring {
+      width: 80px; height: 80px;
+      margin: 0 auto 24px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, rgba(16, 185, 129, 0.2), rgba(99, 102, 241, 0.2));
+      border: 2px solid rgba(16, 185, 129, 0.4);
+      display: flex; align-items: center; justify-content: center;
+      animation: pulse 2s ease-in-out infinite;
+    }
+    .success-ring svg {
+      width: 36px; height: 36px;
+      fill: none;
+      stroke: #10b981;
+      stroke-width: 3;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+    h1 { font-size: 1.4rem; font-weight: 700; margin-bottom: 8px; }
+    p { color: rgba(241, 245, 249, 0.6); font-size: 0.9rem; line-height: 1.5; margin-bottom: 24px; }
+    .open-app-btn {
+      display: inline-block;
+      padding: 14px 32px;
+      background: linear-gradient(135deg, #6366f1, #8b5cf6);
+      color: white;
+      border: none;
+      border-radius: 14px;
+      font-weight: 700;
+      font-size: 1rem;
+      text-decoration: none;
+      cursor: pointer;
+      transition: transform 0.2s, box-shadow 0.2s;
+      box-shadow: 0 4px 16px rgba(99, 102, 241, 0.4);
+    }
+    .open-app-btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 24px rgba(99, 102, 241, 0.5);
+    }
+    .spinner {
+      width: 20px; height: 20px;
+      border: 2.5px solid rgba(255,255,255,0.3);
+      border-top-color: white;
+      border-radius: 50%;
+      display: inline-block;
+      animation: spin 0.8s linear infinite;
+      vertical-align: middle;
+      margin-right: 8px;
+    }
+    .sub-text {
+      margin-top: 16px;
+      color: rgba(241, 245, 249, 0.4);
+      font-size: 0.78rem;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    @keyframes pulse {
+      0%, 100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.2); }
+      50% { box-shadow: 0 0 0 12px rgba(16, 185, 129, 0); }
+    }
+  </style>
+</head>
+<body>
+  <div class="callback-card">
+    <div class="success-ring">
+      <svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"></polyline></svg>
+    </div>
+    <h1>Sign-In Successful!</h1>
+    <p>You've been authenticated. Redirecting you back to the Blixtro app...</p>
+
+    <a href="in.sfscollege.blixtro://auth?status=success" class="open-app-btn" id="openAppBtn">
+      <span class="spinner"></span> Opening App...
+    </a>
+
+    <p class="sub-text">
+      If the app doesn't open automatically,<br>
+      tap the button above to return to Blixtro.
+    </p>
+  </div>
+
+  <script>
+    // Attempt to open the app via deep link immediately
+    (function() {
+      var deepLink = 'in.sfscollege.blixtro://auth?status=success';
+
+      // Try 1: Use an intent URI on Android for more reliable app opening
+      var intentUri = 'intent://auth?status=success#Intent;'
+        + 'scheme=in.sfscollege.blixtro;'
+        + 'package=in.sfscollege.blixtro;'
+        + 'end';
+
+      // Detect Android via user agent
+      var isAndroid = /android/i.test(navigator.userAgent);
+
+      // Try opening via deep link after a short delay (gives page time to render)
+      setTimeout(function() {
+        if (isAndroid) {
+          // On Android, try the intent URI first (more reliable for app links)
+          window.location.href = intentUri;
+        } else {
+          // On iOS, use the custom scheme directly
+          window.location.href = deepLink;
+        }
+      }, 800);
+
+      // Fallback: update button text after 5 seconds if still on this page
+      setTimeout(function() {
+        var btn = document.getElementById('openAppBtn');
+        if (btn) {
+          btn.innerHTML = '🚀 Open Blixtro App';
+        }
+      }, 5000);
+    })();
+  </script>
+</body>
+</html>

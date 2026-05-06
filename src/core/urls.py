@@ -21,6 +21,7 @@ urlpatterns = [
      path("admin-book-room/", views.admin_room_booking_redirect, name="admin_room_booking"),
      path("admin-book-room/verify/", views.admin_room_booking_redirect, name="verify_admin_booking_credentials"),
      path("app/", views.app_home_view, name="app_home"),
+     path("app-auth-callback/", views.app_auth_callback_view, name="app_auth_callback"),
      path('api/rooms-by-category/', views.rooms_by_category, name='rooms_by_category'),
      path("aura/import-creds/", views.import_booking_credentials, name="import_booking_credentials"),
      path("aura/create-cred/", views.create_booking_credentials, name="create_booking_credentials"),

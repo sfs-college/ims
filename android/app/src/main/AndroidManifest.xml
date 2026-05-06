@@ -30,6 +30,19 @@
                 <data android:scheme="in.sfscollege.blixtro" android:host="auth" />
             </intent-filter>
 
+            <!-- HTTPS App Links — handles redirects from the system browser
+                 back to the app after Google OAuth completion.
+                 The server page at /core/app-auth-callback/ also tries the custom
+                 scheme above, but this provides a reliable fallback. -->
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="https"
+                      android:host="blixtro.sfscollege.app"
+                      android:pathPrefix="/core/app-auth-callback" />
+            </intent-filter>
+
         </activity>
 
         <provider

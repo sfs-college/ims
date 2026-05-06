@@ -58,6 +58,19 @@ def app_home_view(request):
     return render(request, 'app_home.html', {'admin_exists': admin_exists})
 
 
+def app_auth_callback_view(request):
+    """
+    Deep-link callback page — served in the system browser after successful
+    Google OAuth via allauth.
+
+    This page auto-redirects back to the Capacitor app using the custom URL
+    scheme ``in.sfscollege.blixtro://auth?status=success``.  If the deep link
+    doesn't fire automatically (some browsers block it), the page also shows
+    a manual "Open App" button.
+    """
+    return render(request, 'app_auth_callback.html')
+
+
 def auth_status_view(request):
     """
     Lightweight JSON endpoint used by the Capacitor in-app browser to poll
