@@ -1,5 +1,6 @@
 from allauth.account.adapter import DefaultAccountAdapter
 from allauth.socialaccount.adapter import DefaultSocialAccountAdapter
+from django.conf import settings
 
 
 class AccountAdapter(DefaultAccountAdapter):
@@ -25,14 +26,33 @@ class SocialAccountAdapter(DefaultSocialAccountAdapter):
     Custom social account adapter.
 
     Key responsibility beyond open-for-signup:
-    social account payload when a student logs in.  Without this,
-    request.user.email is empty and the Issue reporter_email field is
-    never filled in.
+    - Enforces @sfscollege.in domain restriction for all Google logins
+    - Syncs email from social account payload so request.user.email is never blank
     """
 
     def is_open_for_signup(self, request, sociallogin):
-        # Domain restriction is handled in the Firebase view login logic
-        return True
+        """
+        Allow signup only for @sfscollege.in email addresses.
+        This enforces the domain restriction for the allauth Google login path
+        (used by Capacitor system-browser auth flow).
+        """
+        allowed_domain = getattr(settings, 'ALLOWED_EMAIL_DOMAIN', 'sfscollege.in')
+        email = ''
+        try:
+            extra = sociallogin.account.extra_data or {}
+            email = (
+                extra.get('email') or
+                extra.get('emailAddress') or
+                getattr(sociallogin.user, 'email', '') or
+                ''
+            ).strip().lower()
+        except Exception:
+            pass
+
+        if not email:
+            return False
+
+        return email.endswith(f'@{allowed_domain}')
 
     def pre_social_login(self, request, sociallogin):
         """

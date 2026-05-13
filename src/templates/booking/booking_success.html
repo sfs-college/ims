@@ -3,6 +3,10 @@
 
 {% block title %} | Request Submitted{% endblock %}
 
+{% block style %}
+<script>window.SUPPRESS_MOBILE_FOOTER = true;</script>
+{% endblock style %}
+
 {% block content %}
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800;900&display=swap" rel="stylesheet">
 <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css" rel="stylesheet">
@@ -237,3 +241,10 @@ document.addEventListener('DOMContentLoaded', function () {
 </a> {% endcomment %}
 
 {% endblock %}
+
+{% block scripts %}
+<script>
+// Suppress mobile footer nav on booking success page
+window.SUPPRESS_MOBILE_FOOTER = true;
+</script>
+{% endblock scripts %}

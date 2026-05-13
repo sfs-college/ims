@@ -46,6 +46,41 @@
     pointer-events: none;
   }
 
+  /* ── Room label header in sidebar ───────────────────────────────── */
+  .sidebar-room-header {
+    padding: 10px 14px 12px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 6px;
+  }
+  .sidebar-room-label {
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: rgba(255,255,255,0.3);
+    margin-bottom: 3px;
+  }
+  .sidebar-room-name {
+    font-size: 13px;
+    font-weight: 600;
+    color: rgba(255,255,255,0.85);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .sidebar-room-badge {
+    display: inline-block;
+    background: rgba(108,99,255,0.18);
+    color: var(--accent-lt);
+    border: 1px solid rgba(108,99,255,0.3);
+    border-radius: 5px;
+    font-size: 10px;
+    font-weight: 700;
+    padding: 1px 7px;
+    margin-top: 3px;
+    letter-spacing: 0.04em;
+  }
+
   /* ── Nav items ───────────────────────────────────────────────────── */
   .sidebar .nav {
     display: flex;
@@ -155,6 +190,22 @@
 <div class="sidebar-overlay" id="sidebarOverlay"></div>
 
 <section class="sidebar" id="mainSidebar">
+
+  {% comment %} Room name + label header in sidebar {% endcomment %}
+  {% with current_room=None %}
+  {% for r in request.user.profile.rooms_incharge.all %}
+    {% if r.slug == room_slug %}
+      <div class="sidebar-room-header">
+        <div class="sidebar-room-label">Current Room</div>
+        <div class="sidebar-room-name">{{ r.room_name }}</div>
+        {% if r.label %}
+          <span class="sidebar-room-badge">{{ r.label }}</span>
+        {% endif %}
+      </div>
+    {% endif %}
+  {% endfor %}
+  {% endwith %}
+
   <div class="nav">
 
     <a class="navlink {% if request.resolver_match.url_name == 'room_dashboard' %}active{% endif %}"
@@ -226,6 +277,15 @@
     </a>
 
     <div class="nav-divider"></div>
+
+    {% comment %} Master Inventory — only visible if access has been granted {% endcomment %}
+    {% if request.user.profile.master_inventory_access %}
+    <a class="navlink {% if request.resolver_match.url_name == 'master_inventory' %}active{% endif %}"
+       href="{% url 'room_incharge:master_inventory' room_slug=room_slug %}">
+      <span class="material-symbols-outlined">inventory_2</span>
+      <span class="menu-text">Master Inventory</span>
+    </a>
+    {% endif %}
 
     <a class="navlink {% if request.resolver_match.url_name == 'room_settings' %}active{% endif %}"
        href="{% url 'room_incharge:room_settings' room_slug=room_slug %}">

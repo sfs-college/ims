@@ -39,13 +39,13 @@ class Issues(forms.ModelForm):
         fields = ['subject','description','resolved']
 
 
-class Category(forms.ModelForm):
+class CategoryForm(forms.ModelForm):
     class Meta:
         model = Category
         fields = ['category_name']
 
 
-class Brand(forms.ModelForm):
+class BrandForm(forms.ModelForm):
     class Meta:
         model = Brand
         fields = ['brand_name']

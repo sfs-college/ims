@@ -20,6 +20,7 @@ from inventory.email import safe_send_mail, build_email_shell
 from django.utils import timezone
 from django.views.decorators.http import require_POST
 from datetime import timedelta
+import logging
 import requests
 from django.http import HttpResponse, Http404
 from inventory.booking_utils import (
@@ -31,6 +32,8 @@ from inventory.booking_utils import (
 )
 from django.utils.html import escape
 
+logger = logging.getLogger(__name__)
+
 
 BOOKING_NOTIFICATION_EMAILS = [
     'hr@sfscollege.in',
@@ -38,6 +41,7 @@ BOOKING_NOTIFICATION_EMAILS = [
     'sabastin@sfscollege.in',
     'anandl@sfscollege.in',
     'sibisebastian@sfscollege.in',
+    'roshancrasta@sfscollege.in'
 ]
 
 def _get_requirements_text_for_email(req_obj):
@@ -102,8 +106,11 @@ class PeopleListView(LoginRequiredMixin, ListView):
     model = UserProfile
     context_object_name = 'people'
     
-    def get_qeryset(self):
-        return super().get_queryset().filter(organisation=self.request.user.organisation)
+    def get_queryset(self):
+        profile = getattr(self.request.user, 'profile', None)
+        if profile:
+            return super().get_queryset().filter(org=profile.org)
+        return super().get_queryset().none()
     
 
 class PeopleCreateView(LoginRequiredMixin, CreateView):
@@ -184,7 +191,7 @@ class PeopleCreateView(LoginRequiredMixin, CreateView):
                 recipient_list=[user.email],
             )
         except Exception as e:
-            print(f"[central_admin] safe_send_mail unexpected error: {e}", flush=True)
+            logger.error(f"[central_admin] safe_send_mail unexpected error: {e}")
 
         return redirect(self.success_url)
 
@@ -305,20 +312,15 @@ class PeopleDeleteView(LoginRequiredMixin, DeleteView):
             Purchase.objects.filter(requested_by=person).update(requested_by=None)
             
             # For room bookings, we keep the email but note that the user is deleted
-            RoomBooking.objects.filter(faculty_email=deleted_user_email).update(
-                # Keep the booking but add a note or handle in view
-                # You might want to add a 'user_deleted' flag
-            )
-            
-            RoomBookingRequest.objects.filter(faculty_email=deleted_user_email).update(
-                # Keep the request but add a note or handle in view
-            )
+            # (no fields to update — bookings are identified by faculty_email, not user FK)
+            # RoomBooking and RoomBookingRequest records are intentionally preserved
+            # so booking history remains intact after user deletion.
             
             # Log the deletion
-            print(f'[User Deletion] User {deleted_user_name} ({deleted_user_email}) deleted from {org.name}')
-            print(f'[User Deletion] Reverted {rooms_as_incharge.count()} rooms')
-            print(f'[User Deletion] Reverted {items_assigned_to_user.count()} items to master inventory')
-            print(f'[User Deletion] {issues_assigned.count()} issues marked for admin review')
+            logger.info(f'[User Deletion] User {deleted_user_name} ({deleted_user_email}) deleted from {org.name}')
+            logger.info(f'[User Deletion] Reverted {rooms_as_incharge.count()} rooms')
+            logger.info(f'[User Deletion] Reverted {items_assigned_to_user.count()} items to master inventory')
+            logger.info(f'[User Deletion] {issues_assigned.count()} issues marked for admin review')
             
             # Add success message
             messages.success(
@@ -330,7 +332,7 @@ class PeopleDeleteView(LoginRequiredMixin, DeleteView):
             
         except Exception as e:
             # Log error but still proceed with deletion
-            print(f'[User Deletion Error] {str(e)}')
+            logger.info(f'[User Deletion Error] {str(e)}')
             messages.error(
                 request,
                 f'User deleted but some data cleanup failed: {str(e)}'
@@ -348,7 +350,6 @@ class RoomListView(LoginRequiredMixin, ListView):
     def get_queryset(self):
         qs = Room.objects.filter(
             organisation=self.request.user.profile.org,
-            incharge__isnull=False  # Exclude reverted rooms (rooms with no incharge)
         ).select_related('incharge', 'incharge__user', 'department')
         category = self.request.GET.get('category')
         search   = self.request.GET.get('search')
@@ -1310,7 +1311,7 @@ class ApproveRoomBookingRequestView(LoginRequiredMixin, View):
                 with req.requirements_doc.storage.open(req.requirements_doc.name, 'rb') as _f:
                     _req_attachment = (_fname, _f.read(), _mime)
             except Exception as _ae:
-                print(f"[ApproveBooking] Could not read requirements file for attachment: {_ae}", flush=True)
+                logger.info(f"[ApproveBooking] Could not read requirements file for attachment: {_ae}")
 
         # Email 1: Faculty — booking confirmed
         try:
@@ -1338,7 +1339,7 @@ class ApproveRoomBookingRequestView(LoginRequiredMixin, View):
                 attachments=[_req_attachment] if _req_attachment else None,
             )
         except Exception as _e:
-            print(f"[ApproveBooking] Faculty email failed: {_e}", flush=True)
+            logger.error(f"[ApproveBooking] Faculty email failed: {_e}")
  
         # Email 2: Notification list — full details + requirements (replaces Forward button)
         try:
@@ -1369,7 +1370,7 @@ class ApproveRoomBookingRequestView(LoginRequiredMixin, View):
                 attachments=[_req_attachment] if _req_attachment else None,
             )
         except Exception as _e:
-            print(f"[ApproveBooking] Notification list email failed: {_e}", flush=True)
+            logger.error(f"[ApproveBooking] Notification list email failed: {_e}")
 
         # Email 3: All OTHER admins — notify that this admin approved the booking
         from core.models import UserProfile as _UP
@@ -1405,7 +1406,7 @@ class ApproveRoomBookingRequestView(LoginRequiredMixin, View):
                     ),
                 )
             except Exception as _e:
-                print(f"[ApproveBooking] Other admins email failed: {_e}", flush=True)
+                logger.error(f"[ApproveBooking] Other admins email failed: {_e}")
 
         messages.success(request, f"Booking for {format_room_list(req)} approved and all parties notified.")
         next_type = request.POST.get("next_type", "booking_req")
@@ -1469,7 +1470,7 @@ class RejectRoomBookingRequestView(LoginRequiredMixin, View):
                 ),
             )
         except Exception as _e:
-            print(f"[RejectBooking] Email failed: {_e}", flush=True)
+            logger.error(f"[RejectBooking] Email failed: {_e}")
  
         messages.warning(request, f"Booking request for {format_room_list(req)} rejected.")
         next_type = request.POST.get("next_type", "booking_req")
@@ -1503,7 +1504,7 @@ class ApproveCancellationRequestView(LoginRequiredMixin, View):
                 fail_silently=True,
             )
         except Exception as _e:
-            print(f"[ApproveCancellation] Email failed (non-fatal): {_e}", flush=True)
+            logger.error(f"[ApproveCancellation] Email failed (non-fatal): {_e}")
 
         messages.success(request, f"Cancellation for {room_name} approved — booking removed.")
         next_type = request.POST.get("next_type", "cancel_req")
@@ -1532,7 +1533,7 @@ class RejectCancellationRequestView(LoginRequiredMixin, View):
                 fail_silently=True,
             )
         except Exception as _e:
-            print(f"[RejectCancellation] Email failed (non-fatal): {_e}", flush=True)
+            logger.error(f"[RejectCancellation] Email failed (non-fatal): {_e}")
 
         messages.info(
             request,
@@ -2021,7 +2022,7 @@ def transfer_user_data(old_email, new_email, profile):
             # Transfer issues assigned to this incharge
             Issue.objects.filter(assigned_to__user=old_user).update(assigned_to=profile)
             
-            print(f'[transfer_user_data] Room Incharge: Transferred {rooms_count} rooms and related data')
+            logger.info(f'[transfer_user_data] Room Incharge: Transferred {rooms_count} rooms and related data')
         
         # === ADMIN SPECIFIC TRANSFERS ===
         if is_central_admin or is_sub_admin:
@@ -2040,13 +2041,15 @@ def transfer_user_data(old_email, new_email, profile):
             # Transfer issues created/assigned to this admin
             Issue.objects.filter(assigned_to__user=old_user).update(assigned_to=profile)
             
-            print(f'[transfer_user_data] Admin: Transferred bookings, requests, and admin data')
+            logger.info(f'[transfer_user_data] Admin: Transferred bookings, requests, and admin data')
         
         # === COMMON TRANSFERS FOR ALL ROLES ===
         # Always transfer personal bookings and requests regardless of role
-        RoomBooking.objects.filter(faculty_email=old_email).update(faculty_email=new_email)
-        RoomBookingRequest.objects.filter(faculty_email=old_email).update(faculty_email=new_email)
-        RoomCancellationRequest.objects.filter(faculty_email=old_email).update(faculty_email=new_email)
+        # (Skip if already transferred above for admin roles to avoid duplicate queries)
+        if not (is_central_admin or is_sub_admin):
+            RoomBooking.objects.filter(faculty_email=old_email).update(faculty_email=new_email)
+            RoomBookingRequest.objects.filter(faculty_email=old_email).update(faculty_email=new_email)
+            RoomCancellationRequest.objects.filter(faculty_email=old_email).update(faculty_email=new_email)
         
         # Ensure user can login with new email
         # The username is already updated to match new email in the main function
@@ -2054,11 +2057,11 @@ def transfer_user_data(old_email, new_email, profile):
         new_user.set_unusable_password()  # Forces password reset
         new_user.save()
         
-        print(f'[transfer_user_data] Successfully transferred role-specific data from {old_email} to {new_email}')
-        print(f'[transfer_user_data] User role: Central={is_central_admin}, Sub={is_sub_admin}, Incharge={is_incharge}')
+        logger.info(f'[transfer_user_data] Successfully transferred role-specific data from {old_email} to {new_email}')
+        logger.info(f'[transfer_user_data] User role: Central={is_central_admin}, Sub={is_sub_admin}, Incharge={is_incharge}')
         
     except Exception as e:
-        print(f'[transfer_user_data] Error transferring data: {e}')
+        logger.error(f'[transfer_user_data] Error transferring data: {e}')
         # Don't raise the exception to avoid breaking the whole process
         pass
 
@@ -2105,10 +2108,10 @@ def send_password_reset_email(user):
             fail_silently=False,
         )
         
-        print(f'[send_password_reset_email] Password reset email sent to {user.email}')
+        logger.info(f'[send_password_reset_email] Password reset email sent to {user.email}')
         
     except Exception as e:
-        print(f'[send_password_reset_email] Error sending password reset email: {e}')
+        logger.error(f'[send_password_reset_email] Error sending password reset email: {e}')
         # Don't raise the exception to avoid breaking the whole process
         pass
 
@@ -2486,7 +2489,7 @@ class SubAdminBookVenueView(LoginRequiredMixin, View):
                 with booking.requirements_doc.storage.open(booking.requirements_doc.name, 'rb') as _f:
                     _req_attachment = (_fname, _f.read(), _mime)
             except Exception as _ae:
-                print(f"[SubAdminBookVenue] Could not read requirements file: {_ae}", flush=True)
+                logger.info(f"[SubAdminBookVenue] Could not read requirements file: {_ae}")
 
         # ── Email 1: Faculty — booking confirmed ──────────────────────────
         try:
@@ -2512,7 +2515,7 @@ class SubAdminBookVenueView(LoginRequiredMixin, View):
                 attachments=[_req_attachment] if _req_attachment else None,
             )
         except Exception as _e:
-            print(f"[SubAdminBookVenue] Faculty email failed: {_e}", flush=True)
+            logger.error(f"[SubAdminBookVenue] Faculty email failed: {_e}")
 
         # ── Email 2: All other sub-admins and central admins ──────────────
         all_admin_emails = list(
@@ -2545,7 +2548,7 @@ class SubAdminBookVenueView(LoginRequiredMixin, View):
                     attachments=[_req_attachment] if _req_attachment else None,
                 )
             except Exception as _e:
-                print(f"[SubAdminBookVenue] Admin notification email failed: {_e}", flush=True)
+                logger.error(f"[SubAdminBookVenue] Admin notification email failed: {_e}")
 
         # ── Email 3: BOOKING_NOTIFICATION_EMAILS (the 5 configured recipients) ──
         if BOOKING_NOTIFICATION_EMAILS:
@@ -2574,7 +2577,7 @@ class SubAdminBookVenueView(LoginRequiredMixin, View):
                     attachments=[_req_attachment] if _req_attachment else None,
                 )
             except Exception as _e:
-                print(f"[SubAdminBookVenue] Notification list email failed: {_e}", flush=True)
+                logger.error(f"[SubAdminBookVenue] Notification list email failed: {_e}")
 
         messages.success(
             request,

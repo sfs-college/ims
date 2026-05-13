@@ -25,7 +25,6 @@ class RedirectLoggedInUsersMixin(AccessMixin):
                 return HttpResponsePermanentRedirect(
                     reverse('room_incharge:room_dashboard', kwargs={'room_slug': rooms.first().slug})
                 )
-
             # Students and any other role — let them see the landing page
             return super().dispatch(request, *args, **kwargs)
 

@@ -14,6 +14,7 @@ from django.template.loader import render_to_string
 from weasyprint import HTML
 import pandas as pd
 import io
+import logging
 from datetime import timedelta
 from django.utils import timezone
 from datetime import datetime, date
@@ -25,8 +26,10 @@ from django.views.generic import FormView, View
 from django.urls import reverse
 from django.http import JsonResponse
 from django.core.exceptions import PermissionDenied
-from django.db.models import Count, Q
+from django.db.models import Count, Q, F
 from inventory.models import SystemComponent as SC
+
+logger = logging.getLogger(__name__)
 
 
 class CategoryListView(LoginRequiredMixin, ListView):
@@ -655,9 +658,10 @@ class SystemComponentCreateView(LoginRequiredMixin, CreateView):
             return self.form_invalid(form)
 
         item = component.component_item
-        item.available_count -= 1
-        item.in_use += 1
-        item.save()
+        Item.objects.filter(pk=item.pk).update(
+            available_count=F('available_count') - 1,
+            in_use=F('in_use') + 1,
+        )
 
         return redirect(self.get_success_url())
 
@@ -701,13 +705,14 @@ class SystemComponentUpdateView(LoginRequiredMixin, UpdateView):
 
         new_item = component.component_item
         if old_item != new_item:
-            old_item.available_count += 1
-            old_item.in_use -= 1
-            old_item.save()
-
-            new_item.available_count -= 1
-            new_item.in_use += 1
-            new_item.save()
+            Item.objects.filter(pk=old_item.pk).update(
+                available_count=F('available_count') + 1,
+                in_use=F('in_use') - 1,
+            )
+            Item.objects.filter(pk=new_item.pk).update(
+                available_count=F('available_count') - 1,
+                in_use=F('in_use') + 1,
+            )
 
         return redirect(self.get_success_url())
 
@@ -970,9 +975,10 @@ class SystemImportConfirmView(LoginRequiredMixin, View):
                         serial_number=comp['serial_number'],
                         status=comp['status'],
                     )
-                    item.available_count -= 1
-                    item.in_use += 1
-                    item.save()
+                    Item.objects.filter(pk=item.pk).update(
+                        available_count=F('available_count') - 1,
+                        in_use=F('in_use') + 1,
+                    )
                     created_components += 1
                 except Exception:
                     pass
@@ -1366,12 +1372,12 @@ class ItemGroupItemCreateView(LoginRequiredMixin, CreateView):
         item_group_item.item_group = ItemGroup.objects.get(slug=self.kwargs['item_group_slug'])
         item = item_group_item.item
 
-        item.available_count -= item_group_item.qty
-        item.in_use += item_group_item.qty
-
         try:
             item_group_item.save()
-            item.save()
+            Item.objects.filter(pk=item.pk).update(
+                available_count=F('available_count') - item_group_item.qty,
+                in_use=F('in_use') + item_group_item.qty,
+            )
         except ValueError as e:
             form.add_error(None, str(e))
             return self.form_invalid(form)
@@ -1732,19 +1738,38 @@ class RoomReportView(LoginRequiredMixin, View):
                     sheet.row_dimensions[row[0].row].height = 18
 
             excel_buffer.seek(0)
+            # Sanitize filename: replace spaces and special chars for safe HTTP headers
+            safe_name = room.room_name.replace(' ', '_').replace('/', '-')
             response = HttpResponse(
                 excel_buffer,
                 content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
             )
-            response['Content-Disposition'] = f'attachment; filename="{room.room_name}_report.xlsx"'
+            response['Content-Disposition'] = (
+                f'attachment; filename="{safe_name}_report.xlsx"; '
+                f"filename*=UTF-8''{safe_name}_report.xlsx"
+            )
+            response['X-Content-Type-Options'] = 'nosniff'
             return response
 
         html_string = render_to_string('room_incharge/room_report.html', context)
-        html = HTML(string=html_string)
-        pdf = html.write_pdf()
+        try:
+            html = HTML(string=html_string)
+            pdf = html.write_pdf()
+        except Exception as e:
+            logger.error(f"[RoomReportView] WeasyPrint PDF generation failed: {e}")
+            return HttpResponse(
+                f"PDF generation failed: {str(e)}. Please use Excel format instead.",
+                status=500,
+                content_type='text/plain'
+            )
 
+        safe_name = room.room_name.replace(' ', '_').replace('/', '-')
         response = HttpResponse(pdf, content_type='application/pdf')
-        response['Content-Disposition'] = f'attachment; filename="{room.room_name}_report.pdf"'
+        response['Content-Disposition'] = (
+            f'attachment; filename="{safe_name}_report.pdf"; '
+            f"filename*=UTF-8''{safe_name}_report.pdf"
+        )
+        response['X-Content-Type-Options'] = 'nosniff'
         return response
 
 class IssueTimeExtensionRequestView(LoginRequiredMixin, View):
@@ -1968,7 +1993,7 @@ class SendIssueRemarkView(LoginRequiredMixin, View):
                     ),
                 )
             except Exception as _e:
-                print(f"[SendIssueRemark] Email failed: {_e}", flush=True)
+                logger.error(f"[SendIssueRemark] Email failed: {_e}")
 
         messages.success(request, f'Remark sent to {issue.reporter_email}.')
         return redirect('room_incharge:issue_list', room_slug=room.slug)

@@ -14,6 +14,8 @@
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <!-- mobile-utils must load before any page script so IS_CAPACITOR and DownloadManager are available -->
   <script src="{% static 'utils/mobile-utils.js' %}?v=3"></script>
+  <!-- Suppress footer nav immediately — app_home has its own full-screen navigation -->
+  <script>window.SUPPRESS_MOBILE_FOOTER = true;</script>
   <style>
     /* ── Reset & base ── */
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -486,6 +488,8 @@
 // If we're inside the Capacitor WebView but landed here without ?app=1,
 // the server already routed us correctly via LandingPageView. Nothing to do.
 // Initialize MobileUtils as soon as DOM is ready.
+// Suppress mobile footer nav — app_home has its own full-screen navigation.
+window.SUPPRESS_MOBILE_FOOTER = true;
 document.addEventListener('DOMContentLoaded', function () {
   if (window.MobileUtils) {
     window.MobileUtils.init();

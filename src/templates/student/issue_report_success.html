@@ -4,6 +4,7 @@
 {% block title %} | Issue Reported Successfully{% endblock title %}
 
 {% block style %}
+<script>window.SUPPRESS_MOBILE_FOOTER = true;</script>
 <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
 
 <style>
@@ -409,3 +410,11 @@ document.addEventListener('DOMContentLoaded', function () {
 </a>
 
 {% endblock content %}
+
+{% block scripts %}
+<script>
+// Suppress mobile footer nav on student pages in Capacitor mode
+window.SUPPRESS_MOBILE_FOOTER = true;
+window.MOBILE_NAV_HOME_ONLY = true;
+</script>
+{% endblock scripts %}

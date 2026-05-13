@@ -242,6 +242,10 @@
             <button type="button" class="nav-btn-ghost" onclick="showRevertedItemsModal()">
                 <i class="bi bi-arrow-counterclockwise"></i> Reverted Items
             </button>
+            <button type="button" class="nav-btn-ghost" onclick="openAccessManagement()"
+                    style="color:#6c63ff;border-color:#c4b5fd;">
+                <i class="bi bi-person-check"></i> Incharge Access
+            </button>
             <a href="{% url 'central_admin:assign_inventory' %}" class="nav-btn-primary">
                 <i class="bi bi-arrow-right-circle"></i> Assign Inventory
             </a>
@@ -456,7 +460,7 @@
         </div>
         {% endif %}
     </div>
-    <!-- Asset Tag Modal -->
+<!-- Asset Tag Modal -->
     <div class="modal fade" id="assetTagModal" tabindex="-1">
         <div class="modal-dialog modal-lg">
             <div class="modal-content" style="border-radius:16px; border:none;">
@@ -467,6 +471,31 @@
                 <div class="modal-body p-4">
                     <div id="tagModalContent">
                         <div class="text-center py-4"><div class="spinner-border text-primary"></div></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ══ Master Inventory Access Management Modal ══ -->
+<div class="modal fade" id="accessManagementModal" tabindex="-1">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content" style="border-radius:18px;border:none;overflow:hidden;">
+            <div class="modal-header" style="background:linear-gradient(135deg,#6c63ff 0%,#9333ea 100%);color:white;border-radius:0;padding:18px 24px;">
+                <div>
+                    <h5 class="modal-title fw-bold mb-0">
+                        <i class="bi bi-person-check-fill me-2"></i>Master Inventory Access
+                    </h5>
+                    <p class="mb-0 mt-1" style="font-size:0.78rem;opacity:0.8;">Grant or revoke incharge access to the Master Inventory</p>
+                </div>
+                <button type="button" class="btn-close btn-close-white ms-auto" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body p-4" style="background:#f8fafc;">
+                <div id="accessManagementContent">
+                    <div class="text-center py-5">
+                        <div class="spinner-border text-primary" style="width:2rem;height:2rem;"></div>
+                        <p class="mt-3 text-muted small">Loading incharges…</p>
                     </div>
                 </div>
             </div>
@@ -1340,6 +1369,206 @@ function searchMainInventory() {
             tr[i].style.display = "none";
         }
     }
+}
+
+// ── MASTER INVENTORY ACCESS MANAGEMENT ──────────────────────────────────────
+
+function openAccessManagement() {
+    const modal = new bootstrap.Modal(document.getElementById('accessManagementModal'));
+    modal.show();
+    loadAccessManagement();
+}
+
+function loadAccessManagement() {
+    const container = document.getElementById('accessManagementContent');
+    container.innerHTML = `
+        <div class="text-center py-5">
+            <div class="spinner-border text-primary" style="width:2rem;height:2rem;"></div>
+            <p class="mt-3 text-muted small">Loading incharges…</p>
+        </div>`;
+
+    fetch('{% url "central_admin:master_inventory_access_list" %}')
+        .then(r => r.json())
+        .then(data => {
+            if (!data.incharges || data.incharges.length === 0) {
+                container.innerHTML = `
+                    <div class="text-center py-5 text-muted">
+                        <i class="bi bi-people fs-1 d-block mb-3 opacity-25"></i>
+                        <p class="mb-0">No room incharges found in this organisation.</p>
+                    </div>`;
+                return;
+            }
+
+            // ── Card grid ──────────────────────────────────────────────────
+            let html = `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:14px;">`;
+
+            data.incharges.forEach(person => {
+                // Access state
+                const noAccess   = !person.has_access;
+                const viewOnly   = person.has_access && person.can_view && !person.can_edit;
+                const fullAccess = person.has_access && person.can_view && person.can_edit;
+
+                // Status badge
+                let statusBadge;
+                if (noAccess) {
+                    statusBadge = `<span style="display:inline-flex;align-items:center;gap:4px;background:#f1f5f9;color:#94a3b8;border:1px solid #e2e8f0;border-radius:20px;font-size:0.7rem;font-weight:700;padding:3px 10px;">
+                        <i class="bi bi-dash-circle"></i> No Access</span>`;
+                } else if (viewOnly) {
+                    statusBadge = `<span style="display:inline-flex;align-items:center;gap:4px;background:#d1fae5;color:#065f46;border:1px solid #a7f3d0;border-radius:20px;font-size:0.7rem;font-weight:700;padding:3px 10px;">
+                        <i class="bi bi-eye-fill"></i> View Only</span>`;
+                } else {
+                    statusBadge = `<span style="display:inline-flex;align-items:center;gap:4px;background:#dbeafe;color:#1e40af;border:1px solid #bfdbfe;border-radius:20px;font-size:0.7rem;font-weight:700;padding:3px 10px;">
+                        <i class="bi bi-pencil-fill"></i> View &amp; Edit</span>`;
+                }
+
+                // Action buttons
+                let btns = '';
+                if (noAccess) {
+                    btns = `
+                        <button class="acc-btn acc-btn-view" onclick="grantAccess('${person.slug}','view',this)">
+                            <i class="bi bi-eye"></i> Grant View
+                        </button>
+                        <button class="acc-btn acc-btn-edit" onclick="grantAccess('${person.slug}','edit',this)">
+                            <i class="bi bi-pencil"></i> Grant Edit
+                        </button>`;
+                } else if (viewOnly) {
+                    btns = `
+                        <button class="acc-btn acc-btn-edit" onclick="grantAccess('${person.slug}','edit',this)">
+                            <i class="bi bi-pencil"></i> Grant Edit
+                        </button>
+                        <button class="acc-btn acc-btn-revoke" onclick="revokeAccess('${person.slug}','all',this)">
+                            <i class="bi bi-x-circle"></i> Revoke
+                        </button>`;
+                } else {
+                    btns = `
+                        <button class="acc-btn acc-btn-revoke-edit" onclick="revokeAccess('${person.slug}','edit',this)">
+                            <i class="bi bi-pencil-slash"></i> Remove Edit
+                        </button>
+                        <button class="acc-btn acc-btn-revoke" onclick="revokeAccess('${person.slug}','all',this)">
+                            <i class="bi bi-x-circle"></i> Revoke All
+                        </button>`;
+                }
+
+                // Avatar initials
+                const initials = person.name.split(' ').map(w => w[0]).join('').slice(0,2).toUpperCase();
+                const avatarBg = noAccess ? '#e2e8f0' : (viewOnly ? '#d1fae5' : '#dbeafe');
+                const avatarColor = noAccess ? '#94a3b8' : (viewOnly ? '#065f46' : '#1e40af');
+
+                html += `
+                    <div style="background:white;border-radius:14px;border:1px solid #e2e8f0;padding:18px 16px;
+                                box-shadow:0 1px 4px rgba(0,0,0,0.04);display:flex;flex-direction:column;gap:12px;">
+                        <!-- Header: avatar + name -->
+                        <div style="display:flex;align-items:center;gap:12px;">
+                            <div style="width:42px;height:42px;border-radius:12px;background:${avatarBg};
+                                        color:${avatarColor};display:flex;align-items:center;justify-content:center;
+                                        font-weight:800;font-size:0.9rem;flex-shrink:0;">${initials}</div>
+                            <div style="min-width:0;">
+                                <div style="font-weight:700;color:#1e293b;font-size:0.92rem;
+                                            white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${person.name}</div>
+                                <div style="font-size:0.75rem;color:#94a3b8;
+                                            white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${person.email}</div>
+                            </div>
+                        </div>
+                        <!-- Status badge -->
+                        <div>${statusBadge}</div>
+                        <!-- Action buttons -->
+                        <div style="display:flex;gap:7px;flex-wrap:wrap;">${btns}</div>
+                    </div>`;
+            });
+
+            html += `</div>`;
+
+            // Inject card styles once
+            if (!document.getElementById('accCardStyles')) {
+                const s = document.createElement('style');
+                s.id = 'accCardStyles';
+                s.textContent = `
+                    .acc-btn {
+                        display:inline-flex;align-items:center;gap:5px;
+                        padding:6px 12px;border-radius:8px;font-size:0.75rem;font-weight:600;
+                        border:1.5px solid;cursor:pointer;transition:all 0.15s;
+                        font-family:inherit;white-space:nowrap;
+                    }
+                    .acc-btn:disabled { opacity:0.55;cursor:not-allowed; }
+                    .acc-btn-view        { background:#f0fdf4;color:#16a34a;border-color:#bbf7d0; }
+                    .acc-btn-view:hover  { background:#16a34a;color:#fff;border-color:#16a34a; }
+                    .acc-btn-edit        { background:#eff6ff;color:#2563eb;border-color:#bfdbfe; }
+                    .acc-btn-edit:hover  { background:#2563eb;color:#fff;border-color:#2563eb; }
+                    .acc-btn-revoke-edit        { background:#fff7ed;color:#c2410c;border-color:#fed7aa; }
+                    .acc-btn-revoke-edit:hover  { background:#c2410c;color:#fff;border-color:#c2410c; }
+                    .acc-btn-revoke        { background:#fef2f2;color:#dc2626;border-color:#fecaca; }
+                    .acc-btn-revoke:hover  { background:#dc2626;color:#fff;border-color:#dc2626; }
+                `;
+                document.head.appendChild(s);
+            }
+
+            container.innerHTML = html;
+        })
+        .catch(() => {
+            container.innerHTML = `
+                <div class="alert alert-danger border-0 rounded-3 m-0">
+                    <i class="bi bi-exclamation-triangle-fill me-2"></i>Error loading incharges. Please try again.
+                </div>`;
+        });
+}
+
+function grantAccess(slug, accessType, btn) {
+    btn.disabled = true;
+    const origHtml = btn.innerHTML;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
+
+    fetch('{% url "central_admin:master_inventory_grant_access" %}', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCsrf() },
+        body: JSON.stringify({ incharge_slug: slug, access_type: accessType }),
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.status === 'success') {
+            loadAccessManagement();
+        } else {
+            btn.disabled = false;
+            btn.innerHTML = origHtml;
+            alert(data.error || 'Failed to grant access.');
+        }
+    })
+    .catch(() => {
+        btn.disabled = false;
+        btn.innerHTML = origHtml;
+        alert('Network error. Please try again.');
+    });
+}
+
+function revokeAccess(slug, revokeType, btn) {
+    const msg = revokeType === 'all'
+        ? 'Revoke ALL Master Inventory access for this incharge?'
+        : 'Remove edit access? The incharge will keep view-only access.';
+    if (!confirm(msg)) return;
+
+    btn.disabled = true;
+    const origHtml = btn.innerHTML;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
+
+    fetch('{% url "central_admin:master_inventory_revoke_access" %}', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCsrf() },
+        body: JSON.stringify({ incharge_slug: slug, revoke_type: revokeType }),
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.status === 'success') {
+            loadAccessManagement();
+        } else {
+            btn.disabled = false;
+            btn.innerHTML = origHtml;
+            alert(data.error || 'Failed to revoke access.');
+        }
+    })
+    .catch(() => {
+        btn.disabled = false;
+        btn.innerHTML = origHtml;
+        alert('Network error. Please try again.');
+    });
 }
 </script>
 

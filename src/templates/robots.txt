@@ -1,0 +1,6 @@
+User-agent: *
+Allow: /
+Disallow: /admin/
+Disallow: /internal/
+
+Sitemap: https://{{ request.get_host }}/sitemap.xml

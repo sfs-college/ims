@@ -29,7 +29,7 @@ class Room(models.Model):
     department = models.ForeignKey(Department, on_delete=models.SET_NULL, null=True, blank=True)
     label = models.CharField(max_length=20)
     room_name = models.CharField(max_length=255)
-    incharge = models.ForeignKey(UserProfile, on_delete=models.CASCADE, related_name='rooms_incharge')
+    incharge = models.ForeignKey(UserProfile, on_delete=models.SET_NULL, null=True, blank=True, related_name='rooms_incharge')
     created_on = models.DateTimeField(auto_now_add=True)
     updated_on = models.DateTimeField(auto_now=True)
     slug = models.SlugField(unique=True, max_length=255)
@@ -1052,3 +1052,40 @@ class RoomCancellationRequest(models.Model):
 
     def __str__(self):
         return f"CancelReq [{self.status}]: {self.booking}"
+
+
+class MasterInventoryAccess(models.Model):
+    """
+    Tracks which room incharges have been granted access to the Master Inventory.
+    - can_view: view-only access (sidebar button visible, read-only page)
+    - can_edit: edit access (can edit item fields inline — category, brand, cost, product code)
+    Access is granted/revoked by central admin or sub-admin.
+    Only one record per incharge (OneToOneField enforced).
+    """
+    organisation    = models.ForeignKey(Organisation, on_delete=models.CASCADE)
+    incharge        = models.OneToOneField(
+                        UserProfile,
+                        on_delete=models.CASCADE,
+                        related_name='master_inventory_access',
+                        limit_choices_to={'is_incharge': True},
+                    )
+    granted_by      = models.ForeignKey(
+                        UserProfile,
+                        on_delete=models.SET_NULL,
+                        null=True, blank=True,
+                        related_name='master_inventory_grants',
+                    )
+    can_view        = models.BooleanField(default=True, help_text="Allow view-only access to master inventory")
+    can_edit        = models.BooleanField(default=False, help_text="Allow inline editing of master inventory items")
+    granted_on      = models.DateTimeField(auto_now_add=True)
+    updated_on      = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = 'Master Inventory Access'
+        verbose_name_plural = 'Master Inventory Accesses'
+
+    def __str__(self):
+        perms = []
+        if self.can_view: perms.append('view')
+        if self.can_edit: perms.append('edit')
+        return f"MasterInventoryAccess: {self.incharge} [{', '.join(perms)}]"

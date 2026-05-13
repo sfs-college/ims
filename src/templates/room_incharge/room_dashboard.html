@@ -208,7 +208,12 @@
 {% block content %}
 <section>
   <div class="dash-header">
-    <h3 class="dash-title">{{ room.room_name }} Dashboard</h3>
+    <div>
+      <h3 class="dash-title">{{ room.room_name }}</h3>
+      {% if room.label %}
+        <span style="display:inline-block;background:rgba(108,99,255,0.12);color:#6c63ff;border:1px solid rgba(108,99,255,0.25);border-radius:7px;font-size:12px;font-weight:700;padding:2px 10px;margin-top:4px;letter-spacing:0.04em;">{{ room.label }}</span>
+      {% endif %}
+    </div>
     <div class="dash-header-right">
 
       <!-- Notifications Bell Icon -->
@@ -281,23 +286,40 @@
 /**
  * Handle report download — uses DownloadManager on Capacitor for proper file saving,
  * falls back to normal browser download on desktop.
+ * Matches the exact same pattern used by AURA report generator.
  */
 async function handleReportDownload(event, url, filename, mimeType) {
     if (window.IS_CAPACITOR && window.DownloadManager) {
         event.preventDefault();
         try {
-            if (window.PageLoader) window.PageLoader.show('Generating report...', 'overlay');
-            await window.DownloadManager.download(url, filename, { mimeType: mimeType, openAfterDownload: true });
+            if (window.PageLoader) window.PageLoader.show('Generating report…', 'overlay');
+            // Use the same fetch-then-save pattern as AURA
+            const result = await window.DownloadManager.download(url, filename, {
+                mimeType: mimeType,
+                openAfterDownload: true,
+            });
+            if (!result || result.success === false) {
+                // Fallback: open in system browser
+                window.open(url, '_system');
+            }
         } catch (err) {
             console.error('[handleReportDownload] Error:', err);
-            // Fallback: open in browser
+            if (window.DownloadManager) {
+                window.DownloadManager.showNotification(
+                    err.message && err.message.includes('HTML')
+                        ? 'Session expired — please log in again.'
+                        : (err.message || 'Download failed. Try again.'),
+                    'error'
+                );
+            }
+            // Fallback: open in system browser
             window.open(url, '_system');
         } finally {
             if (window.PageLoader) window.PageLoader.hide();
         }
         return false;
     }
-    // Desktop: let the browser handle it normally
+    // Desktop/browser: let the browser handle it normally
     return true;
 }
 </script>

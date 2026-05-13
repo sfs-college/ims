@@ -31,7 +31,8 @@ else:
     DEBUG = False
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = env('SECRET_KEY', default="secret_key")
+# No default — raises ImproperlyConfigured if SECRET_KEY is missing from env.
+SECRET_KEY = env('SECRET_KEY')
 
 ALLOWED_EMAIL_DOMAIN = "sfscollege.in"
 
@@ -78,6 +79,10 @@ SOCIALACCOUNT_PROVIDERS = {
         ],
         'AUTH_PARAMS': {
             'access_type': 'online',
+            # Restrict Google account picker to @sfscollege.in accounts.
+            # Users with other accounts will see a "wrong account" error,
+            # which is the correct security behaviour.
+            'hd': ALLOWED_EMAIL_DOMAIN,
         },
         'OAUTH_PKCE_ENABLED': True,
     }
@@ -89,10 +94,12 @@ ACCOUNT_EMAIL_REQUIRED = True
 ACCOUNT_USERNAME_REQUIRED = False
 ACCOUNT_AUTHENTICATION_METHOD = 'email'
 ACCOUNT_USER_MODEL_USERNAME_FIELD = None
+# allauth 0.56+ new-style setting (replaces ACCOUNT_AUTHENTICATION_METHOD)
+ACCOUNT_LOGIN_METHODS = {'email'}
 
 ACCOUNT_ADAPTER = 'core.adapters.AccountAdapter'
 SOCIALACCOUNT_ADAPTER = 'core.adapters.SocialAccountAdapter'
-SOCIALACCOUNT_EMAIL_VERIFICATION = "none" 
+SOCIALACCOUNT_EMAIL_VERIFICATION = "none"
 SOCIALACCOUNT_EMAIL_REQUIRED = True
 
 LOGIN_REDIRECT_URL = '/students/report_issue/'
@@ -108,6 +115,7 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    'allauth.account.middleware.AccountMiddleware',
 ]
 
 ALLOW_USER_REGISTRATION = False
