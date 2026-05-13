@@ -22,6 +22,8 @@ import firebase_admin
 from firebase_admin import auth, credentials
 from django.conf import settings
 import os
+import json
+import logging
 from pathlib import Path
 import pandas as pd
 from datetime import date, timedelta
@@ -29,6 +31,7 @@ from inventory.booking_utils import format_booking_details as build_booking_deta
 from inventory.email import build_email_shell
 
 User = get_user_model()
+logger = logging.getLogger(__name__)
 
 
 # ─────────────────────────────────────────────────────────────────────
@@ -92,7 +95,7 @@ def _safe_mail(subject, message, recipient_list, fail_silently=True, html_messag
             fail_silently=fail_silently,
         )
     except Exception as _e:
-        print(f"[_safe_mail] {_e}", flush=True)
+        logger.info(f"[_safe_mail] {_e}")
 
 
 def _admin_emails():
@@ -202,7 +205,7 @@ class LoginView(LoginView):
             if assigned_room:
                 return redirect("room_incharge:room_dashboard", room_slug=assigned_room.slug)
             else:
-                messages.error(self.request, "No room is assigned to your account.")
+                messages.error(self.request, "No room is assigned to your account. Please contact your administrator.")
                 return redirect("core:login")
 
         # DEFAULT
@@ -333,7 +336,7 @@ def room_booking_view(request):
     try:
         process_booking_tat_reminders_and_expiry()
     except Exception as _e:
-        print(f"[room_booking_view] TAT check failed: {_e}", flush=True)
+        logger.error(f"[room_booking_view] TAT check failed: {_e}")
 
     form = RoomBookingForm()
 
@@ -480,11 +483,23 @@ def room_booking_view(request):
 
 def verify_admin_booking_credentials(request):
     """
-    AJAX GET — validates sub-admin / central-admin Django login credentials
+    AJAX POST — validates sub-admin / central-admin Django login credentials
     for the admin booking portal. Returns admin name and role on success.
+    Accepts both POST body (JSON) and POST form data for backward compatibility.
     """
-    email    = request.GET.get('email', '').strip().lower()
-    password = request.GET.get('password', '').strip()
+    # Accept POST body (JSON) or POST form data
+    if request.method == 'POST':
+        try:
+            body = json.loads(request.body)
+            email    = body.get('email', '').strip().lower()
+            password = body.get('password', '').strip()
+        except (json.JSONDecodeError, AttributeError):
+            email    = request.POST.get('email', '').strip().lower()
+            password = request.POST.get('password', '').strip()
+    else:
+        # Fallback: still accept GET for backward compat with existing JS callers
+        email    = request.GET.get('email', '').strip().lower()
+        password = request.GET.get('password', '').strip()
 
     if not email or not password:
         return JsonResponse({'error': 'Email and password are required.'}, status=400)
@@ -523,7 +538,7 @@ def admin_room_booking_view(request):
     try:
         process_booking_tat_reminders_and_expiry()
     except Exception as _e:
-        print(f"[admin_room_booking_view] TAT check failed: {_e}", flush=True)
+        logger.error(f"[admin_room_booking_view] TAT check failed: {_e}")
 
     form = AdminRoomBookingForm()
 
@@ -652,7 +667,7 @@ def admin_room_booking_view(request):
                     with booking.requirements_doc.storage.open(booking.requirements_doc.name, 'rb') as _f:
                         _req_attachment = (_fname, _f.read(), _mime)
                 except Exception as _ae:
-                    print(f"[admin_room_booking_view] Could not read requirements file: {_ae}", flush=True)
+                    logger.info(f"[admin_room_booking_view] Could not read requirements file: {_ae}")
 
             # Email 1: Faculty — booking confirmed
             try:
@@ -678,7 +693,7 @@ def admin_room_booking_view(request):
                     attachments=[_req_attachment] if _req_attachment else None,
                 )
             except Exception as _e:
-                print(f"[admin_room_booking_view] Faculty email failed: {_e}", flush=True)
+                logger.error(f"[admin_room_booking_view] Faculty email failed: {_e}")
 
             # Email 2: All admins (central + sub) — notification
             all_admin_emails = _admin_emails()
@@ -707,7 +722,7 @@ def admin_room_booking_view(request):
                         attachments=[_req_attachment] if _req_attachment else None,
                     )
                 except Exception as _e:
-                    print(f"[admin_room_booking_view] Admin notification email failed: {_e}", flush=True)
+                    logger.error(f"[admin_room_booking_view] Admin notification email failed: {_e}")
 
             # Email 3: 5 notification recipients
             if BOOKING_NOTIFICATION_EMAILS:
@@ -736,7 +751,7 @@ def admin_room_booking_view(request):
                         attachments=[_req_attachment] if _req_attachment else None,
                     )
                 except Exception as _e:
-                    print(f"[admin_room_booking_view] Notification list email failed: {_e}", flush=True)
+                    logger.error(f"[admin_room_booking_view] Notification list email failed: {_e}")
 
             return render(request, "booking/booking_success.html", {
                 "booking": booking,
@@ -1188,25 +1203,25 @@ def firebase_login_callback(request):
                     cred_dict['private_key'] = cred_dict['private_key'].replace('\\n', '\n')
                 firebase_admin.initialize_app(credentials.Certificate(cred_dict))
             else:
-                print("[firebase_login] CRITICAL: No Firebase credentials available", flush=True)
+                logger.info("[firebase_login] CRITICAL: No Firebase credentials available")
                 return redirect('student:portal_login')
 
         decoded_token = auth.verify_id_token(id_token, clock_skew_seconds=10)
 
     except Exception as e:
-        print(f"[firebase_login] Token verification failed: {e}", flush=True)
+        logger.error(f"[firebase_login] Token verification failed: {e}")
         return redirect('student:portal_login')
 
     email = (decoded_token.get('email') or '').strip().lower()
     name  = (decoded_token.get('name') or '').strip()
 
     if not email:
-        print("[firebase_login] No email in token payload", flush=True)
+        logger.info("[firebase_login] No email in token payload")
         return redirect('student:portal_login')
 
     allowed_domain = getattr(settings, 'ALLOWED_EMAIL_DOMAIN', 'sfscollege.in')
     if not email.endswith(f'@{allowed_domain}'):
-        print(f"[firebase_login] Rejected domain: {email}", flush=True)
+        logger.info(f"[firebase_login] Rejected domain: {email}")
         return redirect('student:portal_login')
 
     try:
@@ -1241,7 +1256,7 @@ def firebase_login_callback(request):
     storage = messages.get_messages(request)
     storage.used = True
 
-    print(f"[firebase_login] Logged in successfully: {email}", flush=True)
+    logger.info(f"[firebase_login] Logged in successfully: {email}")
 
     # ── Capacitor deep-link redirect ─────────────────────────────────────────
     # When the request comes from the Android/iOS app, redirect back via the
@@ -1323,7 +1338,8 @@ def import_booking_credentials(request):
 
 
 def delete_booking_credential(request, pk):
-    if request.user.userprofile.role == 'subadmin':
+    profile = getattr(request.user, 'profile', None)
+    if not profile or not profile.is_central_admin:
         messages.error(request, "Unauthorized access.")
     else:
         get_object_or_404(RoomBookingCredentials, pk=pk).delete()

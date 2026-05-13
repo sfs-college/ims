@@ -2,7 +2,8 @@
 {% load static %}
 {% block title %} | Student Portal{% endblock %}
 
-{% block content %}
+{% block style %}
+<script>window.SUPPRESS_MOBILE_FOOTER = true;</script>
 <style>
     body { background: radial-gradient(circle at top right, #f8f9fa, #e9ecef); min-height: 100vh; }
     .main-portal-card { border: none; border-radius: 24px; background: rgba(255, 255, 255, 0.9); backdrop-filter: blur(10px); box-shadow: 0 20px 40px rgba(0,0,0,0.08); }
@@ -98,6 +99,8 @@
 </a>
 
 <script>
+  // Suppress mobile footer nav on this page — it has its own full-screen UI
+  window.SUPPRESS_MOBILE_FOOTER = true;
   // Restrict mobile footer nav to Home-only on this auth page
   window.MOBILE_NAV_HOME_ONLY = true;
   // On desktop (non-Capacitor), go back in history if possible, else go to landing page

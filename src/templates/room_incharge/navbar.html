@@ -205,7 +205,7 @@
         <button class="btn dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
           {% with current_room=request.resolver_match.kwargs.room_slug %}
             {% for room in request.user.profile.rooms_incharge.all %}
-              {% if room.slug == current_room %}{{ room.room_name }}{% endif %}
+              {% if room.slug == current_room %}{% if room.label %}{{ room.label }} — {% endif %}{{ room.room_name }}{% endif %}
             {% endfor %}
           {% endwith %}
         </button>
@@ -214,12 +214,27 @@
             <li>
               <a class="dropdown-item {% if room.slug == request.resolver_match.kwargs.room_slug %}active{% endif %}"
                  href="{% url 'room_incharge:room_dashboard' room_slug=room.slug %}">
-                {{ room.room_name }}
+                {% if room.label %}<span style="font-size:0.75rem;font-weight:700;color:#6c63ff;margin-right:4px;">{{ room.label }}</span>{% endif %}{{ room.room_name }}
               </a>
             </li>
           {% endfor %}
         </ul>
       </div>
+      {% else %}
+      {% comment %} Single room — show room name + label in navbar {% endcomment %}
+      {% with current_room=request.resolver_match.kwargs.room_slug %}
+        {% for room in request.user.profile.rooms_incharge.all %}
+          {% if room.slug == current_room %}
+          <div style="display:flex;align-items:center;gap:6px;background:#0f172a;border-radius:9px;padding:5px 12px;">
+            {% if room.label %}
+              <span style="font-size:0.7rem;font-weight:800;color:#a89dff;letter-spacing:0.05em;">{{ room.label }}</span>
+              <span style="color:rgba(255,255,255,0.25);font-size:0.75rem;">—</span>
+            {% endif %}
+            <span style="font-size:0.78rem;font-weight:600;color:#fff;">{{ room.room_name }}</span>
+          </div>
+          {% endif %}
+        {% endfor %}
+      {% endwith %}
       {% endif %}
 
       <!-- Profile avatar + logout dropdown -->

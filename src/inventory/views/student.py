@@ -1,4 +1,5 @@
 # ims/src/inventory/views/student.py
+import logging
 from django.shortcuts import render, redirect
 from django.views import View
 from inventory.forms.student import IssueReportForm
@@ -9,6 +10,8 @@ from inventory.email import safe_send_mail
 from django.utils import timezone
 from datetime import timedelta
 from django.contrib import messages
+
+logger = logging.getLogger(__name__)
 
 
 class StudentPortalLoginView(View):
@@ -154,7 +157,7 @@ class IssueReportView(View):
                     break
 
         created_by   = student["name"] if student else email
-        organisation = Organisation.objects.first()
+        organisation = room.organisation  # always use the room's own org, not first() in DB
 
         issue = Issue(
             organisation   = organisation,
@@ -193,7 +196,7 @@ class IssueReportView(View):
                     recipient_list=[issue.assigned_to.user.email],
                 )
             except Exception as e:
-                print(f"[student_view] incharge email error: {e}", flush=True)
+                logger.error(f"[student_view] incharge email error: {e}")
 
         # Confirm to student
         try:

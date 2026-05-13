@@ -1146,14 +1146,28 @@ function exportExcel() {
 }
 
 // ── Main export dispatcher ────────────────────────────────────────
+// ── Helper: convert jsPDF binary output to clean base64 ──────────────────────
+// btoa(doc.output()) fails when the PDF contains bytes > 127 (binary content).
+// We must use doc.output('arraybuffer') and convert via Uint8Array to be safe.
+function _pdfToBase64(doc) {
+    var arrayBuffer = doc.output('arraybuffer');
+    var bytes = new Uint8Array(arrayBuffer);
+    var CHUNK = 8192;
+    var binary = '';
+    for (var offset = 0; offset < bytes.byteLength; offset += CHUNK) {
+        var chunk = bytes.subarray(offset, Math.min(offset + CHUNK, bytes.byteLength));
+        binary += String.fromCharCode.apply(null, chunk);
+    }
+    return window.btoa(binary);
+}
+
 async function exportRooms(type) {
     if (type === 'pdf') {
         if (window.IS_CAPACITOR && window.DownloadManager) {
-            // Capacitor: generate base64 and save via DownloadManager (writes to Documents folder)
+            // Capacitor: generate base64 via arraybuffer (safe for binary PDF data)
             try {
                 var doc = _buildPDFDoc();
-                // Get pure base64 string without data URI prefix
-                var pdfBase64 = btoa(doc.output());
+                var pdfBase64 = _pdfToBase64(doc);
                 var now = new Date();
                 var slug = getFilterLabel().toLowerCase().replace(/\s+/g, '_');
                 var filename = 'room_report_' + slug + '_' + now.toISOString().slice(0,10) + '.pdf';

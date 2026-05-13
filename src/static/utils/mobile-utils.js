@@ -326,7 +326,16 @@
                 } else {
                     // ── Path C: fetch from URL (server-side files) ──
                     const response = await fetch(url, { cache: 'no-cache', credentials: 'include' });
-                    if (!response.ok) throw new Error('HTTP ' + response.status);
+                    if (!response.ok) {
+                        // Server returned an error — don't save a corrupt/HTML file
+                        const errText = await response.text().catch(() => '');
+                        throw new Error(`Server error ${response.status}: ${errText.substring(0, 200)}`);
+                    }
+                    // Verify we got a binary file, not an HTML redirect/error page
+                    const contentType = response.headers.get('content-type') || '';
+                    if (contentType.includes('text/html')) {
+                        throw new Error('Server returned HTML instead of a file. You may need to log in again.');
+                    }
                     blob = await response.blob();
                     mimeType = blob.type || options.mimeType || 'application/octet-stream';
                 }
@@ -657,13 +666,16 @@
                 // ── Browser path: use Firebase popup (unchanged, works perfectly) ──
                 return this.traditionalGoogleLogin(firebaseConfig, options);
             }
-            // ── Capacitor path: use app-based redirect (no external browser) ──
-            // Since we override the UserAgent in capacitor.config.ts, Google
-            // allows the OAuth flow directly inside the WebView without the 403 error.
+            // ── Capacitor path: MUST use system browser ──
+            // Google blocks OAuth in Android WebViews with Error 403: disallowed_useragent.
+            // Even with overrideUserAgent, signInWithRedirect inside the WebView is blocked.
+            // The ONLY reliable fix is to open the system browser (Chrome/default browser)
+            // via window.open(url, '_system') and handle the deep-link callback.
             try {
-                return await this.capacitorRedirectFallback(firebaseConfig, options);
+                return await this.capacitorGoogleLogin(firebaseConfig, options);
             } catch (err) {
-                console.error('[MobileAuth] Capacitor login failed:', err);
+                console.error('[MobileAuth] Capacitor system browser login failed:', err);
+                // Last resort: show the alternative login modal
                 return this.fallbackEmailLogin(options);
             }
         },
@@ -693,31 +705,27 @@
             PageLoader.show('Opening Google Sign-In...', 'overlay');
 
             try {
-                // Initialize Firebase if not already done (needed for getRedirectResult later)
-                if (window.firebase && (!window.firebase.apps || !window.firebase.apps.length)) {
-                    window.firebase.initializeApp(firebaseConfig);
-                }
-
                 // Mark that we're waiting for auth to complete
                 sessionStorage.setItem('pendingGoogleLogin', 'true');
 
-                // Build the OAuth URL.
-                // Use Django allauth's Google login which opens in the system browser.
+                // Use Django allauth's Google login URL.
                 // The &app=1 flag is captured by CapacitorAuthMiddleware and stored in
                 // the session so the AccountAdapter redirects to the deep-link callback.
-                const authUrl = 'https://blixtro.sfscollege.app/accounts/google/login/?process=login&app=1';
+                const authUrl = '/accounts/google/login/?process=login&app=1';
 
                 // Listen for auth completion signals BEFORE opening the browser
                 return new Promise((resolve, reject) => {
                     let resolved = false;
+                    let pollInterval = null;
 
                     const appPlugin = window.Capacitor?.Plugins?.App;
                     let urlListener = null;
                     let resumeListener = null;
 
                     const cleanup = async () => {
-                        try { urlListener?.remove?.(); } catch (_) {}
-                        try { resumeListener?.remove?.(); } catch (_) {}
+                        try { if (urlListener && urlListener.remove) urlListener.remove(); } catch (_) {}
+                        try { if (resumeListener && resumeListener.remove) resumeListener.remove(); } catch (_) {}
+                        if (pollInterval) { clearInterval(pollInterval); pollInterval = null; }
                     };
 
                     const handleAuthSuccess = async () => {
@@ -730,48 +738,64 @@
                         resolve({ success: true, method: 'capacitor-inapp-browser', sessionSet: true });
                     };
 
-                    // Signal 1: Deep link callback (in.sfscollege.blixtro://auth?status=success)
+                    const checkAuthStatus = async () => {
+                        if (resolved) return;
+                        try {
+                            const resp = await fetch('/core/auth-status/', {
+                                credentials: 'include',
+                                cache: 'no-cache'
+                            });
+                            if (resp.ok) {
+                                const data = await resp.json();
+                                if (data.authenticated) {
+                                    console.log('[MobileAuth] Auth confirmed via poll');
+                                    await handleAuthSuccess();
+                                }
+                            }
+                        } catch (_) { /* network error — keep polling */ }
+                    };
+
                     if (appPlugin) {
-                        urlListener = appPlugin.addListener('appUrlOpen', async (data) => {
+                        // Signal 1: Deep link callback (in.sfscollege.blixtro://auth?status=success)
+                        appPlugin.addListener('appUrlOpen', async (data) => {
                             console.log('[MobileAuth] Deep link received:', data.url);
                             if (
                                 data.url.includes('in.sfscollege.blixtro://auth') ||
-                                data.url.includes('status=success')
+                                data.url.includes('status=success') ||
+                                data.url.includes('/app-auth-callback')
                             ) {
                                 await handleAuthSuccess();
                             }
-                        });
+                        }).then(listener => { urlListener = listener; }).catch(() => {});
 
                         // Signal 2: App resumes after returning from system browser
-                        // Check if auth was completed while we were in the browser
-                        resumeListener = appPlugin.addListener('appStateChange', async (state) => {
+                        appPlugin.addListener('appStateChange', async (state) => {
                             if (state.isActive && !resolved) {
                                 console.log('[MobileAuth] App resumed, checking auth status...');
-                                try {
-                                    const resp = await fetch('/core/auth-status/', {
-                                        credentials: 'include',
-                                        cache: 'no-cache'
-                                    });
-                                    if (resp.ok) {
-                                        const data = await resp.json();
-                                        if (data.authenticated) {
-                                            console.log('[MobileAuth] Auth confirmed via session check on resume');
-                                            await handleAuthSuccess();
-                                        } else {
-                                            // User returned without completing auth
-                                            PageLoader.hide();
-                                        }
-                                    }
-                                } catch (_) {
+                                // Small delay to let the session cookie propagate
+                                await new Promise(r => setTimeout(r, 800));
+                                await checkAuthStatus();
+                                if (!resolved) {
+                                    // User returned without completing auth — hide loader
                                     PageLoader.hide();
                                 }
                             }
-                        });
+                        }).then(listener => { resumeListener = listener; }).catch(() => {});
                     }
 
                     // Open in the SYSTEM browser (not in-app WebView)
-                    // This avoids Google's 403 disallowed_useragent error
+                    // _system opens the default browser on Android/iOS
                     window.open(authUrl, '_system');
+
+                    // Signal 3: Poll auth status every 3 seconds as a reliable fallback.
+                    // This catches cases where the deep link fires but appUrlOpen doesn't,
+                    // or where appStateChange doesn't fire on some Android versions.
+                    // Polling starts after 5 seconds (give user time to authenticate).
+                    setTimeout(() => {
+                        if (!resolved) {
+                            pollInterval = setInterval(checkAuthStatus, 3000);
+                        }
+                    }, 5000);
 
                     // Timeout: if no response in 5 minutes, reject
                     setTimeout(async () => {
@@ -780,14 +804,14 @@
                             await cleanup();
                             PageLoader.hide();
                             sessionStorage.removeItem('pendingGoogleLogin');
-                            reject(new Error('Sign-in timed out'));
+                            reject(new Error('Sign-in timed out. Please try again.'));
                         }
                     }, 300000);
                 });
 
             } catch (err) {
                 PageLoader.hide();
-                console.error('[MobileAuth] Capacitor system browser login error:', err.code, err.message);
+                console.error('[MobileAuth] Capacitor system browser login error:', err);
                 throw err;
             }
         },
@@ -1217,6 +1241,16 @@
             const path = window.location.pathname;
             const suppressFooterNav = (
                 window.SUPPRESS_MOBILE_FOOTER === true ||
+                // In Capacitor mode, suppress footer on student-facing pages entirely
+                // (app_home has its own nav, portal_login/issue_report/issue_report_success
+                //  are full-screen pages that don't need a footer nav)
+                (window.IS_CAPACITOR && (
+                    path === '/' ||
+                    path === '/core/app/' ||
+                    path.startsWith('/core/app') ||
+                    path.includes('/students/') ||
+                    path.includes('/student/')
+                )) ||
                 path === '/' ||
                 path === '/core/app/' ||
                 path.startsWith('/core/app') ||
@@ -1745,6 +1779,10 @@
     // Manual force function for testing
     window.forceMobileView = function() {
         console.log('[forceMobileView] Forcing mobile view...');
+        if (window.SUPPRESS_MOBILE_FOOTER === true) {
+            console.log('[forceMobileView] Suppressed on this page, skipping.');
+            return;
+        }
         const footer = document.getElementById('mobileFooterNav');
         const sidebar = document.getElementById('mainSidebar');
         if (footer) {
@@ -1783,8 +1821,13 @@
         init();
     }
 
-    // Also run after a short delay to ensure DOM is fully ready
+    // Also run after a short delay to ensure DOM is fully ready.
+    // IMPORTANT: always re-check SUPPRESS_MOBILE_FOOTER before reinitialising —
+    // the flag may be set by an inline <script> that runs before DOMContentLoaded
+    // but after this IIFE, so the first init() call may have already suppressed
+    // the footer correctly. Re-running without the guard would inject it anyway.
     setTimeout(() => {
+        if (window.SUPPRESS_MOBILE_FOOTER === true) return;
         if (!document.getElementById('mobileFooterNav')) {
             console.log('[MobileNav] Delayed init - footer not found, reinitializing...');
             MobileNav.init();
@@ -1815,7 +1858,9 @@ if (!document.getElementById('mobileUtilsAnimStyles')) {
 }
 
 // Global forceMobileView - defined outside IIFE for immediate availability
+// Uses window.forceMobileView || ... so the IIFE version (with SUPPRESS guard) takes precedence
 window.forceMobileView = window.forceMobileView || function() {
+    if (window.SUPPRESS_MOBILE_FOOTER === true) return;
     console.log('[forceMobileView v2] Forcing mobile view...');
     const footer = document.getElementById('mobileFooterNav');
     const sidebar = document.getElementById('mainSidebar');

@@ -1,4 +1,5 @@
 import json, csv, io, socket
+import logging
 from django.views.generic import TemplateView
 from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
 from django.http import JsonResponse, HttpResponse
@@ -6,7 +7,7 @@ from django.db.models import Count, Q
 from django.utils import timezone
 from django.shortcuts import get_object_or_404, render, redirect
 from django.views.decorators.http import require_POST
-from inventory.models import Issue, Item, Room, Category, RoomBooking, Purchase, Vendor, Department, RoomBookingCredentials, RoomBookingRequest, RoomCancellationRequest, Brand
+from inventory.models import Issue, Item, Room, Category, RoomBooking, Purchase, Vendor, Department, RoomBookingCredentials, RoomBookingRequest, RoomCancellationRequest, Brand, MasterInventoryAccess
 from core.models import UserProfile
 from reportlab.lib.pagesizes import A4, landscape
 from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
@@ -23,6 +24,8 @@ from inventory.forms.room_incharge import ExcelUploadForm
 from django.db import models
 from inventory.models import SystemComponent as SC
 import re as _re
+
+logger = logging.getLogger(__name__)
 
 def _extract_docx_structured(raw_bytes):
     """
@@ -119,7 +122,7 @@ def _extract_docx_structured(raw_bytes):
 class CentralAdminRequiredMixin(UserPassesTestMixin):
     def test_func(self):
         profile = getattr(self.request.user, 'profile', None)
-        return profile and profile.is_central_admin or profile.is_sub_admin
+        return bool(profile and (profile.is_central_admin or profile.is_sub_admin))
 
 class AuraDashboardView(LoginRequiredMixin, CentralAdminRequiredMixin, TemplateView):
     template_name = 'central_admin/aura_dashboard.html'
@@ -323,7 +326,10 @@ def aura_data_manager(request):
                     row['detail'] = obj.designation or 'Faculty'
                     row['email'] = obj.email
                     row['designation'] = obj.designation or 'Faculty'
-                    row['password'] = obj.password
+                    # Never expose plaintext passwords in API responses.
+                    # The UI uses a masked placeholder; actual password is
+                    # only sent when the admin explicitly edits a credential.
+                    row['password'] = '••••••••'
                 else:
                     row['label_head'] = "Primary Record"
                     row['label'] = str(obj)
@@ -346,13 +352,18 @@ def aura_data_manager(request):
     return JsonResponse({'results': data})
 
 def aura_delete_record(request):
-    if request.method == 'POST' and (request.user.profile.is_central_admin or request.user.profile.is_sub_admin):
+    # BUG FIX: use getattr to avoid AttributeError on AnonymousUser
+    profile = getattr(request.user, 'profile', None)
+    if request.method == 'POST' and profile and (profile.is_central_admin or profile.is_sub_admin):
         data = json.loads(request.body)
         model_name = data.get('model')
         record_id = data.get('id')
         
         model_map = {'issues': Issue, 'items': Item, 'rooms': Room, 'bookings': RoomBooking}
         model = model_map.get(model_name)
+        # BUG FIX: return 400 for invalid model instead of crashing with ValueError
+        if model is None:
+            return JsonResponse({'status': 'error', 'message': 'Invalid model'}, status=400)
         obj = get_object_or_404(model, id=record_id)
         
         # Ownership check
@@ -401,7 +412,7 @@ def aura_delete_record(request):
                         fail_silently=True,
                     )
                 except Exception as _e:
-                    print(f"[aura_delete_record] Email failed (non-fatal): {_e}", flush=True)
+                    logger.error(f"[aura_delete_record] Email failed (non-fatal): {_e}")
                 return JsonResponse({'status': 'success'})
             
             obj.delete()
@@ -745,7 +756,7 @@ def aura_bulk_delete(request):
                         fail_silently=True,
                     )
                 except Exception as _e:
-                    print(f"[aura_bulk_delete] Email failed for booking {booking.id}: {_e}", flush=True)
+                    logger.error(f"[aura_bulk_delete] Email failed for booking {booking.id}: {_e}")
             return JsonResponse({'status': 'success', 'deleted_count': count})
 
         if model_name == 'credentials':
@@ -1025,7 +1036,7 @@ def cancel_confirmed_booking(request, booking_id):
             fail_silently=True,
         )
     except Exception as _e:
-        print(f"[cancel_confirmed_booking] Email failed (non-fatal): {_e}", flush=True)
+        logger.error(f"[cancel_confirmed_booking] Email failed (non-fatal): {_e}")
 
     return JsonResponse({
         'status': 'success',
@@ -1094,7 +1105,7 @@ def bulk_delete_confirmed_bookings(request):
                     fail_silently=True,
                 )
             except Exception as _e:
-                print(f"[bulk_delete_confirmed_bookings] Email failed for booking {booking.id}: {_e}", flush=True)
+                logger.error(f"[bulk_delete_confirmed_bookings] Email failed for booking {booking.id}: {_e}")
 
         return JsonResponse({'status': 'success', 'deleted_count': count,
                              'message': f'{count} booking(s) cancelled successfully.'})
@@ -1273,7 +1284,7 @@ def get_booking_doc_text(request, booking_id):
         with _storage.open(booking.requirements_doc.name, 'rb') as _f:
             raw = _f.read()
     except Exception as e:
-        print(f"[get_booking_doc_text] Storage read failed booking={booking_id}: {e}\n{_tb.format_exc()}")
+        logger.error(f"[get_booking_doc_text] Storage read failed booking={booking_id}: {e}\n{_tb.format_exc()}")
         cached = (booking.requirements_doc_text or '').strip()
         if cached:
             return JsonResponse({
@@ -1291,14 +1302,14 @@ def get_booking_doc_text(request, booking_id):
         blocks = extract_requirement_blocks_from_field(temp_field)
         plain_text = requirement_blocks_to_plain_text(blocks) or '(No readable content found in this document)'
     except Exception as e:
-        print(f"[get_booking_doc_text] Parse failed booking={booking_id}: {e}\n{_tb.format_exc()}")
+        logger.error(f"[get_booking_doc_text] Parse failed booking={booking_id}: {e}\n{_tb.format_exc()}")
         return JsonResponse({'error': f'Could not parse document: {str(e)}'}, status=500)
 
     try:
         booking.requirements_doc_text = plain_text
         booking.save(update_fields=['requirements_doc_text'])
     except Exception as e:
-        print(f"[get_booking_doc_text] Failed to persist text booking={booking_id}: {e}")
+        logger.error(f"[get_booking_doc_text] Failed to persist text booking={booking_id}: {e}")
 
     return JsonResponse({'doc_name': doc_name, 'type': 'blocks', 'blocks': blocks, 'text': plain_text})
 
@@ -1350,7 +1361,7 @@ def download_booking_doc_as_pdf(request, booking_id):
             except Exception:
                 pass
         except Exception as e:
-            print(f"[download_pdf] file read failed booking={booking_id}: {e}\n{_tb.format_exc()}")
+            logger.error(f"[download_pdf] file read failed booking={booking_id}: {e}\n{_tb.format_exc()}")
             # Fall back to cached plain text
             cached = (booking.requirements_doc_text or '').strip()
             if cached:
@@ -2298,10 +2309,6 @@ def assign_inventory_api(request):
 
     try:
         data = json.loads(request.body)
-        print("DEBUG DATA:", data)
-        print("DEBUG item_id:", data.get('item_id'))
-        print("DEBUG room_ids:", data.get('room_ids'))
-        print("DEBUG quantity:", data.get('quantity'))
     except json.JSONDecodeError:
         return JsonResponse({'error': 'Invalid JSON'}, status=400)
 
@@ -2597,11 +2604,33 @@ def _assign_tags_to_rooms(org, item_name):
 
 
 def save_item_edit(request):
-    """Inline edit for category, brand, cost on master inventory."""
+    """
+    Inline edit for category, brand, cost on master inventory.
+    Accessible by:
+    - Central admin / sub-admin (full access)
+    - Room incharges who have been granted can_edit permission via MasterInventoryAccess
+    """
     if request.method != 'POST':
         return JsonResponse({'error': 'POST required'}, status=405)
     profile = getattr(request.user, 'profile', None)
-    if not profile or not (profile.is_central_admin or profile.is_sub_admin):
+    if not profile:
+        return JsonResponse({'error': 'Unauthorized'}, status=403)
+
+    # Check permission: admin OR room incharge with can_edit
+    is_admin = profile.is_central_admin or profile.is_sub_admin
+    is_incharge_with_edit = False
+    if profile.is_incharge and not is_admin:
+        try:
+            access = MasterInventoryAccess.objects.get(
+                organisation=profile.org,
+                incharge=profile,
+                can_edit=True,
+            )
+            is_incharge_with_edit = True
+        except MasterInventoryAccess.DoesNotExist:
+            pass
+
+    if not is_admin and not is_incharge_with_edit:
         return JsonResponse({'error': 'Unauthorized'}, status=403)
 
     import json
@@ -3018,9 +3047,9 @@ def forward_booking_requirements(request, booking_id):
         
         # Check if we're in development mode
         if getattr(_s, 'EMAIL_BACKEND', '') == 'django.core.mail.backends.console.EmailBackend':
-            print(f'[forward_booking_requirements] EMAIL WOULD BE SENT TO: {email}')
-            print(f'[forward_booking_requirements] SUBJECT: {subject}')
-            print(f'[forward_booking_requirements] BODY: {plain_body[:200]}...')
+            logger.info(f'[forward_booking_requirements] EMAIL WOULD BE SENT TO: {email}')
+            logger.info(f'[forward_booking_requirements] SUBJECT: {subject}')
+            logger.info(f'[forward_booking_requirements] BODY: {plain_body[:200]}...')
             return {'success': True, 'message': f'Requirements forwarded to {email} (Development Mode - Email logged to console).'}
         
         # Production: try sending with retries
@@ -3049,25 +3078,25 @@ def forward_booking_requirements(request, booking_id):
                 return {'success': True, 'message': f'Requirements forwarded to {email}.'}
                 
             except (smtplib.SMTPException, socket.timeout, TimeoutError, OSError) as e:
-                print(f'[forward_booking_requirements] Email attempt {attempt + 1}/{max_retries} failed: {e}')
+                logger.error(f'[forward_booking_requirements] Email attempt {attempt + 1}/{max_retries} failed: {e}')
                 if attempt < max_retries - 1:
                     wait_time = 2 ** attempt  # Exponential backoff: 1, 2, 4 seconds
-                    print(f'[forward_booking_requirements] Retrying in {wait_time}s...')
+                    logger.info(f'[forward_booking_requirements] Retrying in {wait_time}s...')
                     time.sleep(wait_time)
                 else:
                     # All retries exhausted - log but don't fail the request
                     # The requirements are still forwarded to the internal system
-                    print(f'[forward_booking_requirements] All email attempts failed. Email will be queued for later delivery.')
+                    logger.error(f'[forward_booking_requirements] All email attempts failed. Email will be queued for later delivery.')
                     # Queue for async retry via Celery if available
                     try:
                         from inventory.tasks import send_email_async
                         send_email_async.delay(subject, plain_body, html_body, from_email, [email])
                         return {'success': True, 'message': f'Requirements recorded for {email}. Email will be sent shortly.'}
                     except Exception as celery_err:
-                        print(f'[forward_booking_requirements] Celery not available: {celery_err}')
+                        logger.info(f'[forward_booking_requirements] Celery not available: {celery_err}')
                         return {'success': True, 'message': f'Requirements recorded for {email}. Email delivery queued.'}
             except Exception as e:
-                print(f'[forward_booking_requirements] Unexpected email error: {e}')
+                logger.error(f'[forward_booking_requirements] Unexpected email error: {e}')
                 # Don't fail the whole request for email issues
                 return {'success': True, 'message': f'Requirements recorded for {email}. Email notification pending.'}
         
@@ -3078,7 +3107,7 @@ def forward_booking_requirements(request, booking_id):
         return JsonResponse({'status': 'success', 'message': result['message']})
     except Exception as e:
         import traceback
-        print(f'[forward_booking_requirements] Email send failed: {e}\n{traceback.format_exc()}')
+        logger.error(f'[forward_booking_requirements] Email send failed: {e}\n{traceback.format_exc()}')
         # Don't return 500 - the booking requirements are still saved
         return JsonResponse({'status': 'success', 'message': f'Requirements recorded for {email}. Email will be retried.'})
 
@@ -3350,7 +3379,7 @@ def edit_booking(request, booking_id):
             ),
         )
     except Exception as _e:
-        print(f"[edit_booking] Faculty email failed: {_e}", flush=True)
+        logger.error(f"[edit_booking] Faculty email failed: {_e}")
 
     # Email all other admins
     all_admin_emails = list(
@@ -3374,7 +3403,7 @@ def edit_booking(request, booking_id):
                 ),
             )
         except Exception as _e:
-            print(f"[edit_booking] Admin email failed: {_e}", flush=True)
+            logger.error(f"[edit_booking] Admin email failed: {_e}")
 
     # Email BOOKING_NOTIFICATION_EMAILS
     if BOOKING_NOTIFICATION_EMAILS:
@@ -3392,7 +3421,7 @@ def edit_booking(request, booking_id):
                 ),
             )
         except Exception as _e:
-            print(f"[edit_booking] Notification list email failed: {_e}", flush=True)
+            logger.error(f"[edit_booking] Notification list email failed: {_e}")
 
     return JsonResponse({
         'status': 'ok',
@@ -3532,7 +3561,7 @@ def swap_booking_rooms(request, booking_id):
                 ),
             )
         except Exception as _e:
-            print(f"[swap_booking_rooms] Faculty A email failed: {_e}", flush=True)
+            logger.error(f"[swap_booking_rooms] Faculty A email failed: {_e}")
 
         # Email Booking B faculty
         try:
@@ -3556,7 +3585,7 @@ def swap_booking_rooms(request, booking_id):
                 ),
             )
         except Exception as _e:
-            print(f"[swap_booking_rooms] Faculty B email failed: {_e}", flush=True)
+            logger.error(f"[swap_booking_rooms] Faculty B email failed: {_e}")
 
         # Email all other admins
         all_admin_emails = list(
@@ -3602,7 +3631,7 @@ def swap_booking_rooms(request, booking_id):
                     ),
                 )
             except Exception as _e:
-                print(f"[swap_booking_rooms] Admin email failed: {_e}", flush=True)
+                logger.error(f"[swap_booking_rooms] Admin email failed: {_e}")
 
         if BOOKING_NOTIFICATION_EMAILS:
             try:
@@ -3619,7 +3648,7 @@ def swap_booking_rooms(request, booking_id):
                     ),
                 )
             except Exception as _e:
-                print(f"[swap_booking_rooms] Notification list email failed: {_e}", flush=True)
+                logger.error(f"[swap_booking_rooms] Notification list email failed: {_e}")
 
         return JsonResponse({
             'status': 'ok',
@@ -3716,7 +3745,7 @@ def swap_booking_rooms(request, booking_id):
             ),
         )
     except Exception as _e:
-        print(f"[swap_booking_rooms] Faculty email failed: {_e}", flush=True)
+        logger.error(f"[swap_booking_rooms] Faculty email failed: {_e}")
 
     all_admin_emails = list(
         UserProfile.objects.filter(
@@ -3739,7 +3768,7 @@ def swap_booking_rooms(request, booking_id):
                 ),
             )
         except Exception as _e:
-            print(f"[swap_booking_rooms] Admin email failed: {_e}", flush=True)
+            logger.error(f"[swap_booking_rooms] Admin email failed: {_e}")
 
     if BOOKING_NOTIFICATION_EMAILS:
         try:
@@ -3756,7 +3785,7 @@ def swap_booking_rooms(request, booking_id):
                 ),
             )
         except Exception as _e:
-            print(f"[swap_booking_rooms] Notification list email failed: {_e}", flush=True)
+            logger.error(f"[swap_booking_rooms] Notification list email failed: {_e}")
 
     return JsonResponse({
         'status': 'ok',
@@ -3850,3 +3879,230 @@ def booking_add_return_note(request, booking_id):
         'message': 'Note saved (internal record only).',
         'add_return_note': booking.add_return_note,
     })
+
+
+# ═══════════════════════════════════════════════════════════════
+# MASTER INVENTORY ACCESS MANAGEMENT (Admin → Room Incharge)
+# ═══════════════════════════════════════════════════════════════
+
+def master_inventory_access_list(request):
+    """
+    AJAX GET — returns all room incharges in the org with their access status.
+    Returns can_view and can_edit flags for each incharge.
+    """
+    profile = getattr(request.user, 'profile', None)
+    if not profile or not (profile.is_central_admin or profile.is_sub_admin):
+        return JsonResponse({'error': 'Unauthorized'}, status=403)
+
+    org = profile.org
+
+    # All room incharges in this org
+    incharges = UserProfile.objects.filter(
+        org=org,
+        is_incharge=True,
+    ).select_related('user').prefetch_related('rooms_incharge').order_by('first_name', 'last_name')
+
+    # Existing access grants — keyed by incharge_id
+    access_map = {
+        a.incharge_id: a
+        for a in MasterInventoryAccess.objects.filter(organisation=org)
+    }
+
+    result = []
+    for person in incharges:
+        rooms = list(person.rooms_incharge.filter(organisation=org).values('room_name', 'label'))
+        room_display = ', '.join(
+            f"{r['label']} - {r['room_name']}" if r['label'] else r['room_name']
+            for r in rooms
+        ) or '—'
+        access = access_map.get(person.user_id)
+        result.append({
+            'id':         person.user_id,
+            'slug':       person.slug,
+            'name':       f"{person.first_name} {person.last_name}".strip() or person.user.email,
+            'email':      person.user.email,
+            'rooms':      room_display,
+            'has_access': access is not None,
+            'can_view':   access.can_view if access else False,
+            'can_edit':   access.can_edit if access else False,
+        })
+
+    return JsonResponse({'incharges': result})
+
+
+@require_POST
+def master_inventory_grant_access(request):
+    """
+    POST — grant view access to master inventory for a room incharge.
+    Body: { "incharge_slug": "...", "access_type": "view" | "edit" }
+    - "view": grants view-only (can_view=True, can_edit unchanged)
+    - "edit": grants edit access (can_view=True, can_edit=True)
+    """
+    profile = getattr(request.user, 'profile', None)
+    if not profile or not (profile.is_central_admin or profile.is_sub_admin):
+        return JsonResponse({'error': 'Unauthorized'}, status=403)
+
+    try:
+        data = json.loads(request.body)
+    except Exception:
+        return JsonResponse({'error': 'Invalid JSON'}, status=400)
+
+    incharge_slug = (data.get('incharge_slug') or '').strip()
+    access_type   = (data.get('access_type') or 'view').strip()  # 'view' or 'edit'
+
+    if not incharge_slug:
+        return JsonResponse({'error': 'incharge_slug is required'}, status=400)
+    if access_type not in ('view', 'edit'):
+        return JsonResponse({'error': 'access_type must be "view" or "edit"'}, status=400)
+
+    org = profile.org
+    incharge = get_object_or_404(UserProfile, slug=incharge_slug, org=org, is_incharge=True)
+
+    access, created = MasterInventoryAccess.objects.get_or_create(
+        organisation=org,
+        incharge=incharge,
+        defaults={
+            'granted_by': profile,
+            'can_view': True,
+            'can_edit': access_type == 'edit',
+        },
+    )
+    if not created:
+        access.granted_by = profile
+        access.can_view = True
+        if access_type == 'edit':
+            access.can_edit = True
+        access.save(update_fields=['granted_by', 'can_view', 'can_edit', 'updated_on'])
+
+    name = f"{incharge.first_name} {incharge.last_name}".strip() or incharge.user.email
+    perm_label = 'view & edit' if access.can_edit else 'view-only'
+    return JsonResponse({
+        'status':   'success',
+        'message':  f'Master Inventory {perm_label} access granted to {name}.',
+        'can_view': access.can_view,
+        'can_edit': access.can_edit,
+    })
+
+
+@require_POST
+def master_inventory_revoke_access(request):
+    """
+    POST — revoke master inventory access from a room incharge.
+    Body: { "incharge_slug": "...", "revoke_type": "all" | "edit" }
+    - "all":  removes the access record entirely (no view, no edit)
+    - "edit": keeps view access but removes edit permission
+    """
+    profile = getattr(request.user, 'profile', None)
+    if not profile or not (profile.is_central_admin or profile.is_sub_admin):
+        return JsonResponse({'error': 'Unauthorized'}, status=403)
+
+    try:
+        data = json.loads(request.body)
+    except Exception:
+        return JsonResponse({'error': 'Invalid JSON'}, status=400)
+
+    incharge_slug = (data.get('incharge_slug') or '').strip()
+    revoke_type   = (data.get('revoke_type') or 'all').strip()  # 'all' or 'edit'
+
+    if not incharge_slug:
+        return JsonResponse({'error': 'incharge_slug is required'}, status=400)
+
+    org = profile.org
+    incharge = get_object_or_404(UserProfile, slug=incharge_slug, org=org, is_incharge=True)
+    name = f"{incharge.first_name} {incharge.last_name}".strip() or incharge.user.email
+
+    if revoke_type == 'edit':
+        # Only remove edit permission, keep view access
+        updated = MasterInventoryAccess.objects.filter(
+            organisation=org, incharge=incharge
+        ).update(can_edit=False)
+        if updated:
+            return JsonResponse({'status': 'success', 'message': f'Edit access revoked from {name}. View access retained.'})
+        return JsonResponse({'status': 'success', 'message': 'No access record found.'})
+    else:
+        # Remove entire access record
+        deleted_count, _ = MasterInventoryAccess.objects.filter(
+            organisation=org, incharge=incharge,
+        ).delete()
+        if deleted_count:
+            return JsonResponse({'status': 'success', 'message': f'All Master Inventory access revoked from {name}.'})
+        return JsonResponse({'status': 'success', 'message': 'No access record found (already revoked).'})
+
+
+# ═══════════════════════════════════════════════════════════════
+# ROOM INCHARGE — MASTER INVENTORY (view + optional edit)
+# ═══════════════════════════════════════════════════════════════
+
+class RoomInchargeMasterInventoryView(LoginRequiredMixin, TemplateView):
+    """
+    Master inventory for room incharges who have been granted access.
+    - can_view=True: page is accessible, all data shown read-only
+    - can_edit=True: inline edit controls shown (category, brand, cost, product code)
+    Accessible only if a MasterInventoryAccess record exists for this incharge.
+    """
+    template_name = 'room_incharge/master_inventory_view.html'
+
+    def dispatch(self, request, *args, **kwargs):
+        if not request.user.is_authenticated:
+            return self.handle_no_permission()
+        profile = getattr(request.user, 'profile', None)
+        if not profile or not profile.is_incharge:
+            from django.http import HttpResponseForbidden
+            return HttpResponseForbidden("Access denied.")
+        # Check if access has been granted
+        try:
+            self._access = MasterInventoryAccess.objects.get(
+                organisation=profile.org,
+                incharge=profile,
+            )
+        except MasterInventoryAccess.DoesNotExist:
+            from django.http import HttpResponseForbidden
+            return HttpResponseForbidden("You do not have access to the Master Inventory.")
+        return super().dispatch(request, *args, **kwargs)
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        profile = self.request.user.profile
+        org = profile.org
+        room_slug = self.kwargs.get('room_slug')
+
+        from inventory.models import Room, RoomSettings
+        room = get_object_or_404(Room, slug=room_slug, incharge=profile)
+        room_settings = RoomSettings.objects.get_or_create(room=room)[0]
+
+        master_items = Item.objects.filter(
+            organisation=org,
+            room__isnull=True,
+            is_listed=True,
+        ).select_related('category', 'brand').order_by('item_name')
+
+        # Bulk aggregations
+        assigned_map = {
+            row['item_name']: row['total'] or 0
+            for row in Item.objects.filter(organisation=org, room__isnull=False)
+            .values('item_name').annotate(total=models.Sum('total_count'))
+        }
+
+        items_data = []
+        for item in master_items:
+            name = item.item_name
+            assigned = assigned_map.get(name, 0)
+            available = item.total_count
+            total_items = available + assigned
+            cpu = item.cost or 0
+            items_data.append({
+                'item': item,
+                'available_stock': available,
+                'assigned_count': assigned,
+                'total_items': total_items,
+                'cpu': cpu,
+                'total_cost': round(float(cpu) * total_items, 2) if cpu else 0,
+            })
+
+        context['items_data']   = items_data
+        context['total_items']  = len(items_data)
+        context['room']         = room
+        context['room_slug']    = room_slug
+        context['room_settings']= room_settings
+        context['can_edit']     = self._access.can_edit  # pass edit permission to template
+        return context

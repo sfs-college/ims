@@ -3,6 +3,10 @@
 
 {% block title %} | Issues{% endblock title %}
 
+{% block style %}
+<script>window.SUPPRESS_MOBILE_FOOTER = true;</script>
+{% endblock style %}
+
 {% block content %}
 <style>
     body {
@@ -405,6 +409,8 @@
 
 <script src="https://unpkg.com/htmx.org@1.9.10"></script>
 <script>
+// Suppress mobile footer nav entirely in Capacitor mode on student pages
+window.SUPPRESS_MOBILE_FOOTER = true;
 // Restrict mobile footer nav to Home-only on this page
 window.MOBILE_NAV_HOME_ONLY = true;
 

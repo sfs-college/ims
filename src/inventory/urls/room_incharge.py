@@ -1,5 +1,6 @@
 from django.urls import path
 from inventory.views import room_incharge
+from inventory.views import aura as aura_views
 
 app_name = 'room_incharge'
 
@@ -102,4 +103,6 @@ urlpatterns = [
     path('<slug:room_slug>/issues/<int:pk>/close/', room_incharge.CloseIssueView.as_view(), name='close_issue'),
     path('rooms/<slug:room_slug>/asset-tags/', room_incharge.get_room_asset_tags, name='get_room_asset_tags'),
     path('rooms/<slug:room_slug>/issue/<int:pk>/remark/', room_incharge.SendIssueRemarkView.as_view(), name='issue_remark'),
+    # Master Inventory — view-only for room incharges with granted access
+    path('rooms/<slug:room_slug>/master-inventory/', aura_views.RoomInchargeMasterInventoryView.as_view(), name='master_inventory'),
 ]

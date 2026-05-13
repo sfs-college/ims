@@ -124,19 +124,24 @@
         if (isAndroid) {
           // On Android, try the intent URI first (more reliable for app links)
           window.location.href = intentUri;
+          // Fallback: try custom scheme after 1.5s if intent didn't work
+          setTimeout(function() {
+            window.location.href = deepLink;
+          }, 1500);
         } else {
           // On iOS, use the custom scheme directly
           window.location.href = deepLink;
         }
-      }, 800);
+      }, 600);
 
-      // Fallback: update button text after 5 seconds if still on this page
+      // Update button to show plain deep link after 3 seconds
       setTimeout(function() {
         var btn = document.getElementById('openAppBtn');
         if (btn) {
           btn.innerHTML = '🚀 Open Blixtro App';
+          btn.href = deepLink;
         }
-      }, 5000);
+      }, 3000);
     })();
   </script>
 </body>

@@ -129,4 +129,8 @@ urlpatterns = [
         central_admin.download_booking_request_doc,
         name='download_booking_request_doc',
     ),
+    # Master Inventory Access Management
+    path('master-inventory/access/list/', aura.master_inventory_access_list, name='master_inventory_access_list'),
+    path('master-inventory/access/grant/', aura.master_inventory_grant_access, name='master_inventory_grant_access'),
+    path('master-inventory/access/revoke/', aura.master_inventory_revoke_access, name='master_inventory_revoke_access'),
 ]
