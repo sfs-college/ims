@@ -4,7 +4,31 @@
 {% block title %} | Issue Reported Successfully{% endblock title %}
 
 {% block style %}
-<script>window.SUPPRESS_MOBILE_FOOTER = true;</script>
+<script>
+// ── Hard-guard: issue_report_success MUST never show the mobile footer nav ──
+window.SUPPRESS_MOBILE_FOOTER = true;
+(function() {
+    function removeFooter() {
+        var f = document.getElementById('mobileFooterNav');
+        if (f) { f.remove(); document.body.style.paddingBottom = ''; }
+    }
+    var obs = new MutationObserver(function(mutations) {
+        for (var i = 0; i < mutations.length; i++) {
+            for (var j = 0; j < mutations[i].addedNodes.length; j++) {
+                var node = mutations[i].addedNodes[j];
+                if (node.id === 'mobileFooterNav') { node.remove(); document.body.style.paddingBottom = ''; }
+            }
+        }
+    });
+    obs.observe(document.documentElement, { childList: true, subtree: true });
+    document.addEventListener('DOMContentLoaded', function() {
+        removeFooter();
+        if (window.MobileNav) window.MobileNav.buildFooter = function() {};
+    });
+    setTimeout(removeFooter, 600);
+})();
+</script>
+
 <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
 
 <style>

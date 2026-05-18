@@ -1,0 +1,936 @@
+{% extends "sidebar_base.html" %}
+{% load static %}
+
+{% block title %} | Assign Inventory{% endblock title %}
+
+{% block style %}
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700;9..40,800&display=swap');
+
+  :root {
+    --accent:       #6c63ff;
+    --accent-lt:    #a89dff;
+    --purple:       #9333ea;
+    --purple-dark:  #7c3aed;
+    --purple-light: #f3e8ff;
+    --blue:         #3b82f6;
+    --blue-light:   #eff6ff;
+    --surface:      #f8fafc;
+    --white:        #ffffff;
+    --border:       #e2e8f0;
+    --text-dark:    #1e293b;
+    --text-mid:     #475569;
+    --text-muted:   #94a3b8;
+    --success:      #059669;
+    --success-light:#d1fae5;
+    --danger:       #dc2626;
+    --danger-light: #fee2e2;
+    --shadow:       0 2px 8px rgba(0,0,0,0.06);
+    --shadow-md:    0 4px 16px rgba(0,0,0,0.10);
+    --shadow-lg:    0 8px 32px rgba(0,0,0,0.14);
+  }
+
+  body { background: var(--surface); font-family: 'DM Sans', sans-serif; }
+
+  .assign-page { padding: 28px 0 48px; }
+
+  /* ── Page header ── */
+  .page-header {
+    background: white;
+    padding: 22px 28px;
+    border-radius: 16px;
+    box-shadow: var(--shadow);
+    margin-bottom: 22px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+  .page-title {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    font-weight: 800;
+    font-size: 1.8rem;
+    margin: 0;
+  }
+  .page-subtitle { color: var(--text-muted); font-size: 0.88rem; margin-top: 3px; margin-bottom: 0; }
+
+  .access-badge {
+    display: inline-flex; align-items: center; gap: 5px;
+    background: var(--success-light); color: var(--success);
+    border: 1px solid #a7f3d0; border-radius: 20px;
+    font-size: 0.72rem; font-weight: 700; padding: 4px 12px;
+  }
+
+  /* ── Steps ── */
+  .steps-row {
+    display: flex; align-items: center; gap: 0;
+    background: white; border-radius: 12px; padding: 6px;
+    box-shadow: var(--shadow); margin-bottom: 22px; width: fit-content;
+  }
+  .step-item {
+    display: flex; align-items: center; gap: 8px;
+    padding: 9px 20px; border-radius: 9px;
+    font-size: 0.83rem; font-weight: 600; color: var(--text-muted); transition: all 0.2s;
+  }
+  .step-item.active { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; }
+  .step-item .num {
+    width: 22px; height: 22px; border-radius: 50%;
+    background: rgba(255,255,255,0.25);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 0.72rem; font-weight: 800;
+  }
+  .step-item:not(.active) .num { background: #e2e8f0; color: var(--text-muted); }
+  .step-sep { width: 28px; height: 1px; background: var(--border); }
+
+  /* ── Main grid ── */
+  .main-grid {
+    display: grid;
+    grid-template-columns: 340px 1fr;
+    gap: 20px;
+    align-items: start;
+  }
+
+  /* ── Cards ── */
+  .card {
+    background: white; border-radius: 15px;
+    box-shadow: var(--shadow); overflow: visible; margin-bottom: 18px;
+  }
+  .card:last-child { margin-bottom: 0; }
+  .card-header {
+    padding: 16px 20px; border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .card-title {
+    font-weight: 700; font-size: 0.92rem; color: var(--text-dark);
+    display: flex; align-items: center; gap: 9px; margin: 0;
+  }
+  .card-title-icon {
+    width: 28px; height: 28px; border-radius: 8px;
+    display: flex; align-items: center; justify-content: center; font-size: 0.82rem;
+  }
+  .icon-purple { background: var(--purple-light); color: var(--purple); }
+  .icon-blue   { background: var(--blue-light);   color: var(--blue); }
+  .card-body { padding: 16px 20px; }
+
+  /* ── Search ── */
+  .search-wrap { position: relative; margin-bottom: 12px; }
+  .search-wrap input {
+    width: 100%; padding: 9px 14px 9px 34px;
+    border: 1.5px solid var(--border); border-radius: 10px;
+    font-size: 0.875rem; color: var(--text-dark);
+    background: var(--surface); outline: none; transition: all 0.2s;
+  }
+  .search-wrap input:focus { border-color: var(--purple); background: white; box-shadow: 0 0 0 3px rgba(147,51,234,0.08); }
+  .search-wrap i { position: absolute; left: 10px; top: 50%; transform: translateY(-50%); color: var(--text-muted); font-size: 0.78rem; }
+
+  /* ── Item drag cards ── */
+  .items-scroll {
+    max-height: 440px; overflow-y: auto;
+    display: flex; flex-direction: column; gap: 7px; padding-right: 2px;
+  }
+  .items-scroll::-webkit-scrollbar { width: 4px; }
+  .items-scroll::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+
+  .item-drag-card {
+    display: flex; align-items: center; gap: 10px;
+    padding: 10px 12px; border: 1.5px solid var(--border);
+    border-radius: 11px; cursor: grab; transition: all 0.18s;
+    background: white; user-select: none;
+  }
+  .item-drag-card:hover { border-color: var(--purple); box-shadow: 0 2px 10px rgba(147,51,234,0.12); transform: translateX(2px); }
+  .item-drag-card.is-dragging { opacity: 0.45; cursor: grabbing; transform: scale(0.97); }
+  .item-drag-card.no-stock { opacity: 0.4; cursor: not-allowed; background: var(--surface); }
+  .item-drag-card.no-stock:hover { border-color: var(--border); box-shadow: none; transform: none; }
+
+  .item-drag-icon {
+    width: 34px; height: 34px; border-radius: 9px;
+    background: var(--purple-light); color: var(--purple);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 0.9rem; flex-shrink: 0;
+  }
+  .item-drag-info { flex: 1; min-width: 0; }
+  .item-drag-name { font-weight: 600; font-size: 0.85rem; color: var(--text-dark); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .item-drag-sub  { font-size: 0.73rem; color: var(--text-muted); margin-top: 1px; }
+
+  .stock-pill { font-size: 0.7rem; font-weight: 700; padding: 3px 9px; border-radius: 20px; flex-shrink: 0; }
+  .pill-green  { background: var(--success-light); color: var(--success); }
+  .pill-orange { background: #fff7ed; color: #c2410c; }
+  .pill-red    { background: var(--danger-light); color: var(--danger); }
+
+  .grip-icon { color: var(--border); font-size: 0.78rem; flex-shrink: 0; transition: color 0.15s; }
+  .item-drag-card:hover .grip-icon { color: var(--purple); }
+
+  /* ── Room selector ── */
+  .form-group label {
+    display: block; font-size: 0.7rem; font-weight: 700;
+    letter-spacing: 0.05em; text-transform: uppercase;
+    color: var(--text-mid); margin-bottom: 5px;
+  }
+  .form-group select {
+    width: 100%; padding: 9px 32px 9px 12px;
+    border: 1.5px solid var(--border); border-radius: 10px;
+    font-size: 0.875rem; color: var(--text-dark);
+    background: white; outline: none; transition: all 0.2s; cursor: pointer;
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='11' height='11' fill='%2394a3b8' viewBox='0 0 16 16'%3E%3Cpath d='M7.247 11.14 2.451 5.658C1.885 5.013 2.345 4 3.204 4h9.592a1 1 0 0 1 .753 1.659l-4.796 5.48a1 1 0 0 1-1.506 0z'/%3E%3C/svg%3E");
+    background-repeat: no-repeat; background-position: right 12px center;
+  }
+  .form-group select:focus { border-color: var(--purple); box-shadow: 0 0 0 3px rgba(147,51,234,0.08); }
+
+  /* ── Drop zone ── */
+  .dropzone-wrap { background: white; border-radius: 15px; box-shadow: var(--shadow); overflow: hidden; margin-bottom: 18px; }
+  .dropzone-head {
+    padding: 14px 20px; border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .room-tag { display: flex; align-items: center; gap: 8px; font-weight: 700; font-size: 0.88rem; color: var(--text-dark); }
+  .room-dot { width: 9px; height: 9px; border-radius: 50%; background: var(--border); flex-shrink: 0; transition: background 0.3s; }
+  .room-dot.active { background: var(--purple); }
+
+  .drop-area { min-height: 200px; padding: 16px; transition: background 0.2s; position: relative; }
+  .drop-area.over { background: linear-gradient(135deg, rgba(102,126,234,0.04) 0%, rgba(118,75,162,0.04) 100%); }
+  .drop-area.over::after {
+    content: ''; position: absolute; inset: 10px;
+    border: 2px dashed var(--purple); border-radius: 11px;
+    pointer-events: none; opacity: 0.5;
+  }
+
+  .drop-placeholder {
+    display: flex; flex-direction: column; align-items: center;
+    justify-content: center; height: 160px; text-align: center; color: var(--text-muted);
+  }
+  .drop-placeholder i { font-size: 1.8rem; color: var(--border); margin-bottom: 10px; display: block; }
+  .drop-placeholder p { font-weight: 600; font-size: 0.88rem; margin: 0 0 4px; color: var(--text-mid); }
+  .drop-placeholder small { font-size: 0.76rem; }
+
+  .staged-list { display: flex; flex-direction: column; gap: 8px; }
+  .staged-item {
+    display: flex; align-items: center; gap: 10px;
+    padding: 11px 14px; background: var(--surface);
+    border-radius: 11px; border: 1px solid var(--border);
+    animation: fadeSlide 0.25s ease;
+  }
+  @keyframes fadeSlide { from { opacity:0; transform:translateY(-6px); } to { opacity:1; transform:translateY(0); } }
+
+  .staged-icon { width: 32px; height: 32px; border-radius: 8px; background: var(--blue-light); color: var(--blue); display: flex; align-items: center; justify-content: center; font-size: 0.82rem; flex-shrink: 0; }
+  .staged-info { flex: 1; }
+  .staged-name { font-weight: 600; font-size: 0.85rem; color: var(--text-dark); }
+  .staged-qty  { font-size: 0.73rem; color: var(--text-muted); margin-top: 1px; }
+  .staged-badge { font-size: 0.7rem; font-weight: 700; padding: 3px 10px; border-radius: 20px; background: var(--success-light); color: var(--success); }
+
+  /* ── History ── */
+  .history-items { display: flex; flex-direction: column; gap: 7px; max-height: 220px; overflow-y: auto; }
+  .history-items::-webkit-scrollbar { width: 4px; }
+  .history-items::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+  .history-row {
+    display: flex; align-items: center; gap: 9px;
+    padding: 9px 12px; background: var(--surface);
+    border-radius: 9px; font-size: 0.82rem; animation: fadeSlide 0.25s ease;
+  }
+  .history-row i { color: var(--success); font-size: 0.82rem; }
+  .history-row span { flex: 1; color: var(--text-dark); }
+  .history-row small { color: var(--text-muted); font-size: 0.7rem; flex-shrink: 0; }
+
+  .empty-note { text-align: center; padding: 24px; color: var(--text-muted); font-size: 0.83rem; }
+  .empty-note i { display: block; font-size: 1.3rem; color: var(--border); margin-bottom: 7px; }
+
+  /* ── Toast ── */
+  .toast-wrap { position: fixed; top: 22px; right: 22px; z-index: 9999; display: flex; flex-direction: column; gap: 9px; pointer-events: none; }
+  .toast-msg {
+    display: flex; align-items: center; gap: 10px;
+    padding: 12px 16px; border-radius: 11px; font-size: 0.875rem; font-weight: 500;
+    box-shadow: var(--shadow-lg); min-width: 280px; max-width: 380px;
+    pointer-events: all; animation: toastIn 0.3s cubic-bezier(0.34,1.56,0.64,1); color: white;
+  }
+  .toast-msg.t-success { background: var(--success); }
+  .toast-msg.t-error   { background: var(--danger); }
+  .toast-msg.t-info    { background: var(--purple); }
+  .toast-msg.out { animation: toastOut 0.25s ease forwards; }
+  @keyframes toastIn  { from { opacity:0; transform:translateX(30px); } to { opacity:1; transform:translateX(0); } }
+  @keyframes toastOut { to   { opacity:0; transform:translateX(30px); } }
+
+  /* ── Quantity modal ── */
+  .modal-bg {
+    position: fixed; inset: 0; background: rgba(15,23,42,0.45);
+    z-index: 10000; display: flex; align-items: center; justify-content: center;
+    backdrop-filter: blur(2px); opacity: 0; pointer-events: none; transition: opacity 0.2s;
+  }
+  .modal-bg.show { opacity: 1; pointer-events: all; }
+  .modal-box {
+    background: white; border-radius: 18px; padding: 30px;
+    width: 380px; max-width: 94vw; box-shadow: var(--shadow-lg);
+    transform: translateY(16px) scale(0.97);
+    transition: transform 0.28s cubic-bezier(0.34,1.56,0.64,1);
+  }
+  .modal-bg.show .modal-box { transform: translateY(0) scale(1); }
+  .modal-title { font-size: 1.2rem; font-weight: 800; color: var(--text-dark); margin-bottom: 4px; }
+  .modal-sub   { font-size: 0.83rem; color: var(--text-muted); margin-bottom: 20px; }
+  .modal-sub b { color: var(--text-dark); }
+
+  .info-cards { display: flex; gap: 10px; margin-bottom: 20px; }
+  .info-card  { flex: 1; border: 1.5px solid var(--border); border-radius: 12px; padding: 12px; text-align: center; }
+  .info-card .val { font-size: 1.5rem; font-weight: 800; color: var(--text-dark); line-height: 1; }
+  .info-card .lbl { font-size: 0.68rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-muted); margin-top: 4px; }
+
+  .qty-label { font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-mid); margin-bottom: 7px; }
+  .qty-row   { display: flex; align-items: center; gap: 10px; margin-bottom: 20px; }
+  .qty-step-btn {
+    width: 40px; height: 40px; border: 1.5px solid var(--border); border-radius: 9px;
+    background: var(--surface); font-size: 1.1rem; font-weight: 700; color: var(--text-dark);
+    cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.15s; flex-shrink: 0;
+  }
+  .qty-step-btn:hover { border-color: var(--purple); color: var(--purple); background: var(--purple-light); }
+  .qty-field {
+    flex: 1; text-align: center; padding: 9px;
+    border: 1.5px solid var(--border); border-radius: 9px;
+    font-size: 1.4rem; font-weight: 800; color: var(--text-dark); outline: none; transition: border-color 0.2s;
+  }
+  .qty-field:focus { border-color: var(--purple); box-shadow: 0 0 0 3px rgba(147,51,234,0.08); }
+
+  .modal-actions { display: flex; gap: 10px; }
+  .btn-sec {
+    flex: 1; padding: 11px; border: 1.5px solid var(--border); border-radius: 11px;
+    background: white; font-size: 0.86rem; font-weight: 600; color: var(--text-mid); cursor: pointer; transition: all 0.2s;
+  }
+  .btn-sec:hover { border-color: var(--text-dark); color: var(--text-dark); }
+  .btn-primary-modal {
+    flex: 2; padding: 11px; border: none; border-radius: 11px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    font-size: 0.86rem; font-weight: 700; color: white; cursor: pointer; transition: all 0.2s;
+    display: flex; align-items: center; justify-content: center; gap: 7px;
+  }
+  .btn-primary-modal:hover { opacity: 0.92; transform: translateY(-1px); box-shadow: 0 4px 12px rgba(118,75,162,0.3); }
+  .btn-primary-modal:disabled { opacity: 0.55; cursor: not-allowed; transform: none; box-shadow: none; }
+  .spin { width: 14px; height: 14px; border: 2px solid rgba(255,255,255,0.35); border-top-color: white; border-radius: 50%; animation: spin 0.7s linear infinite; display: none; }
+  .btn-primary-modal.loading .spin { display: block; }
+  .btn-primary-modal.loading .btn-label { display: none; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ── Responsive ── */
+  @media (max-width: 900px) {
+    .main-grid { grid-template-columns: 1fr; }
+    .assign-page { padding: 16px 0 32px; }
+  }
+  @media (max-width: 600px) {
+    .steps-row { width: 100%; justify-content: center; }
+    .step-item { padding: 7px 10px; font-size: 0.72rem; gap: 5px; }
+    .step-sep  { width: 14px; }
+    .page-title { font-size: 1.4rem; }
+    .page-header { padding: 16px; }
+    .modal-box { padding: 20px; border-radius: 14px; }
+    .info-cards { gap: 7px; }
+    .info-card .val { font-size: 1.2rem; }
+    .toast-wrap { right: 10px; top: 14px; }
+    .toast-msg { min-width: 240px; font-size: 0.8rem; padding: 10px 13px; }
+  }
+</style>
+{% endblock style %}
+
+{% block navbar %}
+{% include "room_incharge/navbar.html" %}
+{% endblock navbar %}
+
+{% block sidebar %}
+{% include "room_incharge/sidebar.html" %}
+{% endblock sidebar %}
+
+{% block content %}
+<div class="assign-page">
+
+  <div class="toast-wrap" id="toastWrap"></div>
+
+  <!-- Header -->
+  <div class="page-header">
+    <div>
+      <h1 class="page-title">Assign Inventory</h1>
+      <p class="page-subtitle">Drag items from master stock and drop into your room to assign</p>
+    </div>
+    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+      <span class="access-badge"><i class="bi bi-check-circle-fill me-1"></i>Assign Access</span>
+      <button type="button"
+         onclick="openRevertInventory()"
+         style="display:inline-flex;align-items:center;gap:6px;padding:8px 16px;
+                background:white;color:#0f766e;border:1.5px solid #99f6e4;
+                border-radius:9px;font-size:0.82rem;font-weight:700;transition:all 0.15s;">
+        <i class="bi bi-arrow-counterclockwise"></i> Revert Items
+      </button>
+      <a href="{% url 'room_incharge:room_dashboard' room_slug=room_slug %}"
+         style="display:inline-flex;align-items:center;gap:6px;padding:8px 16px;
+                background:white;color:var(--text-muted);border:1.5px solid var(--border);
+                border-radius:9px;font-size:0.82rem;font-weight:600;text-decoration:none;transition:all 0.15s;"
+         onmouseover="this.style.borderColor='var(--purple)';this.style.color='var(--purple)'"
+         onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--text-muted)'">
+        <i class="bi bi-arrow-left"></i> Dashboard
+      </a>
+    </div>
+  </div>
+
+  <!-- Steps -->
+  <div class="steps-row">
+    <div class="step-item active" id="s1"><span class="num">1</span> Select Room</div>
+    <div class="step-sep"></div>
+    <div class="step-item" id="s2"><span class="num">2</span> Drag Items</div>
+    <div class="step-sep"></div>
+    <div class="step-item" id="s3"><span class="num">3</span> Set Quantity</div>
+  </div>
+
+  <!-- Main grid -->
+  <div class="main-grid">
+
+    <!-- LEFT: Master Inventory items -->
+    <div>
+      <div class="card">
+        <div class="card-header">
+          <h6 class="card-title">
+            <span class="card-title-icon icon-purple"><i class="bi bi-box-seam-fill"></i></span>
+            Master Inventory
+          </h6>
+          <span style="font-size:0.76rem;color:var(--text-muted);">{{ master_items|length }} items</span>
+        </div>
+        <div class="card-body">
+          <div class="search-wrap">
+            <i class="bi bi-search"></i>
+            <input type="text" placeholder="Search items…" oninput="filterItems(this.value)">
+          </div>
+          <div class="items-scroll" id="itemsList">
+            {% for item in master_items %}
+            <div class="item-drag-card {% if item.total_count == 0 %}no-stock{% endif %}"
+                 id="icard-{{ item.id }}"
+                 draggable="{% if item.total_count > 0 %}true{% else %}false{% endif %}"
+                 data-id="{{ item.id }}"
+                 data-name="{{ item.item_name }}"
+                 data-stock="{{ item.total_count }}"
+                 data-cat="{{ item.category.category_name }}"
+                 data-brand="{{ item.brand.brand_name }}"
+                 ondragstart="onDragStart(event)"
+                 ondragend="onDragEnd(event)">
+              <div class="item-drag-icon"><i class="bi bi-box2"></i></div>
+              <div class="item-drag-info">
+                <div class="item-drag-name" title="{{ item.item_name }}">{{ item.item_name }}</div>
+                <div class="item-drag-sub">{{ item.category.category_name }} · {{ item.brand.brand_name }}</div>
+              </div>
+              <span class="stock-pill {% if item.total_count == 0 %}pill-red{% elif item.total_count <= 5 %}pill-orange{% else %}pill-green{% endif %}"
+                    id="spill-{{ item.id }}">{{ item.total_count }}</span>
+              <i class="bi bi-grip-vertical grip-icon"></i>
+            </div>
+            {% empty %}
+            <div class="empty-note">
+              <i class="bi bi-inbox"></i>
+              No items in master inventory yet.
+            </div>
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- RIGHT -->
+    <div style="display:flex;flex-direction:column;gap:0;">
+
+      <!-- Room selector (incharge's own rooms only) -->
+      <div class="card">
+        <div class="card-header">
+          <h6 class="card-title">
+            <span class="card-title-icon icon-blue"><i class="bi bi-building"></i></span>
+            Select Your Room
+          </h6>
+        </div>
+        <div class="card-body">
+          <div class="form-group">
+            <label>Room</label>
+            <select id="roomSelect" onchange="onRoomSelect()">
+              <option value="">— Choose a Room —</option>
+              {% for r in incharge_rooms %}
+              <option value="{{ r.id }}" data-name="{% if r.label %}{{ r.label }} — {% endif %}{{ r.room_name }}">
+                {% if r.label %}{{ r.label }} — {% endif %}{{ r.room_name }}
+              </option>
+              {% endfor %}
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <!-- Drop zone -->
+      <div class="dropzone-wrap">
+        <div class="dropzone-head">
+          <div class="room-tag">
+            <span class="room-dot" id="roomDot"></span>
+            <span id="roomLabel">No Room Selected</span>
+          </div>
+          <span id="assignedCount" style="font-size:0.76rem;color:var(--text-muted);"></span>
+        </div>
+        <div class="drop-area" id="dropArea"
+             ondragover="onDragOver(event)"
+             ondragleave="onDragLeave(event)"
+             ondrop="onDrop(event)">
+          <div class="drop-placeholder" id="noRoomMsg">
+            <i class="bi bi-building-slash"></i>
+            <p>No room selected</p>
+            <small>Select your room above first</small>
+          </div>
+          <div class="drop-placeholder" id="dropMsg" style="display:none;">
+            <i class="bi bi-box-arrow-in-down"></i>
+            <p>Drop items here</p>
+            <small>Drag items from the left panel into this room</small>
+          </div>
+          <div class="staged-list" id="stagedList" style="display:none;"></div>
+        </div>
+      </div>
+
+      <!-- Session history -->
+      <div class="card">
+        <div class="card-header">
+          <h6 class="card-title">
+            <span class="card-title-icon icon-blue"><i class="bi bi-clock-history"></i></span>
+            Session History
+          </h6>
+          <button onclick="clearHistory()" style="font-size:0.76rem;color:var(--text-muted);background:none;border:none;cursor:pointer;font-weight:600;">Clear</button>
+        </div>
+        <div class="card-body">
+          <div class="history-items" id="historyItems">
+            <div class="empty-note" id="historyEmpty">
+              <i class="bi bi-clock"></i>
+              No assignments yet this session
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- Revert Modal -->
+<div id="revertModalBg" class="modal-bg" style="display:none;pointer-events:none;">
+  <div class="modal-box" style="width:900px;max-width:96vw;max-height:88vh;overflow-y:auto;">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:14px;">
+      <div>
+        <div class="modal-title">Revert Assigned Items</div>
+        <div class="modal-sub">Return assigned room stock back to Master Inventory.</div>
+      </div>
+      <button class="btn-sec" style="flex:0 0 auto;width:42px;padding:9px;" onclick="closeRevertInventory()"><i class="bi bi-x-lg"></i></button>
+    </div>
+    <div class="form-group" style="margin-bottom:16px;">
+      <label>Room</label>
+      <select id="revertRoomSelect" onchange="loadRevertItems()">
+        <option value="">-- Select Room --</option>
+        {% for r in incharge_rooms %}
+        <option value="{{ r.id }}">{% if r.label %}{{ r.label }} - {% endif %}{{ r.room_name }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div id="revertItemsGrid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:12px;">
+      <div class="empty-note" style="grid-column:1/-1;"><i class="bi bi-box-arrow-left"></i>Select a room to view assigned items.</div>
+    </div>
+    <hr style="border:none;border-top:1px solid var(--border);margin:22px 0;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+      <h6 style="font-weight:800;margin:0;color:var(--text-dark);"><i class="bi bi-clock-history me-2"></i>Revert History</h6>
+      <button class="btn-sec" style="flex:0 0 auto;padding:7px 12px;font-size:0.78rem;" onclick="loadRevertHistoryOnly()">Refresh</button>
+    </div>
+    <div id="revertHistoryList" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:10px;"></div>
+  </div>
+</div>
+
+<!-- Quantity Modal -->
+<div id="modalBg" class="modal-bg" style="display:none;pointer-events:none;">
+  <div class="modal-box">
+    <div class="modal-title">Set Quantity</div>
+    <div class="modal-sub">Assigning <b id="mItemName">—</b> to <b id="mRoomName">—</b></div>
+    <div class="info-cards">
+      <div class="info-card">
+        <div class="val" id="mStock">—</div>
+        <div class="lbl">In Stock</div>
+      </div>
+      <div class="info-card">
+        <div class="val" id="mAfter">—</div>
+        <div class="lbl">Remaining After</div>
+      </div>
+    </div>
+    <div id="stockWarning" style="display:none;background:#fee2e2;color:#dc2626;border-radius:9px;padding:10px 13px;font-size:0.8rem;font-weight:600;margin-bottom:14px;">
+      <i class="bi bi-exclamation-triangle-fill me-2"></i>Not enough stock available.
+    </div>
+    <div class="qty-label">Quantity to Assign</div>
+    <div class="qty-row">
+      <button class="qty-step-btn" onclick="stepQty(-1)">−</button>
+      <input type="number" class="qty-field" id="qtyField" value="1" min="1" oninput="syncAfter()">
+      <button class="qty-step-btn" onclick="stepQty(1)">+</button>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-sec" onclick="closeModal()">Cancel</button>
+      <button class="btn-primary-modal" id="confirmBtn" onclick="doAssign()">
+        <span class="btn-label"><i class="bi bi-check2-circle"></i> Confirm Assign</span>
+        <div class="spin"></div>
+      </button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── State ──
+let dragItemId   = null;
+let dragItemName = null;
+let dragItemStock = null;
+let selectedRoomId   = null;
+let selectedRoomName = null;
+let sessionHistory   = [];
+
+// ── Room select ──
+function onRoomSelect() {
+  const sel = document.getElementById('roomSelect');
+  const opt = sel.options[sel.selectedIndex];
+  if (!sel.value) {
+    selectedRoomId = null; selectedRoomName = null;
+    resetDrop(); return;
+  }
+  selectedRoomId   = sel.value;
+  selectedRoomName = opt.getAttribute('data-name');
+  document.getElementById('roomDot').classList.add('active');
+  document.getElementById('roomLabel').textContent = selectedRoomName;
+  document.getElementById('noRoomMsg').style.display = 'none';
+  document.getElementById('dropMsg').style.display   = 'flex';
+  setStep(2);
+}
+
+function resetDrop() {
+  document.getElementById('roomDot').classList.remove('active');
+  document.getElementById('roomLabel').textContent = 'No Room Selected';
+  document.getElementById('noRoomMsg').style.display = 'flex';
+  document.getElementById('dropMsg').style.display   = 'none';
+  document.getElementById('stagedList').style.display = 'none';
+  document.getElementById('stagedList').innerHTML = '';
+  document.getElementById('assignedCount').textContent = '';
+  setStep(1);
+}
+
+// ── Steps ──
+function setStep(n) {
+  [1,2,3].forEach(i => {
+    const el = document.getElementById('s' + i);
+    if (el) el.classList.toggle('active', i === n);
+  });
+}
+
+// ── Item search filter ──
+function filterItems(q) {
+  q = q.toLowerCase();
+  document.querySelectorAll('#itemsList .item-drag-card').forEach(card => {
+    const name  = (card.dataset.name  || '').toLowerCase();
+    const cat   = (card.dataset.cat   || '').toLowerCase();
+    const brand = (card.dataset.brand || '').toLowerCase();
+    card.style.display = (name.includes(q) || cat.includes(q) || brand.includes(q)) ? '' : 'none';
+  });
+}
+
+// ── Drag & Drop ──
+function onDragStart(e) {
+  const card = e.currentTarget;
+  dragItemId    = card.dataset.id;
+  dragItemName  = card.dataset.name;
+  dragItemStock = parseInt(card.dataset.stock, 10);
+  card.classList.add('is-dragging');
+  e.dataTransfer.effectAllowed = 'copy';
+}
+function onDragEnd(e) { e.currentTarget.classList.remove('is-dragging'); }
+
+function onDragOver(e) {
+  if (!selectedRoomId) return;
+  e.preventDefault();
+  e.dataTransfer.dropEffect = 'copy';
+  document.getElementById('dropArea').classList.add('over');
+}
+function onDragLeave(e) { document.getElementById('dropArea').classList.remove('over'); }
+
+function onDrop(e) {
+  e.preventDefault();
+  document.getElementById('dropArea').classList.remove('over');
+  if (!selectedRoomId) { showToast('Select a room first.', 't-info'); return; }
+  if (!dragItemId)     return;
+  openModal(dragItemId, dragItemName, dragItemStock);
+}
+
+// ── Quantity modal ──
+function openModal(itemId, itemName, stock) {
+  dragItemId    = itemId;
+  dragItemName  = itemName;
+  dragItemStock = stock;
+  document.getElementById('mItemName').textContent  = itemName;
+  document.getElementById('mRoomName').textContent  = selectedRoomName;
+  document.getElementById('mStock').textContent     = stock;
+  document.getElementById('qtyField').value         = 1;
+  document.getElementById('qtyField').max           = stock;
+  syncAfter();
+  const bg = document.getElementById('modalBg');
+  bg.style.display = 'flex';
+  requestAnimationFrame(() => bg.classList.add('show'));
+  setStep(3);
+}
+function closeModal() {
+  const bg = document.getElementById('modalBg');
+  bg.classList.remove('show');
+  setTimeout(() => { bg.style.display = 'none'; }, 220);
+  if (selectedRoomId) setStep(2);
+}
+function stepQty(delta) {
+  const f = document.getElementById('qtyField');
+  f.value = Math.max(1, Math.min(dragItemStock, parseInt(f.value || 1, 10) + delta));
+  syncAfter();
+}
+function syncAfter() {
+  const qty = parseInt(document.getElementById('qtyField').value || 0, 10);
+  const after = dragItemStock - qty;
+  document.getElementById('mAfter').textContent = after >= 0 ? after : '—';
+  const warn = document.getElementById('stockWarning');
+  const btn  = document.getElementById('confirmBtn');
+  if (qty < 1 || qty > dragItemStock) {
+    warn.style.display = 'block';
+    btn.disabled = true;
+  } else {
+    warn.style.display = 'none';
+    btn.disabled = false;
+  }
+}
+
+// ── Assign ──
+function doAssign() {
+  const qty = parseInt(document.getElementById('qtyField').value, 10);
+  if (!qty || qty < 1 || qty > dragItemStock) return;
+
+  const btn = document.getElementById('confirmBtn');
+  btn.classList.add('loading');
+  btn.disabled = true;
+
+  fetch('{% url "room_incharge:incharge_assign_inventory_api" room_slug=room_slug %}', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCsrf() },
+    body: JSON.stringify({ item_id: parseInt(dragItemId, 10), room_ids: [parseInt(selectedRoomId, 10)], quantity: qty }),
+  })
+  .then(r => r.json())
+  .then(data => {
+    btn.classList.remove('loading');
+    btn.disabled = false;
+    if (data.success) {
+      closeModal();
+      // Update stock pill
+      const pill = document.getElementById('spill-' + dragItemId);
+      const card = document.getElementById('icard-' + dragItemId);
+      const newStock = data.master_remaining;
+      if (pill) pill.textContent = newStock;
+      if (card) {
+        card.dataset.stock = newStock;
+        if (newStock === 0) {
+          card.classList.add('no-stock');
+          card.setAttribute('draggable', 'false');
+          pill.className = 'stock-pill pill-red';
+        } else if (newStock <= 5) {
+          pill.className = 'stock-pill pill-orange';
+        } else {
+          pill.className = 'stock-pill pill-green';
+        }
+      }
+      // Add to staged list
+      addStagedItem(dragItemName, qty);
+      // Add to history
+      addHistory(dragItemName, qty, selectedRoomName);
+      showToast(`Assigned ${qty} × ${dragItemName} to ${selectedRoomName}`, 't-success');
+    } else {
+      showToast(data.error || 'Assignment failed.', 't-error');
+    }
+  })
+  .catch(() => {
+    btn.classList.remove('loading');
+    btn.disabled = false;
+    showToast('Network error. Please try again.', 't-error');
+  });
+}
+
+function addStagedItem(name, qty) {
+  const list = document.getElementById('stagedList');
+  list.style.display = 'flex';
+  document.getElementById('dropMsg').style.display = 'none';
+  const div = document.createElement('div');
+  div.className = 'staged-item';
+  div.innerHTML = `
+    <div class="staged-icon"><i class="bi bi-box-seam"></i></div>
+    <div class="staged-info">
+      <div class="staged-name">${name}</div>
+      <div class="staged-qty">${qty} unit${qty > 1 ? 's' : ''} assigned</div>
+    </div>
+    <span class="staged-badge">✓ Done</span>`;
+  list.appendChild(div);
+  const count = list.querySelectorAll('.staged-item').length;
+  document.getElementById('assignedCount').textContent = `${count} item type${count > 1 ? 's' : ''} assigned`;
+}
+
+function addHistory(name, qty, room) {
+  const container = document.getElementById('historyItems');
+  const empty = document.getElementById('historyEmpty');
+  if (empty) empty.style.display = 'none';
+  const div = document.createElement('div');
+  div.className = 'history-row';
+  const now = new Date();
+  const time = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  div.innerHTML = `
+    <i class="bi bi-check-circle-fill"></i>
+    <span>${qty} × <strong>${name}</strong> → ${room}</span>
+    <small>${time}</small>`;
+  container.insertBefore(div, container.firstChild);
+}
+
+function clearHistory() {
+  const container = document.getElementById('historyItems');
+  container.innerHTML = `<div class="empty-note" id="historyEmpty"><i class="bi bi-clock"></i>No assignments yet this session</div>`;
+}
+
+// ── Toast ──
+function showToast(msg, type) {
+  const wrap = document.getElementById('toastWrap');
+  const div = document.createElement('div');
+  div.className = `toast-msg ${type}`;
+  div.innerHTML = `<i class="bi bi-${type === 't-success' ? 'check-circle' : type === 't-error' ? 'x-circle' : 'info-circle'}-fill"></i> ${msg}`;
+  wrap.appendChild(div);
+  setTimeout(() => {
+    div.classList.add('out');
+    setTimeout(() => div.remove(), 280);
+  }, 3200);
+}
+
+// ── CSRF ──
+function openRevertInventory() {
+  const bg = document.getElementById('revertModalBg');
+  bg.style.display = 'flex';
+  requestAnimationFrame(() => bg.classList.add('show'));
+  loadRevertHistoryOnly();
+}
+
+function closeRevertInventory() {
+  const bg = document.getElementById('revertModalBg');
+  bg.classList.remove('show');
+  setTimeout(() => { bg.style.display = 'none'; }, 220);
+}
+
+function loadRevertItems() {
+  const roomId = document.getElementById('revertRoomSelect').value;
+  const grid = document.getElementById('revertItemsGrid');
+  if (!roomId) {
+    grid.innerHTML = '<div class="empty-note" style="grid-column:1/-1;"><i class="bi bi-box-arrow-left"></i>Select a room to view assigned items.</div>';
+    loadRevertHistoryOnly();
+    return;
+  }
+  grid.innerHTML = '<div class="empty-note" style="grid-column:1/-1;"><div class="spinner-border" style="color:var(--accent);"></div></div>';
+  fetch(`{% url "room_incharge:revert_inventory_data" room_slug=room_slug %}?room_id=${encodeURIComponent(roomId)}`)
+    .then(r => r.json().then(data => ({ ok: r.ok, data })))
+    .then(({ ok, data }) => {
+      if (!ok || data.error) throw new Error(data.error || 'Failed');
+      renderRevertItems(data.items || []);
+      renderRevertHistory(data.history || []);
+    })
+    .catch(() => {
+      grid.innerHTML = '<div class="empty-note" style="grid-column:1/-1;color:var(--danger);"><i class="bi bi-exclamation-triangle"></i>Failed to load assigned items.</div>';
+    });
+}
+
+function loadRevertHistoryOnly() {
+  const roomId = document.getElementById('revertRoomSelect')?.value || '';
+  const url = roomId
+    ? `{% url "room_incharge:revert_inventory_data" room_slug=room_slug %}?room_id=${encodeURIComponent(roomId)}`
+    : `{% url "room_incharge:revert_inventory_data" room_slug=room_slug %}`;
+  fetch(url)
+    .then(r => r.json())
+    .then(data => renderRevertHistory(data.history || []))
+    .catch(() => renderRevertHistory([]));
+}
+
+function renderRevertItems(items) {
+  const grid = document.getElementById('revertItemsGrid');
+  if (!items.length) {
+    grid.innerHTML = '<div class="empty-note" style="grid-column:1/-1;"><i class="bi bi-inbox"></i>No assigned items found for this room.</div>';
+    return;
+  }
+  grid.innerHTML = items.map(item => `
+    <div style="border:1px solid var(--border);border-radius:14px;padding:14px;background:white;">
+      <div style="display:flex;justify-content:space-between;gap:10px;margin-bottom:8px;">
+        <div style="min-width:0;">
+          <div style="font-weight:800;color:var(--text-dark);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escapeHtml(item.item_name)}</div>
+          <div style="font-size:0.75rem;color:var(--text-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escapeHtml(item.category || '-')} · ${escapeHtml(item.brand || '-')}</div>
+        </div>
+        <span class="stock-pill pill-green">${item.assigned_count}</span>
+      </div>
+      <label class="qty-label">Return Quantity</label>
+      <div style="display:flex;gap:8px;margin-bottom:8px;">
+        <input type="number" min="1" max="${item.assigned_count}" value="${item.assigned_count}" id="revert-qty-${item.id}" class="qty-field" style="font-size:1rem;padding:7px;">
+        <button class="btn-sec" style="flex:0 0 auto;padding:8px 10px;" onclick="document.getElementById('revert-qty-${item.id}').value=${item.assigned_count}">All</button>
+      </div>
+      <input type="text" id="revert-note-${item.id}" placeholder="Optional note" style="width:100%;padding:8px 10px;border:1.5px solid var(--border);border-radius:9px;margin-bottom:9px;font-size:0.82rem;">
+      <button class="btn-primary-modal" style="width:100%;padding:9px;" onclick="submitRevert(${item.id}, ${item.assigned_count}, this)">
+        <span class="btn-label"><i class="bi bi-arrow-counterclockwise"></i> Revert to Master</span><div class="spin"></div>
+      </button>
+    </div>`).join('');
+}
+
+function submitRevert(roomItemId, maxQty, btn) {
+  const qty = parseInt(document.getElementById(`revert-qty-${roomItemId}`).value || '0', 10);
+  const note = document.getElementById(`revert-note-${roomItemId}`).value || '';
+  if (!qty || qty < 1 || qty > maxQty) {
+    showToast(`Enter a quantity from 1 to ${maxQty}.`, 't-error');
+    return;
+  }
+  btn.classList.add('loading');
+  btn.disabled = true;
+  fetch(`{% url "room_incharge:revert_inventory_api" room_slug=room_slug %}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCsrf() },
+    body: JSON.stringify({ room_item_id: roomItemId, quantity: qty, note }),
+  })
+  .then(r => r.json().then(data => ({ ok: r.ok, data })))
+  .then(({ ok, data }) => {
+    btn.classList.remove('loading');
+    btn.disabled = false;
+    if (!ok || !data.success) {
+      showToast(data.error || 'Revert failed.', 't-error');
+      return;
+    }
+    showToast(data.message, 't-success');
+    loadRevertItems();
+  })
+  .catch(() => {
+    btn.classList.remove('loading');
+    btn.disabled = false;
+    showToast('Network error. Please try again.', 't-error');
+  });
+}
+
+function renderRevertHistory(history) {
+  const list = document.getElementById('revertHistoryList');
+  if (!history.length) {
+    list.innerHTML = '<div class="empty-note" style="grid-column:1/-1;">No reverted items yet.</div>';
+    return;
+  }
+  list.innerHTML = history.map(h => `
+    <div style="border:1px solid var(--border);border-radius:12px;padding:12px;background:var(--surface);">
+      <div style="font-weight:800;color:var(--text-dark);">${escapeHtml(h.item_name)}</div>
+      <div style="font-size:0.75rem;color:var(--text-muted);">${escapeHtml(h.room_label ? h.room_label + ' - ' + h.room_name : h.room_name)}</div>
+      <div style="display:flex;justify-content:space-between;margin-top:8px;font-size:0.8rem;">
+        <span>Qty: <strong>${h.quantity}</strong></span>
+        <span>Left: <strong>${h.room_total_after}</strong></span>
+      </div>
+      <div style="font-size:0.72rem;color:var(--text-muted);margin-top:8px;">${escapeHtml(h.reverted_on)}</div>
+      ${h.note ? `<div style="font-size:0.78rem;margin-top:6px;">${escapeHtml(h.note)}</div>` : ''}
+    </div>`).join('');
+}
+
+function escapeHtml(value) {
+  return String(value ?? '').replace(/[&<>"']/g, ch => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+  }[ch]));
+}
+
+function getCsrf() {
+  const c = document.cookie.split(';').find(x => x.trim().startsWith('csrftoken='));
+  return c ? decodeURIComponent(c.trim().split('=')[1]) : '';
+}
+</script>
+{% endblock content %}

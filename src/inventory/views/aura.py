@@ -6,8 +6,9 @@ from django.http import JsonResponse, HttpResponse
 from django.db.models import Count, Q
 from django.utils import timezone
 from django.shortcuts import get_object_or_404, render, redirect
+from django.urls import reverse
 from django.views.decorators.http import require_POST
-from inventory.models import Issue, Item, Room, Category, RoomBooking, Purchase, Vendor, Department, RoomBookingCredentials, RoomBookingRequest, RoomCancellationRequest, Brand, MasterInventoryAccess
+from inventory.models import Issue, Item, Room, Category, RoomBooking, Purchase, Vendor, Department, RoomBookingCredentials, RoomBookingRequest, RoomCancellationRequest, Brand, MasterInventoryAccess, AssignInventoryAccess, InventoryRevertHistory
 from core.models import UserProfile
 from reportlab.lib.pagesizes import A4, landscape
 from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
@@ -123,6 +124,108 @@ class CentralAdminRequiredMixin(UserPassesTestMixin):
     def test_func(self):
         profile = getattr(self.request.user, 'profile', None)
         return bool(profile and (profile.is_central_admin or profile.is_sub_admin))
+
+
+def _has_master_inventory_edit_access(profile):
+    if not profile:
+        return False
+    if profile.is_central_admin or profile.is_sub_admin:
+        return True
+    if profile.is_incharge:
+        return MasterInventoryAccess.objects.filter(
+            organisation=profile.org,
+            incharge=profile,
+            can_view=True,
+            can_edit=True,
+        ).exists()
+    return False
+
+
+def _master_inventory_context(org):
+    from inventory.models import RevertedItem
+
+    reverted_item_ids = RevertedItem.objects.filter(
+        organisation=org,
+        reassigned_to_room__isnull=True,
+    ).values_list('item_id', flat=True)
+
+    master_items = Item.objects.filter(
+        organisation=org,
+        room__isnull=True,
+        is_listed=True,
+    ).exclude(
+        id__in=reverted_item_ids,
+    ).select_related('category', 'brand').order_by('item_name')
+
+    assigned_map = {
+        row['item_name']: row['total'] or 0
+        for row in Item.objects.filter(organisation=org, room__isnull=False)
+        .values('item_name').annotate(total=models.Sum('total_count'))
+    }
+    archived_map = {
+        row['item_name']: row['total'] or 0
+        for row in Item.objects.filter(organisation=org)
+        .values('item_name').annotate(total=models.Sum('archived_count'))
+    }
+    sc_map = {}
+    for row in (
+        SC.objects.filter(
+            component_item__organisation=org,
+            component_item__room__isnull=False,
+            status__in=['inactive', 'under_maintenance', 'disposed'],
+        )
+        .values('component_item__item_name', 'status')
+        .annotate(cnt=models.Count('id'))
+    ):
+        sc_map.setdefault(row['component_item__item_name'], {})[row['status']] = row['cnt']
+
+    items_data = []
+    for item in master_items:
+        name = item.item_name
+        assigned = assigned_map.get(name, 0)
+        available = item.total_count
+        total_items = available + assigned
+        cpu = item.cost or 0
+        sc = sc_map.get(name, {})
+        items_data.append({
+            'item': item,
+            'available_stock': available,
+            'assigned_count': assigned,
+            'total_items': total_items,
+            'cpu': cpu,
+            'total_cost': round(float(cpu) * total_items, 2) if cpu else 0,
+            'archived_count': archived_map.get(name, 0),
+            'inactive_count': sc.get('inactive', 0),
+            'under_maintenance_count': sc.get('under_maintenance', 0),
+            'disposed_count': sc.get('disposed', 0),
+        })
+
+    return {
+        'items_data': items_data,
+        'total_items': len(items_data),
+    }
+
+
+def _has_assign_inventory_access(profile):
+    if not profile:
+        return False
+    if profile.is_central_admin or profile.is_sub_admin:
+        return True
+    if profile.is_incharge:
+        return AssignInventoryAccess.objects.filter(
+            organisation=profile.org,
+            incharge=profile,
+            can_assign=True,
+        ).exists()
+    return False
+
+
+def _can_revert_room_item(profile, room):
+    if not _has_assign_inventory_access(profile):
+        return False
+    if profile.is_central_admin or profile.is_sub_admin:
+        return True
+    return bool(profile.is_incharge and room and room.incharge_id == profile.user_id)
 
 class AuraDashboardView(LoginRequiredMixin, CentralAdminRequiredMixin, TemplateView):
     template_name = 'central_admin/aura_dashboard.html'
@@ -1743,15 +1846,34 @@ def aura_generate_report_excel(request):
     return response
 
 
-class MasterInventoryImportView(LoginRequiredMixin, CentralAdminRequiredMixin, FormView):
+class MasterInventoryImportView(LoginRequiredMixin, FormView):
     """
     Master Inventory Upload - No room context, items stay unassigned
     """
     template_name = 'central_admin/master_inventory_import_upload.html'
     form_class = ExcelUploadForm
 
+    def dispatch(self, request, *args, **kwargs):
+        if not _has_master_inventory_edit_access(getattr(request.user, 'profile', None)):
+            return HttpResponse("Unauthorized", status=403)
+        return super().dispatch(request, *args, **kwargs)
+
     def get_success_url(self):
+        room_slug = self.kwargs.get('room_slug')
+        if room_slug:
+            return reverse('room_incharge:master_inventory_import', kwargs={'room_slug': room_slug})
         return reverse('central_admin:master_inventory_import')
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        room_slug = self.kwargs.get('room_slug')
+        context['room_slug'] = room_slug
+        if room_slug:
+            room = get_object_or_404(Room, slug=room_slug, incharge=self.request.user.profile)
+            from inventory.models import RoomSettings
+            context['room'] = room
+            context['room_settings'] = RoomSettings.objects.get_or_create(room=room)[0]
+        return context
 
     def form_valid(self, form):
         upload_file = form.cleaned_data['file']
@@ -1832,21 +1954,38 @@ class MasterInventoryImportView(LoginRequiredMixin, CentralAdminRequiredMixin, F
 
         has_errors = bool(preview['errors'] or any(r['errors'] for r in preview['items']))
 
-        return render(self.request, "central_admin/master_inventory_import_view.html", {
+        render_context = {
             "preview": preview,
             "has_errors": has_errors,
-        })
+            "room_slug": self.kwargs.get('room_slug'),
+        }
+        if render_context["room_slug"]:
+            room = get_object_or_404(Room, slug=render_context["room_slug"], incharge=self.request.user.profile)
+            from inventory.models import RoomSettings
+            render_context["room"] = room
+            render_context["room_settings"] = RoomSettings.objects.get_or_create(room=room)[0]
+        return render(self.request, "central_admin/master_inventory_import_view.html", render_context)
 
 
-class MasterInventoryImportConfirmView(LoginRequiredMixin, CentralAdminRequiredMixin, View):
+class MasterInventoryImportConfirmView(LoginRequiredMixin, View):
     """
     Process Master Inventory Import - Creates UNASSIGNED items (no room link)
     """
+    def dispatch(self, request, *args, **kwargs):
+        if not _has_master_inventory_edit_access(getattr(request.user, 'profile', None)):
+            return HttpResponse("Unauthorized", status=403)
+        return super().dispatch(request, *args, **kwargs)
+
     def post(self, request, *args, **kwargs):
         upload_file = request.FILES.get('file')
+        room_slug = kwargs.get('room_slug')
+        import_url = (
+            reverse('room_incharge:master_inventory_import', kwargs={'room_slug': room_slug})
+            if room_slug else reverse('central_admin:master_inventory_import')
+        )
         if not upload_file:
             messages.error(request, "No file uploaded for confirmation.")
-            return redirect('central_admin:master_inventory_import')
+            return redirect(import_url)
 
         org = request.user.profile.org
         
@@ -1855,7 +1994,7 @@ class MasterInventoryImportConfirmView(LoginRequiredMixin, CentralAdminRequiredM
             df = pd.read_excel(upload_file, sheet_name='Items')
         except Exception as e:
             messages.error(request, f"Processing error: {e}")
-            return redirect('central_admin:master_inventory_import')
+            return redirect(import_url)
 
         import_count = 0
         from decimal import Decimal
@@ -1922,7 +2061,9 @@ class MasterInventoryImportConfirmView(LoginRequiredMixin, CentralAdminRequiredM
             import_count += 1
 
         messages.success(request, f"Successfully imported {import_count} items to Master Inventory.")
-        return redirect("central_admin:aura_dashboard")
+        if room_slug:
+            return redirect('room_incharge:master_inventory', room_slug=room_slug)
+        return redirect("central_admin:master_inventory_list")
     
 class MasterInventoryListView(LoginRequiredMixin, CentralAdminRequiredMixin, TemplateView):
     """
@@ -1933,6 +2074,8 @@ class MasterInventoryListView(LoginRequiredMixin, CentralAdminRequiredMixin, Tem
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         org = self.request.user.profile.org
+        context.update(_master_inventory_context(org))
+        return context
 
         # Exclude reverted items from general master inventory list
         from inventory.models import RevertedItem
@@ -2444,44 +2587,223 @@ def unassign_inventory_api(request):
             'error': f'Only {room_item.total_count} units assigned. Cannot return more.'
         }, status=400)
 
-    from django.db import transaction
-    with transaction.atomic():
-        # Find master item
-        master_item = Item.objects.filter(
-            organisation=org,
-            room__isnull=True,
-            item_name=room_item.item_name,
-            is_listed=True,
-        ).first()
-
-        # Deduct from room
-        room_item.total_count -= quantity
-        if room_item.total_count == 0:
-            room_item.delete()
-        else:
-            room_item.save(update_fields=['total_count', 'updated_on'])
-
-        # Return to master
-        if master_item:
-            master_item.total_count += quantity
-            master_item.save(update_fields=['total_count', 'updated_on'])
-        else:
-            Item.objects.create(
-                organisation=org,
-                room=None,
-                item_name=room_item.item_name,
-                category=room_item.category,
-                brand=room_item.brand,
-                total_count=quantity,
-                cost=room_item.cost,
-                is_listed=True,
-                item_description=room_item.item_description or room_item.item_name,
-                created_by=profile,
-            )
+    item_name = room_item.item_name
+    _revert_room_item_to_master(room_item, quantity, profile, 'Returned from room inventory viewer')
 
     return JsonResponse({
         'success': True,
-        'message': f'{quantity} unit(s) of "{room_item.item_name}" returned to master stock.',
+        'message': f'{quantity} unit(s) of "{item_name}" returned to master stock.',
+    })
+
+
+def _revert_room_item_to_master(room_item, quantity, profile, note=''):
+    from django.db import transaction
+
+    org = profile.org
+    item_name = room_item.item_name
+    room = room_item.room
+    category_name = room_item.category.category_name if room_item.category else ''
+    brand_name = room_item.brand.brand_name if room_item.brand else ''
+    room_total_before = room_item.total_count
+
+    with transaction.atomic():
+        master_item = Item.objects.filter(
+            organisation=org,
+            room__isnull=True,
+            item_name=item_name,
+            is_listed=True,
+        ).first()
+
+        room_item.total_count -= quantity
+        room_total_after = max(room_item.total_count, 0)
+        if room_item.total_count == 0:
+            room_item.delete()
+        else:
+            room_item.save()
+
+        if master_item:
+            master_item.total_count += quantity
+            master_item.save()
+        else:
+            master_category, _ = Category.objects.get_or_create(
+                organisation=org,
+                room=None,
+                category_name=category_name or 'Uncategorised',
+            )
+            master_brand, _ = Brand.objects.get_or_create(
+                organisation=org,
+                room=None,
+                brand_name=brand_name or 'Unknown',
+            )
+            master_item = Item.objects.create(
+                organisation=org,
+                room=None,
+                item_name=item_name,
+                category=master_category,
+                brand=master_brand,
+                total_count=quantity,
+                cost=room_item.cost,
+                product_code=room_item.product_code,
+                is_listed=True,
+                item_description=room_item.item_description or item_name,
+                created_by=profile,
+            )
+
+        history = InventoryRevertHistory.objects.create(
+            organisation=org,
+            room=room,
+            item_name=item_name,
+            category_name=category_name,
+            brand_name=brand_name,
+            quantity=quantity,
+            reverted_by=profile,
+            room_total_before=room_total_before,
+            room_total_after=room_total_after,
+            master_total_after=master_item.total_count,
+            note=note[:255],
+        )
+
+        from inventory.models import AssetTag
+        tags_to_release = list(
+            AssetTag.objects.filter(
+                organisation=org,
+                item_name=item_name,
+                assigned_room=room,
+            ).order_by('-tag_id')[:quantity]
+        )
+        for tag in tags_to_release:
+            tag.assigned_room = None
+            tag.save(update_fields=['assigned_room'])
+
+    return master_item, history, room_total_after
+
+
+def revert_inventory_data(request):
+    profile = getattr(request.user, 'profile', None)
+    if not _has_assign_inventory_access(profile):
+        return JsonResponse({'error': 'Unauthorized'}, status=403)
+
+    org = profile.org
+    rooms_qs = Room.objects.filter(organisation=org)
+    if profile.is_incharge and not (profile.is_central_admin or profile.is_sub_admin):
+        rooms_qs = rooms_qs.filter(incharge=profile)
+    rooms_qs = rooms_qs.order_by('room_name')
+
+    room_id = request.GET.get('room_id')
+    selected_room = None
+    items = []
+    if room_id:
+        try:
+            selected_room = rooms_qs.get(id=int(room_id))
+        except (Room.DoesNotExist, ValueError, TypeError):
+            return JsonResponse({'error': 'Room not found or not allowed.'}, status=404)
+
+        items = [{
+            'id': item.id,
+            'item_name': item.item_name,
+            'category': item.category.category_name if item.category else '',
+            'brand': item.brand.brand_name if item.brand else '',
+            'assigned_count': item.total_count,
+            'available_count': item.available_count,
+            'product_code': item.product_code or '',
+        } for item in Item.objects.filter(
+            organisation=org,
+            room=selected_room,
+            is_listed=True,
+            total_count__gt=0,
+        ).select_related('category', 'brand').order_by('item_name')]
+
+    history_qs = InventoryRevertHistory.objects.filter(organisation=org)
+    if profile.is_incharge and not (profile.is_central_admin or profile.is_sub_admin):
+        history_qs = history_qs.filter(room__in=rooms_qs)
+    if selected_room:
+        history_qs = history_qs.filter(room=selected_room)
+
+    history = [{
+        'id': h.id,
+        'item_name': h.item_name,
+        'room_name': h.room.room_name if h.room else 'Unknown room',
+        'room_label': h.room.label if h.room else '',
+        'category': h.category_name,
+        'brand': h.brand_name,
+        'quantity': h.quantity,
+        'room_total_before': h.room_total_before,
+        'room_total_after': h.room_total_after,
+        'master_total_after': h.master_total_after,
+        'reverted_by': str(h.reverted_by) if h.reverted_by else 'System',
+        'reverted_on': timezone.localtime(h.reverted_on).strftime('%d %b %Y, %I:%M %p'),
+        'note': h.note,
+    } for h in history_qs.select_related('room', 'reverted_by')[:30]]
+
+    return JsonResponse({
+        'rooms': [{
+            'id': r.id,
+            'name': f"{r.label} - {r.room_name}" if r.label else r.room_name,
+            'category': r.room_category,
+        } for r in rooms_qs],
+        'selected_room': selected_room.id if selected_room else None,
+        'items': items,
+        'history': history,
+    })
+
+
+@require_POST
+def revert_inventory_api(request):
+    profile = getattr(request.user, 'profile', None)
+    if not _has_assign_inventory_access(profile):
+        return JsonResponse({'error': 'Unauthorized'}, status=403)
+
+    try:
+        data = json.loads(request.body)
+    except json.JSONDecodeError:
+        return JsonResponse({'error': 'Invalid JSON'}, status=400)
+
+    room_item_id = data.get('room_item_id')
+    quantity = data.get('quantity')
+    note = (data.get('note') or '').strip()
+
+    if not room_item_id or not quantity:
+        return JsonResponse({'error': 'room_item_id and quantity are required.'}, status=400)
+
+    try:
+        quantity = int(quantity)
+        if quantity <= 0:
+            raise ValueError()
+    except (ValueError, TypeError):
+        return JsonResponse({'error': 'Quantity must be a positive integer.'}, status=400)
+
+    room_item = get_object_or_404(
+        Item.objects.select_related('room', 'category', 'brand'),
+        id=room_item_id,
+        organisation=profile.org,
+        room__isnull=False,
+    )
+
+    if not _can_revert_room_item(profile, room_item.room):
+        return JsonResponse({'error': 'You cannot revert inventory from this room.'}, status=403)
+
+    if quantity > room_item.total_count:
+        return JsonResponse({
+            'error': f'Only {room_item.total_count} units are assigned. Cannot revert more.'
+        }, status=400)
+
+    item_name = room_item.item_name
+    room_name = room_item.room.room_name if room_item.room else 'room'
+    master_item, history, room_total_after = _revert_room_item_to_master(room_item, quantity, profile, note)
+
+    return JsonResponse({
+        'success': True,
+        'message': f'Reverted {quantity} unit(s) of "{item_name}" from {room_name} back to master inventory.',
+        'room_item_deleted': room_total_after == 0,
+        'room_total_after': room_total_after,
+        'master_total_after': master_item.total_count,
+        'history': {
+            'id': history.id,
+            'item_name': history.item_name,
+            'room_name': history.room.room_name if history.room else 'Unknown room',
+            'quantity': history.quantity,
+            'reverted_on': timezone.localtime(history.reverted_on).strftime('%d %b %Y, %I:%M %p'),
+        },
     })
 
 def get_master_items_api(request):
@@ -2508,7 +2830,7 @@ def save_product_code(request):
     if request.method != 'POST':
         return JsonResponse({'error': 'POST required'}, status=405)
     profile = getattr(request.user, 'profile', None)
-    if not profile or not (profile.is_central_admin or profile.is_sub_admin):
+    if not _has_master_inventory_edit_access(profile):
         return JsonResponse({'error': 'Unauthorized'}, status=403)
 
     import json
@@ -2570,6 +2892,86 @@ def save_product_code(request):
     })
 
 
+@require_POST
+def create_master_inventory_item(request):
+    profile = getattr(request.user, 'profile', None)
+    if not _has_master_inventory_edit_access(profile):
+        return JsonResponse({'error': 'Unauthorized'}, status=403)
+
+    try:
+        data = json.loads(request.body)
+    except Exception:
+        return JsonResponse({'error': 'Invalid JSON'}, status=400)
+
+    org = profile.org
+    name = (data.get('item_name') or '').strip()
+    category_name = (data.get('category') or '').strip() or 'Uncategorised'
+    brand_name = (data.get('brand') or '').strip() or 'Unknown'
+    product_code = (data.get('product_code') or '').strip()
+
+    if not name:
+        return JsonResponse({'error': 'Item Name is required.'}, status=400)
+    if product_code and not _re.match(r'^[\w\-\.@#&*()]{1,12}$', product_code):
+        return JsonResponse({'error': 'Invalid product code. Max 12 chars, alphanumeric + special chars only.'}, status=400)
+
+    try:
+        total_count = int(data.get('total_count') or 0)
+    except (TypeError, ValueError):
+        return JsonResponse({'error': 'Available stock must be a whole number.'}, status=400)
+    if total_count < 0:
+        return JsonResponse({'error': 'Available stock cannot be negative.'}, status=400)
+
+    cost_raw = data.get('cost')
+    cost = None
+    if cost_raw not in (None, ''):
+        try:
+            cost = Decimal(str(cost_raw))
+        except InvalidOperation:
+            return JsonResponse({'error': 'Cost must be a valid decimal number.'}, status=400)
+        if cost < 0:
+            return JsonResponse({'error': 'Cost cannot be negative.'}, status=400)
+
+    category, _ = Category.objects.get_or_create(
+        organisation=org,
+        room=None,
+        category_name=category_name,
+    )
+    brand, _ = Brand.objects.get_or_create(
+        organisation=org,
+        room=None,
+        brand_name=brand_name,
+    )
+
+    item, created = Item.objects.update_or_create(
+        organisation=org,
+        room=None,
+        item_name=name,
+        defaults={
+            'category': category,
+            'brand': brand,
+            'product_code': product_code or None,
+            'total_count': total_count,
+            'cost': cost,
+            'is_listed': True,
+            'item_description': (data.get('item_description') or '').strip() or f"{brand_name} {name} - Master Inventory",
+        },
+    )
+
+    return JsonResponse({
+        'success': True,
+        'created': created,
+        'item': {
+            'id': item.id,
+            'item_name': item.item_name,
+            'product_code': item.product_code or '',
+            'category': item.category.category_name,
+            'brand': item.brand.brand_name,
+            'available_stock': item.total_count,
+            'cost': str(item.cost) if item.cost is not None else '',
+        },
+    })
+
+
 def _assign_tags_to_rooms(org, item_name):
     """Assign unassigned asset tags to rooms in order based on room item counts."""
     from inventory.models import AssetTag
@@ -2616,21 +3018,7 @@ def save_item_edit(request):
     if not profile:
         return JsonResponse({'error': 'Unauthorized'}, status=403)
 
-    # Check permission: admin OR room incharge with can_edit
-    is_admin = profile.is_central_admin or profile.is_sub_admin
-    is_incharge_with_edit = False
-    if profile.is_incharge and not is_admin:
-        try:
-            access = MasterInventoryAccess.objects.get(
-                organisation=profile.org,
-                incharge=profile,
-                can_edit=True,
-            )
-            is_incharge_with_edit = True
-        except MasterInventoryAccess.DoesNotExist:
-            pass
-
-    if not is_admin and not is_incharge_with_edit:
+    if not _has_master_inventory_edit_access(profile):
         return JsonResponse({'error': 'Unauthorized'}, status=403)
 
     import json
@@ -2640,6 +3028,20 @@ def save_item_edit(request):
     org = profile.org
 
     master_item = get_object_or_404(Item, id=item_id, organisation=org, room__isnull=True)
+
+    # Item name
+    if 'item_name' in data:
+        item_name = (data.get('item_name') or '').strip()
+        if not item_name:
+            return JsonResponse({'error': 'Item Name is required'}, status=400)
+        master_item.item_name = item_name
+
+    # Product code
+    if 'product_code' in data:
+        code = (data.get('product_code') or '').strip()
+        if code and not _re.match(r'^[\w\-\.@#&*()]{1,12}$', code):
+            return JsonResponse({'error': 'Invalid product code'}, status=400)
+        master_item.product_code = code or None
 
     # Category
     cat_name = (data.get('category') or '').strip()
@@ -2664,6 +3066,16 @@ def save_item_edit(request):
             return JsonResponse({'error': 'Invalid cost value'}, status=400)
     elif cost_val == '':
         master_item.cost = None
+
+    # Available stock / unassigned quantity
+    if 'total_count' in data:
+        try:
+            total_count = int(data.get('total_count') or 0)
+        except (TypeError, ValueError):
+            return JsonResponse({'error': 'Available stock must be a whole number'}, status=400)
+        if total_count < 0:
+            return JsonResponse({'error': 'Available stock cannot be negative'}, status=400)
+        master_item.total_count = total_count
 
     master_item.save()
     return JsonResponse({'success': True})
@@ -4070,39 +4482,307 @@ class RoomInchargeMasterInventoryView(LoginRequiredMixin, TemplateView):
         room = get_object_or_404(Room, slug=room_slug, incharge=profile)
         room_settings = RoomSettings.objects.get_or_create(room=room)[0]
 
+        context.update(_master_inventory_context(org))
+        context['room']         = room
+        context['room_slug']    = room_slug
+        context['room_settings']= room_settings
+        context['can_edit']     = self._access.can_edit  # pass edit permission to template
+        return context
+
+
+# ═══════════════════════════════════════════════════════════════
+# ASSIGN INVENTORY ACCESS MANAGEMENT (Admin → Room Incharge)
+# ═══════════════════════════════════════════════════════════════
+
+def assign_inventory_access_list(request):
+    """
+    AJAX GET — returns all room incharges in the org with their assign inventory access status.
+    """
+    profile = getattr(request.user, 'profile', None)
+    if not profile or not (profile.is_central_admin or profile.is_sub_admin):
+        return JsonResponse({'error': 'Unauthorized'}, status=403)
+
+    org = profile.org
+
+    incharges = UserProfile.objects.filter(
+        org=org,
+        is_incharge=True,
+    ).select_related('user').prefetch_related('rooms_incharge').order_by('first_name', 'last_name')
+
+    access_map = {
+        a.incharge_id: a
+        for a in AssignInventoryAccess.objects.filter(organisation=org)
+    }
+
+    result = []
+    for person in incharges:
+        rooms = list(person.rooms_incharge.filter(organisation=org).values('room_name', 'label'))
+        room_display = ', '.join(
+            f"{r['label']} - {r['room_name']}" if r['label'] else r['room_name']
+            for r in rooms
+        ) or '—'
+        access = access_map.get(person.user_id)
+        result.append({
+            'id':         person.user_id,
+            'slug':       person.slug,
+            'name':       f"{person.first_name} {person.last_name}".strip() or person.user.email,
+            'email':      person.user.email,
+            'rooms':      room_display,
+            'has_access': access is not None,
+            'can_assign': access.can_assign if access else False,
+        })
+
+    return JsonResponse({'incharges': result})
+
+
+@require_POST
+def assign_inventory_grant_access(request):
+    """
+    POST — grant assign inventory access to a room incharge.
+    Body: { "incharge_slug": "..." }
+    """
+    profile = getattr(request.user, 'profile', None)
+    if not profile or not (profile.is_central_admin or profile.is_sub_admin):
+        return JsonResponse({'error': 'Unauthorized'}, status=403)
+
+    try:
+        data = json.loads(request.body)
+    except Exception:
+        return JsonResponse({'error': 'Invalid JSON'}, status=400)
+
+    incharge_slug = (data.get('incharge_slug') or '').strip()
+    if not incharge_slug:
+        return JsonResponse({'error': 'incharge_slug is required'}, status=400)
+
+    org = profile.org
+    incharge = get_object_or_404(UserProfile, slug=incharge_slug, org=org, is_incharge=True)
+
+    access, created = AssignInventoryAccess.objects.get_or_create(
+        organisation=org,
+        incharge=incharge,
+        defaults={
+            'granted_by': profile,
+            'can_assign': True,
+        },
+    )
+    if not created:
+        access.granted_by = profile
+        access.can_assign = True
+        access.save(update_fields=['granted_by', 'can_assign', 'updated_on'])
+
+    name = f"{incharge.first_name} {incharge.last_name}".strip() or incharge.user.email
+    return JsonResponse({
+        'status':     'success',
+        'message':    f'Assign Inventory access granted to {name}.',
+        'can_assign': access.can_assign,
+    })
+
+
+@require_POST
+def assign_inventory_revoke_access(request):
+    """
+    POST — revoke assign inventory access from a room incharge.
+    Body: { "incharge_slug": "..." }
+    """
+    profile = getattr(request.user, 'profile', None)
+    if not profile or not (profile.is_central_admin or profile.is_sub_admin):
+        return JsonResponse({'error': 'Unauthorized'}, status=403)
+
+    try:
+        data = json.loads(request.body)
+    except Exception:
+        return JsonResponse({'error': 'Invalid JSON'}, status=400)
+
+    incharge_slug = (data.get('incharge_slug') or '').strip()
+    if not incharge_slug:
+        return JsonResponse({'error': 'incharge_slug is required'}, status=400)
+
+    org = profile.org
+    incharge = get_object_or_404(UserProfile, slug=incharge_slug, org=org, is_incharge=True)
+    name = f"{incharge.first_name} {incharge.last_name}".strip() or incharge.user.email
+
+    deleted_count, _ = AssignInventoryAccess.objects.filter(
+        organisation=org, incharge=incharge,
+    ).delete()
+    if deleted_count:
+        return JsonResponse({'status': 'success', 'message': f'Assign Inventory access revoked from {name}.'})
+    return JsonResponse({'status': 'success', 'message': 'No access record found (already revoked).'})
+
+
+# ═══════════════════════════════════════════════════════════════
+# ROOM INCHARGE — ASSIGN INVENTORY (scoped to their own rooms)
+# ═══════════════════════════════════════════════════════════════
+
+class RoomInchargeAssignInventoryView(LoginRequiredMixin, TemplateView):
+    """
+    Assign Inventory page for room incharges who have been granted access.
+    Incharges can only assign master inventory items to their own room(s).
+    Accessible only if an AssignInventoryAccess record exists for this incharge.
+    """
+    template_name = 'room_incharge/assign_inventory.html'
+
+    def dispatch(self, request, *args, **kwargs):
+        if not request.user.is_authenticated:
+            return self.handle_no_permission()
+        profile = getattr(request.user, 'profile', None)
+        if not profile or not profile.is_incharge:
+            from django.http import HttpResponseForbidden
+            return HttpResponseForbidden("Access denied.")
+        try:
+            self._access = AssignInventoryAccess.objects.get(
+                organisation=profile.org,
+                incharge=profile,
+            )
+        except AssignInventoryAccess.DoesNotExist:
+            from django.http import HttpResponseForbidden
+            return HttpResponseForbidden("You do not have access to Assign Inventory.")
+        return super().dispatch(request, *args, **kwargs)
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        profile = self.request.user.profile
+        org = profile.org
+        room_slug = self.kwargs.get('room_slug')
+
+        room = get_object_or_404(Room, slug=room_slug, incharge=profile)
+        from inventory.models import RoomSettings
+        room_settings = RoomSettings.objects.get_or_create(room=room)[0]
+
         master_items = Item.objects.filter(
             organisation=org,
             room__isnull=True,
             is_listed=True,
         ).select_related('category', 'brand').order_by('item_name')
 
-        # Bulk aggregations
-        assigned_map = {
-            row['item_name']: row['total'] or 0
-            for row in Item.objects.filter(organisation=org, room__isnull=False)
-            .values('item_name').annotate(total=models.Sum('total_count'))
-        }
+        # Only the incharge's own rooms are available as assignment targets
+        incharge_rooms = Room.objects.filter(
+            organisation=org,
+            incharge=profile,
+        ).order_by('room_name')
 
-        items_data = []
-        for item in master_items:
-            name = item.item_name
-            assigned = assigned_map.get(name, 0)
-            available = item.total_count
-            total_items = available + assigned
-            cpu = item.cost or 0
-            items_data.append({
-                'item': item,
-                'available_stock': available,
-                'assigned_count': assigned,
-                'total_items': total_items,
-                'cpu': cpu,
-                'total_cost': round(float(cpu) * total_items, 2) if cpu else 0,
-            })
-
-        context['items_data']   = items_data
-        context['total_items']  = len(items_data)
-        context['room']         = room
-        context['room_slug']    = room_slug
-        context['room_settings']= room_settings
-        context['can_edit']     = self._access.can_edit  # pass edit permission to template
+        context['master_items']   = master_items
+        context['incharge_rooms'] = incharge_rooms
+        context['room']           = room
+        context['room_slug']      = room_slug
+        context['room_settings']  = room_settings
         return context
+
+
+def incharge_assign_inventory_api(request):
+    """
+    POST — room incharge assigns master inventory items to their own room(s).
+    Requires AssignInventoryAccess for the incharge.
+    Body: { "item_id": ..., "room_ids": [...], "quantity": ... }
+    Only rooms belonging to the requesting incharge are accepted.
+    """
+    if request.method != 'POST':
+        return JsonResponse({'error': 'Method not allowed'}, status=405)
+
+    profile = getattr(request.user, 'profile', None)
+    if not profile or not profile.is_incharge:
+        return JsonResponse({'error': 'Unauthorized'}, status=403)
+
+    # Check access
+    try:
+        AssignInventoryAccess.objects.get(organisation=profile.org, incharge=profile)
+    except AssignInventoryAccess.DoesNotExist:
+        return JsonResponse({'error': 'You do not have assign inventory access.'}, status=403)
+
+    try:
+        data = json.loads(request.body)
+    except json.JSONDecodeError:
+        return JsonResponse({'error': 'Invalid JSON'}, status=400)
+
+    master_item_id = data.get('item_id')
+    room_ids       = data.get('room_ids', [])
+    quantity       = data.get('quantity')
+
+    if not master_item_id or not room_ids or not quantity:
+        return JsonResponse({'error': 'item_id, room_ids and quantity are required.'}, status=400)
+
+    if not isinstance(room_ids, list) or len(room_ids) == 0:
+        return JsonResponse({'error': 'room_ids must be a non-empty list.'}, status=400)
+
+    try:
+        quantity = int(quantity)
+        if quantity <= 0:
+            raise ValueError()
+    except (ValueError, TypeError):
+        return JsonResponse({'error': 'Quantity must be a positive integer.'}, status=400)
+
+    try:
+        room_ids = [int(rid) for rid in room_ids]
+    except (ValueError, TypeError):
+        return JsonResponse({'error': 'Invalid room_ids.'}, status=400)
+
+    org = profile.org
+
+    # Validate that all room_ids belong to this incharge
+    incharge_room_ids = set(
+        Room.objects.filter(organisation=org, incharge=profile).values_list('id', flat=True)
+    )
+    for rid in room_ids:
+        if rid not in incharge_room_ids:
+            return JsonResponse({'error': f'Room {rid} does not belong to you.'}, status=403)
+
+    try:
+        master_item = Item.objects.get(id=master_item_id, organisation=org, room__isnull=True)
+    except Item.DoesNotExist:
+        return JsonResponse({'error': 'Master inventory item not found.'}, status=404)
+
+    total_needed = quantity * len(room_ids)
+    if total_needed > master_item.total_count:
+        return JsonResponse({
+            'error': f'Insufficient stock. Need {total_needed} units for {len(room_ids)} room(s) but only {master_item.total_count} available.'
+        }, status=400)
+
+    from django.db import transaction as _tx
+    with _tx.atomic():
+        master_item.total_count -= total_needed
+        master_item.save()
+
+        for room_id in room_ids:
+            try:
+                room = Room.objects.get(id=room_id, organisation=org)
+            except Room.DoesNotExist:
+                continue
+
+            room_category, _ = Category.objects.get_or_create(
+                organisation=org,
+                room=room,
+                category_name=master_item.category.category_name,
+            )
+            room_brand, _ = Brand.objects.get_or_create(
+                organisation=org,
+                room=room,
+                brand_name=master_item.brand.brand_name,
+            )
+
+            room_item = Item.objects.filter(
+                organisation=org,
+                room=room,
+                item_name=master_item.item_name,
+            ).first()
+
+            if room_item:
+                room_item.total_count += quantity
+                room_item.save()
+            else:
+                Item.objects.create(
+                    organisation=org,
+                    room=room,
+                    item_name=master_item.item_name,
+                    category=room_category,
+                    brand=room_brand,
+                    total_count=quantity,
+                    cost=master_item.cost,
+                    is_listed=True,
+                    item_description=master_item.item_description,
+                    created_by=profile,
+                )
+
+    return JsonResponse({
+        'success': True,
+        'message': f'Assigned {quantity} unit(s) of "{master_item.item_name}" to {len(room_ids)} room(s). Total deducted: {total_needed}.',
+        'master_remaining': master_item.total_count,
+    })

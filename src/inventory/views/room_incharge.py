@@ -2,7 +2,7 @@ from django.forms import ValidationError
 from django.shortcuts import redirect, get_object_or_404, render, reverse
 from django.urls import reverse_lazy
 from django.views.generic import ListView, UpdateView, DeleteView, TemplateView, CreateView, View
-from inventory.models import Category, Vendor, Purchase, Room, Brand, Item, System, SystemComponent, Issue, ItemGroup, ItemGroupItem, RoomSettings, StockRequest, Archive, IssueTimeExtensionRequest 
+from inventory.models import Category, Vendor, Purchase, Room, Brand, Item, System, SystemComponent, Issue, ItemGroup, ItemGroupItem, RoomSettings, StockRequest, Archive, IssueTimeExtensionRequest, ItemConfiguration
 from inventory.forms.room_incharge import CategoryForm, BrandForm, ItemForm, ItemPurchaseForm, PurchaseForm, PurchaseUpdateForm, SystemForm, SystemComponentForm, ItemGroupForm, ItemGroupItemForm, RoomSettingsForm, StockRequestForm 
 from django.contrib import messages
 from django.views.generic.edit import FormView
@@ -26,8 +26,7 @@ from django.views.generic import FormView, View
 from django.urls import reverse
 from django.http import JsonResponse
 from django.core.exceptions import PermissionDenied
-from django.db.models import Count, Q, F
-from inventory.models import SystemComponent as SC
+from django.db.models import Q, F
 
 logger = logging.getLogger(__name__)
 
@@ -73,29 +72,6 @@ class CategoryUpdateView(LoginRequiredMixin, UpdateView):
         context['room_slug'] = self.kwargs['room_slug']
         context['room_settings'] = RoomSettings.objects.get_or_create(room=room)[0]
         return context
-
-class CategoryDeleteView(LoginRequiredMixin, DeleteView):
-    model = Category
-    template_name = 'room_incharge/category_delete_confirm.html'
-    slug_field = 'slug'
-    slug_url_kwarg = 'category_slug'
-
-    def get_success_url(self):
-        return reverse_lazy('room_incharge:category_list', kwargs={'room_slug': self.kwargs['room_slug']})
-
-    def get_queryset(self):
-        room_slug = self.kwargs['room_slug']
-        return super().get_queryset().filter(room__slug=room_slug, organisation=self.request.user.profile.org)
-
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        room = Room.objects.get(slug=self.kwargs['room_slug'])
-        context['room_slug'] = self.kwargs['room_slug']
-        context['room_settings'] = RoomSettings.objects.get_or_create(room=room)[0]
-        return context
-
-    def dispatch(self, request, *args, **kwargs):
-        return HttpResponseForbidden("Delete operation is not allowed.")
 
 class CategoryCreateView(LoginRequiredMixin, CreateView):
     model = Category
@@ -232,29 +208,6 @@ class BrandUpdateView(LoginRequiredMixin, UpdateView):
         context['room_settings'] = RoomSettings.objects.get_or_create(room=room)[0]
         return context
 
-class BrandDeleteView(LoginRequiredMixin, DeleteView):
-    model = Brand
-    template_name = 'room_incharge/brand_delete_confirm.html'
-    slug_field = 'slug'
-    slug_url_kwarg = 'brand_slug'
-
-    def get_success_url(self):
-        return reverse_lazy('room_incharge:brand_list', kwargs={'room_slug': self.kwargs['room_slug']})
-
-    def get_queryset(self):
-        room_slug = self.kwargs['room_slug']
-        return super().get_queryset().filter(room__slug=room_slug, organisation=self.request.user.profile.org)
-
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        room = Room.objects.get(slug=self.kwargs['room_slug'])
-        context['room_slug'] = self.kwargs['room_slug']
-        context['room_settings'] = RoomSettings.objects.get_or_create(room=room)[0]
-        return context
-
-    def dispatch(self, request, *args, **kwargs):
-        return HttpResponseForbidden("Delete operation is not allowed.")
-
 class ItemListView(LoginRequiredMixin, ListView):
     model = Item
     template_name = 'room_incharge/item_list.html'
@@ -273,7 +226,6 @@ class ItemListView(LoginRequiredMixin, ListView):
 
         table_names = set(connection.introspection.table_names())
         pending_items = set()
-
         if "inventory_stockrequest" in table_names:
             pending_items = set(
                 StockRequest.objects
@@ -281,35 +233,9 @@ class ItemListView(LoginRequiredMixin, ListView):
                 .values_list("item_id", flat=True)
             )
         context["pending_items"] = pending_items
-        # Status counts per item from SystemComponent       
-        items = context['items']
-        item_ids = [item.id for item in items]
-
-        status_counts = {}       
-        raw = (
-            SC.objects
-            .filter(component_item_id__in=item_ids)
-            .values('component_item_id', 'status')
-            .annotate(cnt=Count('id'))
-        )
-        for row in raw:
-            iid = row['component_item_id']
-            if iid not in status_counts:
-                status_counts[iid] = {'inactive': 0, 'under_maintenance': 0, 'disposed': 0}
-            if row['status'] in status_counts[iid]:
-                status_counts[iid][row['status']] = row['cnt']
-
-        context['status_counts'] = status_counts
         profile = getattr(self.request.user, 'profile', None)
         context['is_central_admin'] = bool(profile and profile.is_central_admin and not profile.is_sub_admin)
         context['is_sub_admin'] = bool(profile and profile.is_sub_admin)
-
-        for item in context['items']:
-            counts = status_counts.get(item.id, {})
-            item.inactive_count = counts.get('inactive', 0)
-            item.under_maintenance_count = counts.get('under_maintenance', 0)
-            item.disposed_count = counts.get('disposed', 0)
-
         return context
 
 
@@ -404,30 +330,6 @@ class SubmitStockRequestView(LoginRequiredMixin, View):
         return JsonResponse({"status": "success"})
 
 
-class ItemDeleteView(LoginRequiredMixin, DeleteView):
-    model = Item
-    template_name = 'room_incharge/item_delete_confirm.html'
-    slug_field = 'slug'
-    slug_url_kwarg = 'item_slug'
-
-    def get_success_url(self):
-        return reverse_lazy('room_incharge:item_list', kwargs={'room_slug': self.kwargs['room_slug']})
-
-    def get_queryset(self):
-        room_slug = self.kwargs['room_slug']
-        return super().get_queryset().filter(room__slug=room_slug, organisation=self.request.user.profile.org)
-
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        room = Room.objects.get(slug=self.kwargs['room_slug'])
-        context['room_slug'] = self.kwargs['room_slug']
-        context['room_settings'] = RoomSettings.objects.get_or_create(room=room)[0]
-        return context
-
-    def dispatch(self, request, *args, **kwargs):
-        return HttpResponseForbidden("Delete action is not permitted.")
-
-
 class ItemArchiveView(LoginRequiredMixin, FormView):
     template_name = 'room_incharge/item_archive.html'
     form_class = ItemArchiveForm
@@ -450,19 +352,27 @@ class ItemArchiveView(LoginRequiredMixin, FormView):
             form.add_error("count", "Available count is lower than the number to archive.")
             return self.form_invalid(form)
 
+        category = form.cleaned_data.get("archive_category", "serviceable")
+
         Archive.objects.create(
             organisation=item.organisation,
             department=item.department,
             room=item.room,
             item=item,
             count=count,
-            archive_type=form.cleaned_data["archive_type"],
-            remark=form.cleaned_data["remark"]
+            archive_type='consumption',
+            archive_category=category,
+            archive_status='archived',
+            remark=form.cleaned_data.get("remark", "")
         )
 
-        item.available_count -= count
         item.archived_count += count
-        item.save(update_fields=["available_count", "archived_count", "updated_on"])
+        if category == 'serviceable':
+            item.serviceable_count += count
+        else:
+            item.unserviceable_count += count
+        item.available_count = max(0, item.total_count - item.active_count - item.inactive_count - item.archived_count)
+        item.save(update_fields=["available_count", "archived_count", "serviceable_count", "unserviceable_count", "updated_on"])
 
         messages.success(self.request, "Item archived successfully.")
         return redirect(self.get_success_url())
@@ -481,18 +391,38 @@ class ItemArchiveView(LoginRequiredMixin, FormView):
 
 class SystemListView(LoginRequiredMixin, ListView):
     template_name = 'room_incharge/system_list.html'
-    model = System
-    context_object_name = 'systems'
+    model = Item
+    context_object_name = 'items'
 
     def get_queryset(self):
-        room_slug = self.kwargs['room_slug']
-        return super().get_queryset().filter(room__slug=room_slug, organisation=self.request.user.profile.org)
+        room = get_object_or_404(Room, slug=self.kwargs['room_slug'])
+        return Item.objects.filter(room=room).order_by('item_name')
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        room = Room.objects.get(slug=self.kwargs['room_slug'])
+        room = get_object_or_404(Room, slug=self.kwargs['room_slug'])
         context['room_slug'] = self.kwargs['room_slug']
         context['room_settings'] = RoomSettings.objects.get_or_create(room=room)[0]
+
+        items = Item.objects.filter(room=room).order_by('item_name')
+
+        # Build active/inactive entries from item fields
+        active_items = [
+            {'item': item, 'count': item.active_count}
+            for item in items if item.active_count > 0
+        ]
+        inactive_items = [
+            {'item': item, 'count': item.inactive_count}
+            for item in items if item.inactive_count > 0
+        ]
+        archived_items = [
+            {'item': item, 'count': item.archived_count}
+            for item in items if item.archived_count > 0
+        ]
+
+        context['active_items'] = active_items
+        context['inactive_items'] = inactive_items
+        context['archived_items'] = archived_items
         return context
 
 class SystemConfigurationView(LoginRequiredMixin, View):
@@ -591,29 +521,6 @@ class SystemUpdateView(LoginRequiredMixin, UpdateView):
         context['room_settings'] = RoomSettings.objects.get_or_create(room=room)[0]
         return context
 
-class SystemDeleteView(LoginRequiredMixin, DeleteView):
-    model = System
-    template_name = 'room_incharge/system_delete_confirm.html'
-    slug_field = 'slug'
-    slug_url_kwarg = 'system_slug'
-
-    def get_success_url(self):
-        return reverse_lazy('room_incharge:system_list', kwargs={'room_slug': self.kwargs['room_slug']})
-
-    def get_queryset(self):
-        room_slug = self.kwargs['room_slug']
-        return super().get_queryset().filter(room__slug=room_slug, organisation=self.request.user.profile.org)
-
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        room = Room.objects.get(slug=self.kwargs['room_slug'])
-        context['room_slug'] = self.kwargs['room_slug']
-        context['room_settings'] = RoomSettings.objects.get_or_create(room=room)[0]
-        return context
-
-    def dispatch(self, request, *args, **kwargs):
-        return HttpResponseForbidden("Delete operation is not allowed.")
-
 class SystemComponentListView(LoginRequiredMixin, ListView):
     template_name = 'room_incharge/system_component_list.html'
     model = SystemComponent
@@ -659,8 +566,9 @@ class SystemComponentCreateView(LoginRequiredMixin, CreateView):
 
         item = component.component_item
         Item.objects.filter(pk=item.pk).update(
+            active_count=F('active_count') + 1,
+            in_use=F('active_count') + 1,
             available_count=F('available_count') - 1,
-            in_use=F('in_use') + 1,
         )
 
         return redirect(self.get_success_url())
@@ -706,12 +614,14 @@ class SystemComponentUpdateView(LoginRequiredMixin, UpdateView):
         new_item = component.component_item
         if old_item != new_item:
             Item.objects.filter(pk=old_item.pk).update(
+                active_count=F('active_count') - 1,
+                in_use=F('active_count') - 1,
                 available_count=F('available_count') + 1,
-                in_use=F('in_use') - 1,
             )
             Item.objects.filter(pk=new_item.pk).update(
+                active_count=F('active_count') + 1,
+                in_use=F('active_count') + 1,
                 available_count=F('available_count') - 1,
-                in_use=F('in_use') + 1,
             )
 
         return redirect(self.get_success_url())
@@ -723,30 +633,6 @@ class SystemComponentUpdateView(LoginRequiredMixin, UpdateView):
         room = Room.objects.get(slug=self.kwargs['room_slug'])
         context['room_settings'] = RoomSettings.objects.get_or_create(room=room)[0]
         return context
-
-class SystemComponentDeleteView(LoginRequiredMixin, DeleteView):
-    model = SystemComponent
-    template_name = 'room_incharge/system_component_delete_confirm.html'
-    slug_field = 'slug'
-    slug_url_kwarg = 'component_slug'
-
-    def get_success_url(self):
-        return reverse_lazy('room_incharge:system_component_list', kwargs={'room_slug': self.kwargs['room_slug'], 'system_slug': self.kwargs['system_slug']})
-
-    def get_queryset(self):
-        system_slug = self.kwargs['system_slug']
-        return super().get_queryset().filter(system__slug=system_slug, system__organisation=self.request.user.profile.org)
-
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        context['system_slug'] = self.kwargs['system_slug']
-        context['room_slug'] = self.kwargs['room_slug']
-        room = Room.objects.get(slug=self.kwargs['room_slug'])
-        context['room_settings'] = RoomSettings.objects.get_or_create(room=room)[0]
-        return context
-
-    def dispatch(self, request, *args, **kwargs):
-        return HttpResponseForbidden("Delete operation is not allowed.")
 
 class SystemComponentArchiveView(LoginRequiredMixin, FormView):
     template_name = 'room_incharge/system_component_archive.html'
@@ -768,16 +654,19 @@ class SystemComponentArchiveView(LoginRequiredMixin, FormView):
             room=item.room,
             item=item,
             count=1,
-            archive_type=form.cleaned_data["archive_type"],
-            remark=form.cleaned_data["remark"]
+            archive_type='consumption',
+            archive_category='serviceable',
+            archive_status='archived',
+            remark=form.cleaned_data.get("remark", "")
         )
 
-        item.in_use -= 1
-        if item.in_use < 0:
-            item.in_use = 0
-
+        # Component was active (in_use), so decrement active_count
+        item.active_count = max(0, item.active_count - 1)
+        item.in_use = item.active_count
         item.archived_count += 1
-        item.save(update_fields=["in_use", "archived_count", "updated_on"])
+        item.serviceable_count += 1
+        item.available_count = max(0, item.total_count - item.active_count - item.inactive_count - item.archived_count)
+        item.save(update_fields=["active_count", "in_use", "archived_count", "serviceable_count", "available_count", "updated_on"])
 
         component.delete()
 
@@ -976,8 +865,9 @@ class SystemImportConfirmView(LoginRequiredMixin, View):
                         status=comp['status'],
                     )
                     Item.objects.filter(pk=item.pk).update(
+                        active_count=F('active_count') + 1,
+                        in_use=F('active_count') + 1,
                         available_count=F('available_count') - 1,
-                        in_use=F('in_use') + 1,
                     )
                     created_components += 1
                 except Exception:
@@ -996,13 +886,25 @@ class ArchiveListView(LoginRequiredMixin, ListView):
 
     def get_queryset(self):
         room_slug = self.kwargs['room_slug']
-        return super().get_queryset().filter(room__slug=room_slug, organisation=self.request.user.profile.org)
+        # Active archives: not yet fully resolved
+        return Archive.objects.filter(
+            room__slug=room_slug,
+            organisation=self.request.user.profile.org,
+        ).exclude(
+            archive_status__in=['serviced', 'not_serviceable']
+        ).select_related('item').order_by('-archived_on')
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         room = Room.objects.get(slug=self.kwargs['room_slug'])
         context['room_slug'] = self.kwargs['room_slug']
         context['room_settings'] = RoomSettings.objects.get_or_create(room=room)[0]
+        # History: serviced or not_serviceable (resolved archives)
+        context['history_archives'] = Archive.objects.filter(
+            room=room,
+            organisation=self.request.user.profile.org,
+            archive_status__in=['serviced', 'not_serviceable'],
+        ).select_related('item').order_by('-archived_on')
         return context
 
 class PurchaseListView(LoginRequiredMixin, ListView):
@@ -1152,27 +1054,6 @@ class PurchaseNewItemCreateView(LoginRequiredMixin, CreateView):
         context['room_slug'] = self.kwargs['room_slug']
         context['room_settings'] = RoomSettings.objects.get_or_create(room=room)[0]
         return context
-
-
-class PurchaseDeleteView(LoginRequiredMixin, DeleteView):
-    model = Purchase
-    template_name = 'room_incharge/purchase_delete_confirm.html'
-    slug_field = 'slug'
-    slug_url_kwarg = 'purchase_slug'
-    success_url = reverse_lazy('room_incharge:purchase_list')
-
-    def get_success_url(self):
-        return reverse_lazy('room_incharge:purchase_list', kwargs={'room_slug': self.kwargs['room_slug']})
-
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        room = Room.objects.get(slug=self.kwargs['room_slug'])
-        context['room_slug'] = self.kwargs['room_slug']
-        context['room_settings'] = RoomSettings.objects.get_or_create(room=room)[0]
-        return context
-
-    def dispatch(self, request, *args, **kwargs):
-        return HttpResponseForbidden("Delete operation is not allowed.")
 
 
 class PurchaseCompleteView(LoginRequiredMixin, FormView):
@@ -1435,29 +1316,6 @@ class ItemGroupUpdateView(LoginRequiredMixin, UpdateView):
         context['room_settings'] = RoomSettings.objects.get_or_create(room=room)[0]
         return context
 
-class ItemGroupDeleteView(LoginRequiredMixin, DeleteView):
-    model = ItemGroup
-    template_name = 'room_incharge/item_group_delete_confirm.html'
-    slug_field = 'slug'
-    slug_url_kwarg = 'item_group_slug'
-
-    def get_success_url(self):
-        return reverse_lazy('room_incharge:item_group_list', kwargs={'room_slug': self.kwargs['room_slug']})
-
-    def get_queryset(self):
-        room_slug = self.kwargs['room_slug']
-        return super().get_queryset().filter(room__slug=room_slug, organisation=self.request.user.profile.org)
-
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        room = Room.objects.get(slug=self.kwargs['room_slug'])
-        context['room_slug'] = self.kwargs['room_slug']
-        context['room_settings'] = RoomSettings.objects.get_or_create(room=room)[0]
-        return context
-
-    def dispatch(self, request, *args, **kwargs):
-        return HttpResponseForbidden("Delete operation is not allowed.")
-
 class ItemGroupItemUpdateView(LoginRequiredMixin, UpdateView):
     model = ItemGroupItem
     template_name = 'room_incharge/item_group_item_update.html'
@@ -1488,29 +1346,6 @@ class ItemGroupItemUpdateView(LoginRequiredMixin, UpdateView):
         context['room_settings'] = RoomSettings.objects.get_or_create(room=room)[0]
         return context
 
-
-class ItemGroupItemDeleteView(LoginRequiredMixin, DeleteView):
-    model = ItemGroupItem
-    template_name = 'room_incharge/item_group_item_delete_confirm.html'
-    slug_field = 'slug'
-    slug_url_kwarg = 'item_group_item_slug'
-
-    def get_success_url(self):
-        return reverse_lazy('room_incharge:item_group_item_list', kwargs={'room_slug': self.kwargs['room_slug'], 'item_group_slug': self.kwargs['item_group_slug']})
-
-    def get_queryset(self):
-        return super().get_queryset().filter(item_group__slug=self.kwargs['item_group_slug'], item_group__organisation=self.request.user.profile.org)
-
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        context['room_slug'] = self.kwargs['room_slug']
-        context['item_group_slug'] = self.kwargs['item_group_slug']
-        room = Room.objects.get(slug=self.kwargs['room_slug'])
-        context['room_settings'] = RoomSettings.objects.get_or_create(room=room)[0]
-        return context
-
-    def dispatch(self, request, *args, **kwargs):
-        return HttpResponseForbidden("Delete operation is not allowed.")
 
 class RoomSettingsView(LoginRequiredMixin, UpdateView):
     model = RoomSettings
@@ -1997,3 +1832,377 @@ class SendIssueRemarkView(LoginRequiredMixin, View):
 
         messages.success(request, f'Remark sent to {issue.reporter_email}.')
         return redirect('room_incharge:issue_list', room_slug=room.slug)
+
+
+# ═══════════════════════════════════════════════════════════════
+# SYSTEMS KANBAN — Assign items to Active / Inactive / Archive
+# ═══════════════════════════════════════════════════════════════
+
+class SystemsAssignView(LoginRequiredMixin, View):
+    """
+    POST /rooms/<room_slug>/api/systems/assign/
+    Body: { item_id, target: 'active'|'inactive', from: 'available'|'active'|'inactive', count }
+    Moves `count` units of an item between available/active/inactive buckets.
+    """
+    def post(self, request, room_slug):
+        import json as _json
+        profile = request.user.profile
+        if profile.is_central_admin or profile.is_sub_admin:
+            room = get_object_or_404(Room, slug=room_slug, organisation=profile.org)
+        else:
+            room = get_object_or_404(Room, slug=room_slug, incharge=profile)
+        try:
+            data = _json.loads(request.body)
+        except Exception:
+            return JsonResponse({'error': 'Invalid JSON'}, status=400)
+
+        item_id = data.get('item_id')
+        target  = data.get('target')   # 'active' or 'inactive'
+        from_   = data.get('from')     # 'available', 'active', 'inactive'
+        count   = int(data.get('count', 0))
+
+        if target not in ('active', 'inactive'):
+            return JsonResponse({'error': 'Invalid target.'}, status=400)
+        if from_ not in ('available', 'active', 'inactive'):
+            return JsonResponse({'error': 'Invalid source.'}, status=400)
+        if count < 1:
+            return JsonResponse({'error': 'Count must be at least 1.'}, status=400)
+
+        item = get_object_or_404(Item, id=item_id, room=room)
+
+        # Determine available units from source
+        if from_ == 'available':
+            source_count = item.available_count
+        elif from_ == 'active':
+            source_count = item.active_count
+        else:
+            source_count = item.inactive_count
+
+        if count > source_count:
+            return JsonResponse({
+                'error': f'Only {source_count} unit(s) available in {from_}.'
+            }, status=400)
+
+        from django.db import transaction as _tx
+        with _tx.atomic():
+            item.refresh_from_db()
+            # Deduct from source
+            if from_ == 'available':
+                item.available_count = max(0, item.available_count - count)
+            elif from_ == 'active':
+                item.active_count = max(0, item.active_count - count)
+            else:
+                item.inactive_count = max(0, item.inactive_count - count)
+
+            # Add to target
+            if target == 'active':
+                item.active_count += count
+            else:
+                item.inactive_count += count
+
+            # Recalculate available_count
+            item.available_count = max(0, item.total_count - item.active_count - item.inactive_count - item.archived_count)
+            item.in_use = item.active_count
+            item.save(update_fields=['active_count', 'inactive_count', 'available_count', 'in_use', 'updated_on'])
+
+        return JsonResponse({
+            'success': True,
+            'message': f'Moved {count} unit(s) of "{item.item_name}" to {target}.',
+        })
+
+
+class SystemsArchiveView(LoginRequiredMixin, View):
+    """
+    POST /rooms/<room_slug>/api/systems/archive/
+    Body: { item_id, from: 'available'|'active'|'inactive', count, category: 'serviceable'|'unserviceable', remark }
+    Archives `count` units from the given source bucket.
+    """
+    def post(self, request, room_slug):
+        import json as _json
+        profile = request.user.profile
+        if profile.is_central_admin or profile.is_sub_admin:
+            room = get_object_or_404(Room, slug=room_slug, organisation=profile.org)
+        else:
+            room = get_object_or_404(Room, slug=room_slug, incharge=profile)
+        try:
+            data = _json.loads(request.body)
+        except Exception:
+            return JsonResponse({'error': 'Invalid JSON'}, status=400)
+
+        item_id  = data.get('item_id')
+        from_    = data.get('from', 'available')
+        count    = int(data.get('count', 0))
+        category = data.get('category', 'serviceable')
+        remark   = data.get('remark', '').strip()
+
+        if from_ not in ('available', 'active', 'inactive'):
+            return JsonResponse({'error': 'Invalid source.'}, status=400)
+        if category not in ('serviceable', 'unserviceable'):
+            return JsonResponse({'error': 'Invalid category.'}, status=400)
+        if count < 1:
+            return JsonResponse({'error': 'Count must be at least 1.'}, status=400)
+
+        item = get_object_or_404(Item, id=item_id, room=room)
+
+        if from_ == 'available':
+            source_count = item.available_count
+        elif from_ == 'active':
+            source_count = item.active_count
+        else:
+            source_count = item.inactive_count
+
+        if count > source_count:
+            return JsonResponse({
+                'error': f'Only {source_count} unit(s) available in {from_}.'
+            }, status=400)
+
+        from django.db import transaction as _tx
+        with _tx.atomic():
+            item.refresh_from_db()
+            # Deduct from source
+            if from_ == 'available':
+                item.available_count = max(0, item.available_count - count)
+            elif from_ == 'active':
+                item.active_count = max(0, item.active_count - count)
+            else:
+                item.inactive_count = max(0, item.inactive_count - count)
+
+            # Add to archived
+            item.archived_count += count
+            if category == 'serviceable':
+                item.serviceable_count += count
+            else:
+                item.unserviceable_count += count
+
+            # Recalculate available
+            item.available_count = max(0, item.total_count - item.active_count - item.inactive_count - item.archived_count)
+            item.in_use = item.active_count
+            item.save(update_fields=[
+                'active_count', 'inactive_count', 'available_count', 'in_use',
+                'archived_count', 'serviceable_count', 'unserviceable_count', 'updated_on'
+            ])
+
+            # Create Archive record
+            Archive.objects.create(
+                organisation=item.organisation,
+                department=item.department,
+                room=room,
+                item=item,
+                count=count,
+                archive_category=category,
+                archive_status='archived',
+                remark=remark,
+            )
+
+        return JsonResponse({
+            'success': True,
+            'message': f'Archived {count} unit(s) of "{item.item_name}" as {category}.',
+        })
+
+
+# ═══════════════════════════════════════════════════════════════
+# ARCHIVE STATUS UPDATE
+# ═══════════════════════════════════════════════════════════════
+
+class ArchiveStatusUpdateView(LoginRequiredMixin, View):
+    """
+    POST /rooms/<room_slug>/api/archive/<archive_slug>/update-status/
+    Body: { status: 'under_maintenance'|'serviced'|'not_serviceable'|'revert' }
+
+    - under_maintenance: stays serviceable, status changes
+    - serviced: count returned to available_count, archive record removed
+    - not_serviceable: moves count from serviceable to unserviceable on item
+    - revert (unserviceable only): count returned to available_count, archive removed
+    """
+    def post(self, request, room_slug, archive_slug):
+        import json as _json
+        profile = request.user.profile
+        # Allow room incharge, central admin, or sub-admin
+        if profile.is_central_admin or profile.is_sub_admin:
+            room = get_object_or_404(Room, slug=room_slug, organisation=profile.org)
+        else:
+            room = get_object_or_404(Room, slug=room_slug, incharge=profile)
+        archive = get_object_or_404(Archive, slug=archive_slug, room=room)
+        try:
+            data = _json.loads(request.body)
+        except Exception:
+            return JsonResponse({'error': 'Invalid JSON'}, status=400)
+
+        new_status = data.get('status', '').strip()
+        item = archive.item
+        count = archive.count
+
+        from django.db import transaction as _tx
+
+        # Serviceable category options
+        if archive.archive_category == 'serviceable':
+            if new_status == 'under_maintenance':
+                archive.archive_status = 'under_maintenance'
+                archive.save(update_fields=['archive_status', 'updated_on'])
+                return JsonResponse({'success': True, 'message': 'Status updated to Under Maintenance.'})
+
+            elif new_status == 'serviced':
+                with _tx.atomic():
+                    archive.archive_status = 'serviced'
+                    archive.save(update_fields=['archive_status', 'updated_on'])
+                    # Return count to available
+                    item.refresh_from_db()
+                    item.archived_count = max(0, item.archived_count - count)
+                    item.serviceable_count = max(0, item.serviceable_count - count)
+                    item.available_count = max(0, item.total_count - item.active_count - item.inactive_count - item.archived_count)
+                    item.save(update_fields=['archived_count', 'serviceable_count', 'available_count', 'updated_on'])
+                return JsonResponse({'success': True, 'message': f'{count} unit(s) returned to available stock.'})
+
+            elif new_status == 'not_serviceable':
+                with _tx.atomic():
+                    archive.archive_category = 'unserviceable'
+                    archive.archive_status = 'not_serviceable'
+                    archive.save(update_fields=['archive_category', 'archive_status', 'updated_on'])
+                    item.refresh_from_db()
+                    item.serviceable_count = max(0, item.serviceable_count - count)
+                    item.unserviceable_count += count
+                    item.save(update_fields=['serviceable_count', 'unserviceable_count', 'updated_on'])
+                return JsonResponse({'success': True, 'message': 'Marked as Not Serviceable.'})
+
+            else:
+                return JsonResponse({'error': 'Invalid status for serviceable item.'}, status=400)
+
+        # Unserviceable category — only revert
+        elif archive.archive_category == 'unserviceable':
+            if new_status == 'revert':
+                with _tx.atomic():
+                    item.refresh_from_db()
+                    item.archived_count = max(0, item.archived_count - count)
+                    item.unserviceable_count = max(0, item.unserviceable_count - count)
+                    item.available_count = max(0, item.total_count - item.active_count - item.inactive_count - item.archived_count)
+                    item.save(update_fields=['archived_count', 'unserviceable_count', 'available_count', 'updated_on'])
+                    archive.archive_status = 'serviced'
+                    archive.save(update_fields=['archive_status', 'updated_on'])
+                return JsonResponse({'success': True, 'message': f'{count} unit(s) reverted to available stock.'})
+            else:
+                return JsonResponse({'error': 'Only revert is allowed for unserviceable items.'}, status=400)
+
+        return JsonResponse({'error': 'Unknown archive category.'}, status=400)
+
+
+# ═══════════════════════════════════════════════════════════════
+# CONFIGURATIONS — Item-based spec sheets
+# ═══════════════════════════════════════════════════════════════
+
+class ConfigurationsListView(LoginRequiredMixin, ListView):
+    template_name = 'room_incharge/configurations.html'
+    model = ItemConfiguration
+    context_object_name = 'configurations'
+
+    def get_queryset(self):
+        room = get_object_or_404(Room, slug=self.kwargs['room_slug'])
+        return ItemConfiguration.objects.filter(room=room).select_related('item').order_by('-created_on')
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        room = get_object_or_404(Room, slug=self.kwargs['room_slug'])
+        context['room_slug'] = self.kwargs['room_slug']
+        context['room_settings'] = RoomSettings.objects.get_or_create(room=room)[0]
+        context['items'] = Item.objects.filter(room=room).order_by('item_name')
+        return context
+
+
+class SaveConfigurationView(LoginRequiredMixin, View):
+    """
+    POST /rooms/<room_slug>/api/configurations/save/
+    Body: { item_ids: [...], configuration_name, configuration_data (JSON string), count }
+    Creates one ItemConfiguration per selected item.
+    """
+    def post(self, request, room_slug):
+        import json as _json
+        profile = request.user.profile
+        if profile.is_central_admin or profile.is_sub_admin:
+            room = get_object_or_404(Room, slug=room_slug, organisation=profile.org)
+        else:
+            room = get_object_or_404(Room, slug=room_slug, incharge=profile)
+        try:
+            data = _json.loads(request.body)
+        except Exception:
+            return JsonResponse({'error': 'Invalid JSON'}, status=400)
+
+        item_ids = data.get('item_ids', [])
+        cfg_name = data.get('configuration_name', '').strip()
+        cfg_data = data.get('configuration_data', '[]')
+        count    = int(data.get('count', 1))
+
+        if not item_ids:
+            return JsonResponse({'error': 'Select at least one item.'}, status=400)
+        if count < 1:
+            return JsonResponse({'error': 'Count must be at least 1.'}, status=400)
+
+        # Validate JSON
+        try:
+            rows = _json.loads(cfg_data)
+            if not isinstance(rows, list) or not rows:
+                return JsonResponse({'error': 'Add at least one specification row.'}, status=400)
+        except Exception:
+            return JsonResponse({'error': 'Invalid specification data.'}, status=400)
+
+        profile = request.user.profile
+        created = []
+        for item_id in item_ids:
+            item = Item.objects.filter(id=item_id, room=room).first()
+            if not item:
+                continue
+            ItemConfiguration.objects.create(
+                organisation=room.organisation,
+                room=room,
+                item=item,
+                configuration_name=cfg_name or item.item_name,
+                configuration_data=cfg_data,
+                count=count,
+                created_by=profile,
+            )
+            created.append(item.item_name)
+
+        if not created:
+            return JsonResponse({'error': 'No valid items found.'}, status=400)
+
+        return JsonResponse({'success': True, 'created': created})
+
+
+class DeleteConfigurationView(LoginRequiredMixin, View):
+    """
+    POST /rooms/<room_slug>/api/configurations/<slug>/delete/
+    """
+    def post(self, request, room_slug, cfg_slug):
+        profile = request.user.profile
+        if profile.is_central_admin or profile.is_sub_admin:
+            room = get_object_or_404(Room, slug=room_slug, organisation=profile.org)
+        else:
+            room = get_object_or_404(Room, slug=room_slug, incharge=profile)
+        cfg = get_object_or_404(ItemConfiguration, slug=cfg_slug, room=room)
+        cfg.delete()
+        return JsonResponse({'success': True})
+
+
+class ItemConfigurationsAPIView(LoginRequiredMixin, View):
+    """
+    GET /rooms/<room_slug>/api/item-configurations/?item_id=<id>
+    Returns all configurations for a given item in this room.
+    """
+    def get(self, request, room_slug):
+        profile = request.user.profile
+        if profile.is_central_admin or profile.is_sub_admin:
+            room = get_object_or_404(Room, slug=room_slug, organisation=profile.org)
+        else:
+            room = get_object_or_404(Room, slug=room_slug, incharge=profile)
+        item_id = request.GET.get('item_id')
+        if not item_id:
+            return JsonResponse({'error': 'item_id required'}, status=400)
+        cfgs = ItemConfiguration.objects.filter(room=room, item_id=item_id).order_by('-created_on')
+        result = [
+            {
+                'configuration_name': c.configuration_name,
+                'configuration_data': c.configuration_data,
+                'count': c.count,
+                'created_on': c.created_on.strftime('%d %b %Y'),
+            }
+            for c in cfgs
+        ]
+        return JsonResponse({'configurations': result})

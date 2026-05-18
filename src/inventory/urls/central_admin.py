@@ -69,6 +69,8 @@ urlpatterns = [
     path('master-inventory/assign/', aura.AssignInventoryView.as_view(), name='assign_inventory'),
     path('api/assign-inventory/', aura.assign_inventory_api, name='assign_inventory_api'),
     path('api/unassign-inventory/', aura.unassign_inventory_api, name='unassign_inventory_api'),
+    path('api/revert-inventory-data/', aura.revert_inventory_data, name='revert_inventory_data'),
+    path('api/revert-inventory/', aura.revert_inventory_api, name='revert_inventory_api'),
     path('api/master-items/', aura.get_master_items_api, name='get_master_items_api'),
     
     path('aura/credentials/<int:pk>/delete/', aura.credential_delete, name='credential_delete'),
@@ -105,6 +107,7 @@ urlpatterns = [
     path('booking-control/<int:booking_id>/add-return/', aura.booking_add_return_note, name='booking_control_add_return'),
     path('api/save-product-code/', aura.save_product_code, name='save_product_code'),
     path('api/save-item-edit/', aura.save_item_edit, name='save_item_edit'),
+    path('api/master-inventory/manual-create/', aura.create_master_inventory_item, name='create_master_inventory_item'),
     path('api/asset-tags/', aura.get_asset_tags, name='get_asset_tags'),
     
     # Reverted rooms and items management
@@ -133,4 +136,8 @@ urlpatterns = [
     path('master-inventory/access/list/', aura.master_inventory_access_list, name='master_inventory_access_list'),
     path('master-inventory/access/grant/', aura.master_inventory_grant_access, name='master_inventory_grant_access'),
     path('master-inventory/access/revoke/', aura.master_inventory_revoke_access, name='master_inventory_revoke_access'),
+    # Assign Inventory Access Management
+    path('master-inventory/assign-access/list/', aura.assign_inventory_access_list, name='assign_inventory_access_list'),
+    path('master-inventory/assign-access/grant/', aura.assign_inventory_grant_access, name='assign_inventory_grant_access'),
+    path('master-inventory/assign-access/revoke/', aura.assign_inventory_revoke_access, name='assign_inventory_revoke_access'),
 ]

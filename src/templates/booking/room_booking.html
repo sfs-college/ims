@@ -746,7 +746,7 @@
             <i class="bi bi-unlock-fill me-2"></i>Verify & Continue
         </button>
         <div style="margin-top:12px;">
-            <a href="{% url 'landing_page' %}" class="text-muted" style="font-size:0.85rem; text-decoration:none;">
+            <a href="javascript:void(0)" onclick="window.location.href=window.IS_CAPACITOR?'/core/app/?app=1':'/'" class="text-muted" style="font-size:0.85rem; text-decoration:none;">
                 <i class="bi bi-arrow-left me-1"></i>Back to Home
             </a>
         </div>
@@ -759,7 +759,7 @@
         <a href="javascript:void(0)"
            class="btn btn-sm btn-outline-secondary mb-3 rounded-pill px-3"
            style="display:inline-flex;align-items:center;gap:6px;"
-           onclick="window.location.href = window.IS_CAPACITOR ? '/core/app/?app=1' : '{% url "landing_page" %}';">
+           onclick="window.location.href = window.IS_CAPACITOR ? '/core/app/?app=1' : '/';">
             <i class="bi bi-arrow-left" aria-hidden="true" style="font-size:0.9rem;line-height:1;"></i><span class="home-btn-text">Home</span>
         </a>
         <h2><i class="bi bi-calendar-check-fill me-2"></i> Premium Venue Reservation</h2>

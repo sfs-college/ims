@@ -1,181 +1,78 @@
 {% extends "sidebar_base.html" %}
 {% load static %}
 
-{% block title %} | Archive List{% endblock title %}
+{% block title %} | Archives{% endblock title %}
 
 {% block style %}
-<link rel="stylesheet" href="{% static 'styles/inventory/room_incharge/archive_list/style.css' %}">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
 <style>
   @import url('https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&display=swap');
+  :root {
+    --accent:#6c63ff; --surface:#fff; --border:#e2e8f0; --text:#1e293b; --text-muted:#94a3b8;
+    --green:#059669; --green-lt:#d1fae5; --red:#dc2626; --red-lt:#fee2e2;
+    --amber:#d97706; --amber-lt:#fef3c7;
+  }
+  body { background:#f8fafc; font-family:'DM Sans',sans-serif; }
+  .archive-wrap { padding-bottom:48px; }
+  .archive-page-header { display:flex; align-items:center; gap:14px; margin:28px 0 22px; }
+  .archive-page-icon { width:46px; height:46px; border-radius:13px; background:linear-gradient(135deg,#64748b,#475569); display:flex; align-items:center; justify-content:center; flex-shrink:0; box-shadow:0 4px 12px rgba(100,116,139,0.24); }
+  .archive-page-icon i { color:#fff; font-size:1.2rem; }
+  .archive-page-title { font-size:1.35rem; font-weight:800; color:#0f172a; margin:0; }
+  .archive-page-sub { font-size:0.8rem; color:var(--text-muted); margin:2px 0 0; }
 
-  .archive-wrap {
-    font-family: 'DM Sans', sans-serif;
-    padding-bottom: 48px;
-  }
+  .archive-card { background:#fff; border:1px solid var(--border); border-radius:18px; overflow:hidden; box-shadow:0 4px 20px rgba(0,0,0,0.05); }
+  .archive-table { width:100%; border-collapse:collapse; font-size:0.875rem; }
+  .archive-table thead tr { background:#0f172a; }
+  .archive-table thead th { padding:13px 16px; font-size:0.72rem; font-weight:700; text-transform:uppercase; letter-spacing:0.55px; color:#94a3b8; white-space:nowrap; border:none; }
+  .archive-table tbody tr { border-bottom:1px solid #f1f5f9; transition:background 0.13s; cursor:pointer; }
+  .archive-table tbody tr:last-child { border-bottom:none; }
+  .archive-table tbody tr:hover { background:#f8fafc; }
+  .archive-table tbody td { padding:13px 16px; color:#334155; vertical-align:middle; border:none; }
+  .sno-cell { font-size:0.78rem; font-weight:600; color:var(--text-muted); width:52px; }
+  .item-link { font-weight:700; color:#1e293b; text-decoration:none; display:inline-flex; align-items:center; gap:6px; }
+  .count-pill { display:inline-flex; align-items:center; justify-content:center; background:#f1f5f9; color:#334155; font-weight:700; font-size:0.82rem; border-radius:8px; padding:3px 12px; min-width:36px; }
+  .badge-svc { display:inline-flex; align-items:center; gap:5px; padding:4px 10px; border-radius:20px; font-size:0.72rem; font-weight:700; }
+  .badge-svc.serviceable { background:var(--green-lt); color:var(--green); }
+  .badge-svc.unserviceable { background:var(--red-lt); color:var(--red); }
+  .badge-status { display:inline-flex; align-items:center; gap:5px; padding:4px 10px; border-radius:20px; font-size:0.72rem; font-weight:700; }
+  .badge-status.archived { background:#f1f5f9; color:#475569; }
+  .badge-status.under_maintenance { background:var(--amber-lt); color:var(--amber); }
+  .badge-status.serviced { background:var(--green-lt); color:var(--green); }
+  .badge-status.not_serviceable { background:var(--red-lt); color:var(--red); }
+  .date-cell { font-size:0.82rem; color:#64748b; white-space:nowrap; }
+  .archive-empty { text-align:center; padding:56px 24px; color:var(--text-muted); }
+  .archive-empty i { font-size:2.5rem; display:block; margin-bottom:10px; opacity:0.4; }
 
-  /* ── Page header ─────────────────────────────────────── */
-  .archive-page-header {
-    display: flex; align-items: center; gap: 14px;
-    margin: 28px 0 22px;
-  }
-  .archive-page-icon {
-    width: 46px; height: 46px; border-radius: 13px;
-    background: linear-gradient(135deg, #64748b, #475569);
-    display: flex; align-items: center; justify-content: center;
-    flex-shrink: 0; box-shadow: 0 4px 12px rgba(100,116,139,0.24);
-  }
-  .archive-page-icon i { color: #fff; font-size: 1.2rem; }
-  .archive-page-title  { font-size: 1.35rem; font-weight: 800; color: #0f172a; margin: 0; }
-  .archive-page-sub    { font-size: 0.8rem; color: #94a3b8; margin: 2px 0 0; }
+  /* ── Detail Modal ── */
+  .modal-bg { position:fixed; inset:0; background:rgba(15,23,42,0.5); z-index:1050; display:flex; align-items:center; justify-content:center; padding:20px; backdrop-filter:blur(4px); opacity:0; pointer-events:none; transition:opacity 0.2s; }
+  .modal-bg.open { opacity:1; pointer-events:all; }
+  .modal-box { background:#fff; border-radius:20px; padding:28px; width:460px; max-width:96vw; box-shadow:0 20px 50px rgba(0,0,0,0.2); transform:translateY(16px); transition:transform 0.25s; max-height:90vh; overflow-y:auto; }
+  .modal-bg.open .modal-box { transform:translateY(0); }
+  .modal-title { font-size:17px; font-weight:800; color:#0f172a; margin:0 0 4px; }
+  .modal-sub { font-size:13px; color:var(--text-muted); margin:0 0 20px; }
+  .detail-row { display:flex; justify-content:space-between; align-items:center; padding:8px 0; border-bottom:1px solid #f1f5f9; font-size:13px; }
+  .detail-row:last-child { border-bottom:none; }
+  .detail-row .lbl { color:#64748b; font-weight:500; }
+  .detail-row .val { font-weight:700; color:#1e293b; }
+  .status-options { display:flex; flex-direction:column; gap:8px; margin-top:16px; }
+  .status-opt-btn { padding:11px 14px; border:1.5px solid var(--border); border-radius:10px; font-size:13px; font-weight:600; cursor:pointer; text-align:left; background:#fff; font-family:inherit; transition:all 0.15s; display:flex; align-items:center; gap:9px; }
+  .status-opt-btn:hover { border-color:var(--accent); background:#f7f6ff; color:var(--accent); }
+  .status-opt-btn.danger:hover { border-color:var(--red); background:var(--red-lt); color:var(--red); }
+  .status-opt-btn.success:hover { border-color:var(--green); background:var(--green-lt); color:var(--green); }
+  .status-opt-btn.warn:hover { border-color:var(--amber); background:var(--amber-lt); color:var(--amber); }
+  .modal-alert { border-radius:9px; padding:9px 13px; font-size:13px; font-weight:600; margin-top:12px; display:none; }
+  .modal-alert.error { background:var(--red-lt); border:1px solid #fecaca; color:var(--red); }
+  .modal-alert.success { background:var(--green-lt); border:1px solid #bbf7d0; color:var(--green); }
 
-  /* ── Table card ──────────────────────────────────────── */
-  .archive-card {
-    background: #fff;
-    border: 1px solid #e2e8f0;
-    border-radius: 18px;
-    overflow: hidden;
-    box-shadow: 0 4px 20px rgba(0,0,0,0.05);
-  }
-
-  .archive-table {
-    width: 100%;
-    border-collapse: collapse;
-    font-size: 0.875rem;
-  }
-
-  .archive-table thead tr {
-    background: #0f172a;
-  }
-  .archive-table thead th {
-    padding: 13px 16px;
-    font-size: 0.72rem;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.55px;
-    color: #94a3b8;
-    white-space: nowrap;
-    border: none;
-  }
-
-  .archive-table tbody tr {
-    border-bottom: 1px solid #f1f5f9;
-    transition: background 0.13s;
-  }
-  .archive-table tbody tr:last-child { border-bottom: none; }
-  .archive-table tbody tr:hover { background: #f8fafc; }
-
-  .archive-table tbody td {
-    padding: 13px 16px;
-    color: #334155;
-    vertical-align: middle;
-    border: none;
-  }
-
-  /* Serial number */
-  .sno-cell {
-    font-size: 0.78rem;
-    font-weight: 600;
-    color: #94a3b8;
-    width: 52px;
-  }
-
-  /* Item name link */
-  .item-link {
-    font-weight: 700;
-    color: #1e293b;
-    text-decoration: none;
-    display: inline-flex; align-items: center; gap: 6px;
-    transition: color 0.14s;
-  }
-  .item-link:hover { color: #6366f1; }
-  .item-link i { font-size: 0.75rem; opacity: 0.5; }
-
-  /* Count pill */
-  .count-pill {
-    display: inline-flex; align-items: center; justify-content: center;
-    background: #f1f5f9;
-    color: #334155;
-    font-weight: 700;
-    font-size: 0.82rem;
-    border-radius: 8px;
-    padding: 3px 12px;
-    min-width: 36px;
-  }
-
-  /* Archive type badges */
-  .badge-archive {
-    display: inline-flex; align-items: center; gap: 5px;
-    padding: 4px 10px; border-radius: 20px;
-    font-size: 0.72rem; font-weight: 700;
-    letter-spacing: 0.2px;
-  }
-  .badge-archive.type-default {
-    background: #ede9fe; color: #5b21b6;
-  }
-  .badge-archive.type-damaged {
-    background: #fee2e2; color: #991b1b;
-  }
-  .badge-archive.type-disposed {
-    background: #fef3c7; color: #92400e;
-  }
-  .badge-archive.type-returned {
-    background: #d1fae5; color: #065f46;
-  }
-
-  /* Date cell */
-  .date-cell {
-    font-size: 0.82rem; color: #64748b;
-    white-space: nowrap;
-  }
-
-  /* Empty state */
-  .archive-empty {
-    text-align: center; padding: 56px 24px; color: #94a3b8;
-  }
-  .archive-empty i   { font-size: 2.5rem; display: block; margin-bottom: 10px; opacity: 0.4; }
-  .archive-empty p   { font-size: 0.88rem; margin: 0; }
-
-  /* ── Modal polish ────────────────────────────────────── */
-  .remark-modal .modal-content {
-    border: none; border-radius: 18px;
-    box-shadow: 0 20px 48px rgba(0,0,0,0.14);
-    font-family: 'DM Sans', sans-serif;
-    overflow: hidden;
-  }
-  .remark-modal .modal-header {
-    background: #0f172a;
-    border-bottom: none; padding: 18px 22px;
-  }
-  .remark-modal .modal-title {
-    color: #fff; font-weight: 700; font-size: 0.95rem;
-  }
-  .remark-modal .btn-close {
-    filter: invert(1) grayscale(100%) brightness(200%);
-  }
-  .remark-modal .modal-body {
-    padding: 22px 24px;
-    font-size: 0.88rem; color: #334155; line-height: 1.65;
-    background: #f8fafc; min-height: 60px;
-  }
-  .remark-modal .modal-footer {
-    border-top: 1px solid #f1f5f9; padding: 14px 22px;
-    background: #fff;
-  }
-  .remark-modal .btn-secondary {
-    background: #f1f5f9; color: #475569;
-    border: 1.5px solid #e2e8f0; border-radius: 10px;
-    font-weight: 600; font-size: 0.84rem;
-    font-family: 'DM Sans', sans-serif;
-    padding: 7px 20px;
-    transition: background 0.14s;
-  }
-  .remark-modal .btn-secondary:hover { background: #e2e8f0; color: #1e293b; }
-
-  @media (max-width: 640px) {
-    .archive-table thead th:nth-child(3),
-    .archive-table tbody td:nth-child(3) { display: none; }
-  }
+  /* Toast */
+  .toast-wrap { position:fixed; top:20px; right:20px; z-index:9999; display:flex; flex-direction:column; gap:8px; pointer-events:none; }
+  .toast-msg { display:flex; align-items:center; gap:9px; padding:11px 15px; border-radius:11px; font-size:0.875rem; font-weight:600; box-shadow:0 4px 20px rgba(0,0,0,0.14); min-width:260px; pointer-events:all; color:#fff; animation:toastIn 0.3s ease; }
+  .toast-msg.t-success { background:var(--green); }
+  .toast-msg.t-error   { background:var(--red); }
+  .toast-msg.t-info    { background:var(--accent); }
+  .toast-msg.out { animation:toastOut 0.25s ease forwards; }
+  @keyframes toastIn  { from{opacity:0;transform:translateX(24px);} to{opacity:1;transform:translateX(0);} }
+  @keyframes toastOut { to{opacity:0;transform:translateX(24px);} }
 </style>
 {% endblock style %}
 
@@ -183,18 +80,17 @@
 {% block sidebar %}{% include "room_incharge/sidebar.html" %}{% endblock sidebar %}
 
 {% block content %}
+<div class="toast-wrap" id="toastWrap"></div>
 <div class="archive-wrap">
 
-  <!-- Page header -->
   <div class="archive-page-header">
     <div class="archive-page-icon"><i class="bi bi-archive-fill"></i></div>
     <div>
       <h1 class="archive-page-title">Archives</h1>
-      <p class="archive-page-sub">Archived item records for this room</p>
+      <p class="archive-page-sub">Archived item records for this room — click a row to manage status</p>
     </div>
   </div>
 
-  <!-- Table card -->
   <div class="archive-card">
     <div class="table-responsive">
       <table class="archive-table">
@@ -202,72 +98,37 @@
           <tr>
             <th class="sno-cell">#</th>
             <th>Item Name</th>
+            <th>Category</th>
             <th>Count</th>
-            <th>Type</th>
+            <th>Status</th>
             <th>Archived On</th>
           </tr>
         </thead>
         <tbody>
           {% for archive in archives %}
-          <tr>
+          <tr onclick="openDetail('{{ archive.slug }}','{{ archive.item.item_name|escapejs }}','{{ archive.archive_category }}','{{ archive.archive_status }}',{{ archive.count }},'{{ archive.remark|escapejs }}')">
             <td class="sno-cell">{{ forloop.counter }}</td>
+            <td><span class="item-link">{{ archive.item.item_name }} <i class="bi bi-chevron-right" style="font-size:0.65rem;opacity:0.4;"></i></span></td>
             <td>
-              <a href="#" class="item-link"
-                 data-bs-toggle="modal"
-                 data-bs-target="#remarkModal{{ forloop.counter }}">
-                {{ archive.item.item_name }}
-                <i class="bi bi-chat-square-text"></i>
-              </a>
-            </td>
-            <td>
-              <span class="count-pill">{{ archive.count }}</span>
-            </td>
-            <td>
-              <span class="badge-archive
-                {% if 'damage' in archive.get_archive_type_display|lower %}type-damaged
-                {% elif 'dispos' in archive.get_archive_type_display|lower %}type-disposed
-                {% elif 'return' in archive.get_archive_type_display|lower %}type-returned
-                {% else %}type-default{% endif %}">
-                <i class="bi bi-tag-fill" style="font-size:0.65rem;"></i>
-                {{ archive.get_archive_type_display }}
+              <span class="badge-svc {{ archive.archive_category }}">
+                {% if archive.archive_category == 'serviceable' %}<i class="bi bi-check-circle-fill" style="font-size:0.65rem;"></i> Serviceable
+                {% else %}<i class="bi bi-x-circle-fill" style="font-size:0.65rem;"></i> Unserviceable{% endif %}
               </span>
             </td>
-            <td class="date-cell">
-              <i class="bi bi-calendar3 me-1 opacity-50"></i>
-              {{ archive.archived_on.date }}
+            <td><span class="count-pill">{{ archive.count }}</span></td>
+            <td>
+              <span class="badge-status {{ archive.archive_status }}">
+                {% if archive.archive_status == 'archived' %}Archived
+                {% elif archive.archive_status == 'under_maintenance' %}Under Maintenance
+                {% elif archive.archive_status == 'serviced' %}Serviced
+                {% else %}Not Serviceable{% endif %}
+              </span>
             </td>
+            <td class="date-cell"><i class="bi bi-calendar3 me-1 opacity-50"></i>{{ archive.archived_on.date }}</td>
           </tr>
-
-          <!-- Remark Modal -->
-          <div class="modal fade remark-modal" id="remarkModal{{ forloop.counter }}" tabindex="-1"
-               aria-labelledby="remarkModalLabel{{ forloop.counter }}" aria-hidden="true">
-            <div class="modal-dialog modal-dialog-centered">
-              <div class="modal-content">
-                <div class="modal-header">
-                  <h5 class="modal-title" id="remarkModalLabel{{ forloop.counter }}">
-                    <i class="bi bi-chat-left-text me-2" style="opacity:0.7;"></i>
-                    Remarks — {{ archive.item.item_name }}
-                  </h5>
-                  <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
-                <div class="modal-body">
-                  {% if archive.remark %}
-                    {{ archive.remark }}
-                  {% else %}
-                    <span class="text-muted fst-italic">No remarks recorded for this archive entry.</span>
-                  {% endif %}
-                </div>
-                <div class="modal-footer">
-                  <button type="button" class="btn-secondary" data-bs-dismiss="modal">Close</button>
-                </div>
-              </div>
-            </div>
-          </div>
-          <!-- /Remark Modal -->
-
           {% empty %}
           <tr>
-            <td colspan="5">
+            <td colspan="6">
               <div class="archive-empty">
                 <i class="bi bi-archive"></i>
                 <p>No archived items found for this room.</p>
@@ -280,10 +141,142 @@
     </div>
   </div>
 
-</div>
-{% endblock content %}
+  <!-- ── Archive History ── -->
+  {% if history_archives %}
+  <div style="margin-top:28px;">
+    <div style="display:flex;align-items:center;gap:14px;margin-bottom:14px;">
+      <div style="width:40px;height:40px;border-radius:11px;background:linear-gradient(135deg,#059669,#047857);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+        <i class="bi bi-clock-history" style="color:#fff;font-size:1rem;"></i>
+      </div>
+      <div>
+        <div style="font-size:1.1rem;font-weight:800;color:#0f172a;margin:0;">Archive History</div>
+        <div style="font-size:0.8rem;color:#94a3b8;margin:2px 0 0;">Items that have been serviced, resolved, or reverted</div>
+      </div>
+    </div>
+    <div class="archive-card">
+      <div class="table-responsive">
+        <table class="archive-table">
+          <thead>
+            <tr>
+              <th class="sno-cell">#</th>
+              <th>Item Name</th>
+              <th>Category</th>
+              <th>Count</th>
+              <th>Final Status</th>
+              <th>Archived On</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for archive in history_archives %}
+            <tr style="opacity:0.72;">
+              <td class="sno-cell">{{ forloop.counter }}</td>
+              <td><span class="item-link">{{ archive.item.item_name }}</span></td>
+              <td>
+                <span class="badge-svc {{ archive.archive_category }}">
+                  {% if archive.archive_category == 'serviceable' %}<i class="bi bi-check-circle-fill" style="font-size:0.65rem;"></i> Serviceable
+                  {% else %}<i class="bi bi-x-circle-fill" style="font-size:0.65rem;"></i> Unserviceable{% endif %}
+                </span>
+              </td>
+              <td><span class="count-pill">{{ archive.count }}</span></td>
+              <td>
+                <span class="badge-status {{ archive.archive_status }}">
+                  {% if archive.archive_status == 'serviced' %}Serviced
+                  {% elif archive.archive_status == 'not_serviceable' %}Not Serviceable
+                  {% else %}{{ archive.archive_status|title }}{% endif %}
+                </span>
+              </td>
+              <td class="date-cell"><i class="bi bi-calendar3 me-1 opacity-50"></i>{{ archive.archived_on.date }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+  {% endif %}
 
-{% block script %}
-<script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.9.2/dist/umd/popper.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.min.js"></script>
-{% endblock script %}
+</div>
+
+<!-- ── Archive Detail Modal ── -->
+<div class="modal-bg" id="detailModal" onclick="if(event.target===this)closeDetail()">
+  <div class="modal-box">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px;">
+      <div>
+        <div class="modal-title" id="detailItemName">—</div>
+        <div class="modal-sub">Archive record details</div>
+      </div>
+      <button onclick="closeDetail()" style="background:none;border:none;font-size:1.2rem;cursor:pointer;color:#94a3b8;"><i class="bi bi-x-lg"></i></button>
+    </div>
+    <div id="detailRows"></div>
+    <div id="detailActions"></div>
+    <div class="modal-alert" id="detailAlert"></div>
+  </div>
+</div>
+
+<script>
+const CSRF=(()=>{ const c=document.cookie.split(';').find(x=>x.trim().startsWith('csrftoken=')); return c?decodeURIComponent(c.trim().split('=')[1]):''; })();
+const ROOM_SLUG='{{ room_slug }}';
+let _currentSlug=null;
+
+function openDetail(slug, itemName, category, status, count, remark){
+  _currentSlug=slug;
+  document.getElementById('detailItemName').textContent=itemName;
+  // Detail rows
+  const statusLabels={archived:'Archived',under_maintenance:'Under Maintenance',serviced:'Serviced',not_serviceable:'Not Serviceable'};
+  document.getElementById('detailRows').innerHTML=`
+    <div class="detail-row"><span class="lbl">Category</span><span class="val">${category==='serviceable'?'Serviceable':'Unserviceable'}</span></div>
+    <div class="detail-row"><span class="lbl">Count</span><span class="val">${count}</span></div>
+    <div class="detail-row"><span class="lbl">Current Status</span><span class="val">${statusLabels[status]||status}</span></div>
+    ${remark?`<div class="detail-row"><span class="lbl">Remark</span><span class="val" style="max-width:220px;text-align:right;">${escHtml(remark)}</span></div>`:''}
+  `;
+  // Action buttons based on category + status
+  let actionsHtml='<div style="margin-top:16px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;color:#94a3b8;margin-bottom:8px;">Update Status</div><div class="status-options">';
+  if(category==='serviceable'){
+    if(status!=='under_maintenance')
+      actionsHtml+=`<button class="status-opt-btn warn" onclick="updateStatus('under_maintenance')"><i class="bi bi-tools"></i> Mark as Under Maintenance</button>`;
+    if(status!=='serviced')
+      actionsHtml+=`<button class="status-opt-btn success" onclick="updateStatus('serviced')"><i class="bi bi-check-circle"></i> Mark as Serviced (return to available)</button>`;
+    if(status!=='not_serviceable')
+      actionsHtml+=`<button class="status-opt-btn danger" onclick="updateStatus('not_serviceable')"><i class="bi bi-x-circle"></i> Mark as Not Serviceable</button>`;
+  } else {
+    // unserviceable — only revert option
+    actionsHtml+=`<button class="status-opt-btn success" onclick="updateStatus('revert')"><i class="bi bi-arrow-counterclockwise"></i> Revert to Available Stock</button>`;
+  }
+  actionsHtml+='</div>';
+  document.getElementById('detailActions').innerHTML=actionsHtml;
+  hideAlert('detailAlert');
+  const m=document.getElementById('detailModal');
+  m.style.display='flex'; requestAnimationFrame(()=>m.classList.add('open'));
+}
+function closeDetail(){
+  const m=document.getElementById('detailModal');
+  m.classList.remove('open'); setTimeout(()=>m.style.display='none',220);
+}
+function updateStatus(newStatus){
+  hideAlert('detailAlert');
+  fetch(`/room_incharge/rooms/${ROOM_SLUG}/api/archive/${_currentSlug}/update-status/`,{
+    method:'POST',
+    headers:{'Content-Type':'application/json','X-CSRFToken':CSRF},
+    body:JSON.stringify({status:newStatus})
+  }).then(r=>r.json()).then(d=>{
+    if(d.success){
+      showToast(d.message,'t-success');
+      closeDetail();
+      setTimeout(()=>location.reload(),800);
+    } else {
+      showAlert('detailAlert','error',d.error||'Update failed.');
+    }
+  }).catch(()=>showAlert('detailAlert','error','Network error.'));
+}
+function showAlert(id,type,msg){ const el=document.getElementById(id); el.className='modal-alert '+type; el.textContent=msg; el.style.display='block'; }
+function hideAlert(id){ document.getElementById(id).style.display='none'; }
+function showToast(msg,type){
+  const wrap=document.getElementById('toastWrap');
+  const d=document.createElement('div'); d.className='toast-msg '+type;
+  d.innerHTML=`<i class="bi bi-${type==='t-success'?'check-circle-fill':'x-circle-fill'}"></i> ${msg}`;
+  wrap.appendChild(d);
+  setTimeout(()=>{ d.classList.add('out'); setTimeout(()=>d.remove(),280); },3200);
+}
+function escHtml(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+</script>
+{% endblock content %}

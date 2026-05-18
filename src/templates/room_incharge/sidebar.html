@@ -235,10 +235,16 @@
     {% if room_settings.systems_tab %}
     <a class="navlink {% if request.resolver_match.url_name == 'system_list' %}active{% endif %}"
        href="{% url 'room_incharge:system_list' room_slug=room_slug %}">
-      <span class="material-symbols-outlined">devices</span>
+      <span class="material-symbols-outlined">view_kanban</span>
       <span class="menu-text">Systems</span>
     </a>
     {% endif %}
+
+    <a class="navlink {% if request.resolver_match.url_name == 'configurations_list' %}active{% endif %}"
+       href="{% url 'room_incharge:configurations_list' room_slug=room_slug %}">
+      <span class="material-symbols-outlined">settings_applications</span>
+      <span class="menu-text">Configurations</span>
+    </a>
 
     <a class="navlink {% if request.resolver_match.url_name == 'archive_list' %}active{% endif %}"
       href="{% url 'room_incharge:archive_list' room_slug=room_slug %}">
@@ -284,6 +290,15 @@
        href="{% url 'room_incharge:master_inventory' room_slug=room_slug %}">
       <span class="material-symbols-outlined">inventory_2</span>
       <span class="menu-text">Master Inventory</span>
+    </a>
+    {% endif %}
+
+    {% comment %} Assign Inventory — only visible if assign access has been granted {% endcomment %}
+    {% if request.user.profile.assign_inventory_access %}
+    <a class="navlink {% if request.resolver_match.url_name == 'assign_inventory' %}active{% endif %}"
+       href="{% url 'room_incharge:assign_inventory' room_slug=room_slug %}">
+      <span class="material-symbols-outlined">move_item</span>
+      <span class="menu-text">Assign Inventory</span>
     </a>
     {% endif %}
 

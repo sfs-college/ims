@@ -8,12 +8,14 @@
     font-family: 'DM Sans', sans-serif;
     background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
   }
+  .login-wrap { min-height: 80vh; display: flex; align-items: center; justify-content: center; padding: 20px; }
   .login-card {
     background: white;
     border-radius: 20px;
     padding: 40px;
     box-shadow: 0 10px 40px rgba(0,0,0,0.08);
     border: 1px solid #e2e8f0;
+    width: 100%; max-width: 400px;
   }
   .login-card h3 {
     font-family: 'DM Sans', sans-serif;
@@ -45,37 +47,41 @@
     transform: translateY(-2px);
     box-shadow: 0 6px 20px rgba(99,102,241,0.3);
   }
-  /* Password field wrapper */
   .pw-wrap { position: relative; }
   .pw-wrap .form-control { padding-right: 48px; }
   .pw-eye {
-    position: absolute;
-    right: 14px;
-    top: 50%;
-    transform: translateY(-50%);
-    background: none;
-    border: none;
-    cursor: pointer;
-    color: #94a3b8;
-    font-size: 1.1rem;
-    padding: 0;
-    line-height: 1;
-    min-width: 28px;
-    min-height: 28px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
+    position: absolute; right: 14px; top: 50%; transform: translateY(-50%);
+    background: none; border: none; cursor: pointer; color: #94a3b8;
+    font-size: 1.1rem; padding: 0; line-height: 1;
+    min-width: 28px; min-height: 28px;
+    display: flex; align-items: center; justify-content: center;
     -webkit-tap-highlight-color: transparent;
   }
   .pw-eye:hover { color: #6366f1; }
+  /* Capacitor back button — only shown in app */
+  .cap-back-btn {
+    display: none;
+    align-items: center; gap: 6px;
+    background: none; border: none; cursor: pointer;
+    color: #64748b; font-size: 0.88rem; font-weight: 600;
+    font-family: 'DM Sans', sans-serif;
+    padding: 8px 0; margin-bottom: 16px;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .cap-back-btn:hover { color: #6366f1; }
   @media (max-width: 480px) {
     .login-card { padding: 24px 20px; }
   }
 </style>
 {% endblock style %}
 {% block content %}
-<div class="container d-flex flex-column justify-content-center align-items-center" style="min-height: 70vh;">
-  <div class="login-card shadow-sm" style="max-width: 400px; width: 100%;">
+<div class="login-wrap">
+  <div class="login-card shadow-sm">
+    {% if is_capacitor %}
+    <button class="cap-back-btn" style="display:flex;" onclick="goAppHome()">
+      <i class="bi bi-arrow-left"></i> Back
+    </button>
+    {% endif %}
     <div class="text-center">
       <img class="mb-3" src="{% static 'images/blixtro.svg' %}" style="height: 80px; width: auto; max-width: 220px; object-fit: contain;" alt="Blixtro" />
       <h3 class="mb-4">Welcome Back</h3>
@@ -124,6 +130,20 @@ function togglePwd(btn) {
     input.type = 'password';
     icon.className = 'bi bi-eye';
   }
+}
+function goAppHome() {
+  if (window.IS_CAPACITOR || (window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform())) {
+    window.location.href = '{% url "core:app_home" %}';
+  } else {
+    window.location.href = '{% url "landing_page" %}';
+  }
+}
+// Capacitor: intercept Android hardware back button to go to app home, not landing page
+if (window.IS_CAPACITOR || (window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform())) {
+  document.addEventListener('backbutton', function(e) {
+    e.preventDefault();
+    goAppHome();
+  }, false);
 }
 </script>
 {% endblock content %}

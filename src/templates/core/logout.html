@@ -1,14 +1,81 @@
 {% extends "base.html" %}
 {% load static %}
-{% block title %}| LoggedOut{% endblock title %}
+{% block title %}| Logged Out{% endblock title %}
+{% block style %}
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
+<style>
+  body { font-family: 'DM Sans', sans-serif; background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%); }
+  .logout-wrap {
+    min-height: 80vh; display: flex; align-items: center; justify-content: center; padding: 20px;
+  }
+  .logout-card {
+    background: #fff; border-radius: 20px; padding: 44px 40px;
+    max-width: 400px; width: 100%;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.08); border: 1px solid #e2e8f0;
+    text-align: center;
+  }
+  .logout-icon {
+    width: 72px; height: 72px; border-radius: 50%;
+    background: linear-gradient(135deg, #f0f0ff, #e0e7ff);
+    display: flex; align-items: center; justify-content: center;
+    margin: 0 auto 20px; font-size: 2rem; color: #6366f1;
+  }
+  .logout-card h3 { font-weight: 800; color: #1e293b; font-size: 1.4rem; margin-bottom: 8px; }
+  .logout-card p { color: #64748b; font-size: 0.92rem; margin-bottom: 28px; }
+  .btn-home {
+    display: block; width: 100%; padding: 13px;
+    background: linear-gradient(135deg, #6366f1, #8b5cf6);
+    color: #fff; border: none; border-radius: 12px;
+    font-weight: 700; font-size: 0.95rem; text-decoration: none;
+    transition: all 0.2s; font-family: 'DM Sans', sans-serif;
+    box-shadow: 0 4px 16px rgba(99,102,241,0.3); cursor: pointer;
+  }
+  .btn-home:hover { opacity: 0.9; transform: translateY(-1px); color: #fff; }
+  .btn-login {
+    display: block; width: 100%; padding: 12px; margin-top: 10px;
+    background: #f1f5f9; color: #475569; border: none; border-radius: 12px;
+    font-weight: 600; font-size: 0.92rem; text-decoration: none;
+    transition: all 0.2s; font-family: 'DM Sans', sans-serif;
+  }
+  .btn-login:hover { background: #e2e8f0; color: #1e293b; }
+</style>
+{% endblock style %}
 {% block content %}
-<div class="container d-flex flex-column justify-content-center align-items-center" style="min-height: 60vh;">
-    <div class="card shadow-sm p-4" style="max-width: 400px; width: 100%;">
-        <h3 class="text-center mb-3">You are logged out</h3>
-        <p class="text-center text-muted mb-4">Thank you for using <span class="fw-bold">Blixtro</span></p>
-        <div class="d-grid gap-2">
-            <a class="btn btn-outline-secondary" href="{% url 'landing_page' %}">Home Page</a>
-        </div>
+<div class="logout-wrap">
+  <div class="logout-card">
+    <div class="logout-icon">
+      <i class="bi bi-box-arrow-right"></i>
     </div>
+    <h3>You've been logged out</h3>
+    <p>Thank you for using <strong>Blixtro</strong>. See you next time!</p>
+    <!-- In Capacitor app: go to app home; in browser: go to landing page -->
+    <button class="btn-home" onclick="goHome()">
+      <i class="bi bi-house-fill me-2"></i>Go to Home
+    </button>
+    <a href="{% url 'core:login' %}" class="btn-login">
+      <i class="bi bi-box-arrow-in-right me-2"></i>Login Again
+    </a>
+  </div>
 </div>
+<script>
+function goHome() {
+  if (window.IS_CAPACITOR || (window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform())) {
+    window.location.href = '{% url "core:app_home" %}';
+  } else {
+    window.location.href = '{% url "landing_page" %}';
+  }
+}
+// Auto-redirect after 2 seconds in Capacitor
+document.addEventListener('DOMContentLoaded', function() {
+  if (window.IS_CAPACITOR || (window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform())) {
+    setTimeout(function() { window.location.href = '{% url "core:app_home" %}'; }, 2000);
+  }
+});
+// Android hardware back button
+document.addEventListener('backbutton', function(e) {
+  e.preventDefault();
+  goHome();
+}, false);
+</script>
 {% endblock content %}

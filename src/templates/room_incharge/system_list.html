@@ -4,846 +4,408 @@
 {% block title %} | Systems{% endblock title %}
 
 {% block style %}
-<link rel="stylesheet" href="{% static 'styles/inventory/room_incharge/system_list/style.css' %}">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700;9..40,800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
 <style>
-  @import url('https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600&display=swap');
-
+  @import url('https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700;9..40,800&display=swap');
   :root {
-    --accent: #6c63ff;
-    --accent-lt: #a89dff;
-    --surface: #ffffff;
-    --surface-2: #f8f8fc;
-    --border: #ebebf5;
-    --text: #1a1a2e;
-    --text-muted: #7c7c9a;
+    --accent:#6c63ff; --surface:#fff; --border:#ebebf5; --text:#1a1a2e; --text-muted:#7c7c9a;
+    --green:#059669; --green-lt:#d1fae5; --red:#dc2626; --red-lt:#fee2e2;
+    --amber:#d97706; --amber-lt:#fef3c7; --blue:#1d4ed8; --blue-lt:#eff6ff;
   }
+  body { background:#f4f4fb; font-family:'DM Sans',sans-serif; }
+  .page-header { display:flex; justify-content:space-between; align-items:center; margin:28px 0 20px; flex-wrap:wrap; gap:12px; }
+  .page-title { font-size:20px; font-weight:700; color:var(--text); margin:0; }
 
-  body { background: #f4f4fb; font-family: 'DM Sans', sans-serif; }
+  /* ── Kanban board ── */
+  .kanban-board { display:grid; grid-template-columns:repeat(3,1fr); gap:18px; align-items:start; }
+  @media(max-width:900px){ .kanban-board { grid-template-columns:1fr; } }
 
-  .page-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin: 28px 0 20px;
-  }
+  .kanban-col { border-radius:14px; border:1px solid var(--border); background:var(--surface); overflow:hidden; box-shadow:0 1px 8px rgba(0,0,0,0.04); }
+  .kanban-col-header { padding:14px 18px; display:flex; align-items:center; gap:10px; border-bottom:1px solid var(--border); }
+  .kanban-col-icon { width:32px; height:32px; border-radius:9px; display:flex; align-items:center; justify-content:center; font-size:15px; flex-shrink:0; }
+  .col-active   .kanban-col-icon { background:var(--blue-lt); color:var(--blue); }
+  .col-inactive .kanban-col-icon { background:var(--red-lt); color:var(--red); }
+  .col-archive  .kanban-col-icon { background:var(--amber-lt); color:var(--amber); }
+  .kanban-col-title { font-weight:700; font-size:14px; color:var(--text); flex:1; }
+  .kanban-col-count { font-size:11px; font-weight:700; padding:2px 9px; border-radius:20px; }
+  .col-active   .kanban-col-count { background:var(--blue-lt); color:var(--blue); }
+  .col-inactive .kanban-col-count { background:var(--red-lt); color:var(--red); }
+  .col-archive  .kanban-col-count { background:var(--amber-lt); color:var(--amber); }
 
-  .page-title {
-    font-size: 20px;
-    font-weight: 700;
-    color: var(--text);
-    letter-spacing: -0.3px;
-    margin: 0;
-  }
+  .drop-zone { min-height:200px; padding:12px; transition:background 0.18s; position:relative; }
+  .drop-zone.drag-over { background:#f0f0ff; }
+  .drop-zone.drag-over::after { content:''; position:absolute; inset:8px; border:2px dashed var(--accent); border-radius:10px; pointer-events:none; opacity:0.5; }
 
-  .btn-create {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    padding: 9px 18px;
-    background: linear-gradient(135deg, var(--accent), #8b7cf8);
-    color: white;
-    border: none;
-    border-radius: 9px;
-    font-size: 13.5px;
-    font-weight: 600;
-    text-decoration: none;
-    transition: all 0.18s ease;
-    box-shadow: 0 2px 12px rgba(108,99,255,0.3);
+  /* Item cards in kanban */
+  .kanban-item {
+    display:flex; align-items:center; gap:10px;
+    padding:10px 12px; border:1.5px solid var(--border);
+    border-radius:11px; background:#fff; margin-bottom:8px;
+    cursor:grab; user-select:none; transition:all 0.15s;
   }
-  .btn-create:hover {
-    transform: translateY(-1px);
-    box-shadow: 0 4px 18px rgba(108,99,255,0.4);
-    color: white;
-  }
+  .kanban-item:last-child { margin-bottom:0; }
+  .kanban-item:hover { border-color:var(--accent); box-shadow:0 2px 10px rgba(108,99,255,0.12); }
+  .kanban-item.dragging { opacity:0.4; cursor:grabbing; }
+  .kanban-item-icon { width:30px; height:30px; border-radius:8px; background:linear-gradient(135deg,rgba(108,99,255,0.12),rgba(108,99,255,0.05)); display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+  .kanban-item-icon i { font-size:13px; color:var(--accent); }
+  .kanban-item-info { flex:1; min-width:0; }
+  .kanban-item-name { font-weight:600; font-size:13px; color:var(--text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .kanban-item-sub { font-size:11px; color:var(--text-muted); margin-top:1px; }
+  .kanban-item-count { font-size:11px; font-weight:700; padding:2px 8px; border-radius:20px; flex-shrink:0; }
+  .col-active   .kanban-item-count { background:var(--blue-lt); color:var(--blue); }
+  .col-inactive .kanban-item-count { background:var(--red-lt); color:var(--red); }
+  .col-archive  .kanban-item-count { background:var(--amber-lt); color:var(--amber); }
 
-  .data-card {
-    background: var(--surface);
-    border-radius: 14px;
-    border: 1px solid var(--border);
-    overflow: hidden;
-    box-shadow: 0 1px 8px rgba(0,0,0,0.04);
-  }
+  .drop-placeholder { text-align:center; padding:32px 16px; color:var(--text-muted); font-size:13px; }
+  .drop-placeholder i { font-size:1.8rem; display:block; margin-bottom:8px; opacity:0.3; }
 
-  .data-table {
-    width: 100%;
-    border-collapse: collapse;
-    font-family: 'DM Sans', sans-serif;
-  }
+  /* ── Toast ── */
+  .toast-wrap { position:fixed; top:20px; right:20px; z-index:9999; display:flex; flex-direction:column; gap:8px; pointer-events:none; }
+  .toast-msg { display:flex; align-items:center; gap:9px; padding:11px 15px; border-radius:11px; font-size:0.875rem; font-weight:600; box-shadow:0 4px 20px rgba(0,0,0,0.14); min-width:260px; pointer-events:all; color:#fff; animation:toastIn 0.3s ease; }
+  .toast-msg.t-success { background:var(--green); }
+  .toast-msg.t-error   { background:var(--red); }
+  .toast-msg.t-warn    { background:var(--amber); }
+  .toast-msg.t-info    { background:var(--accent); }
+  .toast-msg.out { animation:toastOut 0.25s ease forwards; }
+  @keyframes toastIn  { from{opacity:0;transform:translateX(24px);} to{opacity:1;transform:translateX(0);} }
+  @keyframes toastOut { to{opacity:0;transform:translateX(24px);} }
 
-  .data-table thead tr {
-    background: var(--surface-2);
-    border-bottom: 1px solid var(--border);
-  }
+  /* ── Modal ── */
+  .modal-bg { position:fixed; inset:0; background:rgba(15,23,42,0.5); z-index:1050; display:flex; align-items:center; justify-content:center; padding:20px; backdrop-filter:blur(4px); opacity:0; pointer-events:none; transition:opacity 0.2s; }
+  .modal-bg.open { opacity:1; pointer-events:all; }
+  .modal-box { background:#fff; border-radius:20px; padding:30px; width:420px; max-width:96vw; box-shadow:0 20px 50px rgba(0,0,0,0.2); transform:translateY(16px); transition:transform 0.25s; }
+  .modal-bg.open .modal-box { transform:translateY(0); }
+  .modal-title { font-size:17px; font-weight:800; color:var(--text); margin:0 0 4px; }
+  .modal-sub { font-size:13px; color:var(--text-muted); margin:0 0 20px; }
+  .modal-label { font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:0.05em; color:#64748b; margin-bottom:6px; display:block; }
+  .modal-input { width:100%; padding:10px 13px; border:1.5px solid var(--border); border-radius:10px; font-size:14px; font-family:inherit; outline:none; transition:border-color 0.2s; box-sizing:border-box; }
+  .modal-input:focus { border-color:var(--accent); box-shadow:0 0 0 3px rgba(108,99,255,0.1); }
+  .modal-field { margin-bottom:16px; }
+  .modal-alert { border-radius:9px; padding:9px 13px; font-size:13px; font-weight:600; margin-bottom:14px; display:none; }
+  .modal-alert.error { background:#fef2f2; border:1px solid #fecaca; color:#dc2626; }
+  .modal-alert.warn  { background:#fffbeb; border:1px solid #fde68a; color:#92400e; }
+  .modal-alert.success { background:#f0fdf4; border:1px solid #bbf7d0; color:#166534; }
+  .modal-actions { display:flex; gap:10px; margin-top:4px; }
+  .btn-modal-cancel { flex:1; padding:10px; border:1.5px solid var(--border); border-radius:10px; background:#fff; font-size:14px; font-weight:600; color:#64748b; cursor:pointer; font-family:inherit; }
+  .btn-modal-confirm { flex:2; padding:10px; border:none; border-radius:10px; background:linear-gradient(135deg,var(--accent),#8b7cf8); color:#fff; font-size:14px; font-weight:700; cursor:pointer; font-family:inherit; transition:opacity 0.2s; }
+  .btn-modal-confirm:hover { opacity:0.88; }
+  .btn-modal-confirm:disabled { opacity:0.5; cursor:not-allowed; }
 
-  .data-table thead th {
-    padding: 12px 18px;
-    font-size: 11.5px;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.07em;
-    color: var(--text-muted);
-    white-space: nowrap;
-  }
-
-  .data-table tbody tr {
-    border-bottom: 1px solid var(--border);
-    transition: background 0.14s;
-  }
-  .data-table tbody tr:last-child { border-bottom: none; }
-  .data-table tbody tr:hover { background: #f9f8ff; }
-
-  .data-table tbody td {
-    padding: 13px 18px;
-    font-size: 14px;
-    color: var(--text);
-    vertical-align: middle;
-  }
-
-  .system-link {
-    font-weight: 600;
-    color: var(--accent);
-    text-decoration: none;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    transition: color 0.14s;
-  }
-  .system-link:hover { color: #4f46e5; }
-
-  .system-icon {
-    width: 28px; height: 28px;
-    border-radius: 7px;
-    background: linear-gradient(135deg, rgba(108,99,255,0.12), rgba(108,99,255,0.06));
-    display: flex; align-items: center; justify-content: center;
-    flex-shrink: 0;
-  }
-  .system-icon .material-symbols-outlined { font-size: 14px; color: var(--accent); }
-
-  .date-cell { color: var(--text-muted); font-size: 12.5px; }
-
-  .btn-action-edit {
-    display: inline-flex;
-    align-items: center;
-    gap: 5px;
-    padding: 6px 12px;
-    background: #f0f0ff;
-    color: var(--accent);
-    border: 1px solid #ddd8ff;
-    border-radius: 7px;
-    font-size: 12.5px;
-    font-weight: 600;
-    text-decoration: none;
-    transition: all 0.14s;
-  }
-  .btn-action-edit:hover {
-    background: var(--accent);
-    color: white;
-    border-color: var(--accent);
-  }
-
-  .empty-state {
-    text-align: center;
-    padding: 60px 24px;
-    color: var(--text-muted);
-  }
-  .empty-state .material-symbols-outlined {
-    font-size: 48px;
-    opacity: 0.25;
-    display: block;
-    margin-bottom: 12px;
-  }
-
-  /* ═══════════════════════════════════════════════
-     CONFIGURATION MODAL — Column-based spec grid
-  ═══════════════════════════════════════════════ */
-  .cfg-overlay {
-    display: none;
-    position: fixed; inset: 0; z-index: 1050;
-    background: rgba(15,23,42,0.55);
-    backdrop-filter: blur(6px);
-    align-items: center; justify-content: center;
-    padding: 20px;
-  }
-  .cfg-overlay.open { display: flex; }
-
-  .cfg-modal {
-    background: #fff;
-    border-radius: 20px;
-    width: 100%;
-    max-width: 780px;
-    max-height: 90vh;
-    display: flex;
-    flex-direction: column;
-    position: relative;
-    box-shadow: 0 25px 50px -10px rgba(0,0,0,0.25);
-    overflow: hidden;
-  }
-
-  .cfg-modal-header {
-    padding: 24px 28px 20px;
-    border-bottom: 1px solid var(--border);
-    flex-shrink: 0;
-  }
-  .cfg-modal-header h5 {
-    font-weight: 800; color: #1a1a2e; margin: 0 0 4px;
-    font-size: 17px; letter-spacing: -0.3px;
-  }
-  .cfg-modal-header p {
-    font-size: 13px; color: #7c7c9a; margin: 0;
-  }
-  .cfg-close-btn {
-    position: absolute; top: 16px; right: 20px;
-    background: #f1f5f9; border: none; border-radius: 50%;
-    width: 28px; height: 28px; cursor: pointer;
-    display: flex; align-items: center; justify-content: center;
-    color: #64748b; font-size: 15px; transition: background .14s;
-  }
-  .cfg-close-btn:hover { background: #e2e8f0; color: #1a1a2e; }
-
-  .cfg-modal-body {
-    display: flex;
-    flex: 1;
-    overflow: hidden;
-    min-height: 0;
-  }
-
-  /* Left pane — system selector */
-  .cfg-pane-left {
-    width: 220px;
-    flex-shrink: 0;
-    border-right: 1px solid var(--border);
-    padding: 16px 14px;
-    overflow-y: auto;
-    background: #fafafa;
-  }
-  .cfg-pane-left-title {
-    font-size: 10.5px; font-weight: 700; text-transform: uppercase;
-    letter-spacing: 0.08em; color: #94a3b8; margin-bottom: 10px; padding-left: 4px;
-  }
-  .cfg-sys-item {
-    display: flex; align-items: center; gap: 9px;
-    padding: 9px 10px; border-radius: 9px;
-    cursor: pointer; transition: background .12s;
-    margin-bottom: 2px;
-  }
-  .cfg-sys-item:hover { background: #f0f0ff; }
-  .cfg-sys-item input[type="checkbox"] {
-    accent-color: #6c63ff; width: 14px; height: 14px; cursor: pointer; flex-shrink: 0;
-  }
-  .cfg-sys-item span { font-size: 13px; font-weight: 500; color: #1a1a2e; line-height: 1.3; }
-
-  /* Right pane — spec table */
-  .cfg-pane-right {
-    flex: 1;
-    overflow-y: auto;
-    padding: 20px 24px;
-    min-width: 0;
-  }
-  .cfg-pane-right-title {
-    font-size: 10.5px; font-weight: 700; text-transform: uppercase;
-    letter-spacing: 0.08em; color: #94a3b8; margin-bottom: 14px;
-  }
-
-  /* Spec table */
-  .spec-table {
-    width: 100%;
-    border-collapse: collapse;
-    border-radius: 11px;
-    overflow: hidden;
-    border: 1.5px solid var(--border);
-  }
-  .spec-table thead tr {
-    background: var(--surface-2);
-  }
-  .spec-table thead th {
-    padding: 10px 14px;
-    font-size: 11px; font-weight: 700; text-transform: uppercase;
-    letter-spacing: 0.07em; color: var(--text-muted); text-align: left;
-    border-bottom: 1.5px solid var(--border);
-  }
-  .spec-table thead th:first-child { width: 46%; }
-  .spec-table thead th:last-child  { width: 54%; }
-
-  .spec-table tbody tr {
-    border-bottom: 1px solid var(--border);
-    transition: background .12s;
-  }
-  .spec-table tbody tr:last-child { border-bottom: none; }
-  .spec-table tbody tr:hover { background: #f9f8ff; }
-
-  .spec-table tbody td {
-    padding: 0;
-    vertical-align: middle;
-  }
-
-  /* Spec key (left cell) */
-  .spec-key-cell {
-    padding: 11px 14px;
-    border-right: 1px solid var(--border);
-  }
-  .spec-key {
-    font-size: 13px; font-weight: 600; color: var(--text);
-  }
-  .spec-key-hint {
-    font-size: 11px; color: var(--text-muted); margin-top: 1px;
-    font-family: 'JetBrains Mono', monospace;
-  }
-
-  /* Spec value (right cell) */
-  .spec-value-cell { padding: 8px 10px; }
-  .spec-value-wrap {
-    display: flex; align-items: center; gap: 6px;
-  }
-  .spec-value-text {
-    flex: 1; font-size: 13px; color: var(--text);
-    padding: 6px 10px; border-radius: 7px;
-    border: 1.5px solid transparent;
-    background: transparent;
-    font-family: 'DM Sans', sans-serif;
-    transition: border-color .15s, background .15s;
-    min-width: 0; width: 100%;
-    pointer-events: none;
-    user-select: none;
-  }
-  .spec-value-text.editable {
-    border-color: #6c63ff;
-    background: #f7f6ff;
-    pointer-events: auto;
-    user-select: text;
-  }
-  .spec-value-text::placeholder { color: #c4c4d4; font-style: italic; font-size: 12.5px; }
-
-  .spec-edit-btn {
-    flex-shrink: 0;
-    width: 28px; height: 28px;
-    border-radius: 7px;
-    border: 1px solid var(--border);
-    background: white;
-    color: #94a3b8;
-    display: flex; align-items: center; justify-content: center;
-    cursor: pointer; transition: all .14s;
-  }
-  .spec-edit-btn:hover { border-color: #6c63ff; color: #6c63ff; background: #f0f0ff; }
-  .spec-edit-btn.active { border-color: #6c63ff; color: #6c63ff; background: #f0f0ff; }
-  .spec-edit-btn .material-symbols-outlined { font-size: 14px; }
-
-  /* Add row button */
-  .btn-add-row {
-    display: inline-flex; align-items: center; gap: 5px;
-    margin-top: 12px;
-    padding: 7px 14px;
-    background: white; color: var(--accent);
-    border: 1.5px dashed #c4bfff;
-    border-radius: 8px; font-size: 12.5px; font-weight: 600;
-    cursor: pointer; transition: all .15s; font-family: 'DM Sans', sans-serif;
-  }
-  .btn-add-row:hover { background: #f0f0ff; border-color: var(--accent); }
-  .btn-add-row .material-symbols-outlined { font-size: 14px; }
-
-  /* Delete row button (inside row) */
-  .spec-del-btn {
-    flex-shrink: 0;
-    width: 24px; height: 24px;
-    border-radius: 6px;
-    border: none; background: none;
-    color: #fca5a5; display: flex; align-items: center; justify-content: center;
-    cursor: pointer; transition: all .14s; padding: 0;
-    opacity: 0;
-  }
-  .spec-table tbody tr:hover .spec-del-btn { opacity: 1; }
-  .spec-del-btn:hover { background: #fef2f2; color: #e11d48; }
-  .spec-del-btn .material-symbols-outlined { font-size: 13px; }
-
-  /* Lab presets */
-  .cfg-presets {
-    display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 16px;
-  }
-  .preset-chip {
-    display: inline-flex; align-items: center; gap: 5px;
-    padding: 5px 12px;
-    background: white; border: 1.5px solid var(--border);
-    border-radius: 20px; font-size: 12px; font-weight: 600;
-    color: var(--text-muted); cursor: pointer; transition: all .14s;
-  }
-  .preset-chip:hover { border-color: var(--accent); color: var(--accent); background: #f7f6ff; }
-  .preset-chip.active { border-color: var(--accent); color: var(--accent); background: #f0f0ff; }
-  .preset-chip .material-symbols-outlined { font-size: 13px; }
-
-  /* Alert strip */
-  #cfgAlert {
-    display: none;
-    margin: 0 24px 12px;
-    padding: 9px 14px;
-    border-radius: 9px;
-    font-size: 13px; font-weight: 600;
-    flex-shrink: 0;
-  }
-
-  /* Footer */
-  .cfg-modal-footer {
-    padding: 16px 24px;
-    border-top: 1px solid var(--border);
-    display: flex; align-items: center; justify-content: space-between;
-    flex-shrink: 0; gap: 10px;
-    flex-wrap: wrap;
-  }
-  .cfg-footer-hint {
-    font-size: 12px; color: var(--text-muted);
-  }
-  .cfg-footer-hint b { color: var(--text); }
-
-  .btn-cfg-save {
-    display: inline-flex; align-items: center; gap: 6px;
-    padding: 10px 22px;
-    background: linear-gradient(135deg, #6c63ff, #8b7cf8);
-    color: white; border: none; border-radius: 10px;
-    font-weight: 800; font-size: 13.5px; cursor: pointer;
-    font-family: 'DM Sans', sans-serif; transition: all .18s;
-    box-shadow: 0 2px 12px rgba(108,99,255,0.3);
-  }
-  .btn-cfg-save:hover { transform: translateY(-1px); box-shadow: 0 4px 18px rgba(108,99,255,0.4); }
-  .btn-cfg-save .material-symbols-outlined { font-size: 16px; }
-
-  /* Responsive */
-  @media (max-width: 640px) {
-    .cfg-modal-body { flex-direction: column; }
-    .cfg-pane-left { width: 100%; border-right: none; border-bottom: 1px solid var(--border); max-height: 160px; }
-  }
-  @media (max-width: 520px) {
-    .page-header { flex-wrap: wrap; gap: 10px; }
-  }
+  /* Archive modal specifics */
+  .svc-radio-group { display:flex; gap:10px; margin-bottom:16px; }
+  .svc-radio-btn { flex:1; padding:10px; border:1.5px solid var(--border); border-radius:10px; text-align:center; cursor:pointer; font-size:13px; font-weight:600; color:#64748b; transition:all 0.15s; }
+  .svc-radio-btn.selected.serviceable { border-color:var(--green); background:var(--green-lt); color:var(--green); }
+  .svc-radio-btn.selected.unserviceable { border-color:var(--red); background:var(--red-lt); color:var(--red); }
+  .svc-radio-btn:hover { border-color:var(--accent); }
 </style>
 {% endblock style %}
 
-{% block navbar %}
-{% include "room_incharge/navbar.html" %}
-{% endblock navbar %}
-
-{% block sidebar %}
-{% include "room_incharge/sidebar.html" %}
-{% endblock sidebar %}
+{% block navbar %}{% include "room_incharge/navbar.html" %}{% endblock navbar %}
+{% block sidebar %}{% include "room_incharge/sidebar.html" %}{% endblock sidebar %}
 
 {% block content %}
+<div class="toast-wrap" id="toastWrap"></div>
+
 <div class="page-header">
   <h4 class="page-title">Systems</h4>
-  <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
-    <button onclick="openConfigModal()"
-       style="display:inline-flex;align-items:center;gap:6px;padding:9px 18px;
-              background:white;color:#0d9488;border:1.5px solid #0d9488;
-              border-radius:9px;font-size:13.5px;font-weight:600;cursor:pointer;
-              transition:all 0.18s ease;">
-      <span class="material-symbols-outlined" style="font-size:16px">settings</span>
-      Add Configuration
-    </button>
-    <a href="{% url 'room_incharge:system_import' room_slug=room_slug %}"
-       style="display:inline-flex;align-items:center;gap:6px;padding:9px 18px;
-              background:white;color:var(--accent);border:1.5px solid var(--accent);
-              border-radius:9px;font-size:13.5px;font-weight:600;text-decoration:none;
-              transition:all 0.18s ease;">
-      <span class="material-symbols-outlined" style="font-size:16px">upload_file</span>
-      Import Excel
-    </a>
-    <a href="{% url 'room_incharge:system_create' room_slug=room_slug %}" class="btn-create">
-      <span class="material-symbols-outlined" style="font-size:16px">add</span>
-      Create System
-    </a>
-  </div>
 </div>
 
-<div class="data-card">
-  {% if systems %}
-  <table class="data-table">
-    <thead>
-      <tr>
-        <th>Label</th>
-        <th>Date Added</th>
-        <th>Action</th>
-      </tr>
-    </thead>
-    <tbody>
-      {% for system in systems %}
-      <tr>
-        <td>
-          <a class="system-link" href="{% url 'room_incharge:system_component_list' room_slug=system.room.slug system_slug=system.slug %}">
-            <span class="system-icon">
-              <span class="material-symbols-outlined">devices</span>
-            </span>
-            {{ system.system_name }}
-          </a>
-        </td>
-        <td class="date-cell">{{ system.created_on.date }}</td>
-        <td>
-          <a href="{% url 'room_incharge:system_update' room_slug=system.room.slug system_slug=system.slug %}" class="btn-action-edit">
-            <span class="material-symbols-outlined" style="font-size:14px">edit</span>
-            Edit
-          </a>
-        </td>
-      </tr>
-      {% endfor %}
-    </tbody>
-  </table>
-  {% else %}
-  <div class="empty-state">
-    <span class="material-symbols-outlined">devices</span>
-    <p>No systems found. Create your first system.</p>
-  </div>
-  {% endif %}
-</div>
+<!-- Kanban Board -->
+<div class="kanban-board">
 
-
-<!-- ══════════════════════════════════════════════
-     CONFIGURATION MODAL — Column-based spec grid
-══════════════════════════════════════════════ -->
-<div id="configOverlay" class="cfg-overlay" onclick="if(event.target===this)closeConfigModal()">
-  <div class="cfg-modal">
-
-    <!-- Header -->
-    <div class="cfg-modal-header">
-      <h5>Add Configuration</h5>
-      <p>Select systems on the left, then fill in specification rows on the right. The same specs will be applied to all selected systems.</p>
-      <button class="cfg-close-btn" onclick="closeConfigModal()">✕</button>
+  <!-- ACTIVE column -->
+  <div class="kanban-col col-active">
+    <div class="kanban-col-header">
+      <div class="kanban-col-icon"><i class="bi bi-play-circle-fill"></i></div>
+      <span class="kanban-col-title">Active</span>
+      <span class="kanban-col-count" id="count-active">{{ active_items|length }}</span>
     </div>
-
-    <!-- Body -->
-    <div class="cfg-modal-body">
-
-      <!-- Left — System Selector -->
-      <div class="cfg-pane-left">
-        <div class="cfg-pane-left-title">Systems</div>
-        {% for system in systems %}
-        <label class="cfg-sys-item">
-          <input type="checkbox" class="sys-checkbox" value="{{ system.slug }}">
-          <span>{{ system.system_name }}</span>
-        </label>
-        {% empty %}
-        <p style="text-align:center;color:#94a3b8;font-size:13px;padding:10px 0;">No systems found.</p>
-        {% endfor %}
-      </div>
-
-      <!-- Right — Spec Table -->
-      <div class="cfg-pane-right">
-        <div class="cfg-pane-right-title">Configuration Specifications</div>
-
-        <!-- Lab presets -->
-        <div class="cfg-presets">
-          <button class="preset-chip" onclick="applyPreset('computer')" title="Computer Lab">
-            <span class="material-symbols-outlined">computer</span> Computer
-          </button>
-          <button class="preset-chip" onclick="applyPreset('chemistry')" title="Chemistry Lab">
-            <span class="material-symbols-outlined">science</span> Chemistry
-          </button>
-          <button class="preset-chip" onclick="applyPreset('physics')" title="Physics Lab">
-            <span class="material-symbols-outlined">bolt</span> Physics
-          </button>
-          <button class="preset-chip" onclick="applyPreset('electronics')" title="Electronics Lab">
-            <span class="material-symbols-outlined">memory</span> Electronics
-          </button>
-          <button class="preset-chip" onclick="applyPreset('general')" title="General">
-            <span class="material-symbols-outlined">list_alt</span> General
-          </button>
+    <div class="drop-zone" id="zone-active"
+         ondragover="onDragOver(event,'active')"
+         ondragleave="onDragLeave(event,'active')"
+         ondrop="onDrop(event,'active')">
+      {% if active_items %}
+        {% for entry in active_items %}
+        <div class="kanban-item" draggable="true"
+             data-item-id="{{ entry.item.id }}"
+             data-item-name="{{ entry.item.item_name|escapejs }}"
+             data-item-avail="{{ entry.item.available_count }}"
+             data-from="active"
+             data-current-count="{{ entry.count }}"
+             ondragstart="onDragStart(event)"
+             ondragend="onDragEnd(event)">
+          <div class="kanban-item-icon"><i class="bi bi-box2"></i></div>
+          <div class="kanban-item-info">
+            <div class="kanban-item-name">{{ entry.item.item_name }}</div>
+            <div class="kanban-item-sub">{{ entry.item.category.category_name }}</div>
+          </div>
+          <span class="kanban-item-count">{{ entry.count }}</span>
         </div>
+        {% endfor %}
+      {% else %}
+        <div class="drop-placeholder" id="ph-active">
+          <i class="bi bi-play-circle"></i>
+          Drop items here to mark active
+        </div>
+      {% endif %}
+    </div>
+  </div>
 
-        <!-- Spec Rows Table -->
-        <table class="spec-table" id="specTable">
-          <thead>
-            <tr>
-              <th>Specification</th>
-              <th>Value / Details</th>
-            </tr>
-          </thead>
-          <tbody id="specRows">
-            <!-- Rows injected by JS -->
-          </tbody>
-        </table>
+  <!-- INACTIVE column -->
+  <div class="kanban-col col-inactive">
+    <div class="kanban-col-header">
+      <div class="kanban-col-icon"><i class="bi bi-pause-circle-fill"></i></div>
+      <span class="kanban-col-title">Inactive</span>
+      <span class="kanban-col-count" id="count-inactive">{{ inactive_items|length }}</span>
+    </div>
+    <div class="drop-zone" id="zone-inactive"
+         ondragover="onDragOver(event,'inactive')"
+         ondragleave="onDragLeave(event,'inactive')"
+         ondrop="onDrop(event,'inactive')">
+      {% if inactive_items %}
+        {% for entry in inactive_items %}
+        <div class="kanban-item" draggable="true"
+             data-item-id="{{ entry.item.id }}"
+             data-item-name="{{ entry.item.item_name|escapejs }}"
+             data-item-avail="{{ entry.item.available_count }}"
+             data-from="inactive"
+             data-current-count="{{ entry.count }}"
+             ondragstart="onDragStart(event)"
+             ondragend="onDragEnd(event)">
+          <div class="kanban-item-icon"><i class="bi bi-box2"></i></div>
+          <div class="kanban-item-info">
+            <div class="kanban-item-name">{{ entry.item.item_name }}</div>
+            <div class="kanban-item-sub">{{ entry.item.category.category_name }}</div>
+          </div>
+          <span class="kanban-item-count">{{ entry.count }}</span>
+        </div>
+        {% endfor %}
+      {% else %}
+        <div class="drop-placeholder" id="ph-inactive">
+          <i class="bi bi-pause-circle"></i>
+          Drop items here to mark inactive
+        </div>
+      {% endif %}
+    </div>
+  </div>
 
-        <button class="btn-add-row" onclick="addSpecRow()">
-          <span class="material-symbols-outlined">add</span>
-          Add Row
-        </button>
+  <!-- ARCHIVE column -->
+  <div class="kanban-col col-archive">
+    <div class="kanban-col-header">
+      <div class="kanban-col-icon"><i class="bi bi-archive-fill"></i></div>
+      <span class="kanban-col-title">Archive</span>
+      <span class="kanban-col-count" id="count-archive">{{ archived_items|length }}</span>
+    </div>
+    <div class="drop-zone" id="zone-archive"
+         ondragover="onDragOver(event,'archive')"
+         ondragleave="onDragLeave(event,'archive')"
+         ondrop="onDrop(event,'archive')">
+      {% if archived_items %}
+        {% for entry in archived_items %}
+        <div class="kanban-item" style="cursor:default;"
+             data-item-id="{{ entry.item.id }}"
+             data-item-name="{{ entry.item.item_name|escapejs }}"
+             data-from="archive"
+             data-current-count="{{ entry.count }}">
+          <div class="kanban-item-icon"><i class="bi bi-archive"></i></div>
+          <div class="kanban-item-info">
+            <div class="kanban-item-name">{{ entry.item.item_name }}</div>
+            <div class="kanban-item-sub">{{ entry.item.category.category_name }}</div>
+          </div>
+          <span class="kanban-item-count">{{ entry.count }}</span>
+        </div>
+        {% endfor %}
+      {% else %}
+        <div class="drop-placeholder" id="ph-archive">
+          <i class="bi bi-archive"></i>
+          Drop items here to archive
+        </div>
+      {% endif %}
+    </div>
+  </div>
+
+</div>
+
+<!-- ── Quantity Modal (Active / Inactive) ── -->
+<div class="modal-bg" id="qtyModal">
+  <div class="modal-box">
+    <div class="modal-title" id="qtyModalTitle">Assign to Active</div>
+    <div class="modal-sub">Moving <strong id="qtyItemName">—</strong></div>
+    <div class="modal-field">
+      <label class="modal-label">Available Stock: <strong id="qtyAvail">—</strong></label>
+      <label class="modal-label">Count to assign</label>
+      <input type="number" class="modal-input" id="qtyInput" min="1" value="1" oninput="syncQtyWarning()">
+    </div>
+    <div class="modal-alert" id="qtyAlert"></div>
+    <div class="modal-actions">
+      <button class="btn-modal-cancel" onclick="closeQtyModal()">Cancel</button>
+      <button class="btn-modal-confirm" id="qtyConfirmBtn" onclick="confirmQty()">Confirm</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Archive Modal ── -->
+<div class="modal-bg" id="archiveModal">
+  <div class="modal-box">
+    <div class="modal-title">Archive Item</div>
+    <div class="modal-sub">Archiving <strong id="archItemName">—</strong></div>
+    <div class="modal-field">
+      <label class="modal-label">Category</label>
+      <div class="svc-radio-group">
+        <div class="svc-radio-btn serviceable" id="svcBtn" onclick="selectSvc('serviceable')">
+          <i class="bi bi-check-circle-fill me-1"></i> Serviceable
+        </div>
+        <div class="svc-radio-btn unserviceable" id="unsvcBtn" onclick="selectSvc('unserviceable')">
+          <i class="bi bi-x-circle-fill me-1"></i> Unserviceable
+        </div>
       </div>
-
     </div>
-
-    <!-- Alert strip -->
-    <div id="cfgAlert"></div>
-
-    <!-- Footer -->
-    <div class="cfg-modal-footer">
-      <span class="cfg-footer-hint">
-        <b id="selectedCount">0</b> system(s) selected
-      </span>
-      <button class="btn-cfg-save" id="saveConfigBtn" onclick="saveConfiguration()">
-        <span class="material-symbols-outlined">check</span>
-        Save Configuration
-      </button>
+    <div class="modal-field">
+      <label class="modal-label">Available Stock: <strong id="archAvail">—</strong></label>
+      <label class="modal-label">Count to archive</label>
+      <input type="number" class="modal-input" id="archCount" min="1" value="1" oninput="syncArchWarning()">
     </div>
-
+    <div class="modal-field">
+      <label class="modal-label">Remark (optional)</label>
+      <textarea class="modal-input" id="archRemark" rows="2" style="resize:vertical;" placeholder="e.g. Damaged during use"></textarea>
+    </div>
+    <div class="modal-alert" id="archAlert"></div>
+    <div class="modal-actions">
+      <button class="btn-modal-cancel" onclick="closeArchModal()">Cancel</button>
+      <button class="btn-modal-confirm" id="archConfirmBtn" onclick="confirmArchive()">Archive</button>
+    </div>
   </div>
 </div>
 
 <script>
-/* ──────────────────────────────────────────────────────────────
-   Lab Presets  –  each preset is an array of [spec, hint] pairs
-────────────────────────────────────────────────────────────── */
-const PRESETS = {
-  computer: [
-    ['Processor',         'e.g. Intel Core i5-12400'],
-    ['RAM',               'e.g. 8 GB DDR4'],
-    ['Storage',           'e.g. 256 GB SSD'],
-    ['Operating System',  'e.g. Windows 11 Pro'],
-    ['Monitor Size',      'e.g. 21.5 inch FHD'],
-    ['GPU',               'e.g. Intel UHD 730 (Integrated)'],
-    ['Network',           'e.g. Gigabit Ethernet + Wi-Fi 6'],
-  ],
-  chemistry: [
-    ['Instrument Name',   'e.g. Spectrophotometer'],
-    ['Model / Make',      'e.g. Shimadzu UV-1800'],
-    ['Measurement Range', 'e.g. 190–1100 nm'],
-    ['Power Supply',      'e.g. 220V AC 50 Hz'],
-    ['Calibration Due',   'e.g. 2025-06-01'],
-    ['Reagents Used',     'e.g. HCl, NaOH standard solutions'],
-  ],
-  physics: [
-    ['Equipment Name',    'e.g. Vernier Caliper'],
-    ['Make / Brand',      'e.g. Mitutoyo'],
-    ['Least Count',       'e.g. 0.02 mm'],
-    ['Range',             'e.g. 0–150 mm'],
-    ['Calibrated On',     'e.g. 2024-09-15'],
-    ['Condition',         'e.g. Good'],
-  ],
-  electronics: [
-    ['Component / Board', 'e.g. Arduino Uno Rev3'],
-    ['Microcontroller',   'e.g. ATmega328P'],
-    ['Operating Voltage', 'e.g. 5V'],
-    ['Clock Speed',       'e.g. 16 MHz'],
-    ['I/O Pins',          'e.g. 14 Digital, 6 Analog'],
-    ['Interface',         'e.g. USB Type-B, UART, SPI, I2C'],
-    ['Power Input',       'e.g. 7–12V DC jack or USB'],
-  ],
-  general: [
-    ['Item Name',         'Enter item name'],
-    ['Make / Brand',      'Enter brand or manufacturer'],
-    ['Model Number',      'Enter model/serial number'],
-    ['Quantity',          'Enter quantity'],
-    ['Condition',         'e.g. Good / Fair / Poor'],
-    ['Remarks',           'Any additional notes'],
-  ],
-};
+const CSRF = (()=>{ const c=document.cookie.split(';').find(x=>x.trim().startsWith('csrftoken=')); return c?decodeURIComponent(c.trim().split('=')[1]):''; })();
+const ROOM_SLUG = '{{ room_slug }}';
 
-let activePreset = null;
+// ── Drag state ──
+let dragItemId=null, dragItemName=null, dragItemAvail=0, dragFrom=null, dragCurrentCount=0, dragEl=null;
 
-function applyPreset(key) {
-  /* Toggle off if same preset clicked again */
-  if (activePreset === key) {
-    activePreset = null;
-    document.querySelectorAll('.preset-chip').forEach(c => c.classList.remove('active'));
-    clearRows();
-    addSpecRow(); /* leave one blank row */
-    return;
-  }
-  activePreset = key;
-  document.querySelectorAll('.preset-chip').forEach(c => c.classList.remove('active'));
-  event.currentTarget.classList.add('active');
-  clearRows();
-  PRESETS[key].forEach(([spec, hint]) => addSpecRow(spec, '', hint));
+function onDragStart(e){
+  dragEl=e.currentTarget;
+  dragItemId=dragEl.dataset.itemId;
+  dragItemName=dragEl.dataset.itemName;
+  dragItemAvail=parseInt(dragEl.dataset.itemAvail||0,10);
+  dragFrom=dragEl.dataset.from;
+  dragCurrentCount=parseInt(dragEl.dataset.currentCount||0,10);
+  dragEl.classList.add('dragging');
+  e.dataTransfer.effectAllowed='move';
 }
-
-function clearRows() {
-  document.getElementById('specRows').innerHTML = '';
+function onDragEnd(e){ if(dragEl) dragEl.classList.remove('dragging'); }
+function onDragOver(e,col){
+  e.preventDefault();
+  document.getElementById('zone-'+col).classList.add('drag-over');
 }
-
-/* ──────────────────────────────────────────────────────────────
-   Row Management
-────────────────────────────────────────────────────────────── */
-let rowCounter = 0;
-
-function addSpecRow(specVal = '', valueVal = '', hintText = '') {
-  rowCounter++;
-  const id = rowCounter;
-  const tbody = document.getElementById('specRows');
-  const tr = document.createElement('tr');
-  tr.id = `spec-row-${id}`;
-  tr.innerHTML = `
-    <td class="spec-key-cell">
-      <div class="spec-key">
-        <input type="text" class="spec-value-text editable" style="border-color:#ebebf5;background:#fafafa;"
-               placeholder="e.g. Processor, RAM…"
-               value="${escHtml(specVal)}"
-               onfocus="this.style.borderColor='#6c63ff';this.style.background='#f7f6ff';"
-               onblur="this.style.borderColor='#ebebf5';this.style.background='#fafafa';">
-      </div>
-      ${hintText ? `<div class="spec-key-hint">${escHtml(hintText)}</div>` : ''}
-    </td>
-    <td class="spec-value-cell">
-      <div class="spec-value-wrap">
-        <input type="text" id="val-${id}" class="spec-value-text"
-               placeholder="Enter value…"
-               value="${escHtml(valueVal)}">
-        <button class="spec-edit-btn" id="editBtn-${id}" onclick="toggleEdit(${id})" title="Edit value">
-          <span class="material-symbols-outlined">edit</span>
-        </button>
-        <button class="spec-del-btn" onclick="deleteRow(${id})" title="Remove row">
-          <span class="material-symbols-outlined">close</span>
-        </button>
-      </div>
-    </td>
-  `;
-  tbody.appendChild(tr);
-
-  /* If preset row, auto-enable edit */
-  if (specVal) {
-    const valInput = tr.querySelector(`#val-${id}`);
-    const editBtn  = tr.querySelector(`#editBtn-${id}`);
-    /* Keep locked initially — user clicks edit icon to type */
+function onDragLeave(e,col){
+  document.getElementById('zone-'+col).classList.remove('drag-over');
+}
+function onDrop(e,col){
+  e.preventDefault();
+  document.getElementById('zone-'+col).classList.remove('drag-over');
+  if(!dragItemId) return;
+  if(dragFrom===col){ showToast('Item is already in this column.','t-warn'); return; }
+  if(col==='archive'){
+    openArchModal(dragItemId, dragItemName, dragItemAvail, dragFrom, dragCurrentCount);
   } else {
-    /* New blank row — unlock value field immediately */
-    const valInput = tr.querySelector(`#val-${id}`);
-    enableEdit(valInput, tr.querySelector(`#editBtn-${id}`));
+    openQtyModal(dragItemId, dragItemName, dragItemAvail, dragFrom, dragCurrentCount, col);
   }
 }
 
-function enableEdit(input, btn) {
-  input.classList.add('editable');
-  input.removeAttribute('readonly');
-  input.focus();
-  if (btn) btn.classList.add('active');
+// ── Qty Modal ──
+let _qtyTarget=null, _qtyFrom=null, _qtyItemId=null, _qtyFromCount=0;
+function openQtyModal(itemId, itemName, avail, from, fromCount, target){
+  _qtyItemId=itemId; _qtyTarget=target; _qtyFrom=from; _qtyFromCount=fromCount;
+  document.getElementById('qtyModalTitle').textContent = target==='active'?'Assign to Active':'Assign to Inactive';
+  document.getElementById('qtyItemName').textContent = itemName;
+  document.getElementById('qtyAvail').textContent = avail + (from!=='available'?' (+ '+fromCount+' from '+from+')':'');
+  document.getElementById('qtyInput').value=1;
+  document.getElementById('qtyInput').max = avail + (from!=='available'?fromCount:0);
+  hideAlert('qtyAlert');
+  openModal('qtyModal');
+}
+function closeQtyModal(){ closeModal('qtyModal'); }
+function syncQtyWarning(){
+  const v=parseInt(document.getElementById('qtyInput').value||0,10);
+  const max=parseInt(document.getElementById('qtyInput').max||0,10);
+  if(v<1||v>max) showAlert('qtyAlert','warn','Count must be between 1 and '+max+'.');
+  else hideAlert('qtyAlert');
+}
+function confirmQty(){
+  const count=parseInt(document.getElementById('qtyInput').value||0,10);
+  const max=parseInt(document.getElementById('qtyInput').max||0,10);
+  if(count<1||count>max){ showAlert('qtyAlert','error','Invalid count.'); return; }
+  const btn=document.getElementById('qtyConfirmBtn');
+  btn.disabled=true; btn.textContent='Saving…';
+  fetch(`/room_incharge/rooms/${ROOM_SLUG}/api/systems/assign/`,{
+    method:'POST',
+    headers:{'Content-Type':'application/json','X-CSRFToken':CSRF},
+    body:JSON.stringify({item_id:_qtyItemId, target:_qtyTarget, from:_qtyFrom, count:count})
+  }).then(r=>r.json()).then(d=>{
+    btn.disabled=false; btn.textContent='Confirm';
+    if(d.success){ showToast(d.message,'t-success'); closeQtyModal(); setTimeout(()=>location.reload(),800); }
+    else showAlert('qtyAlert','error',d.error||'Failed.');
+  }).catch(()=>{ btn.disabled=false; btn.textContent='Confirm'; showAlert('qtyAlert','error','Network error.'); });
 }
 
-function disableEdit(input, btn) {
-  input.classList.remove('editable');
-  if (btn) btn.classList.remove('active');
+// ── Archive Modal ──
+let _archItemId=null, _archFrom=null, _archFromCount=0, _archSvc='serviceable';
+function openArchModal(itemId, itemName, avail, from, fromCount){
+  _archItemId=itemId; _archFrom=from; _archFromCount=fromCount; _archSvc='serviceable';
+  document.getElementById('archItemName').textContent=itemName;
+  document.getElementById('archAvail').textContent=avail+(from!=='available'?' (+ '+fromCount+' from '+from+')':'');
+  document.getElementById('archCount').value=1;
+  document.getElementById('archCount').max=avail+(from!=='available'?fromCount:0);
+  document.getElementById('archRemark').value='';
+  selectSvc('serviceable');
+  hideAlert('archAlert');
+  openModal('archiveModal');
+}
+function closeArchModal(){ closeModal('archiveModal'); }
+function selectSvc(val){
+  _archSvc=val;
+  document.getElementById('svcBtn').classList.toggle('selected',val==='serviceable');
+  document.getElementById('unsvcBtn').classList.toggle('selected',val==='unserviceable');
+}
+function syncArchWarning(){
+  const v=parseInt(document.getElementById('archCount').value||0,10);
+  const max=parseInt(document.getElementById('archCount').max||0,10);
+  if(v<1||v>max) showAlert('archAlert','warn','Count must be between 1 and '+max+'.');
+  else hideAlert('archAlert');
+}
+function confirmArchive(){
+  const count=parseInt(document.getElementById('archCount').value||0,10);
+  const max=parseInt(document.getElementById('archCount').max||0,10);
+  if(count<1||count>max){ showAlert('archAlert','error','Invalid count.'); return; }
+  const remark=document.getElementById('archRemark').value.trim();
+  const btn=document.getElementById('archConfirmBtn');
+  btn.disabled=true; btn.textContent='Archiving…';
+  fetch(`/room_incharge/rooms/${ROOM_SLUG}/api/systems/archive/`,{
+    method:'POST',
+    headers:{'Content-Type':'application/json','X-CSRFToken':CSRF},
+    body:JSON.stringify({item_id:_archItemId, from:_archFrom, count:count, category:_archSvc, remark:remark})
+  }).then(r=>r.json()).then(d=>{
+    btn.disabled=false; btn.textContent='Archive';
+    if(d.success){ showToast(d.message,'t-success'); closeArchModal(); setTimeout(()=>location.reload(),800); }
+    else showAlert('archAlert','error',d.error||'Failed.');
+  }).catch(()=>{ btn.disabled=false; btn.textContent='Archive'; showAlert('archAlert','error','Network error.'); });
 }
 
-function toggleEdit(id) {
-  const input = document.getElementById(`val-${id}`);
-  const btn   = document.getElementById(`editBtn-${id}`);
-  if (input.classList.contains('editable')) {
-    disableEdit(input, btn);
-  } else {
-    enableEdit(input, btn);
-  }
+// ── Helpers ──
+function openModal(id){ const m=document.getElementById(id); m.style.display='flex'; requestAnimationFrame(()=>m.classList.add('open')); }
+function closeModal(id){ const m=document.getElementById(id); m.classList.remove('open'); setTimeout(()=>m.style.display='none',220); }
+function showAlert(id,type,msg){ const el=document.getElementById(id); el.className='modal-alert '+type; el.textContent=msg; el.style.display='block'; }
+function hideAlert(id){ const el=document.getElementById(id); el.style.display='none'; }
+function showToast(msg,type){
+  const wrap=document.getElementById('toastWrap');
+  const d=document.createElement('div');
+  d.className='toast-msg '+type;
+  const icon={'t-success':'check-circle-fill','t-error':'x-circle-fill','t-warn':'exclamation-triangle-fill','t-info':'info-circle-fill'}[type]||'info-circle-fill';
+  d.innerHTML=`<i class="bi bi-${icon}"></i> ${msg}`;
+  wrap.appendChild(d);
+  setTimeout(()=>{ d.classList.add('out'); setTimeout(()=>d.remove(),280); },3200);
 }
-
-function deleteRow(id) {
-  const row = document.getElementById(`spec-row-${id}`);
-  if (row) row.remove();
-}
-
-function escHtml(str) {
-  return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-}
-
-/* ──────────────────────────────────────────────────────────────
-   System selection counter
-────────────────────────────────────────────────────────────── */
-document.addEventListener('change', function(e) {
-  if (e.target.classList.contains('sys-checkbox')) {
-    const count = document.querySelectorAll('.sys-checkbox:checked').length;
-    document.getElementById('selectedCount').textContent = count;
-  }
-});
-
-/* ──────────────────────────────────────────────────────────────
-   Modal open / close
-────────────────────────────────────────────────────────────── */
-function openConfigModal() {
-  document.getElementById('configOverlay').classList.add('open');
-  document.getElementById('cfgAlert').style.display = 'none';
-  document.querySelectorAll('.sys-checkbox').forEach(c => c.checked = false);
-  document.getElementById('selectedCount').textContent = '0';
-  document.querySelectorAll('.preset-chip').forEach(c => c.classList.remove('active'));
-  activePreset = null;
-  clearRows();
-  addSpecRow(); /* Start with one blank row */
-  const btn = document.getElementById('saveConfigBtn');
-  btn.disabled = false;
-  btn.innerHTML = '<span class="material-symbols-outlined">check</span> Save Configuration';
-}
-
-function closeConfigModal() {
-  document.getElementById('configOverlay').classList.remove('open');
-}
-
-/* ──────────────────────────────────────────────────────────────
-   Collect rows → JSON string for backend
-   Format stored: JSON array of {spec, value} objects
-────────────────────────────────────────────────────────────── */
-function collectRows() {
-  const rows = [];
-  document.querySelectorAll('#specRows tr').forEach(tr => {
-    const inputs = tr.querySelectorAll('input[type="text"]');
-    const spec   = inputs[0] ? inputs[0].value.trim() : '';
-    const val    = inputs[1] ? inputs[1].value.trim() : '';
-    if (spec || val) rows.push({ spec, value: val });
-  });
-  return rows;
-}
-
-function saveConfiguration() {
-  const selected = [...document.querySelectorAll('.sys-checkbox:checked')].map(c => c.value);
-  const rows     = collectRows();
-  const alertEl  = document.getElementById('cfgAlert');
-  const btn      = document.getElementById('saveConfigBtn');
-
-  alertEl.style.display = 'none';
-
-  if (!selected.length) {
-    showAlert('Please select at least one system.', 'error');
-    return;
-  }
-  if (!rows.length) {
-    showAlert('Please add at least one specification row.', 'error');
-    return;
-  }
-
-  btn.disabled = true;
-  btn.innerHTML = '<span class="material-symbols-outlined" style="animation:spin 1s linear infinite">progress_activity</span> Saving…';
-
-  const configuration = JSON.stringify(rows);
-  const csrf = document.cookie.split(';').find(x => x.trim().startsWith('csrftoken='));
-  const csrfToken = csrf ? decodeURIComponent(csrf.trim().split('=')[1]) : '';
-
-  fetch('{% url "room_incharge:system_configuration" room_slug=room_slug %}', {
-    method: 'POST',
-    headers: {'Content-Type': 'application/json', 'X-CSRFToken': csrfToken},
-    body: JSON.stringify({ system_slugs: selected, configuration }),
-  })
-  .then(r => r.json())
-  .then(data => {
-    btn.disabled = false;
-    if (data.success) {
-      btn.innerHTML = '<span class="material-symbols-outlined">check_circle</span> Saved!';
-      showAlert(`Saved for: ${data.updated.join(', ')}`, 'success');
-      setTimeout(() => closeConfigModal(), 1600);
-    } else {
-      btn.innerHTML = '<span class="material-symbols-outlined">check</span> Save Configuration';
-      showAlert(data.error || 'Save failed. Try again.', 'error');
-    }
-  })
-  .catch(() => {
-    btn.disabled = false;
-    btn.innerHTML = '<span class="material-symbols-outlined">check</span> Save Configuration';
-    showAlert('Network error. Please try again.', 'error');
-  });
-}
-
-function showAlert(msg, type) {
-  const el = document.getElementById('cfgAlert');
-  el.style.display = 'block';
-  el.style.background = type === 'success' ? '#f0fdf4' : '#fef2f2';
-  el.style.color      = type === 'success' ? '#166534' : '#dc2626';
-  el.style.border     = `1px solid ${type === 'success' ? '#bbf7d0' : '#fecaca'}`;
-  el.textContent = msg;
-}
-
-/* Spinner keyframe */
-const style = document.createElement('style');
-style.textContent = `@keyframes spin { to { transform: rotate(360deg); } }`;
-document.head.appendChild(style);
-
-/* Init with one blank row on load */
-document.addEventListener('DOMContentLoaded', () => { /* rows added on modal open */ });
 </script>
 {% endblock content %}

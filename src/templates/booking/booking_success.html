@@ -4,7 +4,30 @@
 {% block title %} | Request Submitted{% endblock %}
 
 {% block style %}
-<script>window.SUPPRESS_MOBILE_FOOTER = true;</script>
+<script>
+// ── Hard-guard: booking_success MUST never show the mobile footer nav ──
+window.SUPPRESS_MOBILE_FOOTER = true;
+(function() {
+    function removeFooter() {
+        var f = document.getElementById('mobileFooterNav');
+        if (f) { f.remove(); document.body.style.paddingBottom = ''; }
+    }
+    var obs = new MutationObserver(function(mutations) {
+        for (var i = 0; i < mutations.length; i++) {
+            for (var j = 0; j < mutations[i].addedNodes.length; j++) {
+                var node = mutations[i].addedNodes[j];
+                if (node.id === 'mobileFooterNav') { node.remove(); document.body.style.paddingBottom = ''; }
+            }
+        }
+    });
+    obs.observe(document.documentElement, { childList: true, subtree: true });
+    document.addEventListener('DOMContentLoaded', function() {
+        removeFooter();
+        if (window.MobileNav) window.MobileNav.buildFooter = function() {};
+    });
+    setTimeout(removeFooter, 600);
+})();
+</script>
 {% endblock style %}
 
 {% block content %}
@@ -203,7 +226,7 @@
                 <i class="bi bi-calendar-plus"></i> Book Another Space
             </a>
             <a href="{% url 'core:app_home' %}" class="btn-secondary-action" id="homeBtn"
-               onclick="if(!window.IS_CAPACITOR && window.history.length > 1){ event.preventDefault(); window.location.href='{% url "landing_page" %}'; }">
+               onclick="if(!window.IS_CAPACITOR){ event.preventDefault(); window.location.href='/'; }">
                 <i class="bi bi-house-door"></i> Home
             </a>
         </div>

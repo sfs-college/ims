@@ -946,19 +946,32 @@
         .assign-page { padding: 16px; }
         .internal-nav { padding: 0 16px; }
         .nav-breadcrumb { display: none; }
+        .nav-brand-text { display: none; }
+        .nav-divider { display: none; }
         .selectors-grid { grid-template-columns: 1fr; gap: 10px; }
         .steps-row { width: 100%; justify-content: center; }
         .step-item { padding: 8px 14px; font-size: 0.78rem; }
         .page-header { padding: 18px; flex-direction: column; align-items: flex-start; gap: 10px; }
         .page-title { font-size: 1.5rem; }
+        /* Keep all nav buttons visible — icon only */
+        .nav-btn-ghost .btn-label,
+        .nav-btn-primary .btn-label { display: none; }
+        .nav-btn-ghost, .nav-btn-primary {
+            padding: 7px 9px;
+            font-size: 0.85rem;
+            gap: 0;
+        }
     }
     @media (max-width: 600px) {
         .assign-page { padding: 10px; }
-        .internal-nav { padding: 0 10px; height: 54px; gap: 8px; }
-        .nav-brand-text { display: none; }
-        .nav-divider { display: none; }
-        .nav-actions { gap: 5px; }
-        .nav-btn-ghost, .nav-btn-primary { padding: 6px 10px; font-size: 0.75rem; }
+        .internal-nav {
+            padding: 6px 10px;
+            height: auto;
+            min-height: 54px;
+            flex-wrap: wrap;
+            gap: 6px;
+        }
+        .nav-actions { gap: 4px; flex-wrap: wrap; }
         .steps-row { padding: 4px; gap: 0; }
         .step-item { padding: 7px 10px; font-size: 0.72rem; gap: 5px; }
         .step-sep { width: 16px; }
@@ -978,7 +991,6 @@
         .assign-page { padding: 8px; }
         .step-item { padding: 6px 8px; font-size: 0.68rem; }
         .step-item .num { width: 18px; height: 18px; font-size: 0.65rem; }
-        .nav-actions .nav-btn-ghost { display: none; }
         .items-scroll { max-height: 320px; }
         .modal-box { padding: 16px; }
         .modal-title { font-size: 1.05rem; }
@@ -1008,14 +1020,17 @@
     </nav>
 
     <div class="nav-actions">
-        <button class="nav-btn-ghost" onclick="openViewRoomInventory()">
-            <i class="bi bi-search"></i> View Room Inventory
+        <button class="nav-btn-ghost" onclick="openViewRoomInventory()" title="View Room Inventory">
+            <i class="bi bi-search"></i><span class="btn-label"> View Room</span>
         </button>
-        <a href="{% url 'central_admin:master_inventory_list' %}" class="nav-btn-ghost">
-            <i class="bi bi-arrow-left"></i> Back
+        <button class="nav-btn-ghost" onclick="openRevertInventory()" title="Revert Assigned Items">
+            <i class="bi bi-arrow-counterclockwise"></i><span class="btn-label"> Revert</span>
+        </button>
+        <a href="{% url 'central_admin:master_inventory_list' %}" class="nav-btn-ghost" title="Back">
+            <i class="bi bi-arrow-left"></i><span class="btn-label"> Back</span>
         </a>
-        <a href="{% url 'central_admin:master_inventory_list' %}" class="nav-btn-primary" id="doneBtn" style="display:none;">
-            <i class="bi bi-check-circle"></i> Done
+        <a href="{% url 'central_admin:master_inventory_list' %}" class="nav-btn-primary" id="doneBtn" style="display:none;" title="Done">
+            <i class="bi bi-check-circle"></i><span class="btn-label"> Done</span>
         </a>
     </div>
 </nav>
@@ -1031,6 +1046,57 @@
         <div>
             <h1 class="page-title">Assign Inventory</h1>
             <p class="page-subtitle">Drag items from the left and drop into a room to assign stock</p>
+        </div>
+    </div>
+
+    <!-- Revert Assigned Inventory Modal -->
+    <div class="modal fade" id="revertInventoryModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-xl modal-dialog-scrollable">
+            <div class="modal-content" style="border-radius:20px;border:none;">
+                <div class="modal-header" style="background:linear-gradient(135deg,#0f766e 0%,#2563eb 100%);color:white;border-radius:20px 20px 0 0;">
+                    <h5 class="modal-title fw-bold"><i class="bi bi-arrow-counterclockwise me-2"></i>Revert Assigned Items</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="text-muted small mb-4">Select a room, choose an assigned item, and return a safe quantity back to Master Inventory.</p>
+                    <div class="row g-3 mb-4">
+                        <div class="col-md-4">
+                            <label class="form-label fw-bold small text-muted text-uppercase">Room Category</label>
+                            <select class="form-select" id="revertCategory" onchange="loadRoomsForRevert()">
+                                <option value="">-- Select Category --</option>
+                                <option value="classrooms">Classrooms</option>
+                                <option value="labs">Labs</option>
+                                <option value="staffrooms">Staffrooms</option>
+                                <option value="halls">Halls</option>
+                                <option value="outdoors">Outdoors</option>
+                                <option value="washrooms">Washrooms</option>
+                                <option value="officerooms">Officerooms</option>
+                            </select>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label fw-bold small text-muted text-uppercase">Room</label>
+                            <select class="form-select" id="revertRoom" onchange="loadRevertItems()">
+                                <option value="">-- Select Room --</option>
+                            </select>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label fw-bold small text-muted text-uppercase">History</label>
+                            <button type="button" class="btn btn-outline-secondary w-100" onclick="loadRevertHistoryOnly()">
+                                <i class="bi bi-clock-history me-1"></i> Refresh History
+                            </button>
+                        </div>
+                    </div>
+                    <div id="revertItemsGrid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:14px;">
+                        <div class="text-center text-muted py-5" style="grid-column:1/-1;">
+                            <i class="bi bi-box-arrow-left fs-1 d-block mb-3 opacity-25"></i>
+                            Select a room to view assigned items.
+                        </div>
+                    </div>
+                    <hr class="my-4">
+                    <h6 class="fw-bold mb-3"><i class="bi bi-clock-history me-2"></i>Revert History</h6>
+                    <div id="revertHistoryList" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px;"></div>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -1707,6 +1773,154 @@ function loadRoomInventory() {
         .catch(() => {
             resultsDiv.innerHTML = `<div class="text-center py-5 text-danger"><i class="bi bi-exclamation-triangle-fill fs-1 d-block mb-3"></i><p>Failed to load room inventory.</p><button class="btn btn-outline-danger btn-sm" onclick="loadRoomInventory()"><i class="bi bi-arrow-clockwise me-1"></i>Retry</button></div>`;
         });
+}
+
+function openRevertInventory() {
+    document.getElementById('revertCategory').value = '';
+    document.getElementById('revertRoom').innerHTML = '<option value="">-- Select Room --</option>';
+    document.getElementById('revertItemsGrid').innerHTML = `
+        <div class="text-center text-muted py-5" style="grid-column:1/-1;">
+            <i class="bi bi-box-arrow-left fs-1 d-block mb-3 opacity-25"></i>
+            Select a room to view assigned items.
+        </div>`;
+    loadRevertHistoryOnly();
+    new bootstrap.Modal(document.getElementById('revertInventoryModal')).show();
+}
+
+function loadRoomsForRevert() {
+    const cat = document.getElementById('revertCategory').value;
+    const roomSel = document.getElementById('revertRoom');
+    document.getElementById('revertItemsGrid').innerHTML = `
+        <div class="text-center text-muted py-5" style="grid-column:1/-1;">Select a room to continue.</div>`;
+    if (!cat) { roomSel.innerHTML = '<option value="">-- Select Room --</option>'; return; }
+    roomSel.innerHTML = '<option value="">Loading rooms...</option>';
+    fetch(`{% url 'central_admin:get_rooms_by_category' %}?category=${encodeURIComponent(cat)}`)
+        .then(res => res.json())
+        .then(data => {
+            roomSel.innerHTML = '<option value="">-- Select Room --</option>';
+            (data.rooms || []).forEach(room => {
+                roomSel.innerHTML += `<option value="${room.id}">${room.name}</option>`;
+            });
+        })
+        .catch(() => { roomSel.innerHTML = '<option value="">Error loading rooms</option>'; });
+}
+
+function loadRevertItems() {
+    const roomId = document.getElementById('revertRoom').value;
+    const grid = document.getElementById('revertItemsGrid');
+    if (!roomId) {
+        grid.innerHTML = `<div class="text-center text-muted py-5" style="grid-column:1/-1;">Select a room to view assigned items.</div>`;
+        loadRevertHistoryOnly();
+        return;
+    }
+    grid.innerHTML = `<div class="text-center py-5" style="grid-column:1/-1;"><div class="spinner-border text-primary"></div></div>`;
+    fetch(`{% url 'central_admin:revert_inventory_data' %}?room_id=${encodeURIComponent(roomId)}`)
+        .then(res => res.json().then(data => ({ ok: res.ok, data })))
+        .then(({ ok, data }) => {
+            if (!ok || data.error) throw new Error(data.error || 'Failed');
+            renderRevertItems(data.items || []);
+            renderRevertHistory(data.history || []);
+        })
+        .catch(() => {
+            grid.innerHTML = `<div class="alert alert-danger" style="grid-column:1/-1;">Failed to load assigned items.</div>`;
+        });
+}
+
+function loadRevertHistoryOnly() {
+    const roomId = document.getElementById('revertRoom')?.value || '';
+    const url = roomId
+        ? `{% url 'central_admin:revert_inventory_data' %}?room_id=${encodeURIComponent(roomId)}`
+        : `{% url 'central_admin:revert_inventory_data' %}`;
+    fetch(url)
+        .then(res => res.json())
+        .then(data => renderRevertHistory(data.history || []))
+        .catch(() => renderRevertHistory([]));
+}
+
+function renderRevertItems(items) {
+    const grid = document.getElementById('revertItemsGrid');
+    if (!items.length) {
+        grid.innerHTML = `<div class="text-center text-muted py-5" style="grid-column:1/-1;">
+            <i class="bi bi-inbox fs-1 d-block mb-3 opacity-25"></i>No assigned items found for this room.
+        </div>`;
+        return;
+    }
+    grid.innerHTML = items.map(item => `
+        <div class="border rounded-3 p-3 bg-white shadow-sm" id="revert-card-${item.id}">
+            <div class="d-flex justify-content-between gap-2 mb-2">
+                <div style="min-width:0;">
+                    <div class="fw-bold text-truncate">${escapeHtml(item.item_name)}</div>
+                    <div class="small text-muted text-truncate">${escapeHtml(item.category || '-')} · ${escapeHtml(item.brand || '-')}</div>
+                </div>
+                <span class="badge bg-primary align-self-start">${item.assigned_count}</span>
+            </div>
+            <label class="form-label small fw-bold text-muted mb-1">Return Quantity</label>
+            <div class="input-group input-group-sm mb-2">
+                <input type="number" min="1" max="${item.assigned_count}" value="${item.assigned_count}" class="form-control" id="revert-qty-${item.id}">
+                <button class="btn btn-outline-secondary" type="button" onclick="document.getElementById('revert-qty-${item.id}').value=${item.assigned_count}">All</button>
+            </div>
+            <input type="text" class="form-control form-control-sm mb-2" id="revert-note-${item.id}" placeholder="Optional note">
+            <button class="btn btn-sm btn-success w-100" onclick="submitRevert(${item.id}, ${item.assigned_count}, this)">
+                <i class="bi bi-arrow-counterclockwise me-1"></i> Revert to Master
+            </button>
+        </div>`).join('');
+}
+
+function submitRevert(roomItemId, maxQty, btn) {
+    const qty = parseInt(document.getElementById(`revert-qty-${roomItemId}`).value || '0', 10);
+    const note = document.getElementById(`revert-note-${roomItemId}`).value || '';
+    if (!qty || qty < 1 || qty > maxQty) {
+        showToast(`Enter a quantity from 1 to ${maxQty}.`, 'error');
+        return;
+    }
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
+    fetch(`{% url 'central_admin:revert_inventory_api' %}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCsrf() },
+        body: JSON.stringify({ room_item_id: roomItemId, quantity: qty, note }),
+    })
+    .then(res => res.json().then(data => ({ ok: res.ok, data })))
+    .then(({ ok, data }) => {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="bi bi-arrow-counterclockwise me-1"></i> Revert to Master';
+        if (!ok || !data.success) {
+            showToast(data.error || 'Revert failed.', 'error');
+            return;
+        }
+        showToast(data.message, 'success');
+        loadRevertItems();
+    })
+    .catch(() => {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="bi bi-arrow-counterclockwise me-1"></i> Revert to Master';
+        showToast('Network error. Please try again.', 'error');
+    });
+}
+
+function renderRevertHistory(history) {
+    const list = document.getElementById('revertHistoryList');
+    if (!history.length) {
+        list.innerHTML = `<div class="text-muted small">No reverted items yet.</div>`;
+        return;
+    }
+    list.innerHTML = history.map(h => `
+        <div class="border rounded-3 p-3 bg-light">
+            <div class="fw-bold">${escapeHtml(h.item_name)}</div>
+            <div class="small text-muted">${escapeHtml(h.room_label ? h.room_label + ' - ' + h.room_name : h.room_name)}</div>
+            <div class="d-flex justify-content-between mt-2 small">
+                <span>Qty: <strong>${h.quantity}</strong></span>
+                <span>Room left: <strong>${h.room_total_after}</strong></span>
+            </div>
+            <div class="small text-muted mt-2">${escapeHtml(h.reverted_on)} · ${escapeHtml(h.reverted_by)}</div>
+            ${h.note ? `<div class="small mt-2">${escapeHtml(h.note)}</div>` : ''}
+        </div>`).join('');
+}
+
+function escapeHtml(value) {
+    return String(value ?? '').replace(/[&<>"']/g, ch => ({
+        '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+    }[ch]));
 }
 </script>
 

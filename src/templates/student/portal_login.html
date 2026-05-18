@@ -3,7 +3,30 @@
 {% block title %} | Student Portal{% endblock %}
 
 {% block style %}
-<script>window.SUPPRESS_MOBILE_FOOTER = true;</script>
+<script>
+// ── Hard-guard: portal_login MUST never show the mobile footer nav ──
+window.SUPPRESS_MOBILE_FOOTER = true;
+(function() {
+    function removeFooter() {
+        var f = document.getElementById('mobileFooterNav');
+        if (f) { f.remove(); document.body.style.paddingBottom = ''; }
+    }
+    var obs = new MutationObserver(function(mutations) {
+        for (var i = 0; i < mutations.length; i++) {
+            for (var j = 0; j < mutations[i].addedNodes.length; j++) {
+                var node = mutations[i].addedNodes[j];
+                if (node.id === 'mobileFooterNav') { node.remove(); document.body.style.paddingBottom = ''; }
+            }
+        }
+    });
+    obs.observe(document.documentElement, { childList: true, subtree: true });
+    document.addEventListener('DOMContentLoaded', function() {
+        removeFooter();
+        if (window.MobileNav) window.MobileNav.buildFooter = function() {};
+    });
+    setTimeout(removeFooter, 600);
+})();
+</script>
 <style>
     body { background: radial-gradient(circle at top right, #f8f9fa, #e9ecef); min-height: 100vh; }
     .main-portal-card { border: none; border-radius: 24px; background: rgba(255, 255, 255, 0.9); backdrop-filter: blur(10px); box-shadow: 0 20px 40px rgba(0,0,0,0.08); }

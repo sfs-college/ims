@@ -38,14 +38,19 @@ class SystemComponentForm(form_mixin.BootstrapFormMixin, forms.ModelForm):
 class SystemComponentArchiveForm(form_mixin.BootstrapFormMixin, forms.ModelForm):
     class Meta:
         model = Archive
-        fields = ['archive_type', 'remark']
+        fields = ['remark']
 
 class ItemArchiveForm(form_mixin.BootstrapFormMixin, forms.ModelForm):
     count = forms.IntegerField(min_value=1)
+    archive_category = forms.ChoiceField(
+        choices=[('serviceable', 'Serviceable'), ('unserviceable', 'Unserviceable')],
+        initial='serviceable',
+        widget=forms.RadioSelect,
+    )
 
     class Meta:
         model = Archive
-        fields = ['archive_type', 'remark', 'count']
+        fields = ['archive_category', 'remark', 'count']
 
 class RoomUpdateForm(form_mixin.BootstrapFormMixin, forms.ModelForm):
     class Meta:
