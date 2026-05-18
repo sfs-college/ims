@@ -140,11 +140,15 @@
 {% endblock style %}
 
 {% block navbar %}
+{% if room_slug %}
+    {% include "room_incharge/navbar.html" %}
+{% else %}
     {% include "central_admin/navbar.html" %}
+{% endif %}
 {% endblock navbar %}
 
 {% block sidebar %}
-    {% comment %} {% include "room_incharge/sidebar.html" %} {% endcomment %}
+    {% if room_slug %}{% include "room_incharge/sidebar.html" %}{% endif %}
 {% endblock sidebar %}
 
 {% block content %}
@@ -187,8 +191,8 @@
         </form>
 
         <div class="mt-4">
-            <a href="{% url 'central_admin:aura_dashboard' %}" class="btn btn-link text-muted text-decoration-none small">
-                <i class="bi bi-arrow-left me-1"></i> Back to AURA
+            <a href="{% if room_slug %}{% url 'room_incharge:master_inventory' room_slug=room_slug %}{% else %}{% url 'central_admin:master_inventory_list' %}{% endif %}" class="btn btn-link text-muted text-decoration-none small">
+                <i class="bi bi-arrow-left me-1"></i> Back to Master Inventory
             </a>
         </div>
     </div>

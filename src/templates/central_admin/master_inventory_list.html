@@ -176,36 +176,86 @@
     .empty-state { text-align:center; padding:80px 20px; }
     .empty-state i { font-size:4rem; color:#cbd5e0; margin-bottom:20px; display:block; }
 
-    @media (max-width: 768px) {
-        .inventory-container { padding:12px; }
-        .internal-nav { padding:0 12px; height:54px; gap:8px; }
+    /* ── Responsive: mobile nav action buttons wrap below brand ── */
+    .nav-actions-wrap {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        flex-wrap: nowrap;
+        margin-left: auto;
+        flex-shrink: 0;
+    }
+    /* Icon-only mode for ghost buttons on small screens */
+    .nav-btn-ghost .btn-label,
+    .nav-btn-primary .btn-label { display: inline; }
+
+    /* ── Page header action buttons always visible ── */
+    .page-header-actions {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        flex-wrap: wrap;
+    }
+
+    @media (max-width: 900px) {
+        .inventory-container { padding:14px; }
+        .internal-nav {
+            padding: 0 12px;
+            height: auto;
+            min-height: 54px;
+            flex-wrap: wrap;
+            gap: 6px;
+            padding-top: 8px;
+            padding-bottom: 8px;
+        }
         .nav-breadcrumb { display:none; }
         .nav-stat { display:none; }
         .nav-brand-text { display:none; }
         .nav-divider { display:none; }
-        .nav-actions { gap:5px; }
-        .nav-btn-ghost, .nav-btn-primary { padding:6px 10px; font-size:0.75rem; }
+        .nav-actions-wrap { gap:4px; flex-wrap:wrap; }
+        /* Keep all nav buttons visible on mobile — icon-only */
+        .nav-btn-ghost .btn-label,
+        .nav-btn-primary .btn-label { display: none; }
+        .nav-btn-ghost, .nav-btn-primary {
+            padding: 7px 9px;
+            font-size: 0.85rem;
+            gap: 0;
+        }
         .page-header { padding:14px 16px; flex-direction:column; align-items:flex-start; gap:12px; border-radius:12px; }
-        .page-header > div:last-child { width:100%; flex-wrap:wrap; }
+        .page-header-actions { width:100%; }
         .page-title { font-size:1.5rem; }
         .inventory-table .table-responsive { border-radius:12px; }
     }
-    @media (max-width: 540px) {
-        .internal-nav { padding:0 10px; }
+    @media (max-width: 768px) {
+        .inventory-container { padding:12px; }
+        .internal-nav { padding: 6px 10px; }
         .nav-logo { width:30px; height:30px; font-size:0.6rem; border-radius:8px; }
-        /* Hide secondary nav buttons, keep just Assign */
-        .nav-actions .nav-btn-ghost { display:none; }
         .page-title { font-size:1.25rem; }
         /* Field selector — allow wrapping on small screens */
         #fieldCheckboxes { flex-wrap:wrap !important; overflow-x:visible !important; }
         .fc-pill { font-size:0.68rem; padding:3px 8px; }
+        /* Page header action buttons: wrap and full-width on very small screens */
+        .page-header-actions .nav-btn-ghost,
+        .page-header-actions .nav-btn-primary {
+            flex: 1 1 auto;
+            justify-content: center;
+            min-width: 0;
+        }
     }
-    @media (max-width: 400px) {
+    @media (max-width: 540px) {
         .inventory-container { padding:8px; }
         .page-title { font-size:1.1rem; }
         .page-header { padding:12px; }
         .card-body { padding:12px !important; }
-        .nav-btn-primary { font-size:0.72rem; padding:5px 8px; }
+        /* Show labels on page-header buttons even on small screens for clarity */
+        .page-header-actions .nav-btn-ghost .btn-label,
+        .page-header-actions .nav-btn-primary .btn-label { display: inline; }
+        .page-header-actions .nav-btn-ghost,
+        .page-header-actions .nav-btn-primary {
+            padding: 7px 10px;
+            font-size: 0.75rem;
+            gap: 4px;
+        }
     }
     @keyframes spin {
     to { transform: rotate(360deg); }
@@ -230,26 +280,24 @@
         <i class="bi bi-chevron-right"></i>
         <span class="crumb-active">Master Inventory</span>
     </nav>
-    <div class="nav-actions">
-        <span class="nav-stat"><i class="bi bi-box-seam"></i> {{ total_items }} Items</span>
-        <a href="{% url 'central_admin:master_inventory_import' %}" class="nav-btn-ghost">
-            <i class="bi bi-file-earmark-spreadsheet"></i> Import Excel
+    <div class="nav-actions" style="display:flex;align-items:center;gap:6px;margin-left:auto;flex-shrink:0;flex-wrap:wrap;" id="navActionsWrap">
+        <span class="nav-stat"><i class="bi bi-box-seam"></i> <span class="btn-label">{{ total_items }} Items</span></span>
+        <a href="{% url 'central_admin:master_inventory_import' %}" class="nav-btn-ghost" title="Import Excel">
+            <i class="bi bi-file-earmark-spreadsheet"></i><span class="btn-label"> Import Excel</span>
         </a>
-        <a href="{% url 'central_admin:aura_dashboard' %}" class="nav-btn-ghost">
-            <i class="bi bi-arrow-left"></i> Back to AURA
+        <a href="{% url 'central_admin:aura_dashboard' %}" class="nav-btn-ghost" title="Back to AURA">
+            <i class="bi bi-arrow-left"></i><span class="btn-label"> Back</span>
         </a>
-        <div class="d-flex gap-2">
-            <button type="button" class="nav-btn-ghost" onclick="showRevertedItemsModal()">
-                <i class="bi bi-arrow-counterclockwise"></i> Reverted Items
-            </button>
-            <button type="button" class="nav-btn-ghost" onclick="openAccessManagement()"
-                    style="color:#6c63ff;border-color:#c4b5fd;">
-                <i class="bi bi-person-check"></i> Incharge Access
-            </button>
-            <a href="{% url 'central_admin:assign_inventory' %}" class="nav-btn-primary">
-                <i class="bi bi-arrow-right-circle"></i> Assign Inventory
-            </a>
-        </div>
+        <button type="button" class="nav-btn-ghost" onclick="showRevertedItemsModal()" title="Reverted Items">
+            <i class="bi bi-arrow-counterclockwise"></i><span class="btn-label"> Reverted</span>
+        </button>
+        <button type="button" class="nav-btn-ghost" onclick="openAccessManagement()"
+                style="color:#6c63ff;border-color:#c4b5fd;" title="Incharge Access">
+            <i class="bi bi-person-check"></i><span class="btn-label"> Access</span>
+        </button>
+        <a href="{% url 'central_admin:assign_inventory' %}" class="nav-btn-primary" title="Assign Inventory">
+            <i class="bi bi-arrow-right-circle"></i><span class="btn-label"> Assign</span>
+        </a>
     </div>
 </nav>
 {% endblock navbar %}
@@ -262,29 +310,23 @@
             <h1 class="page-title">Master Inventory</h1>
             <p class="text-muted mb-0" style="font-size:0.95rem;">College-wide unassigned stock</p>
         </div>
-        <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+        <div class="page-header-actions">
             <!-- Search Box -->
-            <div class="input-group input-group-sm" style="width:250px;">
+            <div class="input-group input-group-sm" style="width:200px;min-width:120px;flex-shrink:1;">
                 <span class="input-group-text bg-white border-end-0"><i class="bi bi-search text-muted"></i></span>
-                <input type="text" id="inventorySearchBox" class="form-control border-start-0 ps-0" placeholder="Search inventory..." onkeyup="searchMainInventory()">
+                <input type="text" id="inventorySearchBox" class="form-control border-start-0 ps-0" placeholder="Search..." onkeyup="searchMainInventory()">
             </div>
-            <button style="display:inline-flex;align-items:center;gap:5px;padding:7px 14px;
-                background:white;color:var(--purple);border:1.5px solid var(--purple);
-                border-radius:8px;font-size:0.8rem;font-weight:600;cursor:pointer;
-                transition:all 0.18s;" onclick="openStockFilter()">
-                <i class="bi bi-funnel" style="font-size:0.8rem;"></i> Check Stock
+            <button class="nav-btn-ghost" onclick="openStockFilter()" title="Check Stock">
+                <i class="bi bi-funnel"></i><span class="btn-label"> Check Stock</span>
             </button>
-            <button id="editModeBtn" style="display:inline-flex;align-items:center;gap:5px;padding:7px 14px;
-                background:white;color:#0d9488;border:1.5px solid #0d9488;
-                border-radius:8px;font-size:0.8rem;font-weight:600;cursor:pointer;
-                transition:all 0.18s;" onclick="toggleEditMode()">
-                <i class="bi bi-pencil-square" style="font-size:0.8rem;"></i> Edit
+            <button id="editModeBtn" class="nav-btn-ghost" style="color:#0d9488;border-color:#0d9488;" onclick="toggleEditMode()" title="Edit">
+                <i class="bi bi-pencil-square"></i><span class="btn-label"> Edit</span>
             </button>
-            <a href="{% url 'central_admin:assign_inventory' %}" style="display:inline-flex;align-items:center;gap:5px;padding:7px 14px;
-                background:var(--purple);color:white;border:none;
-                border-radius:8px;font-size:0.8rem;font-weight:600;cursor:pointer;
-                text-decoration:none;transition:all 0.18s;">
-                <i class="bi bi-arrow-right-circle" style="font-size:0.8rem;"></i> Assign Inventory
+            <button type="button" class="nav-btn-ghost" style="color:#2563eb;border-color:#2563eb;" onclick="showManualEntryRow()" title="Manual Entry">
+                <i class="bi bi-plus-circle"></i><span class="btn-label"> Manual Entry</span>
+            </button>
+            <a href="{% url 'central_admin:assign_inventory' %}" class="nav-btn-primary" title="Assign Inventory">
+                <i class="bi bi-arrow-right-circle"></i><span class="btn-label"> Assign</span>
             </a>
         </div>
     </div>
@@ -368,6 +410,21 @@
                 </tr>
             </thead>
             <tbody>
+                <tr id="manualEntryRow" style="display:none;background:#eff6ff;">
+                    <td data-col="prodcode"><input id="manualProductCode" class="form-control form-control-sm" maxlength="12" placeholder="Code"></td>
+                    <td data-col="name"><input id="manualItemName" class="form-control form-control-sm" placeholder="Item Name" required></td>
+                    <td data-col="category"><input id="manualCategory" class="form-control form-control-sm" placeholder="Category"></td>
+                    <td data-col="brand"><input id="manualBrand" class="form-control form-control-sm" placeholder="Brand"></td>
+                    <td data-col="stock" class="text-center"><input id="manualTotalCount" type="number" min="0" step="1" class="form-control form-control-sm" value="0" style="width:100px;display:inline-block;"></td>
+                    <td data-col="cost" class="text-center"><input id="manualCost" type="number" min="0" step="0.01" class="form-control form-control-sm" placeholder="Cost" style="width:100px;display:inline-block;"></td>
+                    <td data-col="assigned" class="text-center"><span class="badge-count badge-assigned">0</span></td>
+                    <td data-col="archived" class="text-center"><span class="badge-count" style="background:#fef3c7;color:#92400e;border:1px solid #fde68a;">0</span></td>
+                    <td data-col="compstatus" class="text-center">
+                        <button type="button" class="btn btn-sm btn-success" onclick="submitManualEntry(this)"><i class="bi bi-check-lg"></i></button>
+                        <button type="button" class="btn btn-sm btn-outline-secondary" onclick="hideManualEntryRow()"><i class="bi bi-x-lg"></i></button>
+                        <div id="manualEntryError" class="text-danger small mt-1" style="display:none;"></div>
+                    </td>
+                </tr>
                 {% for data in items_data %}
                 <tr data-item-id="{{ data.item.id }}" data-item-name="{{ data.item.item_name|escapejs }}">
                     <td data-col="prodcode" class="text-center">
@@ -386,12 +443,17 @@
                                 value="{{ data.item.product_code|default:'' }}"
                                 maxlength="12" placeholder="e.g. SFSBEN"
                                 style="width:110px; display:inline-block; font-size:0.8rem;"
+                                onblur="saveProductCode(this, {{ data.item.id }}, '{{ data.item.item_name|escapejs }}')"
                                 onkeydown="if(event.key==='Enter') saveProductCode(this, {{ data.item.id }}, '{{ data.item.item_name|escapejs }}')">
                             <div class="prodcode-err text-danger" style="font-size:0.7rem;display:none;"></div>
                         </div>
                     </td>
                     <td data-col="name">
-                        <div class="item-name">{{ data.item.item_name }}</div>
+                        <div class="item-name editable-view">{{ data.item.item_name }}</div>
+                        <input type="text" class="editable-input form-control form-control-sm" style="display:none;width:160px;"
+                            value="{{ data.item.item_name }}"
+                            onblur="saveItemField(this, {{ data.item.id }}, 'item_name')"
+                            onkeydown="if(event.key==='Enter') saveItemField(this, {{ data.item.id }}, 'item_name')">
                     </td>
                     <td data-col="category">
                         <span class="editable-view badge bg-light text-dark border">{{ data.item.category.category_name|default:"—" }}</span>
@@ -411,7 +473,11 @@
                         data-available="{{ data.available_stock }}"
                         data-assigned="{{ data.assigned_count }}"
                         data-total="{{ data.total_items }}">
-                        <span class="badge-count badge-available stock-display">{{ data.available_stock }}</span>
+                        <span class="badge-count badge-available stock-display editable-view">{{ data.available_stock }}</span>
+                        <input type="number" min="0" step="1" class="editable-input form-control form-control-sm" style="display:none;width:90px;"
+                            value="{{ data.available_stock }}"
+                            onblur="saveItemField(this, {{ data.item.id }}, 'total_count')"
+                            onkeydown="if(event.key==='Enter') saveItemField(this, {{ data.item.id }}, 'total_count')">
                     </td>
                     <td data-col="cost" class="text-center"
                         data-cpu="{% if data.cpu %}{{ data.cpu }}{% else %}0{% endif %}"
@@ -457,6 +523,18 @@
             <a href="{% url 'central_admin:master_inventory_import' %}" class="btn btn-primary mt-3">
                 <i class="bi bi-file-earmark-spreadsheet me-2"></i>Import Excel
             </a>
+            <div class="mt-4 mx-auto" style="max-width:760px;background:#eff6ff;border:1px solid #bfdbfe;border-radius:12px;padding:14px;text-align:left;">
+                <div class="row g-2 align-items-end">
+                    <div class="col-md-2"><label class="small fw-bold text-muted">Code</label><input id="manualProductCode" class="form-control form-control-sm" maxlength="12"></div>
+                    <div class="col-md-3"><label class="small fw-bold text-muted">Item Name</label><input id="manualItemName" class="form-control form-control-sm"></div>
+                    <div class="col-md-2"><label class="small fw-bold text-muted">Category</label><input id="manualCategory" class="form-control form-control-sm"></div>
+                    <div class="col-md-2"><label class="small fw-bold text-muted">Brand</label><input id="manualBrand" class="form-control form-control-sm"></div>
+                    <div class="col-md-1"><label class="small fw-bold text-muted">Stock</label><input id="manualTotalCount" type="number" min="0" step="1" value="0" class="form-control form-control-sm"></div>
+                    <div class="col-md-1"><label class="small fw-bold text-muted">Cost</label><input id="manualCost" type="number" min="0" step="0.01" class="form-control form-control-sm"></div>
+                    <div class="col-md-1"><button type="button" class="btn btn-sm btn-success w-100" onclick="submitManualEntry(this)"><i class="bi bi-check-lg"></i></button></div>
+                </div>
+                <div id="manualEntryError" class="text-danger small mt-2" style="display:none;"></div>
+            </div>
         </div>
         {% endif %}
     </div>
@@ -485,11 +563,26 @@
             <div class="modal-header" style="background:linear-gradient(135deg,#6c63ff 0%,#9333ea 100%);color:white;border-radius:0;padding:18px 24px;">
                 <div>
                     <h5 class="modal-title fw-bold mb-0">
-                        <i class="bi bi-person-check-fill me-2"></i>Master Inventory Access
+                        <i class="bi bi-person-check-fill me-2"></i>Incharge Access Management
                     </h5>
-                    <p class="mb-0 mt-1" style="font-size:0.78rem;opacity:0.8;">Grant or revoke incharge access to the Master Inventory</p>
+                    <p class="mb-0 mt-1" style="font-size:0.78rem;opacity:0.8;">Grant or revoke incharge access to Master Inventory &amp; Assign Inventory</p>
                 </div>
                 <button type="button" class="btn-close btn-close-white ms-auto" data-bs-dismiss="modal"></button>
+            </div>
+            <!-- Tabs -->
+            <div style="background:#f8fafc;border-bottom:1px solid #e2e8f0;padding:0 24px;">
+                <div style="display:flex;gap:0;">
+                    <button id="tabMasterInv" onclick="switchAccessTab('master')"
+                        style="padding:12px 20px;border:none;background:none;font-size:0.85rem;font-weight:700;
+                               color:#6c63ff;border-bottom:2.5px solid #6c63ff;cursor:pointer;transition:all 0.15s;">
+                        <i class="bi bi-inventory_2 me-1"></i>Master Inventory
+                    </button>
+                    <button id="tabAssignInv" onclick="switchAccessTab('assign')"
+                        style="padding:12px 20px;border:none;background:none;font-size:0.85rem;font-weight:700;
+                               color:#94a3b8;border-bottom:2.5px solid transparent;cursor:pointer;transition:all 0.15s;">
+                        <i class="bi bi-arrow-right-circle me-1"></i>Assign Inventory
+                    </button>
+                </div>
             </div>
             <div class="modal-body p-4" style="background:#f8fafc;">
                 <div id="accessManagementContent">
@@ -935,6 +1028,68 @@ function getCsrf() {
     return c ? decodeURIComponent(c.trim().split('=')[1]) : '';
 }
 
+function showManualEntryRow() {
+    const row = document.getElementById('manualEntryRow');
+    if (!row) {
+        document.getElementById('manualItemName')?.focus();
+        return;
+    }
+    row.style.display = '';
+    document.getElementById('manualItemName')?.focus();
+}
+
+function hideManualEntryRow() {
+    const row = document.getElementById('manualEntryRow');
+    if (!row) return;
+    row.style.display = 'none';
+    ['manualProductCode', 'manualItemName', 'manualCategory', 'manualBrand', 'manualCost'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.value = '';
+    });
+    const qty = document.getElementById('manualTotalCount');
+    if (qty) qty.value = '0';
+    const err = document.getElementById('manualEntryError');
+    if (err) { err.textContent = ''; err.style.display = 'none'; }
+}
+
+function submitManualEntry(btn) {
+    const err = document.getElementById('manualEntryError');
+    const payload = {
+        product_code: document.getElementById('manualProductCode')?.value.trim() || '',
+        item_name: document.getElementById('manualItemName')?.value.trim() || '',
+        category: document.getElementById('manualCategory')?.value.trim() || '',
+        brand: document.getElementById('manualBrand')?.value.trim() || '',
+        total_count: document.getElementById('manualTotalCount')?.value || 0,
+        cost: document.getElementById('manualCost')?.value || '',
+    };
+    if (!payload.item_name) {
+        err.textContent = 'Item Name is required.';
+        err.style.display = 'block';
+        return;
+    }
+    btn.disabled = true;
+    fetch('{% url "central_admin:create_master_inventory_item" %}', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCsrf() },
+        body: JSON.stringify(payload),
+    })
+    .then(r => r.json().then(data => ({ ok: r.ok, data })))
+    .then(({ ok, data }) => {
+        btn.disabled = false;
+        if (!ok || !data.success) {
+            err.textContent = data.error || 'Manual entry failed.';
+            err.style.display = 'block';
+            return;
+        }
+        window.location.reload();
+    })
+    .catch(() => {
+        btn.disabled = false;
+        err.textContent = 'Network error.';
+        err.style.display = 'block';
+    });
+}
+
 function submitUnassign(roomItemId, maxQty, inputId) {
     const qtyInput = document.getElementById(inputId || 'unassignQtyInput');
     const qty = parseInt(qtyInput ? qtyInput.value : 0, 10);
@@ -1126,6 +1281,14 @@ function saveItemField(input, itemId, field) {
                     viewEl.textContent = val ? '₹' + parseFloat(val).toLocaleString('en-IN') : '—';
                     // Update data attrs for toggle
                     input.closest('td').setAttribute('data-cpu', val || 0);
+                } else if (field === 'total_count') {
+                    viewEl.textContent = val || '0';
+                    const td = input.closest('td');
+                    if (td) {
+                        td.setAttribute('data-available', val || 0);
+                        const assigned = parseInt(td.getAttribute('data-assigned') || '0', 10);
+                        td.setAttribute('data-total', (parseInt(val || '0', 10) + assigned).toString());
+                    }
                 } else {
                     viewEl.textContent = val || '—';
                 }
@@ -1373,10 +1536,37 @@ function searchMainInventory() {
 
 // ── MASTER INVENTORY ACCESS MANAGEMENT ──────────────────────────────────────
 
+let _currentAccessTab = 'master'; // 'master' | 'assign'
+
 function openAccessManagement() {
+    _currentAccessTab = 'master';
     const modal = new bootstrap.Modal(document.getElementById('accessManagementModal'));
     modal.show();
+    _renderTabActive('master');
     loadAccessManagement();
+}
+
+function switchAccessTab(tab) {
+    _currentAccessTab = tab;
+    _renderTabActive(tab);
+    loadAccessManagement();
+}
+
+function _renderTabActive(tab) {
+    const masterBtn = document.getElementById('tabMasterInv');
+    const assignBtn = document.getElementById('tabAssignInv');
+    if (!masterBtn || !assignBtn) return;
+    if (tab === 'master') {
+        masterBtn.style.color = '#6c63ff';
+        masterBtn.style.borderBottom = '2.5px solid #6c63ff';
+        assignBtn.style.color = '#94a3b8';
+        assignBtn.style.borderBottom = '2.5px solid transparent';
+    } else {
+        assignBtn.style.color = '#6c63ff';
+        assignBtn.style.borderBottom = '2.5px solid #6c63ff';
+        masterBtn.style.color = '#94a3b8';
+        masterBtn.style.borderBottom = '2.5px solid transparent';
+    }
 }
 
 function loadAccessManagement() {
@@ -1387,7 +1577,12 @@ function loadAccessManagement() {
             <p class="mt-3 text-muted small">Loading incharges…</p>
         </div>`;
 
-    fetch('{% url "central_admin:master_inventory_access_list" %}')
+    const isMaster = (_currentAccessTab === 'master');
+    const url = isMaster
+        ? '{% url "central_admin:master_inventory_access_list" %}'
+        : '{% url "central_admin:assign_inventory_access_list" %}';
+
+    fetch(url)
         .then(r => r.json())
         .then(data => {
             if (!data.incharges || data.incharges.length === 0) {
@@ -1399,86 +1594,7 @@ function loadAccessManagement() {
                 return;
             }
 
-            // ── Card grid ──────────────────────────────────────────────────
-            let html = `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:14px;">`;
-
-            data.incharges.forEach(person => {
-                // Access state
-                const noAccess   = !person.has_access;
-                const viewOnly   = person.has_access && person.can_view && !person.can_edit;
-                const fullAccess = person.has_access && person.can_view && person.can_edit;
-
-                // Status badge
-                let statusBadge;
-                if (noAccess) {
-                    statusBadge = `<span style="display:inline-flex;align-items:center;gap:4px;background:#f1f5f9;color:#94a3b8;border:1px solid #e2e8f0;border-radius:20px;font-size:0.7rem;font-weight:700;padding:3px 10px;">
-                        <i class="bi bi-dash-circle"></i> No Access</span>`;
-                } else if (viewOnly) {
-                    statusBadge = `<span style="display:inline-flex;align-items:center;gap:4px;background:#d1fae5;color:#065f46;border:1px solid #a7f3d0;border-radius:20px;font-size:0.7rem;font-weight:700;padding:3px 10px;">
-                        <i class="bi bi-eye-fill"></i> View Only</span>`;
-                } else {
-                    statusBadge = `<span style="display:inline-flex;align-items:center;gap:4px;background:#dbeafe;color:#1e40af;border:1px solid #bfdbfe;border-radius:20px;font-size:0.7rem;font-weight:700;padding:3px 10px;">
-                        <i class="bi bi-pencil-fill"></i> View &amp; Edit</span>`;
-                }
-
-                // Action buttons
-                let btns = '';
-                if (noAccess) {
-                    btns = `
-                        <button class="acc-btn acc-btn-view" onclick="grantAccess('${person.slug}','view',this)">
-                            <i class="bi bi-eye"></i> Grant View
-                        </button>
-                        <button class="acc-btn acc-btn-edit" onclick="grantAccess('${person.slug}','edit',this)">
-                            <i class="bi bi-pencil"></i> Grant Edit
-                        </button>`;
-                } else if (viewOnly) {
-                    btns = `
-                        <button class="acc-btn acc-btn-edit" onclick="grantAccess('${person.slug}','edit',this)">
-                            <i class="bi bi-pencil"></i> Grant Edit
-                        </button>
-                        <button class="acc-btn acc-btn-revoke" onclick="revokeAccess('${person.slug}','all',this)">
-                            <i class="bi bi-x-circle"></i> Revoke
-                        </button>`;
-                } else {
-                    btns = `
-                        <button class="acc-btn acc-btn-revoke-edit" onclick="revokeAccess('${person.slug}','edit',this)">
-                            <i class="bi bi-pencil-slash"></i> Remove Edit
-                        </button>
-                        <button class="acc-btn acc-btn-revoke" onclick="revokeAccess('${person.slug}','all',this)">
-                            <i class="bi bi-x-circle"></i> Revoke All
-                        </button>`;
-                }
-
-                // Avatar initials
-                const initials = person.name.split(' ').map(w => w[0]).join('').slice(0,2).toUpperCase();
-                const avatarBg = noAccess ? '#e2e8f0' : (viewOnly ? '#d1fae5' : '#dbeafe');
-                const avatarColor = noAccess ? '#94a3b8' : (viewOnly ? '#065f46' : '#1e40af');
-
-                html += `
-                    <div style="background:white;border-radius:14px;border:1px solid #e2e8f0;padding:18px 16px;
-                                box-shadow:0 1px 4px rgba(0,0,0,0.04);display:flex;flex-direction:column;gap:12px;">
-                        <!-- Header: avatar + name -->
-                        <div style="display:flex;align-items:center;gap:12px;">
-                            <div style="width:42px;height:42px;border-radius:12px;background:${avatarBg};
-                                        color:${avatarColor};display:flex;align-items:center;justify-content:center;
-                                        font-weight:800;font-size:0.9rem;flex-shrink:0;">${initials}</div>
-                            <div style="min-width:0;">
-                                <div style="font-weight:700;color:#1e293b;font-size:0.92rem;
-                                            white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${person.name}</div>
-                                <div style="font-size:0.75rem;color:#94a3b8;
-                                            white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${person.email}</div>
-                            </div>
-                        </div>
-                        <!-- Status badge -->
-                        <div>${statusBadge}</div>
-                        <!-- Action buttons -->
-                        <div style="display:flex;gap:7px;flex-wrap:wrap;">${btns}</div>
-                    </div>`;
-            });
-
-            html += `</div>`;
-
-            // Inject card styles once
+            // Inject shared card styles once
             if (!document.getElementById('accCardStyles')) {
                 const s = document.createElement('style');
                 s.id = 'accCardStyles';
@@ -1494,6 +1610,8 @@ function loadAccessManagement() {
                     .acc-btn-view:hover  { background:#16a34a;color:#fff;border-color:#16a34a; }
                     .acc-btn-edit        { background:#eff6ff;color:#2563eb;border-color:#bfdbfe; }
                     .acc-btn-edit:hover  { background:#2563eb;color:#fff;border-color:#2563eb; }
+                    .acc-btn-grant       { background:#f0fdf4;color:#16a34a;border-color:#bbf7d0; }
+                    .acc-btn-grant:hover { background:#16a34a;color:#fff;border-color:#16a34a; }
                     .acc-btn-revoke-edit        { background:#fff7ed;color:#c2410c;border-color:#fed7aa; }
                     .acc-btn-revoke-edit:hover  { background:#c2410c;color:#fff;border-color:#c2410c; }
                     .acc-btn-revoke        { background:#fef2f2;color:#dc2626;border-color:#fecaca; }
@@ -1502,6 +1620,95 @@ function loadAccessManagement() {
                 document.head.appendChild(s);
             }
 
+            let html = `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:14px;">`;
+
+            data.incharges.forEach(person => {
+                let statusBadge, btns;
+
+                if (isMaster) {
+                    // ── Master Inventory tab ──
+                    const noAccess   = !person.has_access;
+                    const viewOnly   = person.has_access && person.can_view && !person.can_edit;
+                    const fullAccess = person.has_access && person.can_view && person.can_edit;
+
+                    if (noAccess) {
+                        statusBadge = `<span style="display:inline-flex;align-items:center;gap:4px;background:#f1f5f9;color:#94a3b8;border:1px solid #e2e8f0;border-radius:20px;font-size:0.7rem;font-weight:700;padding:3px 10px;">
+                            <i class="bi bi-dash-circle"></i> No Access</span>`;
+                        btns = `
+                            <button class="acc-btn acc-btn-view" onclick="grantMasterAccess('${person.slug}','view',this)">
+                                <i class="bi bi-eye"></i> Grant View
+                            </button>
+                            <button class="acc-btn acc-btn-edit" onclick="grantMasterAccess('${person.slug}','edit',this)">
+                                <i class="bi bi-pencil"></i> Grant Edit
+                            </button>`;
+                    } else if (viewOnly) {
+                        statusBadge = `<span style="display:inline-flex;align-items:center;gap:4px;background:#d1fae5;color:#065f46;border:1px solid #a7f3d0;border-radius:20px;font-size:0.7rem;font-weight:700;padding:3px 10px;">
+                            <i class="bi bi-eye-fill"></i> View Only</span>`;
+                        btns = `
+                            <button class="acc-btn acc-btn-edit" onclick="grantMasterAccess('${person.slug}','edit',this)">
+                                <i class="bi bi-pencil"></i> Grant Edit
+                            </button>
+                            <button class="acc-btn acc-btn-revoke" onclick="revokeMasterAccess('${person.slug}','all',this)">
+                                <i class="bi bi-x-circle"></i> Revoke
+                            </button>`;
+                    } else {
+                        statusBadge = `<span style="display:inline-flex;align-items:center;gap:4px;background:#dbeafe;color:#1e40af;border:1px solid #bfdbfe;border-radius:20px;font-size:0.7rem;font-weight:700;padding:3px 10px;">
+                            <i class="bi bi-pencil-fill"></i> View &amp; Edit</span>`;
+                        btns = `
+                            <button class="acc-btn acc-btn-revoke-edit" onclick="revokeMasterAccess('${person.slug}','edit',this)">
+                                <i class="bi bi-pencil-slash"></i> Remove Edit
+                            </button>
+                            <button class="acc-btn acc-btn-revoke" onclick="revokeMasterAccess('${person.slug}','all',this)">
+                                <i class="bi bi-x-circle"></i> Revoke All
+                            </button>`;
+                    }
+                } else {
+                    // ── Assign Inventory tab ──
+                    const hasAccess = person.has_access && person.can_assign;
+                    if (!hasAccess) {
+                        statusBadge = `<span style="display:inline-flex;align-items:center;gap:4px;background:#f1f5f9;color:#94a3b8;border:1px solid #e2e8f0;border-radius:20px;font-size:0.7rem;font-weight:700;padding:3px 10px;">
+                            <i class="bi bi-dash-circle"></i> No Access</span>`;
+                        btns = `
+                            <button class="acc-btn acc-btn-grant" onclick="grantAssignAccess('${person.slug}',this)">
+                                <i class="bi bi-check-circle"></i> Grant Access
+                            </button>`;
+                    } else {
+                        statusBadge = `<span style="display:inline-flex;align-items:center;gap:4px;background:#d1fae5;color:#065f46;border:1px solid #a7f3d0;border-radius:20px;font-size:0.7rem;font-weight:700;padding:3px 10px;">
+                            <i class="bi bi-arrow-right-circle-fill"></i> Can Assign</span>`;
+                        btns = `
+                            <button class="acc-btn acc-btn-revoke" onclick="revokeAssignAccess('${person.slug}',this)">
+                                <i class="bi bi-x-circle"></i> Revoke
+                            </button>`;
+                    }
+                }
+
+                const initials = person.name.split(' ').map(w => w[0]).join('').slice(0,2).toUpperCase();
+                const avatarBg = !person.has_access ? '#e2e8f0' : '#d1fae5';
+                const avatarColor = !person.has_access ? '#94a3b8' : '#065f46';
+
+                html += `
+                    <div style="background:white;border-radius:14px;border:1px solid #e2e8f0;padding:18px 16px;
+                                box-shadow:0 1px 4px rgba(0,0,0,0.04);display:flex;flex-direction:column;gap:12px;">
+                        <div style="display:flex;align-items:center;gap:12px;">
+                            <div style="width:42px;height:42px;border-radius:12px;background:${avatarBg};
+                                        color:${avatarColor};display:flex;align-items:center;justify-content:center;
+                                        font-weight:800;font-size:0.9rem;flex-shrink:0;">${initials}</div>
+                            <div style="min-width:0;">
+                                <div style="font-weight:700;color:#1e293b;font-size:0.92rem;
+                                            white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${person.name}</div>
+                                <div style="font-size:0.75rem;color:#94a3b8;
+                                            white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${person.email}</div>
+                            </div>
+                        </div>
+                        <div style="font-size:0.75rem;color:#64748b;">
+                            <i class="bi bi-door-open me-1"></i>${person.rooms}
+                        </div>
+                        <div>${statusBadge}</div>
+                        <div style="display:flex;gap:7px;flex-wrap:wrap;">${btns}</div>
+                    </div>`;
+            });
+
+            html += `</div>`;
             container.innerHTML = html;
         })
         .catch(() => {
@@ -1512,47 +1719,40 @@ function loadAccessManagement() {
         });
 }
 
-function grantAccess(slug, accessType, btn) {
-    btn.disabled = true;
-    const origHtml = btn.innerHTML;
-    btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
-
-    fetch('{% url "central_admin:master_inventory_grant_access" %}', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCsrf() },
-        body: JSON.stringify({ incharge_slug: slug, access_type: accessType }),
-    })
-    .then(r => r.json())
-    .then(data => {
-        if (data.status === 'success') {
-            loadAccessManagement();
-        } else {
-            btn.disabled = false;
-            btn.innerHTML = origHtml;
-            alert(data.error || 'Failed to grant access.');
-        }
-    })
-    .catch(() => {
-        btn.disabled = false;
-        btn.innerHTML = origHtml;
-        alert('Network error. Please try again.');
-    });
+// ── Master Inventory access actions ──
+function grantMasterAccess(slug, accessType, btn) {
+    _accessAction(btn, '{% url "central_admin:master_inventory_grant_access" %}',
+        { incharge_slug: slug, access_type: accessType });
 }
-
-function revokeAccess(slug, revokeType, btn) {
+function revokeMasterAccess(slug, revokeType, btn) {
     const msg = revokeType === 'all'
         ? 'Revoke ALL Master Inventory access for this incharge?'
         : 'Remove edit access? The incharge will keep view-only access.';
     if (!confirm(msg)) return;
+    _accessAction(btn, '{% url "central_admin:master_inventory_revoke_access" %}',
+        { incharge_slug: slug, revoke_type: revokeType });
+}
 
+// ── Assign Inventory access actions ──
+function grantAssignAccess(slug, btn) {
+    _accessAction(btn, '{% url "central_admin:assign_inventory_grant_access" %}',
+        { incharge_slug: slug });
+}
+function revokeAssignAccess(slug, btn) {
+    if (!confirm('Revoke Assign Inventory access for this incharge?')) return;
+    _accessAction(btn, '{% url "central_admin:assign_inventory_revoke_access" %}',
+        { incharge_slug: slug });
+}
+
+// ── Shared fetch helper ──
+function _accessAction(btn, url, payload) {
     btn.disabled = true;
     const origHtml = btn.innerHTML;
     btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
-
-    fetch('{% url "central_admin:master_inventory_revoke_access" %}', {
+    fetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCsrf() },
-        body: JSON.stringify({ incharge_slug: slug, revoke_type: revokeType }),
+        body: JSON.stringify(payload),
     })
     .then(r => r.json())
     .then(data => {
@@ -1561,7 +1761,7 @@ function revokeAccess(slug, revokeType, btn) {
         } else {
             btn.disabled = false;
             btn.innerHTML = origHtml;
-            alert(data.error || 'Failed to revoke access.');
+            alert(data.error || 'Action failed.');
         }
     })
     .catch(() => {
@@ -1570,6 +1770,10 @@ function revokeAccess(slug, revokeType, btn) {
         alert('Network error. Please try again.');
     });
 }
+
+// Keep old names as aliases so any existing inline calls still work
+function grantAccess(slug, accessType, btn) { grantMasterAccess(slug, accessType, btn); }
+function revokeAccess(slug, revokeType, btn) { revokeMasterAccess(slug, revokeType, btn); }
 </script>
 
 {% endblock content %}

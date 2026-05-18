@@ -453,6 +453,13 @@ class Item(models.Model):
     archived_count = models.IntegerField(default=0)
     product_code = models.CharField(max_length=12, blank=True, null=True)
 
+    # New fields for active/inactive tracking (from Systems kanban)
+    active_count = models.IntegerField(default=0)
+    inactive_count = models.IntegerField(default=0)
+    # Serviceable/unserviceable counts (from Archive assignments)
+    serviceable_count = models.IntegerField(default=0)
+    unserviceable_count = models.IntegerField(default=0)
+
     is_listed = models.BooleanField(default=True)
 
     created_on = models.DateTimeField(auto_now_add=True)
@@ -469,8 +476,11 @@ class Item(models.Model):
             self.item_description = f"{self.brand.brand_name} {self.item_name} - {self.category.category_name}"
 
         # AVAILABLE COUNT CALCULATION
-        calculated_available = self.total_count - self.in_use - self.archived_count
+        # available = total - active - inactive - archived (serviceable+unserviceable)
+        calculated_available = self.total_count - self.active_count - self.inactive_count - self.archived_count
         self.available_count = max(calculated_available, 0)
+        # Keep in_use in sync with active for backward compatibility
+        self.in_use = self.active_count
 
         super().save(*args, **kwargs)
 
@@ -544,6 +554,37 @@ class RevertedItem(models.Model):
         return f"{self.item.item_name} - reverted from {self.deleted_user_name}"
 
 
+class InventoryRevertHistory(models.Model):
+    """
+    Audit trail for manual returns from room inventory back to master inventory.
+    """
+    organisation = models.ForeignKey(Organisation, on_delete=models.CASCADE)
+    room = models.ForeignKey(Room, on_delete=models.SET_NULL, null=True, blank=True)
+    item_name = models.CharField(max_length=255)
+    category_name = models.CharField(max_length=255, blank=True, default='')
+    brand_name = models.CharField(max_length=255, blank=True, default='')
+    quantity = models.PositiveIntegerField()
+    reverted_by = models.ForeignKey(
+        UserProfile,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='inventory_reverts',
+    )
+    room_total_before = models.PositiveIntegerField(default=0)
+    room_total_after = models.PositiveIntegerField(default=0)
+    master_total_after = models.PositiveIntegerField(default=0)
+    note = models.CharField(max_length=255, blank=True, default='')
+    reverted_on = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-reverted_on']
+
+    def __str__(self):
+        room_name = self.room.room_name if self.room else 'Unknown room'
+        return f"Returned {self.quantity} x {self.item_name} from {room_name}"
+
+
 class ItemGroupItem(models.Model):
     item_group = models.ForeignKey(ItemGroup, on_delete=models.CASCADE)
     item = models.ForeignKey(Item, on_delete=models.CASCADE)
@@ -569,10 +610,12 @@ class ItemGroupItem(models.Model):
 
 @receiver(post_delete, sender=ItemGroupItem)
 def restore_item_count(sender, instance, **kwargs):
-    item = instance.item
-    item.available_count += instance.qty
-    item.in_use -= instance.qty
-    item.save()
+    """When an ItemGroupItem is deleted, restore the qty back to available."""
+    from django.db.models import F
+    Item.objects.filter(pk=instance.item_id).update(
+        in_use=F('in_use') - instance.qty,
+        available_count=F('available_count') + instance.qty,
+    )
 
 
 class System(models.Model):
@@ -659,11 +702,18 @@ class SystemComponent(models.Model):
 
 @receiver(post_delete, sender=SystemComponent)
 def restore_item_count_on_component_delete(sender, instance, **kwargs):
-    """Restore item counts when a system component is deleted."""
+    """
+    Restore item counts when a system component is deleted directly
+    (not via SystemComponentArchiveView which handles counts manually).
+    Only fires for direct deletes not going through the archive flow.
+    """
+    # The archive view handles count restoration manually before delete.
+    # For direct deletes (e.g. cascade), restore active_count → available_count.
     item = instance.component_item
-    item.available_count += 1
-    item.in_use -= 1
-    item.save()
+    item.active_count = max(0, item.active_count - 1)
+    item.in_use = item.active_count
+    item.available_count = max(0, item.total_count - item.active_count - item.inactive_count - item.archived_count)
+    item.save(update_fields=["active_count", "in_use", "available_count", "updated_on"])
 
 
 @receiver(post_delete, sender=System)
@@ -681,22 +731,48 @@ class Archive(models.Model):
         ('consumption', 'Consumption'),
         ('depreciation', 'Depreciation'),
     ]
+    # Category: was this item serviceable or unserviceable when archived?
+    ARCHIVE_CATEGORY_CHOICES = [
+        ('serviceable', 'Serviceable'),
+        ('unserviceable', 'Unserviceable'),
+    ]
+    # Status: current state of the archived item
+    ARCHIVE_STATUS_CHOICES = [
+        ('archived', 'Archived'),
+        ('under_maintenance', 'Under Maintenance'),
+        ('serviced', 'Serviced'),
+        ('not_serviceable', 'Not Serviceable'),
+    ]
+
     organisation = models.ForeignKey(Organisation, on_delete=models.CASCADE)
     department = models.ForeignKey(Department, null=True, blank=True, on_delete=models.CASCADE)
     room = models.ForeignKey(Room, on_delete=models.CASCADE)
     item = models.ForeignKey(Item, on_delete=models.CASCADE)
     count = models.IntegerField()
-    archive_type = models.CharField(max_length=20, choices=ARCHIVE_TYPES)
-    remark = models.TextField()
+    archive_type = models.CharField(max_length=20, choices=ARCHIVE_TYPES, blank=True, default='consumption')
+    # New: serviceable or unserviceable category
+    archive_category = models.CharField(
+        max_length=20,
+        choices=ARCHIVE_CATEGORY_CHOICES,
+        default='serviceable',
+    )
+    # New: current status of this archive entry
+    archive_status = models.CharField(
+        max_length=20,
+        choices=ARCHIVE_STATUS_CHOICES,
+        default='archived',
+    )
+    remark = models.TextField(blank=True, default='')
     archived_on = models.DateTimeField(auto_now_add=True)
+    updated_on = models.DateTimeField(auto_now=True)
     slug = models.SlugField(unique=True, max_length=255)
-    
+
     def save(self, *args, **kwargs):
         if not self.slug:
             base_slug = slugify(self.item.item_name)
             self.slug = generate_unique_slug(self, base_slug)
         super().save(*args, **kwargs)
-    
+
     def __str__(self):
         return self.item.item_name
 
@@ -1089,3 +1165,71 @@ class MasterInventoryAccess(models.Model):
         if self.can_view: perms.append('view')
         if self.can_edit: perms.append('edit')
         return f"MasterInventoryAccess: {self.incharge} [{', '.join(perms)}]"
+
+
+class AssignInventoryAccess(models.Model):
+    """
+    Tracks which room incharges have been granted access to the Assign Inventory page.
+    - can_assign: allows the incharge to assign master inventory items to their own room(s)
+    Access is granted/revoked by central admin or sub-admin.
+    Only one record per incharge (OneToOneField enforced).
+    """
+    organisation    = models.ForeignKey(Organisation, on_delete=models.CASCADE)
+    incharge        = models.OneToOneField(
+                        UserProfile,
+                        on_delete=models.CASCADE,
+                        related_name='assign_inventory_access',
+                        limit_choices_to={'is_incharge': True},
+                    )
+    granted_by      = models.ForeignKey(
+                        UserProfile,
+                        on_delete=models.SET_NULL,
+                        null=True, blank=True,
+                        related_name='assign_inventory_grants',
+                    )
+    can_assign      = models.BooleanField(default=True, help_text="Allow incharge to assign master inventory to their rooms")
+    granted_on      = models.DateTimeField(auto_now_add=True)
+    updated_on      = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = 'Assign Inventory Access'
+        verbose_name_plural = 'Assign Inventory Accesses'
+
+    def __str__(self):
+        return f"AssignInventoryAccess: {self.incharge} [can_assign={self.can_assign}]"
+
+
+# ─────────────────────────────────────────────────────────────────────
+# ITEM CONFIGURATION — Lab-style spec sheets attached to items
+# ─────────────────────────────────────────────────────────────────────
+
+class ItemConfiguration(models.Model):
+    """
+    Stores a named configuration (spec sheet) for one or more items in a room.
+    configuration_data: JSON array of {spec, value} objects (same format as SystemConfiguration).
+    count: how many of that item are configured with this configuration.
+    """
+    organisation = models.ForeignKey(Organisation, on_delete=models.CASCADE)
+    room = models.ForeignKey(Room, on_delete=models.CASCADE)
+    item = models.ForeignKey(Item, on_delete=models.CASCADE, related_name='configurations')
+    configuration_name = models.CharField(max_length=255, blank=True, default='')
+    configuration_data = models.TextField(default='[]', help_text='JSON array of {spec, value} objects')
+    count = models.PositiveIntegerField(default=1, help_text='How many of this item have this configuration')
+    created_by = models.ForeignKey(
+        UserProfile,
+        null=True, blank=True,
+        on_delete=models.SET_NULL,
+        related_name='item_configurations_created',
+    )
+    created_on = models.DateTimeField(auto_now_add=True)
+    updated_on = models.DateTimeField(auto_now=True)
+    slug = models.SlugField(unique=True, max_length=255)
+
+    def save(self, *args, **kwargs):
+        if not self.slug:
+            base_slug = slugify(f"{self.item.item_name}-config")
+            self.slug = generate_unique_slug(self, base_slug)
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return f"Config: {self.configuration_name or self.item.item_name} ({self.count})"

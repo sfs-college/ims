@@ -1,0 +1,314 @@
+{% extends "sidebar_base.html" %}
+{% load static %}
+{% block title %} | Configurations{% endblock title %}
+{% block style %}
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
+<style>
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700;9..40,800&family=JetBrains+Mono:wght@400;500&display=swap');
+:root{--accent:#6c63ff;--surface:#fff;--surface-2:#f8f8fc;--border:#ebebf5;--text:#1a1a2e;--text-muted:#7c7c9a;}
+body{background:#f4f4fb;font-family:'DM Sans',sans-serif;}
+.page-header{display:flex;justify-content:space-between;align-items:center;margin:28px 0 20px;flex-wrap:wrap;gap:12px;}
+.page-title{font-size:20px;font-weight:700;color:var(--text);margin:0;}
+.btn-add-cfg{display:inline-flex;align-items:center;gap:6px;padding:9px 18px;background:linear-gradient(135deg,var(--accent),#8b7cf8);color:#fff;border:none;border-radius:9px;font-size:13.5px;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif;box-shadow:0 2px 12px rgba(108,99,255,0.3);transition:all 0.18s;}
+.btn-add-cfg:hover{transform:translateY(-1px);box-shadow:0 4px 18px rgba(108,99,255,0.4);}
+.data-card{background:var(--surface);border-radius:14px;border:1px solid var(--border);overflow:hidden;box-shadow:0 1px 8px rgba(0,0,0,0.04);}
+.data-table{width:100%;border-collapse:collapse;}
+.data-table thead tr{background:var(--surface-2);border-bottom:1px solid var(--border);}
+.data-table thead th{padding:12px 18px;font-size:11.5px;font-weight:700;text-transform:uppercase;letter-spacing:0.07em;color:var(--text-muted);white-space:nowrap;}
+.data-table tbody tr{border-bottom:1px solid var(--border);transition:background 0.14s;}
+.data-table tbody tr:last-child{border-bottom:none;}
+.data-table tbody tr:hover{background:#f9f8ff;}
+.data-table tbody td{padding:13px 18px;font-size:14px;color:var(--text);vertical-align:middle;}
+.cfg-name-cell{font-weight:600;display:flex;align-items:center;gap:8px;}
+.cfg-icon{width:28px;height:28px;border-radius:7px;background:linear-gradient(135deg,rgba(108,99,255,0.12),rgba(108,99,255,0.06));display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+.cfg-icon i{font-size:13px;color:var(--accent);}
+.item-badge{display:inline-flex;align-items:center;gap:5px;background:#f0f0ff;color:var(--accent);border:1px solid #ddd8ff;border-radius:8px;padding:3px 10px;font-size:12px;font-weight:700;}
+.count-badge{display:inline-flex;align-items:center;background:#f1f5f9;color:#475569;border-radius:8px;padding:3px 10px;font-size:12px;font-weight:700;}
+.date-cell{color:var(--text-muted);font-size:12.5px;}
+.btn-del{display:inline-flex;align-items:center;gap:4px;padding:5px 10px;background:#fef2f2;color:#dc2626;border:1px solid #fecaca;border-radius:7px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;transition:all 0.14s;}
+.btn-del:hover{background:#dc2626;color:#fff;}
+.empty-state{text-align:center;padding:60px 24px;color:var(--text-muted);}
+.empty-state i{font-size:3rem;display:block;margin-bottom:12px;opacity:0.2;}
+
+/* ── Add Config Modal ── */
+.cfg-overlay{display:none;position:fixed;inset:0;z-index:1050;background:rgba(15,23,42,0.55);backdrop-filter:blur(6px);align-items:center;justify-content:center;padding:20px;}
+.cfg-overlay.open{display:flex;}
+.cfg-modal{background:#fff;border-radius:20px;width:100%;max-width:780px;max-height:90vh;display:flex;flex-direction:column;position:relative;box-shadow:0 25px 50px -10px rgba(0,0,0,0.25);overflow:hidden;}
+.cfg-modal-header{padding:24px 28px 20px;border-bottom:1px solid var(--border);flex-shrink:0;}
+.cfg-modal-header h5{font-weight:800;color:#1a1a2e;margin:0 0 4px;font-size:17px;}
+.cfg-modal-header p{font-size:13px;color:#7c7c9a;margin:0;}
+.cfg-close-btn{position:absolute;top:16px;right:20px;background:#f1f5f9;border:none;border-radius:50%;width:28px;height:28px;cursor:pointer;display:flex;align-items:center;justify-content:center;color:#64748b;font-size:15px;}
+.cfg-close-btn:hover{background:#e2e8f0;}
+.cfg-modal-body{display:flex;flex:1;overflow:hidden;min-height:0;}
+.cfg-pane-left{width:220px;flex-shrink:0;border-right:1px solid var(--border);padding:16px 14px;overflow-y:auto;background:#fafafa;}
+.cfg-pane-left-title{font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:#94a3b8;margin-bottom:10px;padding-left:4px;}
+.cfg-item-row{display:flex;align-items:center;gap:9px;padding:9px 10px;border-radius:9px;cursor:pointer;transition:background .12s;margin-bottom:2px;}
+.cfg-item-row:hover{background:#f0f0ff;}
+.cfg-item-row input[type="checkbox"]{accent-color:#6c63ff;width:14px;height:14px;cursor:pointer;flex-shrink:0;}
+.cfg-item-row span{font-size:13px;font-weight:500;color:#1a1a2e;line-height:1.3;}
+.cfg-pane-right{flex:1;overflow-y:auto;padding:20px 24px;min-width:0;}
+.cfg-pane-right-title{font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:#94a3b8;margin-bottom:14px;}
+.cfg-name-input{width:100%;padding:9px 12px;border:1.5px solid var(--border);border-radius:9px;font-size:13px;font-family:'DM Sans',sans-serif;outline:none;margin-bottom:14px;box-sizing:border-box;}
+.cfg-name-input:focus{border-color:var(--accent);}
+.cfg-count-input{width:100%;padding:9px 12px;border:1.5px solid var(--border);border-radius:9px;font-size:13px;font-family:'DM Sans',sans-serif;outline:none;margin-bottom:14px;box-sizing:border-box;}
+.cfg-count-input:focus{border-color:var(--accent);}
+.spec-table{width:100%;border-collapse:collapse;border-radius:11px;overflow:hidden;border:1.5px solid var(--border);}
+.spec-table thead tr{background:var(--surface-2);}
+.spec-table thead th{padding:10px 14px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.07em;color:var(--text-muted);text-align:left;border-bottom:1.5px solid var(--border);}
+.spec-table thead th:first-child{width:46%;}
+.spec-table tbody tr{border-bottom:1px solid var(--border);transition:background .12s;}
+.spec-table tbody tr:last-child{border-bottom:none;}
+.spec-table tbody tr:hover{background:#f9f8ff;}
+.spec-table tbody td{padding:0;vertical-align:middle;}
+.spec-key-cell{padding:11px 14px;border-right:1px solid var(--border);}
+.spec-value-cell{padding:8px 10px;}
+.spec-value-wrap{display:flex;align-items:center;gap:6px;}
+.spec-value-text{flex:1;font-size:13px;color:var(--text);padding:6px 10px;border-radius:7px;border:1.5px solid transparent;background:transparent;font-family:'DM Sans',sans-serif;transition:border-color .15s,background .15s;min-width:0;width:100%;pointer-events:none;user-select:none;}
+.spec-value-text.editable{border-color:#6c63ff;background:#f7f6ff;pointer-events:auto;user-select:text;}
+.spec-edit-btn{flex-shrink:0;width:28px;height:28px;border-radius:7px;border:1px solid var(--border);background:#fff;color:#94a3b8;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:all .14s;}
+.spec-edit-btn:hover,.spec-edit-btn.active{border-color:#6c63ff;color:#6c63ff;background:#f0f0ff;}
+.spec-del-btn{flex-shrink:0;width:24px;height:24px;border-radius:6px;border:none;background:none;color:#fca5a5;display:flex;align-items:center;justify-content:center;cursor:pointer;opacity:0;transition:all .14s;padding:0;}
+.spec-table tbody tr:hover .spec-del-btn{opacity:1;}
+.spec-del-btn:hover{background:#fef2f2;color:#e11d48;}
+.btn-add-row{display:inline-flex;align-items:center;gap:5px;margin-top:12px;padding:7px 14px;background:#fff;color:var(--accent);border:1.5px dashed #c4bfff;border-radius:8px;font-size:12.5px;font-weight:600;cursor:pointer;transition:all .15s;font-family:'DM Sans',sans-serif;}
+.btn-add-row:hover{background:#f0f0ff;border-color:var(--accent);}
+.cfg-presets{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:16px;}
+.preset-chip{display:inline-flex;align-items:center;gap:5px;padding:5px 12px;background:#fff;border:1.5px solid var(--border);border-radius:20px;font-size:12px;font-weight:600;color:var(--text-muted);cursor:pointer;transition:all .14s;}
+.preset-chip:hover,.preset-chip.active{border-color:var(--accent);color:var(--accent);background:#f7f6ff;}
+#cfgAlert{display:none;margin:0 24px 12px;padding:9px 14px;border-radius:9px;font-size:13px;font-weight:600;flex-shrink:0;}
+.cfg-modal-footer{padding:16px 24px;border-top:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-shrink:0;gap:10px;flex-wrap:wrap;}
+.cfg-footer-hint{font-size:12px;color:var(--text-muted);}
+.btn-cfg-save{display:inline-flex;align-items:center;gap:6px;padding:10px 22px;background:linear-gradient(135deg,#6c63ff,#8b7cf8);color:#fff;border:none;border-radius:10px;font-weight:800;font-size:13.5px;cursor:pointer;font-family:'DM Sans',sans-serif;transition:all .18s;box-shadow:0 2px 12px rgba(108,99,255,0.3);}
+.btn-cfg-save:hover{transform:translateY(-1px);box-shadow:0 4px 18px rgba(108,99,255,0.4);}
+@media(max-width:640px){.cfg-modal-body{flex-direction:column;}.cfg-pane-left{width:100%;border-right:none;border-bottom:1px solid var(--border);max-height:160px;}}
+/* Toast */
+.toast-wrap{position:fixed;top:20px;right:20px;z-index:9999;display:flex;flex-direction:column;gap:8px;pointer-events:none;}
+.toast-msg{display:flex;align-items:center;gap:9px;padding:11px 15px;border-radius:11px;font-size:0.875rem;font-weight:600;box-shadow:0 4px 20px rgba(0,0,0,0.14);min-width:260px;pointer-events:all;color:#fff;animation:toastIn 0.3s ease;}
+.toast-msg.t-success{background:#059669;}.toast-msg.t-error{background:#dc2626;}
+.toast-msg.out{animation:toastOut 0.25s ease forwards;}
+@keyframes toastIn{from{opacity:0;transform:translateX(24px);}to{opacity:1;transform:translateX(0);}}
+@keyframes toastOut{to{opacity:0;transform:translateX(24px);}}
+@keyframes spin{to{transform:rotate(360deg);}}
+</style>
+{% endblock style %}
+{% block navbar %}{% include "room_incharge/navbar.html" %}{% endblock navbar %}
+{% block sidebar %}{% include "room_incharge/sidebar.html" %}{% endblock sidebar %}
+{% block content %}
+<div class="toast-wrap" id="toastWrap"></div>
+<div class="page-header">
+  <h4 class="page-title">Configurations</h4>
+  <button class="btn-add-cfg" onclick="openCfgModal()">
+    <i class="bi bi-plus-lg"></i> Add Configuration
+  </button>
+</div>
+
+<div class="data-card">
+  {% if configurations %}
+  <div class="table-responsive">
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Configuration Name</th>
+          <th>Item</th>
+          <th>Count</th>
+          <th>Created On</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for cfg in configurations %}
+        <tr>
+          <td>
+            <div class="cfg-name-cell">
+              <div class="cfg-icon"><i class="bi bi-gear-fill"></i></div>
+              {{ cfg.configuration_name|default:"—" }}
+            </div>
+          </td>
+          <td><span class="item-badge"><i class="bi bi-box2 me-1"></i>{{ cfg.item.item_name }}</span></td>
+          <td><span class="count-badge">{{ cfg.count }} unit{{ cfg.count|pluralize }}</span></td>
+          <td class="date-cell">{{ cfg.created_on.date }}</td>
+          <td>
+            <button class="btn-del" onclick="deleteConfig('{{ cfg.slug }}',event)">
+              <i class="bi bi-trash3"></i> Delete
+            </button>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="empty-state">
+    <i class="bi bi-gear"></i>
+    <p>No configurations yet. Click "Add Configuration" to create one.</p>
+  </div>
+  {% endif %}
+</div>
+
+<!-- ── Add Configuration Modal ── -->
+<div id="cfgOverlay" class="cfg-overlay" onclick="if(event.target===this)closeCfgModal()">
+  <div class="cfg-modal">
+    <div class="cfg-modal-header">
+      <h5>Add Configuration</h5>
+      <p>Select items on the left, set a name and count, then fill in specification rows.</p>
+      <button class="cfg-close-btn" onclick="closeCfgModal()">✕</button>
+    </div>
+    <div class="cfg-modal-body">
+      <!-- Left: item selector -->
+      <div class="cfg-pane-left">
+        <div class="cfg-pane-left-title">Items</div>
+        {% for item in items %}
+        <label class="cfg-item-row">
+          <input type="checkbox" class="item-checkbox" value="{{ item.id }}" data-name="{{ item.item_name|escapejs }}" data-avail="{{ item.available_count }}">
+          <span>{{ item.item_name }}</span>
+        </label>
+        {% empty %}
+        <p style="text-align:center;color:#94a3b8;font-size:13px;padding:10px 0;">No items found.</p>
+        {% endfor %}
+      </div>
+      <!-- Right: spec table -->
+      <div class="cfg-pane-right">
+        <div class="cfg-pane-right-title">Configuration Details</div>
+        <input type="text" class="cfg-name-input" id="cfgNameInput" placeholder="Configuration name (e.g. Lab PC Setup A)">
+        <input type="number" class="cfg-count-input" id="cfgCountInput" placeholder="Count (how many items have this config)" min="1" value="1">
+        <div class="cfg-presets">
+          <button class="preset-chip" onclick="applyPreset('computer')"><i class="bi bi-pc-display me-1"></i>Computer</button>
+          <button class="preset-chip" onclick="applyPreset('chemistry')"><i class="bi bi-flask me-1"></i>Chemistry</button>
+          <button class="preset-chip" onclick="applyPreset('physics')"><i class="bi bi-lightning me-1"></i>Physics</button>
+          <button class="preset-chip" onclick="applyPreset('electronics')"><i class="bi bi-cpu me-1"></i>Electronics</button>
+          <button class="preset-chip" onclick="applyPreset('general')"><i class="bi bi-list-ul me-1"></i>General</button>
+        </div>
+        <table class="spec-table" id="specTable">
+          <thead><tr><th>Specification</th><th>Value / Details</th></tr></thead>
+          <tbody id="specRows"></tbody>
+        </table>
+        <button class="btn-add-row" onclick="addSpecRow()"><i class="bi bi-plus-lg"></i> Add Row</button>
+      </div>
+    </div>
+    <div id="cfgAlert"></div>
+    <div class="cfg-modal-footer">
+      <span class="cfg-footer-hint"><b id="selectedCount">0</b> item(s) selected</span>
+      <button class="btn-cfg-save" id="saveCfgBtn" onclick="saveConfiguration()">
+        <i class="bi bi-check-lg"></i> Save Configuration
+      </button>
+    </div>
+  </div>
+</div>
+
+<script>
+const CSRF=(()=>{ const c=document.cookie.split(';').find(x=>x.trim().startsWith('csrftoken=')); return c?decodeURIComponent(c.trim().split('=')[1]):''; })();
+const ROOM_SLUG='{{ room_slug }}';
+
+const PRESETS={
+  computer:[['Processor','e.g. Intel Core i5-12400'],['RAM','e.g. 8 GB DDR4'],['Storage','e.g. 256 GB SSD'],['Operating System','e.g. Windows 11 Pro'],['Monitor Size','e.g. 21.5 inch FHD'],['GPU','e.g. Intel UHD 730'],['Network','e.g. Gigabit Ethernet']],
+  chemistry:[['Instrument Name','e.g. Spectrophotometer'],['Model / Make','e.g. Shimadzu UV-1800'],['Measurement Range','e.g. 190–1100 nm'],['Power Supply','e.g. 220V AC 50 Hz'],['Calibration Due','e.g. 2025-06-01'],['Reagents Used','e.g. HCl, NaOH']],
+  physics:[['Equipment Name','e.g. Vernier Caliper'],['Make / Brand','e.g. Mitutoyo'],['Least Count','e.g. 0.02 mm'],['Range','e.g. 0–150 mm'],['Calibrated On','e.g. 2024-09-15'],['Condition','e.g. Good']],
+  electronics:[['Component / Board','e.g. Arduino Uno Rev3'],['Microcontroller','e.g. ATmega328P'],['Operating Voltage','e.g. 5V'],['Clock Speed','e.g. 16 MHz'],['I/O Pins','e.g. 14 Digital, 6 Analog'],['Interface','e.g. USB, UART, SPI, I2C']],
+  general:[['Item Name','Enter item name'],['Make / Brand','Enter brand'],['Model Number','Enter model/serial'],['Quantity','Enter quantity'],['Condition','e.g. Good / Fair / Poor'],['Remarks','Any additional notes']],
+};
+let activePreset=null, rowCounter=0;
+
+function applyPreset(key){
+  if(activePreset===key){ activePreset=null; document.querySelectorAll('.preset-chip').forEach(c=>c.classList.remove('active')); clearRows(); addSpecRow(); return; }
+  activePreset=key;
+  document.querySelectorAll('.preset-chip').forEach(c=>c.classList.remove('active'));
+  event.currentTarget.classList.add('active');
+  clearRows();
+  PRESETS[key].forEach(([s,h])=>addSpecRow(s,'',h));
+}
+function clearRows(){ document.getElementById('specRows').innerHTML=''; }
+function addSpecRow(specVal='',valueVal='',hintText=''){
+  rowCounter++;
+  const id=rowCounter;
+  const tbody=document.getElementById('specRows');
+  const tr=document.createElement('tr');
+  tr.id='spec-row-'+id;
+  tr.innerHTML=`<td class="spec-key-cell"><div><input type="text" class="spec-value-text editable" style="border-color:#ebebf5;background:#fafafa;" placeholder="e.g. Processor, RAM…" value="${escHtml(specVal)}" onfocus="this.style.borderColor='#6c63ff';this.style.background='#f7f6ff';" onblur="this.style.borderColor='#ebebf5';this.style.background='#fafafa';">${hintText?`<div style="font-size:11px;color:#94a3b8;margin-top:2px;font-family:monospace;">${escHtml(hintText)}</div>`:''}</div></td>
+  <td class="spec-value-cell"><div class="spec-value-wrap"><input type="text" id="val-${id}" class="spec-value-text" placeholder="Enter value…" value="${escHtml(valueVal)}"><button class="spec-edit-btn" id="editBtn-${id}" onclick="toggleEdit(${id})" title="Edit"><i class="bi bi-pencil" style="font-size:11px;"></i></button><button class="spec-del-btn" onclick="deleteRow(${id})" title="Remove"><i class="bi bi-x" style="font-size:12px;"></i></button></div></td>`;
+  tbody.appendChild(tr);
+  if(!specVal){ const v=tr.querySelector('#val-'+id); const b=tr.querySelector('#editBtn-'+id); enableEdit(v,b); }
+}
+function enableEdit(input,btn){ input.classList.add('editable'); input.removeAttribute('readonly'); input.focus(); if(btn) btn.classList.add('active'); }
+function disableEdit(input,btn){ input.classList.remove('editable'); if(btn) btn.classList.remove('active'); }
+function toggleEdit(id){ const i=document.getElementById('val-'+id); const b=document.getElementById('editBtn-'+id); i.classList.contains('editable')?disableEdit(i,b):enableEdit(i,b); }
+function deleteRow(id){ const r=document.getElementById('spec-row-'+id); if(r) r.remove(); }
+function escHtml(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+document.addEventListener('change',e=>{ if(e.target.classList.contains('item-checkbox')){ document.getElementById('selectedCount').textContent=document.querySelectorAll('.item-checkbox:checked').length; } });
+
+function openCfgModal(){
+  document.getElementById('cfgOverlay').classList.add('open');
+  document.getElementById('cfgAlert').style.display='none';
+  document.querySelectorAll('.item-checkbox').forEach(c=>c.checked=false);
+  document.getElementById('selectedCount').textContent='0';
+  document.querySelectorAll('.preset-chip').forEach(c=>c.classList.remove('active'));
+  document.getElementById('cfgNameInput').value='';
+  document.getElementById('cfgCountInput').value='1';
+  activePreset=null; clearRows(); addSpecRow();
+  const btn=document.getElementById('saveCfgBtn'); btn.disabled=false; btn.innerHTML='<i class="bi bi-check-lg"></i> Save Configuration';
+}
+function closeCfgModal(){ document.getElementById('cfgOverlay').classList.remove('open'); }
+
+function collectRows(){
+  const rows=[];
+  document.querySelectorAll('#specRows tr').forEach(tr=>{
+    const inputs=tr.querySelectorAll('input[type="text"]');
+    const spec=inputs[0]?inputs[0].value.trim():'';
+    const val=inputs[1]?inputs[1].value.trim():'';
+    if(spec||val) rows.push({spec,value:val});
+  });
+  return rows;
+}
+
+function saveConfiguration(){
+  const selected=[...document.querySelectorAll('.item-checkbox:checked')].map(c=>c.value);
+  const rows=collectRows();
+  const name=document.getElementById('cfgNameInput').value.trim();
+  const count=parseInt(document.getElementById('cfgCountInput').value||1,10);
+  const alertEl=document.getElementById('cfgAlert');
+  const btn=document.getElementById('saveCfgBtn');
+  alertEl.style.display='none';
+  if(!selected.length){ showCfgAlert('Please select at least one item.','error'); return; }
+  if(!rows.length){ showCfgAlert('Please add at least one specification row.','error'); return; }
+  if(count<1){ showCfgAlert('Count must be at least 1.','error'); return; }
+  btn.disabled=true; btn.innerHTML='<i class="bi bi-arrow-repeat" style="animation:spin 1s linear infinite;display:inline-block;"></i> Saving…';
+  fetch(`/room_incharge/rooms/${ROOM_SLUG}/api/configurations/save/`,{
+    method:'POST',
+    headers:{'Content-Type':'application/json','X-CSRFToken':CSRF},
+    body:JSON.stringify({item_ids:selected, configuration_name:name, configuration_data:JSON.stringify(rows), count:count})
+  }).then(r=>r.json()).then(d=>{
+    btn.disabled=false;
+    if(d.success){ btn.innerHTML='<i class="bi bi-check-circle-fill"></i> Saved!'; showToast('Configuration saved successfully.','t-success'); setTimeout(()=>{ closeCfgModal(); location.reload(); },1200); }
+    else{ btn.innerHTML='<i class="bi bi-check-lg"></i> Save Configuration'; showCfgAlert(d.error||'Save failed.','error'); }
+  }).catch(()=>{ btn.disabled=false; btn.innerHTML='<i class="bi bi-check-lg"></i> Save Configuration'; showCfgAlert('Network error.','error'); });
+}
+
+function showCfgAlert(msg,type){
+  const el=document.getElementById('cfgAlert');
+  el.style.display='block';
+  el.style.background=type==='success'?'#f0fdf4':'#fef2f2';
+  el.style.color=type==='success'?'#166534':'#dc2626';
+  el.style.border=`1px solid ${type==='success'?'#bbf7d0':'#fecaca'}`;
+  el.textContent=msg;
+}
+
+function deleteConfig(slug, e){
+  e.stopPropagation();
+  if(!confirm('Delete this configuration? This cannot be undone.')) return;
+  fetch(`/room_incharge/rooms/${ROOM_SLUG}/api/configurations/${slug}/delete/`,{
+    method:'POST', headers:{'Content-Type':'application/json','X-CSRFToken':CSRF}
+  }).then(r=>r.json()).then(d=>{
+    if(d.success){ showToast('Configuration deleted.','t-success'); setTimeout(()=>location.reload(),700); }
+    else showToast(d.error||'Delete failed.','t-error');
+  }).catch(()=>showToast('Network error.','t-error'));
+}
+
+function showToast(msg,type){
+  const wrap=document.getElementById('toastWrap');
+  const d=document.createElement('div'); d.className='toast-msg '+type;
+  d.innerHTML=`<i class="bi bi-${type==='t-success'?'check-circle-fill':'x-circle-fill'}"></i> ${msg}`;
+  wrap.appendChild(d);
+  setTimeout(()=>{ d.classList.add('out'); setTimeout(()=>d.remove(),280); },3200);
+}
+</script>
+{% endblock content %}

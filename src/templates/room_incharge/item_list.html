@@ -1,303 +1,108 @@
 {% extends "sidebar_base.html" %}
 {% load static %}
 
-{% block title %} | Item List{% endblock title %}
+{% block title %} | Items{% endblock title %}
 
 {% block style %}
 <link rel="stylesheet" href="{% static 'styles/inventory/room_incharge/item_list/style.css' %}">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
 <style>
   @import url('https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600&display=swap');
-
   :root {
-    --accent: #6c63ff;
-    --accent-lt: #a89dff;
-    --surface: #ffffff;
-    --surface-2: #f8f8fc;
-    --border: #ebebf5;
-    --text: #1a1a2e;
-    --text-muted: #7c7c9a;
+    --accent: #6c63ff; --accent-lt: #a89dff;
+    --surface: #ffffff; --surface-2: #f8f8fc;
+    --border: #ebebf5; --text: #1a1a2e; --text-muted: #7c7c9a;
   }
-
   body { background: #f4f4fb; font-family: 'DM Sans', sans-serif; }
-
-  /* ── Page Header ── */
-  .page-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin: 28px 0 20px;
-  }
-
-  .page-title {
-    font-size: 20px;
-    font-weight: 700;
-    color: var(--text);
-    letter-spacing: -0.3px;
-    margin: 0;
-  }
-
-  /* ── Data Card + Table ── */
-  .data-card {
-    background: var(--surface);
-    border-radius: 14px;
-    border: 1px solid var(--border);
-    overflow: hidden;
-    box-shadow: 0 1px 8px rgba(0,0,0,0.04);
-  }
-
-  .data-table {
-    width: 100%;
-    border-collapse: collapse;
-    font-family: 'DM Sans', sans-serif;
-  }
-
-  .data-table thead tr {
-    background: var(--surface-2);
-    border-bottom: 1px solid var(--border);
-  }
-
-  .data-table thead th {
-    padding: 12px 18px;
-    font-size: 11.5px;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.07em;
-    color: var(--text-muted);
-    white-space: nowrap;
-  }
-
-  .data-table tbody tr {
-    border-bottom: 1px solid var(--border);
-    transition: background 0.14s;
-  }
-  .data-table tbody tr:last-child { border-bottom: none; }
-  .data-table tbody tr:hover { background: #f9f8ff; }
-
-  .data-table tbody td {
-    padding: 13px 18px;
-    font-size: 14px;
-    color: var(--text);
-    vertical-align: middle;
-  }
-
-  .item-name-cell {
-    font-weight: 600;
-    display: flex;
-    align-items: center;
-    gap: 9px;
-  }
-
-  .item-icon {
-    width: 30px; height: 30px;
-    border-radius: 8px;
-    background: linear-gradient(135deg, rgba(108,99,255,0.12), rgba(108,99,255,0.05));
-    display: flex; align-items: center; justify-content: center;
-    flex-shrink: 0;
-  }
-  .item-icon .material-symbols-outlined { font-size: 15px; color: var(--accent); }
-
-  /* Stock count pills */
-  .stock-pill {
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-    padding: 3px 10px;
-    border-radius: 20px;
-    font-size: 12px;
-    font-weight: 700;
-  }
-
-  .stock-total   { background: #f0f0ff; color: var(--accent); border: 1px solid #ddd8ff; }
-  .stock-avail   { background: #f0fdf4; color: #16a34a; border: 1px solid #bbf7d0; }
-  .stock-in-use  { background: #fff7ed; color: #c2410c; border: 1px solid #fed7aa; }
-
-  /* Actions */
-  .actions-wrap { display: flex; gap: 7px; align-items: center; flex-wrap: wrap; }
-
-  .btn-stock-request {
-    display: inline-flex;
-    align-items: center;
-    gap: 5px;
-    padding: 6px 12px;
-    background: linear-gradient(135deg, #f59e0b, #f97316);
-    color: white;
-    border: none;
-    border-radius: 7px;
-    font-size: 12.5px;
-    font-weight: 600;
-    cursor: pointer;
-    transition: all 0.14s;
-    font-family: 'DM Sans', sans-serif;
-    box-shadow: 0 2px 8px rgba(245,158,11,0.25);
-  }
-  .btn-stock-request:hover {
-    transform: translateY(-1px);
-    box-shadow: 0 4px 14px rgba(245,158,11,0.35);
-  }
-
-  .badge-stock-pending {
-    display: inline-flex;
-    align-items: center;
-    gap: 5px;
-    background: #fff7ed;
-    color: #c2410c;
-    border: 1px solid #fed7aa;
-    border-radius: 7px;
-    padding: 5px 10px;
-    font-size: 12px;
-    font-weight: 700;
-  }
-
-  /* Empty state */
-  .empty-state {
-    text-align: center;
-    padding: 60px 24px;
-    color: var(--text-muted);
-  }
-  .empty-state .material-symbols-outlined {
-    font-size: 48px;
-    opacity: 0.22;
-    display: block;
-    margin-bottom: 12px;
-  }
-  .empty-state p { margin: 0; font-size: 14px; }
-
-  /* ── Stock Request Modal ── */
-  .sr-overlay {
-    display: none; position: fixed; inset: 0; z-index: 1050;
-    background: rgba(15, 23, 42, 0.55); backdrop-filter: blur(6px);
-    align-items: center; justify-content: center; padding: 20px;
-  }
-  .sr-overlay.open { display: flex; }
-
-  .sr-modal {
-    background: #fff; border-radius: 24px; padding: 38px;
-    max-width: 460px; width: 100%; position: relative;
-    box-shadow: 0 25px 50px -10px rgba(0,0,0,0.25);
-    animation: srSlideUp 0.25s ease;
-  }
-  @keyframes srSlideUp {
-    from { transform: translateY(28px); opacity: 0; }
-    to   { transform: translateY(0);    opacity: 1; }
-  }
-  .sr-close {
-    position: absolute; top: 16px; right: 18px;
-    background: none; border: none; font-size: 1.3rem;
-    cursor: pointer; color: #94a3b8; line-height: 1;
-  }
-  .sr-close:hover { color: #475569; }
-  .sr-item-badge {
-    display: inline-block; background: #f1f5f9; border-radius: 10px;
-    padding: 6px 14px; font-size: 0.82rem; font-weight: 700;
-    color: #475569; margin-bottom: 20px;
-  }
-  .sr-label {
-    display: block; font-weight: 700; font-size: 0.8rem;
-    color: #64748b; text-transform: uppercase; letter-spacing: 0.5px;
-    margin-bottom: 6px;
-  }
-  .sr-input {
-    width: 100%; padding: 12px 15px; box-sizing: border-box;
-    border: 2px solid #e2e8f0; border-radius: 12px;
-    font-size: 0.92rem; font-weight: 500; color: #1e293b;
-    outline: none; transition: border-color 0.2s; font-family: inherit;
-    background: #fff;
-  }
-  .sr-input:focus { border-color: #6366f1; box-shadow: 0 0 0 3px rgba(99,102,241,0.1); }
-  .sr-field { margin-bottom: 18px; }
-  .sr-meta {
-    background: #f8fafc; border-radius: 12px; padding: 14px 16px;
-    margin-bottom: 20px; border: 1px solid #e2e8f0;
-  }
-  .sr-meta-row { display: flex; justify-content: space-between; font-size: 0.85rem; }
-  .sr-meta-row + .sr-meta-row { margin-top: 6px; }
-  .sr-meta-row span:first-child { color: #64748b; font-weight: 500; }
-  .sr-meta-row span:last-child  { font-weight: 700; color: #1e293b; }
-  .sr-alert {
-    border-radius: 10px; padding: 10px 14px; font-size: 0.83rem;
-    font-weight: 600; margin-bottom: 14px; display: none;
-  }
-  .sr-alert.error   { background: #fef2f2; border:1px solid #fecaca; color: #dc2626; }
-  .sr-alert.success { background: #f0fdf4; border:1px solid #bbf7d0; color: #166534; }
-  .sr-btn-submit {
-    width: 100%; background: linear-gradient(135deg, #6366f1, #9333ea);
-    color: #fff; border: none; border-radius: 13px; padding: 13px;
-    font-weight: 800; font-size: 0.92rem; cursor: pointer;
-    transition: opacity 0.2s; font-family: inherit;
-  }
-  .sr-btn-submit:hover    { opacity: 0.88; }
-  .sr-btn-submit:disabled { opacity: 0.55; cursor: not-allowed; }
-  .sr-btn-cancel {
-    width: 100%; background: #f1f5f9; color: #475569;
-    border: none; border-radius: 13px; padding: 12px;
-    font-weight: 700; font-size: 0.88rem; cursor: pointer;
-    margin-top: 10px; font-family: inherit;
-  }
-
-  .data-table tbody td {
-    padding: 13px 18px;
-    font-size: 14px;
-    color: var(--text);
-    vertical-align: middle;
-    text-align: center;
-  }
-
-  .data-table tbody td:first-child { text-align: left; }
-  .data-table tbody td:last-child  { text-align: left; }
-
-  .data-table thead th {
-    padding: 12px 18px;
-    font-size: 11.5px;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.07em;
-    color: var(--text-muted);
-    white-space: nowrap;
-    text-align: center;
-  }
-
-  .data-table thead th:first-child { text-align: left; }
-  .data-table thead th:last-child  { text-align: left; }
-
-  /* Mobile: make table scroll and stack action buttons */
-  @media (max-width: 768px) {
-    .data-table thead th,
-    .data-table tbody td {
-      font-size: 0.78rem;
-      padding: 8px 10px !important;
-    }
-    .actions-wrap {
-      flex-direction: column;
-      gap: 6px;
-    }
-    .btn-stock-request {
-      width: 100%;
-      justify-content: center;
-      font-size: 0.75rem;
-      padding: 8px 10px;
-    }
-    .badge-stock-pending {
-      width: 100%;
-      justify-content: center;
-      font-size: 0.72rem;
-    }
-    .stock-pill { font-size: 0.72rem; padding: 2px 7px; }
-  }
-  @media (max-width: 480px) {
-    .data-table thead th,
-    .data-table tbody td { font-size: 0.72rem; padding: 6px 8px !important; }
-    .page-header { flex-direction: column; align-items: flex-start; gap: 10px; }
+  .page-header { display:flex; justify-content:space-between; align-items:center; margin:28px 0 20px; }
+  .page-title { font-size:20px; font-weight:700; color:var(--text); letter-spacing:-0.3px; margin:0; }
+  .data-card { background:var(--surface); border-radius:14px; border:1px solid var(--border); overflow:hidden; box-shadow:0 1px 8px rgba(0,0,0,0.04); }
+  .data-table { width:100%; border-collapse:collapse; font-family:'DM Sans',sans-serif; }
+  .data-table thead tr { background:var(--surface-2); border-bottom:1px solid var(--border); }
+  .data-table thead th { padding:12px 18px; font-size:11.5px; font-weight:700; text-transform:uppercase; letter-spacing:0.07em; color:var(--text-muted); white-space:nowrap; text-align:center; }
+  .data-table thead th:first-child { text-align:left; }
+  .data-table thead th:last-child { text-align:left; }
+  .data-table tbody tr { border-bottom:1px solid var(--border); transition:background 0.14s; }
+  .data-table tbody tr:last-child { border-bottom:none; }
+  .data-table tbody tr:hover { background:#f9f8ff; }
+  .data-table tbody td { padding:13px 18px; font-size:14px; color:var(--text); vertical-align:middle; text-align:center; }
+  .data-table tbody td:first-child { text-align:left; }
+  .data-table tbody td:last-child { text-align:left; }
+  .item-name-cell { font-weight:600; display:flex; align-items:center; gap:9px; cursor:pointer; }
+  .item-name-cell:hover .item-name-text { color:var(--accent); text-decoration:underline; }
+  .item-icon { width:30px; height:30px; border-radius:8px; background:linear-gradient(135deg,rgba(108,99,255,0.12),rgba(108,99,255,0.05)); display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+  .item-icon .material-symbols-outlined { font-size:15px; color:var(--accent); }
+  .stock-pill { display:inline-flex; align-items:center; gap:4px; padding:3px 10px; border-radius:20px; font-size:12px; font-weight:700; }
+  .stock-total { background:#f0f0ff; color:var(--accent); border:1px solid #ddd8ff; }
+  .stock-avail { background:#f0fdf4; color:#16a34a; border:1px solid #bbf7d0; }
+  .stock-active { background:#eff6ff; color:#1d4ed8; border:1px solid #bfdbfe; }
+  .stock-inactive { background:#fef2f2; color:#991b1b; border:1px solid #fecaca; }
+  .stock-archived { background:#fef3c7; color:#92400e; border:1px solid #fde68a; }
+  /* Serviceable/Unserviceable toggle pill */
+  .svc-toggle-wrap { display:inline-flex; align-items:center; gap:6px; }
+  .svc-pill { display:inline-flex; align-items:center; gap:4px; padding:3px 10px; border-radius:20px; font-size:12px; font-weight:700; cursor:pointer; transition:all 0.15s; }
+  .svc-pill.serviceable { background:#f0fdf4; color:#16a34a; border:1px solid #bbf7d0; }
+  .svc-pill.unserviceable { background:#fef2f2; color:#991b1b; border:1px solid #fecaca; }
+  .actions-wrap { display:flex; gap:7px; align-items:center; flex-wrap:wrap; }
+  .btn-stock-request { display:inline-flex; align-items:center; gap:5px; padding:6px 12px; background:linear-gradient(135deg,#f59e0b,#f97316); color:white; border:none; border-radius:7px; font-size:12.5px; font-weight:600; cursor:pointer; transition:all 0.14s; font-family:'DM Sans',sans-serif; box-shadow:0 2px 8px rgba(245,158,11,0.25); }
+  .btn-stock-request:hover { transform:translateY(-1px); box-shadow:0 4px 14px rgba(245,158,11,0.35); }
+  .badge-stock-pending { display:inline-flex; align-items:center; gap:5px; background:#fff7ed; color:#c2410c; border:1px solid #fed7aa; border-radius:7px; padding:5px 10px; font-size:12px; font-weight:700; }
+  .empty-state { text-align:center; padding:60px 24px; color:var(--text-muted); }
+  .empty-state .material-symbols-outlined { font-size:48px; opacity:0.22; display:block; margin-bottom:12px; }
+  /* Modal overlay */
+  .sr-overlay { display:none; position:fixed; inset:0; z-index:1050; background:rgba(15,23,42,0.55); backdrop-filter:blur(6px); align-items:center; justify-content:center; padding:20px; }
+  .sr-overlay.open { display:flex; }
+  .sr-modal { background:#fff; border-radius:24px; padding:38px; max-width:460px; width:100%; position:relative; box-shadow:0 25px 50px -10px rgba(0,0,0,0.25); animation:srSlideUp 0.25s ease; }
+  @keyframes srSlideUp { from{transform:translateY(28px);opacity:0;} to{transform:translateY(0);opacity:1;} }
+  .sr-close { position:absolute; top:16px; right:18px; background:none; border:none; font-size:1.3rem; cursor:pointer; color:#94a3b8; }
+  .sr-close:hover { color:#475569; }
+  .sr-item-badge { display:inline-block; background:#f1f5f9; border-radius:10px; padding:6px 14px; font-size:0.82rem; font-weight:700; color:#475569; margin-bottom:20px; }
+  .sr-label { display:block; font-weight:700; font-size:0.8rem; color:#64748b; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:6px; }
+  .sr-input { width:100%; padding:12px 15px; box-sizing:border-box; border:2px solid #e2e8f0; border-radius:12px; font-size:0.92rem; font-weight:500; color:#1e293b; outline:none; transition:border-color 0.2s; font-family:inherit; background:#fff; }
+  .sr-input:focus { border-color:#6366f1; box-shadow:0 0 0 3px rgba(99,102,241,0.1); }
+  .sr-field { margin-bottom:18px; }
+  .sr-meta { background:#f8fafc; border-radius:12px; padding:14px 16px; margin-bottom:20px; border:1px solid #e2e8f0; }
+  .sr-meta-row { display:flex; justify-content:space-between; font-size:0.85rem; }
+  .sr-meta-row+.sr-meta-row { margin-top:6px; }
+  .sr-meta-row span:first-child { color:#64748b; font-weight:500; }
+  .sr-meta-row span:last-child { font-weight:700; color:#1e293b; }
+  .sr-alert { border-radius:10px; padding:10px 14px; font-size:0.83rem; font-weight:600; margin-bottom:14px; display:none; }
+  .sr-alert.error { background:#fef2f2; border:1px solid #fecaca; color:#dc2626; }
+  .sr-alert.success { background:#f0fdf4; border:1px solid #bbf7d0; color:#166534; }
+  .sr-btn-submit { width:100%; background:linear-gradient(135deg,#6366f1,#9333ea); color:#fff; border:none; border-radius:13px; padding:13px; font-weight:800; font-size:0.92rem; cursor:pointer; transition:opacity 0.2s; font-family:inherit; }
+  .sr-btn-submit:hover { opacity:0.88; }
+  .sr-btn-submit:disabled { opacity:0.55; cursor:not-allowed; }
+  .sr-btn-cancel { width:100%; background:#f1f5f9; color:#475569; border:none; border-radius:13px; padding:12px; font-weight:700; font-size:0.88rem; cursor:pointer; margin-top:10px; font-family:inherit; }
+  /* Config popup */
+  .cfg-overlay { display:none; position:fixed; inset:0; z-index:1060; background:rgba(15,23,42,0.55); backdrop-filter:blur(6px); align-items:center; justify-content:center; padding:20px; }
+  .cfg-overlay.open { display:flex; }
+  .cfg-popup { background:#fff; border-radius:20px; padding:0; max-width:560px; width:100%; max-height:80vh; overflow:hidden; display:flex; flex-direction:column; box-shadow:0 25px 50px -10px rgba(0,0,0,0.25); animation:srSlideUp 0.25s ease; }
+  .cfg-popup-header { padding:22px 26px 16px; border-bottom:1px solid #ebebf5; flex-shrink:0; }
+  .cfg-popup-header h5 { font-weight:800; color:#1a1a2e; margin:0 0 4px; font-size:16px; }
+  .cfg-popup-header p { font-size:13px; color:#7c7c9a; margin:0; }
+  .cfg-popup-body { overflow-y:auto; padding:16px 26px 24px; flex:1; }
+  .cfg-card { border:1.5px solid #ebebf5; border-radius:12px; padding:14px 16px; margin-bottom:12px; background:#fafafa; }
+  .cfg-card:last-child { margin-bottom:0; }
+  .cfg-card-title { font-weight:700; font-size:13px; color:#1a1a2e; margin-bottom:8px; display:flex; align-items:center; gap:6px; }
+  .cfg-card-count { font-size:11px; font-weight:700; background:#f0f0ff; color:#6c63ff; border:1px solid #ddd8ff; border-radius:20px; padding:2px 8px; }
+  .cfg-spec-table { width:100%; border-collapse:collapse; font-size:12.5px; }
+  .cfg-spec-table td { padding:5px 8px; border-bottom:1px solid #f1f5f9; }
+  .cfg-spec-table tr:last-child td { border-bottom:none; }
+  .cfg-spec-table td:first-child { font-weight:600; color:#475569; width:45%; }
+  .cfg-spec-table td:last-child { color:#1a1a2e; }
+  .cfg-empty { text-align:center; padding:32px; color:#94a3b8; font-size:13px; }
+  @media (max-width:768px) {
+    .data-table thead th, .data-table tbody td { font-size:0.78rem; padding:8px 10px !important; }
+    .actions-wrap { flex-direction:column; gap:6px; }
+    .btn-stock-request { width:100%; justify-content:center; font-size:0.75rem; padding:8px 10px; }
+    .badge-stock-pending { width:100%; justify-content:center; font-size:0.72rem; }
+    .stock-pill { font-size:0.72rem; padding:2px 7px; }
   }
 </style>
 {% endblock style %}
 
-{% block navbar %}
-{% include "room_incharge/navbar.html" %}
-{% endblock navbar %}
-
-{% block sidebar %}
-{% include "room_incharge/sidebar.html" %}
-{% endblock sidebar %}
+{% block navbar %}{% include "room_incharge/navbar.html" %}{% endblock navbar %}
+{% block sidebar %}{% include "room_incharge/sidebar.html" %}{% endblock sidebar %}
 
 {% block content %}
 <section>
@@ -315,16 +120,10 @@
             <th>Product Code</th>
             <th>Total Stock</th>
             <th>Available</th>
-            <th>In Use</th>
+            <th>Active</th>
+            <th>Inactive</th>
             <th>Archived</th>
-            <th>
-              <span id="statusColToggleBtn" onclick="cycleStatusCol()"
-                style="cursor:pointer; font-size:11px; background:#f0f0ff; color:#6c63ff;
-                      border:1px solid #ddd8ff; border-radius:12px; padding:2px 8px;
-                      margin-left:6px; font-weight:700; display:inline-block;">
-                ↻ Inactive
-              </span>
-            </th>
+            <th>Serviceable / Unserviceable</th>
             <th>Actions</th>
           </tr>
         </thead>
@@ -332,67 +131,45 @@
           {% for item in items %}
           <tr>
             <td>
-              <span class="item-name-cell">
-                <span class="item-icon">
-                  <span class="material-symbols-outlined">inventory_2</span>
-                </span>
-                {{ item.item_name }}
+              <span class="item-name-cell" onclick="openCfgPopup('{{ item.id }}','{{ item.item_name|escapejs }}')">
+                <span class="item-icon"><span class="material-symbols-outlined">inventory_2</span></span>
+                <span class="item-name-text">{{ item.item_name }}</span>
               </span>
             </td>
-            <td class="text-center">
+            <td>
               {% if item.product_code %}
-                <span style="font-family:monospace;font-weight:700;color:#6c63ff;font-size:0.82rem;
-                    background:#ede9fe;padding:3px 10px;border-radius:8px;cursor:pointer;"
-                    onclick="openRoomTagModal('{{ item.item_name|escapejs }}')">
-                    {{ item.product_code }}
-                </span>
+                <span style="font-family:monospace;font-weight:700;color:#6c63ff;font-size:0.82rem;background:#ede9fe;padding:3px 10px;border-radius:8px;cursor:pointer;" onclick="openRoomTagModal('{{ item.item_name|escapejs }}')">{{ item.product_code }}</span>
               {% else %}
                 <span class="text-muted" style="font-size:0.8rem;">—</span>
               {% endif %}
             </td>
             <td><span class="stock-pill stock-total">{{ item.total_count }}</span></td>
             <td><span class="stock-pill stock-avail">{{ item.available_count }}</span></td>
-            <td><span class="stock-pill stock-in-use">{{ item.in_use }}</span></td>
+            <td><span class="stock-pill stock-active">{{ item.active_count }}</span></td>
+            <td><span class="stock-pill stock-inactive">{{ item.inactive_count }}</span></td>
+            <td><span class="stock-pill stock-archived">{{ item.archived_count }}</span></td>
             <td>
-              <span class="stock-pill" style="background:#fef3c7; color:#92400e; border:1px solid #fde68a;">
-                {{ item.archived_count }}
-              </span>
-            </td>
-            <td>
-              <span class="stock-pill status-dynamic-pill"
-                style="background:#fef2f2; color:#991b1b; border:1px solid #fecaca;"
-                data-inactive="{{ item.inactive_count }}"
-                data-maintenance="{{ item.under_maintenance_count }}"
-                data-disposed="{{ item.disposed_count }}">
-                {{ item.inactive_count }}
-              </span>
+              <div class="svc-toggle-wrap">
+                <span class="svc-pill serviceable" title="Serviceable archived items">
+                  <i class="bi bi-check-circle-fill" style="font-size:10px;"></i>
+                  {{ item.serviceable_count }}
+                </span>
+                <span style="color:#94a3b8;font-size:11px;font-weight:700;">/</span>
+                <span class="svc-pill unserviceable" title="Unserviceable archived items">
+                  <i class="bi bi-x-circle-fill" style="font-size:10px;"></i>
+                  {{ item.unserviceable_count }}
+                </span>
+              </div>
             </td>
             <td>
               <div class="actions-wrap">
                 {% if item.id in pending_items %}
-                  <span class="badge-stock-pending">
-                    <i class="bi bi-hourglass-split"></i>
-                    Request Pending
-                  </span>
+                  <span class="badge-stock-pending"><i class="bi bi-hourglass-split"></i> Request Pending</span>
                 {% else %}
-                  <button class="btn-stock-request"
-                    onclick="openStockModal(
-                      '{{ item.id }}',
-                      '{{ item.item_name|escapejs }}',
-                      {{ item.total_count }},
-                      {{ item.available_count }},
-                      {{ item.in_use }}
-                    )">
-                    <i class="bi bi-box-seam"></i>
-                    Request Stock
+                  <button class="btn-stock-request" onclick="openStockModal('{{ item.id }}','{{ item.item_name|escapejs }}',{{ item.total_count }},{{ item.available_count }},{{ item.active_count }})">
+                    <i class="bi bi-box-seam"></i> Request Stock
                   </button>
                 {% endif %}
-                <a href="{% url 'room_incharge:item_archive' room_slug=room_slug item_slug=item.slug %}"
-                  class="btn-stock-request"
-                  style="background: linear-gradient(135deg, #6c63ff, #8b7cf8); box-shadow: 0 2px 8px rgba(108,99,255,0.25); text-decoration:none;">
-                  <i class="bi bi-archive"></i>
-                  Archive
-                </a>
               </div>
             </td>
           </tr>
@@ -407,142 +184,93 @@
     </div>
     {% endif %}
   </div>
-  <!-- Asset Tag Modal (Room Incharge) -->
+
+  <!-- Asset Tag Modal -->
   <div class="sr-overlay" id="tagOverlay" onclick="if(event.target===this)closeTagModal()">
     <div class="sr-modal" style="max-width:520px;">
       <button class="sr-close" onclick="closeTagModal()"><i class="bi bi-x-lg"></i></button>
-      <h5 style="font-weight:800;color:#1e293b;margin:0 0 4px;">
-        <i class="bi bi-upc-scan me-2" style="color:#6c63ff;"></i>Asset Tags
-      </h5>
-      <p class="text-muted" style="font-size:0.85rem;margin:0 0 16px;">
-        Items of <strong id="roomTagItemName"></strong> assigned to this room
-      </p>
-      <div id="roomTagContent">
-        <div class="text-center py-4"><div class="spinner-border" style="color:#6c63ff;"></div></div>
-      </div>
+      <h5 style="font-weight:800;color:#1e293b;margin:0 0 4px;"><i class="bi bi-upc-scan me-2" style="color:#6c63ff;"></i>Asset Tags</h5>
+      <p class="text-muted" style="font-size:0.85rem;margin:0 0 16px;">Items of <strong id="roomTagItemName"></strong> assigned to this room</p>
+      <div id="roomTagContent"><div class="text-center py-4"><div class="spinner-border" style="color:#6c63ff;"></div></div></div>
     </div>
   </div>
 </section>
-
-<!-- ══════════════════════════════════════════════
-     STOCK REQUEST MODAL  (logic fully preserved)
-══════════════════════════════════════════════ -->
+<!-- Stock Request Modal -->
 <div class="sr-overlay" id="srOverlay" onclick="srOverlayClose(event)">
   <div class="sr-modal" id="srModal">
-
-    <button class="sr-close" onclick="closeSrModal()">
-      <i class="bi bi-x-lg"></i>
-    </button>
-
-    <div style="margin-bottom:6px;">
-      <span class="sr-item-badge" id="srItemName">—</span>
-    </div>
-    <h5 style="font-weight:800; color:#1e293b; margin:0 0 4px;">Request Additional Stock</h5>
-    <p style="font-size:0.85rem; color:#64748b; margin:0 0 18px;">
-      Enter how many units you need and explain why.
-    </p>
-
+    <button class="sr-close" onclick="closeSrModal()"><i class="bi bi-x-lg"></i></button>
+    <div style="margin-bottom:6px;"><span class="sr-item-badge" id="srItemName">—</span></div>
+    <h5 style="font-weight:800;color:#1e293b;margin:0 0 4px;">Request Additional Stock</h5>
+    <p style="font-size:0.85rem;color:#64748b;margin:0 0 18px;">Enter how many units you need and explain why.</p>
     <div class="sr-meta">
-      <div class="sr-meta-row">
-        <span>Current Total</span>
-        <span id="srCurrentTotal">—</span>
-      </div>
-      <div class="sr-meta-row">
-        <span>Available Now</span>
-        <span id="srAvailable">—</span>
-      </div>
-      <div class="sr-meta-row">
-        <span>Currently In Use</span>
-        <span id="srInUse">—</span>
-      </div>
+      <div class="sr-meta-row"><span>Current Total</span><span id="srCurrentTotal">—</span></div>
+      <div class="sr-meta-row"><span>Available Now</span><span id="srAvailable">—</span></div>
+      <div class="sr-meta-row"><span>Currently Active</span><span id="srInUse">—</span></div>
     </div>
-
     <form id="srForm" onsubmit="submitStockRequest(event)">
       {% csrf_token %}
       <input type="hidden" id="srItemId" name="item_id">
-
       <div class="sr-field">
         <label class="sr-label">Units Requested <span style="color:#ef4444;">*</span></label>
-        <input type="number" id="srCount" name="requested_count"
-               class="sr-input" min="1" placeholder="e.g. 5" required>
+        <input type="number" id="srCount" name="requested_count" class="sr-input" min="1" placeholder="e.g. 5" required>
       </div>
-
       <div class="sr-field">
         <label class="sr-label">Reason for Request <span style="color:#ef4444;">*</span></label>
-        <textarea id="srReason" name="reason" class="sr-input"
-                  rows="3" placeholder="Explain why this stock is needed..."
-                  required style="resize:vertical;"></textarea>
+        <textarea id="srReason" name="reason" class="sr-input" rows="3" placeholder="Explain why this stock is needed..." required style="resize:vertical;"></textarea>
       </div>
-
       <div class="sr-alert" id="srAlert"></div>
-
-      <button type="submit" class="sr-btn-submit" id="srSubmitBtn">
-        <i class="bi bi-send-fill me-2"></i>Submit Stock Request
-      </button>
-      <button type="button" class="sr-btn-cancel" onclick="closeSrModal()">
-        Cancel
-      </button>
+      <button type="submit" class="sr-btn-submit" id="srSubmitBtn"><i class="bi bi-send-fill me-2"></i>Submit Stock Request</button>
+      <button type="button" class="sr-btn-cancel" onclick="closeSrModal()">Cancel</button>
     </form>
+  </div>
+</div>
 
+<!-- Configuration Popup -->
+<div class="cfg-overlay" id="cfgOverlay" onclick="if(event.target===this)closeCfgPopup()">
+  <div class="cfg-popup">
+    <div class="cfg-popup-header">
+      <button style="position:absolute;top:16px;right:18px;background:none;border:none;font-size:1.3rem;cursor:pointer;color:#94a3b8;" onclick="closeCfgPopup()"><i class="bi bi-x-lg"></i></button>
+      <h5><i class="bi bi-gear-fill me-2" style="color:#6c63ff;"></i>Configurations — <span id="cfgItemName">—</span></h5>
+      <p>All configurations applied to this item</p>
+    </div>
+    <div class="cfg-popup-body" id="cfgPopupBody">
+      <div class="text-center py-4"><div class="spinner-border" style="color:#6c63ff;"></div></div>
+    </div>
   </div>
 </div>
 
 <script>
-function openStockModal(itemId, itemName, total, available, inUse) {
-  document.getElementById('srItemId').value             = itemId;
-  document.getElementById('srItemName').textContent     = itemName;
+function openStockModal(itemId, itemName, total, available, active) {
+  document.getElementById('srItemId').value = itemId;
+  document.getElementById('srItemName').textContent = itemName;
   document.getElementById('srCurrentTotal').textContent = total;
-  document.getElementById('srAvailable').textContent    = available;
-  document.getElementById('srInUse').textContent        = inUse;
-  document.getElementById('srCount').value  = '';
+  document.getElementById('srAvailable').textContent = available;
+  document.getElementById('srInUse').textContent = active;
+  document.getElementById('srCount').value = '';
   document.getElementById('srReason').value = '';
   srHideAlert();
   document.getElementById('srOverlay').classList.add('open');
 }
-
-function closeSrModal() {
-  document.getElementById('srOverlay').classList.remove('open');
-}
-
-function srOverlayClose(e) {
-  if (e.target === document.getElementById('srOverlay')) closeSrModal();
-}
-
+function closeSrModal() { document.getElementById('srOverlay').classList.remove('open'); }
+function srOverlayClose(e) { if (e.target === document.getElementById('srOverlay')) closeSrModal(); }
 function srShowAlert(type, msg) {
   const el = document.getElementById('srAlert');
-  el.className = 'sr-alert ' + type;
-  el.textContent = msg;
-  el.style.display = 'block';
+  el.className = 'sr-alert ' + type; el.textContent = msg; el.style.display = 'block';
 }
-function srHideAlert() {
-  const el = document.getElementById('srAlert');
-  el.style.display = 'none';
-  el.textContent = '';
-}
-
+function srHideAlert() { const el = document.getElementById('srAlert'); el.style.display = 'none'; el.textContent = ''; }
 function submitStockRequest(e) {
-  e.preventDefault();
-  srHideAlert();
-
-  const count  = parseInt(document.getElementById('srCount').value, 10);
+  e.preventDefault(); srHideAlert();
+  const count = parseInt(document.getElementById('srCount').value, 10);
   const reason = document.getElementById('srReason').value.trim();
-
-  if (!count || count < 1)  { srShowAlert('error', 'Please enter a valid unit count (minimum 1).'); return; }
-  if (reason.length < 5)    { srShowAlert('error', 'Please provide a reason (at least 5 characters).'); return; }
-
+  if (!count || count < 1) { srShowAlert('error', 'Please enter a valid unit count (minimum 1).'); return; }
+  if (reason.length < 5) { srShowAlert('error', 'Please provide a reason (at least 5 characters).'); return; }
   const btn = document.getElementById('srSubmitBtn');
   btn.disabled = true;
   btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2" style="width:14px;height:14px;border-width:2px;"></span>Submitting...';
-
   const fd = new FormData(document.getElementById('srForm'));
-
   fetch('{% url "room_incharge:submit_stock_request" room_slug=room_slug %}', {
-    method: 'POST',
-    body: fd,
-    headers: { 'X-Requested-With': 'XMLHttpRequest' },
-  })
-  .then(res => res.json())
-  .then(data => {
+    method: 'POST', body: fd, headers: { 'X-Requested-With': 'XMLHttpRequest' },
+  }).then(res => res.json()).then(data => {
     if (data.status === 'success') {
       srShowAlert('success', 'Stock request submitted! Awaiting admin approval.');
       btn.innerHTML = '<i class="bi bi-check-lg me-2"></i>Submitted';
@@ -552,68 +280,65 @@ function submitStockRequest(e) {
       btn.disabled = false;
       btn.innerHTML = '<i class="bi bi-send-fill me-2"></i>Submit Stock Request';
     }
-  })
-  .catch(() => {
+  }).catch(() => {
     srShowAlert('error', 'Network error. Please try again.');
     btn.disabled = false;
     btn.innerHTML = '<i class="bi bi-send-fill me-2"></i>Submit Stock Request';
   });
 }
-
-// Dynamic status column toggle
-const statusLabels = ['Inactive', 'Under Maintenance', 'Disposed'];
-const statusDataKeys = ['inactive', 'maintenance', 'disposed'];
-const statusStyles = [
-  'background:#fef2f2; color:#991b1b; border:1px solid #fecaca;',
-  'background:#fff7ed; color:#c2410c; border:1px solid #fed7aa;',
-  'background:#f1f5f9; color:#475569; border:1px solid #e2e8f0;',
-];
-let statusColState = 0;
-
-function cycleStatusCol() {
-  statusColState = (statusColState + 1) % 3;
-  const btn = document.getElementById('statusColToggleBtn');
-  btn.textContent = '↻ ' + statusLabels[statusColState];
-  document.querySelectorAll('.status-dynamic-pill').forEach(pill => {
-    const val = pill.getAttribute('data-' + statusDataKeys[statusColState]);
-    pill.textContent = val;
-    pill.style.cssText = statusStyles[statusColState];
-  });
-}
-
-function closeTagModal() {
-    document.getElementById('tagOverlay').classList.remove('open');
-}
-
+function closeTagModal() { document.getElementById('tagOverlay').classList.remove('open'); }
 function openRoomTagModal(itemName) {
-    document.getElementById('roomTagItemName').textContent = itemName;
-    document.getElementById('roomTagContent').innerHTML =
-        '<div class="text-center py-4"><div class="spinner-border" style="color:#6c63ff;"></div></div>';
-    document.getElementById('tagOverlay').classList.add('open');
-
-    fetch(`{% url 'room_incharge:get_room_asset_tags' room_slug=room_slug %}?item_name=${encodeURIComponent(itemName)}`, {
-        credentials: 'same-origin'
-    })
-    .then(r => r.json())
-    .then(data => {
-        if (!data.tags || !data.tags.length) {
-            document.getElementById('roomTagContent').innerHTML =
-                '<div class="text-center text-muted py-3">No asset tags assigned to this room for this item.</div>';
-            return;
-        }
-        const pills = data.tags.map(t =>
-            `<span style="display:inline-block;font-family:monospace;font-weight:700;
-                color:#5b21b6;background:#ede9fe;padding:4px 12px;border-radius:8px;
-                margin:4px;font-size:0.85rem;">${t.tag_id}</span>`
-        ).join('');
-        document.getElementById('roomTagContent').innerHTML =
-            `<div style="display:flex;flex-wrap:wrap;gap:4px;">${pills}</div>`;
-    })
-    .catch(() => {
-        document.getElementById('roomTagContent').innerHTML =
-            '<div class="text-center text-muted py-3">Failed to load tags. Try again.</div>';
+  document.getElementById('roomTagItemName').textContent = itemName;
+  document.getElementById('roomTagContent').innerHTML = '<div class="text-center py-4"><div class="spinner-border" style="color:#6c63ff;"></div></div>';
+  document.getElementById('tagOverlay').classList.add('open');
+  fetch(`{% url 'room_incharge:get_room_asset_tags' room_slug=room_slug %}?item_name=${encodeURIComponent(itemName)}`, { credentials: 'same-origin' })
+    .then(r => r.json()).then(data => {
+      if (!data.tags || !data.tags.length) {
+        document.getElementById('roomTagContent').innerHTML = '<div class="text-center text-muted py-3">No asset tags assigned to this room for this item.</div>';
+        return;
+      }
+      const pills = data.tags.map(t => `<span style="display:inline-block;font-family:monospace;font-weight:700;color:#5b21b6;background:#ede9fe;padding:4px 12px;border-radius:8px;margin:4px;font-size:0.85rem;">${t.tag_id}</span>`).join('');
+      document.getElementById('roomTagContent').innerHTML = `<div style="display:flex;flex-wrap:wrap;gap:4px;">${pills}</div>`;
+    }).catch(() => {
+      document.getElementById('roomTagContent').innerHTML = '<div class="text-center text-muted py-3">Failed to load tags. Try again.</div>';
     });
 }
+function openCfgPopup(itemId, itemName) {
+  document.getElementById('cfgItemName').textContent = itemName;
+  document.getElementById('cfgPopupBody').innerHTML = '<div class="text-center py-4"><div class="spinner-border" style="color:#6c63ff;"></div></div>';
+  document.getElementById('cfgOverlay').classList.add('open');
+  fetch(`{% url 'room_incharge:item_configurations' room_slug=room_slug %}?item_id=${encodeURIComponent(itemId)}`)
+    .then(r => r.json()).then(data => {
+      if (!data.configurations || !data.configurations.length) {
+        document.getElementById('cfgPopupBody').innerHTML = '<div class="cfg-empty"><i class="bi bi-gear" style="font-size:2rem;display:block;margin-bottom:8px;opacity:0.3;"></i>No configurations found for this item.</div>';
+        return;
+      }
+      let html = '';
+      data.configurations.forEach(cfg => {
+        let rows = '';
+        try {
+          const specs = JSON.parse(cfg.configuration_data);
+          if (Array.isArray(specs) && specs.length) {
+            rows = specs.map(s => `<tr><td>${escHtml(s.spec||'')}</td><td>${escHtml(s.value||'—')}</td></tr>`).join('');
+          }
+        } catch(e) { rows = `<tr><td colspan="2">${escHtml(cfg.configuration_data)}</td></tr>`; }
+        html += `<div class="cfg-card">
+          <div class="cfg-card-title">
+            <i class="bi bi-gear-fill" style="color:#6c63ff;font-size:13px;"></i>
+            ${escHtml(cfg.configuration_name || 'Configuration')}
+            <span class="cfg-card-count">${cfg.count} unit${cfg.count !== 1 ? 's' : ''}</span>
+          </div>
+          <table class="cfg-spec-table"><tbody>${rows}</tbody></table>
+        </div>`;
+      });
+      document.getElementById('cfgPopupBody').innerHTML = html;
+    }).catch(() => {
+      document.getElementById('cfgPopupBody').innerHTML = '<div class="cfg-empty">Failed to load configurations.</div>';
+    });
+}
+function closeCfgPopup() { document.getElementById('cfgOverlay').classList.remove('open'); }
+function escHtml(str) {
+  return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
 </script>
-
 {% endblock content %}

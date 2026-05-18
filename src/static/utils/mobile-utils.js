@@ -694,125 +694,51 @@
             return { success: true, idToken, user: result.user, method: 'firebase-popup' };
         },
 
-        // ── CAPACITOR: Open Google auth via system browser (NOT in-app WebView) ──
-        // Google blocks OAuth from embedded WebViews with 403: disallowed_useragent.
-        // Using the system default browser avoids this restriction.
-        // Flow: open system browser → user signs in → Google redirects to our server
-        //       → server sets session → server redirects to deep link callback
-        //       → app receives deep link and navigates to authenticated page.
+        // ── CAPACITOR: Use Firebase signInWithRedirect directly in the WebView ──
+        // The overrideUserAgent in capacitor.config.ts makes Android report a real Chrome UA,
+        // so Google does NOT block the WebView with the 403 disallowed_useragent error.
+        // The allowNavigation list already includes accounts.google.com and *.firebaseapp.com,
+        // so the full OAuth redirect chain works within the WebView.
+        // Flow: signInWithRedirect → accounts.google.com → *.firebaseapp.com handler → back to app URL
+        //       → getRedirectResult() returns user → idToken POSTed to Django.
         async capacitorGoogleLogin(firebaseConfig, options) {
-            console.log('[MobileAuth] Capacitor: opening Google Sign-In in system browser');
-            PageLoader.show('Opening Google Sign-In...', 'overlay');
+            console.log('[MobileAuth] Capacitor: using signInWithRedirect (UA override enables in-WebView Google OAuth)');
+            PageLoader.show('Redirecting to Google Sign-In...', 'overlay');
 
             try {
-                // Mark that we're waiting for auth to complete
+                // Initialize Firebase if not already initialized
+                if (!window.firebase?.apps?.length) {
+                    window.firebase.initializeApp(firebaseConfig);
+                }
+
+                const provider = new firebase.auth.GoogleAuthProvider();
+                if (options.domain) {
+                    provider.setCustomParameters({ hd: options.domain, prompt: 'select_account' });
+                }
+
+                // Mark pending login so handleRedirectResult() picks it up after page reload
                 sessionStorage.setItem('pendingGoogleLogin', 'true');
+                sessionStorage.setItem('loginAuthUrl', options.authUrl || '/core/firebase-login/');
 
-                // Use Django allauth's Google login URL.
-                // The &app=1 flag is captured by CapacitorAuthMiddleware and stored in
-                // the session so the AccountAdapter redirects to the deep-link callback.
-                const authUrl = '/accounts/google/login/?process=login&app=1';
+                // Redirect the WebView to Google OAuth.
+                // On return, the page will reload and handleRedirectResult() handles the result.
+                await firebase.auth().signInWithRedirect(provider);
 
-                // Listen for auth completion signals BEFORE opening the browser
-                return new Promise((resolve, reject) => {
-                    let resolved = false;
-                    let pollInterval = null;
-
-                    const appPlugin = window.Capacitor?.Plugins?.App;
-                    let urlListener = null;
-                    let resumeListener = null;
-
-                    const cleanup = async () => {
-                        try { if (urlListener && urlListener.remove) urlListener.remove(); } catch (_) {}
-                        try { if (resumeListener && resumeListener.remove) resumeListener.remove(); } catch (_) {}
-                        if (pollInterval) { clearInterval(pollInterval); pollInterval = null; }
-                    };
-
-                    const handleAuthSuccess = async () => {
-                        if (resolved) return;
-                        resolved = true;
-                        await cleanup();
-                        PageLoader.hide();
-                        sessionStorage.removeItem('pendingGoogleLogin');
-                        // Session is already set server-side — navigate to issue report
-                        resolve({ success: true, method: 'capacitor-inapp-browser', sessionSet: true });
-                    };
-
-                    const checkAuthStatus = async () => {
-                        if (resolved) return;
-                        try {
-                            const resp = await fetch('/core/auth-status/', {
-                                credentials: 'include',
-                                cache: 'no-cache'
-                            });
-                            if (resp.ok) {
-                                const data = await resp.json();
-                                if (data.authenticated) {
-                                    console.log('[MobileAuth] Auth confirmed via poll');
-                                    await handleAuthSuccess();
-                                }
-                            }
-                        } catch (_) { /* network error — keep polling */ }
-                    };
-
-                    if (appPlugin) {
-                        // Signal 1: Deep link callback (in.sfscollege.blixtro://auth?status=success)
-                        appPlugin.addListener('appUrlOpen', async (data) => {
-                            console.log('[MobileAuth] Deep link received:', data.url);
-                            if (
-                                data.url.includes('in.sfscollege.blixtro://auth') ||
-                                data.url.includes('status=success') ||
-                                data.url.includes('/app-auth-callback')
-                            ) {
-                                await handleAuthSuccess();
-                            }
-                        }).then(listener => { urlListener = listener; }).catch(() => {});
-
-                        // Signal 2: App resumes after returning from system browser
-                        appPlugin.addListener('appStateChange', async (state) => {
-                            if (state.isActive && !resolved) {
-                                console.log('[MobileAuth] App resumed, checking auth status...');
-                                // Small delay to let the session cookie propagate
-                                await new Promise(r => setTimeout(r, 800));
-                                await checkAuthStatus();
-                                if (!resolved) {
-                                    // User returned without completing auth — hide loader
-                                    PageLoader.hide();
-                                }
-                            }
-                        }).then(listener => { resumeListener = listener; }).catch(() => {});
-                    }
-
-                    // Open in the SYSTEM browser (not in-app WebView)
-                    // _system opens the default browser on Android/iOS
-                    window.open(authUrl, '_system');
-
-                    // Signal 3: Poll auth status every 3 seconds as a reliable fallback.
-                    // This catches cases where the deep link fires but appUrlOpen doesn't,
-                    // or where appStateChange doesn't fire on some Android versions.
-                    // Polling starts after 5 seconds (give user time to authenticate).
-                    setTimeout(() => {
-                        if (!resolved) {
-                            pollInterval = setInterval(checkAuthStatus, 3000);
-                        }
-                    }, 5000);
-
-                    // Timeout: if no response in 5 minutes, reject
-                    setTimeout(async () => {
-                        if (!resolved) {
-                            resolved = true;
-                            await cleanup();
-                            PageLoader.hide();
-                            sessionStorage.removeItem('pendingGoogleLogin');
-                            reject(new Error('Sign-in timed out. Please try again.'));
-                        }
-                    }, 300000);
-                });
+                // This line is reached only if redirect is deferred (should not happen normally)
+                return { success: true, method: 'firebase-redirect' };
 
             } catch (err) {
                 PageLoader.hide();
-                console.error('[MobileAuth] Capacitor system browser login error:', err);
-                throw err;
+                sessionStorage.removeItem('pendingGoogleLogin');
+                console.error('[MobileAuth] signInWithRedirect error:', err);
+
+                // If signInWithRedirect fails (e.g. domain not authorized in Firebase Console),
+                // show a clear error message rather than the broken email-login fallback.
+                throw new Error(
+                    'Google Sign-In setup is incomplete. Please ensure "' +
+                    (window.location.hostname) +
+                    '" is added as an Authorized Domain in your Firebase Console → Authentication → Settings → Authorized Domains.'
+                );
             }
         },
 
@@ -1150,42 +1076,28 @@
                     return;
                 }
 
-                try {
-                    const response = await fetch('/api/auth/email-login/', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ email })
-                    });
-                    if (response.ok) {
-                        modal.innerHTML = `
-                            <div style="text-align: center; padding: 40px 20px;">
-                                <div style="
-                                    width: 80px;
-                                    height: 80px;
-                                    background: linear-gradient(135deg, #10b981, #059669);
-                                    border-radius: 50%;
-                                    display: flex;
-                                    align-items: center;
-                                    justify-content: center;
-                                    margin: 0 auto 20px;
-                                    animation: pulse 0.5s ease;
-                                ">
-                                    <span class="material-symbols-outlined" style="color: white; font-size: 40px;">check</span>
-                                </div>
-                                <h3 style="font-weight: 700; margin-bottom: 8px; color: #f1f5f9;">Check your email!</h3>
-                                <p style="color: #94a3b8; font-size: 14px;">Login link sent to ${email}</p>
-                            </div>
-                        `;
-                        setTimeout(() => {
-                            modal.remove();
-                            resolve({ success: true, method: 'email-link', email });
-                        }, 3000);
-                    } else {
-                        throw new Error('Failed to send login link');
-                    }
-                } catch (err) {
-                    alert('Error: ' + err.message);
-                }
+                // Email-link login requires a server-side magic-link endpoint.
+                // This fallback is not supported in the current backend configuration.
+                // Show a clear message instead of calling a non-existent endpoint.
+                modal.innerHTML = `
+                    <div style="text-align: center; padding: 40px 20px; color: #f1f5f9;">
+                        <div style="width:72px;height:72px;background:linear-gradient(135deg,#f59e0b,#d97706);border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 20px;">
+                            <span class="material-symbols-outlined" style="color:white;font-size:36px;">info</span>
+                        </div>
+                        <h3 style="font-weight:700;margin-bottom:8px;">Use the Google Button</h3>
+                        <p style="color:#94a3b8;font-size:14px;margin-bottom:24px;">
+                            Please use the <strong>Continue with Google</strong> button on the previous screen.<br>
+                            Direct email login is not available in this version of the app.
+                        </p>
+                        <button onclick="this.closest('[style]').remove()" style="background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;border:none;border-radius:12px;padding:12px 24px;font-weight:600;cursor:pointer;">
+                            OK
+                        </button>
+                    </div>
+                `;
+                setTimeout(() => {
+                    modal.remove();
+                    reject(new Error('Email login not available. Use Google Sign-In.'));
+                }, 5000);
             });
 
             modal.querySelector('#btnBack').addEventListener('click', () => {

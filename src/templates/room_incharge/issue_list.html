@@ -91,7 +91,12 @@
 </div>
 {% endif %}
 
-<h3 class="my-3">Issues for {{ room.room_name }}</h3>
+<div style="display:flex;justify-content:space-between;align-items:center;margin:20px 0 16px;flex-wrap:wrap;gap:10px;">
+  <div>
+    <h4 style="font-size:20px;font-weight:700;color:#1a1a2e;margin:0;">Issues</h4>
+    <p style="font-size:13px;color:#7c7c9a;margin:3px 0 0;">{{ room.room_name }}</p>
+  </div>
+</div>
 
 <div class="table-responsive">
     <table class="table table-sm align-middle">

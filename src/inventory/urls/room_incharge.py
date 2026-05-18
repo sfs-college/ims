@@ -8,37 +8,25 @@ urlpatterns = [
     # Categories URLs
     path('rooms/<slug:room_slug>/categories/', room_incharge.CategoryListView.as_view(), name='category_list'),
     path('rooms/<slug:room_slug>/categories/<slug:category_slug>/update/', room_incharge.CategoryUpdateView.as_view(), name='category_update'),
-    # path('rooms/<slug:room_slug>/categories/<slug:category_slug>/delete/', room_incharge.CategoryDeleteView.as_view(), name='category_delete'),
     path('rooms/<slug:room_slug>/categories/create/', room_incharge.CategoryCreateView.as_view(), name='category_create'),
     
     # Brands URLs
     path('rooms/<slug:room_slug>/brands/', room_incharge.BrandListView.as_view(), name='brand_list'),
     path('rooms/<slug:room_slug>/brands/create/', room_incharge.BrandCreateView.as_view(), name='brand_create'),
     path('rooms/<slug:room_slug>/brands/<slug:brand_slug>/update/', room_incharge.BrandUpdateView.as_view(), name='brand_update'),
-    # path('rooms/<slug:room_slug>/brands/<slug:brand_slug>/delete/', room_incharge.BrandDeleteView.as_view(), name='brand_delete'),
     
     # Items URLs
     path('rooms/<slug:room_slug>/items/', room_incharge.ItemListView.as_view(), name='item_list'),
     path('rooms/<slug:room_slug>/items/create/', room_incharge.ItemCreateView.as_view(), name='item_create'),
-    
-    # direct item edit url (without request)
-    # path('rooms/<slug:room_slug>/items/<slug:item_slug>/update/', room_incharge.ItemUpdateView.as_view(), name='item_update'),
-    
-    # path('rooms/<slug:room_slug>/items/<slug:item_slug>/delete/', room_incharge.ItemDeleteView.as_view(), name='item_delete'),
     path('rooms/<slug:room_slug>/items/<slug:item_slug>/archive/', room_incharge.ItemArchiveView.as_view(), name='item_archive'),
-    
-    #Item Edit request URL
-    # path("rooms/<slug:room_slug>/items/<slug:item_slug>/request-edit/", room_incharge.RequestEditView.as_view(), name="request_edit"),
     
     # Item Groups URLs
     path('rooms/<slug:room_slug>/item-groups/', room_incharge.ItemGroupListView.as_view(), name='item_group_list'),
     path('rooms/<slug:room_slug>/item-groups/create/', room_incharge.ItemGroupCreateView.as_view(), name='item_group_create'),
     path('rooms/<slug:room_slug>/item-groups/<slug:item_group_slug>/update/', room_incharge.ItemGroupUpdateView.as_view(), name='item_group_update'),
-    # path('rooms/<slug:room_slug>/item-groups/<slug:item_group_slug>/delete/', room_incharge.ItemGroupDeleteView.as_view(), name='item_group_delete'),
     path('rooms/<slug:room_slug>/item-groups/<slug:item_group_slug>/items/create/', room_incharge.ItemGroupItemCreateView.as_view(), name='item_group_item_create'),
     path('rooms/<slug:room_slug>/item-groups/<slug:item_group_slug>/items/', room_incharge.ItemGroupItemListView.as_view(), name='item_group_item_list'),
     path('rooms/<slug:room_slug>/item-groups/<slug:item_group_slug>/items/<slug:item_group_item_slug>/update/', room_incharge.ItemGroupItemUpdateView.as_view(), name='item_group_item_update'),
-    # path('rooms/<slug:room_slug>/item-groups/<slug:item_group_slug>/items/<slug:item_group_item_slug>/delete/', room_incharge.ItemGroupItemDeleteView.as_view(), name='item_group_item_delete'),
     
     # Systems URLs
     path('rooms/<slug:room_slug>/systems/', room_incharge.SystemListView.as_view(), name='system_list'),
@@ -46,28 +34,34 @@ urlpatterns = [
     path('rooms/<slug:room_slug>/systems/import/', room_incharge.SystemImportView.as_view(), name='system_import'),
     path('rooms/<slug:room_slug>/systems/import/confirm/', room_incharge.SystemImportConfirmView.as_view(), name='system_import_confirm'),
     path('rooms/<slug:room_slug>/systems/<slug:system_slug>/update/', room_incharge.SystemUpdateView.as_view(), name='system_update'),
-    # path('rooms/<slug:room_slug>/systems/<slug:system_slug>/delete/', room_incharge.SystemDeleteView.as_view(), name='system_delete'),
     path('rooms/<slug:room_slug>/systems/<slug:system_slug>/components/', room_incharge.SystemComponentListView.as_view(), name='system_component_list'),
     path('rooms/<slug:room_slug>/systems/configuration/', room_incharge.SystemConfigurationView.as_view(), name='system_configuration'),
     path('rooms/<slug:room_slug>/systems/<slug:system_slug>/configuration/', room_incharge.SystemConfigurationDetailView.as_view(), name='system_configuration_detail'),
     path('rooms/<slug:room_slug>/systems/<slug:system_slug>/components/create/', room_incharge.SystemComponentCreateView.as_view(), name='system_component_create'),
     path('rooms/<slug:room_slug>/systems/<slug:system_slug>/components/<slug:component_slug>/update/', room_incharge.SystemComponentUpdateView.as_view(), name='system_component_update'),
-    # path('rooms/<slug:room_slug>/systems/<slug:system_slug>/components/<slug:component_slug>/delete/', room_incharge.SystemComponentDeleteView.as_view(), name='system_component_delete'),
     path('rooms/<slug:room_slug>/systems/<slug:system_slug>/components/<slug:component_slug>/archive/', room_incharge.SystemComponentArchiveView.as_view(), name='system_component_archive'),
     
     # Purchases URLs
     path('rooms/<slug:room_slug>/purchases/', room_incharge.PurchaseListView.as_view(), name='purchase_list'),
     path('rooms/<slug:room_slug>/purchases/create/', room_incharge.PurchaseCreateView.as_view(), name='purchase_create'),
     path('rooms/<slug:room_slug>/purchases/<slug:purchase_slug>/update/', room_incharge.PurchaseUpdateView.as_view(), name='purchase_update'),
-    # path('rooms/<slug:room_slug>/purchases/<slug:purchase_slug>/delete/', room_incharge.PurchaseDeleteView.as_view(), name='purchase_delete'),
     path('rooms/<slug:room_slug>/purchases/<slug:purchase_slug>/complete/', room_incharge.PurchaseCompleteView.as_view(), name='purchase_complete'),
     path('rooms/<slug:room_slug>/purchases/<slug:purchase_slug>/add_to_stock/', room_incharge.PurchaseAddToStockView.as_view(), name='purchase_add_to_stock'),
     path('rooms/<slug:room_slug>/purchases/new_item/create/', room_incharge.PurchaseNewItemCreateView.as_view(), name='purchase_new_item_create'),
-    # path('rooms/<slug:room_slug>/purchases/import/', room_incharge.PurchaseImportView.as_view(), name='purchase_import'),
-    # path('rooms/<slug:room_slug>/purchases/import/confirm/', room_incharge.PurchaseImportConfirmView.as_view(), name='purchase_import_confirm'),
     
     # Archives URLs
     path('rooms/<slug:room_slug>/archives/', room_incharge.ArchiveListView.as_view(), name='archive_list'),
+    path('rooms/<slug:room_slug>/api/archive/<slug:archive_slug>/update-status/', room_incharge.ArchiveStatusUpdateView.as_view(), name='archive_update_status'),
+
+    # Systems Kanban APIs
+    path('rooms/<slug:room_slug>/api/systems/assign/', room_incharge.SystemsAssignView.as_view(), name='systems_assign'),
+    path('rooms/<slug:room_slug>/api/systems/archive/', room_incharge.SystemsArchiveView.as_view(), name='systems_archive'),
+
+    # Configurations
+    path('rooms/<slug:room_slug>/configurations/', room_incharge.ConfigurationsListView.as_view(), name='configurations_list'),
+    path('rooms/<slug:room_slug>/api/configurations/save/', room_incharge.SaveConfigurationView.as_view(), name='save_configuration'),
+    path('rooms/<slug:room_slug>/api/configurations/<slug:cfg_slug>/delete/', room_incharge.DeleteConfigurationView.as_view(), name='delete_configuration'),
+    path('rooms/<slug:room_slug>/api/item-configurations/', room_incharge.ItemConfigurationsAPIView.as_view(), name='item_configurations'),
         
     # Room Management URLs
     path('rooms/<slug:room_slug>/dashboard/', room_incharge.RoomDashboardView.as_view(), name='room_dashboard'),
@@ -105,4 +99,14 @@ urlpatterns = [
     path('rooms/<slug:room_slug>/issue/<int:pk>/remark/', room_incharge.SendIssueRemarkView.as_view(), name='issue_remark'),
     # Master Inventory — view-only for room incharges with granted access
     path('rooms/<slug:room_slug>/master-inventory/', aura_views.RoomInchargeMasterInventoryView.as_view(), name='master_inventory'),
+    path('rooms/<slug:room_slug>/master-inventory/import/', aura_views.MasterInventoryImportView.as_view(), name='master_inventory_import'),
+    path('rooms/<slug:room_slug>/master-inventory/import/confirm/', aura_views.MasterInventoryImportConfirmView.as_view(), name='master_inventory_import_confirm'),
+    path('rooms/<slug:room_slug>/api/master-inventory/manual-create/', aura_views.create_master_inventory_item, name='create_master_inventory_item'),
+    path('rooms/<slug:room_slug>/api/save-product-code/', aura_views.save_product_code, name='save_product_code'),
+    path('rooms/<slug:room_slug>/api/save-item-edit/', aura_views.save_item_edit, name='save_item_edit'),
+    # Assign Inventory — for room incharges with granted assign access
+    path('rooms/<slug:room_slug>/assign-inventory/', aura_views.RoomInchargeAssignInventoryView.as_view(), name='assign_inventory'),
+    path('rooms/<slug:room_slug>/api/assign-inventory/', aura_views.incharge_assign_inventory_api, name='incharge_assign_inventory_api'),
+    path('rooms/<slug:room_slug>/api/revert-inventory-data/', aura_views.revert_inventory_data, name='revert_inventory_data'),
+    path('rooms/<slug:room_slug>/api/revert-inventory/', aura_views.revert_inventory_api, name='revert_inventory_api'),
 ]

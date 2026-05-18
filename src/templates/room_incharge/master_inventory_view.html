@@ -3,466 +3,203 @@
 
 {% block title %} | Master Inventory{% endblock title %}
 
+{% block navbar %}{% include "room_incharge/navbar.html" %}{% endblock navbar %}
+{% block sidebar %}{% include "room_incharge/sidebar.html" %}{% endblock sidebar %}
+
 {% block style %}
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
 <style>
-  @import url('https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700;9..40,800&display=swap');
-
-  :root {
-    --accent:      #6c63ff;
-    --accent-lt:   #a89dff;
-    --surface:     #ffffff;
-    --surface-2:   #f8f8fc;
-    --border:      #e8e8f0;
-    --text:        #1a1a2e;
-    --text-muted:  #7c7c9a;
-    --bg:          #f2f2f8;
-  }
-
-  body { background: var(--bg); font-family: 'DM Sans', sans-serif; }
-
-  .mi-page { padding: 24px 0 40px; }
-
-  /* ── Page header ── */
-  .page-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-start;
-    margin-bottom: 20px;
-    flex-wrap: wrap;
-    gap: 12px;
-  }
-  .page-title {
-    font-size: 22px;
-    font-weight: 800;
-    color: var(--text);
-    letter-spacing: -0.4px;
-    margin: 0 0 4px;
-  }
-  .access-badge {
-    display: inline-flex;
-    align-items: center;
-    gap: 5px;
-    border-radius: 20px;
-    font-size: 11px;
-    font-weight: 700;
-    padding: 3px 11px;
-  }
-  .access-badge.view-only {
-    background: rgba(108,99,255,0.1);
-    color: var(--accent);
-    border: 1px solid rgba(108,99,255,0.25);
-  }
-  .access-badge.can-edit {
-    background: rgba(37,99,235,0.1);
-    color: #2563eb;
-    border: 1px solid rgba(37,99,235,0.25);
-  }
-  .back-btn {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    padding: 8px 16px;
-    background: white;
-    color: var(--text-muted);
-    border: 1.5px solid var(--border);
-    border-radius: 9px;
-    font-size: 13px;
-    font-weight: 600;
-    text-decoration: none;
-    transition: all 0.15s;
-    white-space: nowrap;
-  }
-  .back-btn:hover { border-color: var(--accent); color: var(--accent); }
-
-  /* ── Stats strip ── */
-  .stats-strip { display: flex; gap: 10px; margin-bottom: 16px; flex-wrap: wrap; }
-  .stat-pill {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    padding: 6px 14px;
-    border-radius: 10px;
-    font-size: 12.5px;
-    font-weight: 700;
-  }
-  .stat-total { background: #f3e8ff; color: #6b21a8; }
-
-  /* ── Data card — NO overflow:hidden so table scrolls freely ── */
-  .data-card {
-    background: var(--surface);
-    border-radius: 16px;
-    border: 1px solid var(--border);
-    box-shadow: 0 2px 12px rgba(108,99,255,0.06), 0 1px 3px rgba(0,0,0,0.04);
-  }
-
-  /* ── Toolbar ── */
-  .toolbar {
-    padding: 14px 18px;
-    border-bottom: 1px solid var(--border);
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    flex-wrap: wrap;
-    background: var(--surface-2);
-    border-radius: 16px 16px 0 0;
-  }
-  .search-wrap {
-    flex: 1;
-    min-width: 200px;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    background: white;
-    border: 1.5px solid var(--border);
-    border-radius: 9px;
-    padding: 7px 12px;
-    transition: border-color 0.15s;
-  }
-  .search-wrap:focus-within { border-color: var(--accent); }
-  .search-wrap i { color: var(--text-muted); font-size: 14px; flex-shrink: 0; }
-  .search-input {
-    flex: 1;
-    border: none;
-    outline: none;
-    font-size: 13.5px;
-    font-family: 'DM Sans', sans-serif;
-    color: var(--text);
-    background: transparent;
-  }
-  .search-input::placeholder { color: var(--text-muted); }
-
-  {% if can_edit %}
-  .edit-mode-btn {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    padding: 7px 14px;
-    background: white;
-    color: #0d9488;
-    border: 1.5px solid #0d9488;
-    border-radius: 9px;
-    font-size: 0.8rem;
-    font-weight: 600;
-    cursor: pointer;
-    transition: all 0.18s;
-    white-space: nowrap;
-    font-family: 'DM Sans', sans-serif;
-  }
-  .edit-mode-btn:hover { background: #0d9488; color: white; }
-  {% endif %}
-
-  /* ── Table scroll — the key fix ── */
-  .table-scroll {
-    overflow-x: auto;
-    overflow-y: visible;
-    -webkit-overflow-scrolling: touch;
-    border-radius: 0 0 16px 16px;
-  }
-  .table-scroll::-webkit-scrollbar { height: 5px; }
-  .table-scroll::-webkit-scrollbar-track { background: #f1f1f8; }
-  .table-scroll::-webkit-scrollbar-thumb { background: #c4b5fd; border-radius: 10px; }
-
-  /* ── Inventory table ── */
-  .inv-table {
-    width: 100%;
-    min-width: 700px;
-    border-collapse: collapse;
-    font-family: 'DM Sans', sans-serif;
-  }
-  .inv-table thead tr {
-    background: #faf9ff;
-    border-bottom: 2px solid var(--border);
-  }
-  .inv-table thead th {
-    padding: 11px 16px;
-    font-size: 10.5px;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-    color: var(--text-muted);
-    white-space: nowrap;
-  }
-  .inv-table tbody tr {
-    border-bottom: 1px solid #f0f0f8;
-    transition: background 0.1s;
-  }
-  .inv-table tbody tr:last-child { border-bottom: none; }
-  .inv-table tbody tr:hover { background: #faf9ff; }
-  .inv-table tbody td {
-    padding: 11px 16px;
-    font-size: 13.5px;
-    color: var(--text);
-    vertical-align: middle;
-  }
-
-  .item-name { font-weight: 600; color: var(--text); }
-  .product-code {
-    font-size: 10.5px;
-    font-family: monospace;
-    color: var(--accent);
-    font-weight: 700;
-    margin-top: 2px;
-    display: block;
-  }
-
-  .badge-count {
-    display: inline-block;
-    min-width: 40px;
-    text-align: center;
-    padding: 4px 10px;
-    border-radius: 8px;
-    font-weight: 700;
-    font-size: 12.5px;
-  }
-  .badge-avail    { background: #d1fae5; color: #065f46; }
-  .badge-assigned { background: #dbeafe; color: #1e40af; }
-  .badge-total    { background: #f3e8ff; color: #6b21a8; }
-
-  .cat-badge {
-    background: #f1f5f9;
-    color: #475569;
-    border: 1px solid #e2e8f0;
-    border-radius: 6px;
-    font-size: 11.5px;
-    font-weight: 600;
-    padding: 2px 8px;
-    white-space: nowrap;
-  }
-
-  .editable-view { cursor: default; }
-  .editable-input { display: none; }
-
-  .empty-state {
-    text-align: center;
-    padding: 72px 24px;
-    color: var(--text-muted);
-  }
-  .empty-state i { font-size: 3rem; opacity: 0.2; display: block; margin-bottom: 14px; }
-  .empty-state p { font-size: 0.9rem; margin: 0; }
-
-  @media (max-width: 768px) {
-    .mi-page { padding: 16px 0 32px; }
-    .page-title { font-size: 18px; }
-    .page-header { flex-direction: column; }
-  }
+  .mi-wrap { padding: 24px; background:#f8fafc; min-height:100vh; }
+  .mi-head { display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap; margin-bottom:16px; }
+  .mi-title { margin:0; font-weight:800; color:#1e293b; }
+  .mi-actions { display:flex; gap:8px; flex-wrap:wrap; }
+  .mi-btn { display:inline-flex; align-items:center; gap:6px; border-radius:8px; padding:8px 14px; font-size:.82rem; font-weight:700; text-decoration:none; border:1px solid #dbe3ef; background:#fff; color:#334155; cursor:pointer; }
+  .mi-btn:hover { color:#1d4ed8; border-color:#93c5fd; }
+  .mi-btn-primary { background:#2563eb; color:#fff; border-color:#2563eb; }
+  .mi-btn-primary:hover { color:#fff; background:#1d4ed8; }
+  .mi-card { background:#fff; border:1px solid #e2e8f0; border-radius:12px; overflow:hidden; box-shadow:0 1px 4px rgba(15,23,42,.04); }
+  .mi-table { min-width:1120px; margin:0; }
+  .mi-table th { font-size:.72rem; text-transform:uppercase; color:#64748b; background:#f8fafc; white-space:nowrap; }
+  .mi-table td, .mi-table th { padding:12px; vertical-align:middle; }
+  .mi-badge { display:inline-block; min-width:36px; text-align:center; border-radius:8px; padding:4px 10px; font-weight:700; background:#f1f5f9; color:#475569; }
+  .mi-edit { display:none; }
+  .is-editing .mi-view { display:none; }
+  .is-editing .mi-edit { display:inline-block; }
+  #manualEntryRow { background:#eff6ff; }
+  @media (max-width: 768px) { .mi-wrap { padding:12px; } .mi-title { font-size:1.35rem; } }
 </style>
 {% endblock style %}
 
-{% block navbar %}
-{% include "room_incharge/navbar.html" %}
-{% endblock navbar %}
-
-{% block sidebar %}
-{% include "room_incharge/sidebar.html" %}
-{% endblock sidebar %}
-
 {% block content %}
-<div class="mi-page">
-
-  <div class="page-header">
+<div class="mi-wrap">
+  {% csrf_token %}
+  <div class="mi-head">
     <div>
-      <h4 class="page-title">Master Inventory</h4>
-      {% if can_edit %}
-        <span class="access-badge can-edit">
-          <i class="bi bi-pencil-fill"></i> View &amp; Edit Access
-        </span>
-      {% else %}
-        <span class="access-badge view-only">
-          <i class="bi bi-eye-fill"></i> View Only
-        </span>
-      {% endif %}
-      <p class="text-muted mt-1 mb-0" style="font-size:0.82rem;">College-wide unassigned stock</p>
+      <h1 class="mi-title">Master Inventory</h1>
+      <div class="text-muted small">{{ total_items }} unassigned item{{ total_items|pluralize }} available college-wide</div>
     </div>
-    <a href="{% url 'room_incharge:room_dashboard' room_slug=room_slug %}" class="back-btn">
-      <i class="bi bi-arrow-left"></i> Back to Dashboard
-    </a>
-  </div>
-
-  <div class="stats-strip">
-    <span class="stat-pill stat-total">
-      <i class="bi bi-box-seam"></i> {{ total_items }} Item Types
-    </span>
-  </div>
-
-  <div class="data-card">
-
-    <div class="toolbar">
-      <div class="search-wrap">
-        <i class="bi bi-search"></i>
-        <input type="text" class="search-input" id="miSearchInput"
-               placeholder="Search items, categories, brands…"
-               oninput="filterMasterInventory()">
-      </div>
+    <div class="mi-actions">
       {% if can_edit %}
-      <button class="edit-mode-btn" id="editModeBtn" onclick="toggleEditMode()">
+      <a class="mi-btn" href="{% url 'room_incharge:master_inventory_import' room_slug=room_slug %}">
+        <i class="bi bi-file-earmark-spreadsheet"></i> Import Excel
+      </a>
+      <button class="mi-btn" type="button" onclick="showManualEntryRow()">
+        <i class="bi bi-plus-circle"></i> Manual Entry
+      </button>
+      <button class="mi-btn mi-btn-primary" id="editModeBtn" type="button" onclick="toggleEditMode()">
         <i class="bi bi-pencil-square"></i> Edit
       </button>
       {% endif %}
     </div>
+  </div>
 
-    {% if items_data %}
-    <div class="table-scroll">
-      <table class="inv-table" id="miTable">
+  <div class="mi-card">
+    <div class="table-responsive">
+      <table class="table table-hover mi-table" id="inventoryTable">
         <thead>
           <tr>
-            <th style="width:40px;">#</th>
+            <th>Product Code</th>
             <th>Item Name</th>
             <th>Category</th>
             <th>Brand</th>
-            <th class="text-center">Available</th>
-            <th class="text-center">Assigned</th>
-            <th class="text-center">Total</th>
+            <th class="text-center">Available Stock</th>
             <th class="text-center">Cost / Unit</th>
+            <th class="text-center">Assigned</th>
+            <th class="text-center">Archived</th>
+            <th class="text-center">Inactive</th>
+            <th class="text-center">Maintenance</th>
+            <th class="text-center">Disposed</th>
           </tr>
         </thead>
         <tbody>
-          {% for data in items_data %}
-          <tr data-item-id="{{ data.item.id }}">
-            <td class="text-muted" style="font-size:11.5px;">{{ forloop.counter }}</td>
-            <td>
-              <span class="item-name">{{ data.item.item_name }}</span>
-              {% if data.item.product_code %}
-                <span class="product-code">{{ data.item.product_code }}</span>
-              {% endif %}
-            </td>
-            <td>
-              {% if can_edit %}
-              <span class="editable-view cat-badge">{{ data.item.category.category_name|default:"—" }}</span>
-              <input type="text" class="editable-input form-control form-control-sm" style="width:120px;"
-                     value="{{ data.item.category.category_name|default:'' }}"
-                     onblur="saveItemField(this, {{ data.item.id }}, 'category')"
-                     onkeydown="if(event.key==='Enter') saveItemField(this, {{ data.item.id }}, 'category')">
-              {% else %}
-              <span class="cat-badge">{{ data.item.category.category_name|default:"—" }}</span>
-              {% endif %}
-            </td>
-            <td>
-              {% if can_edit %}
-              <span class="editable-view cat-badge">{{ data.item.brand.brand_name|default:"—" }}</span>
-              <input type="text" class="editable-input form-control form-control-sm" style="width:120px;"
-                     value="{{ data.item.brand.brand_name|default:'' }}"
-                     onblur="saveItemField(this, {{ data.item.id }}, 'brand')"
-                     onkeydown="if(event.key==='Enter') saveItemField(this, {{ data.item.id }}, 'brand')">
-              {% else %}
-              <span class="cat-badge">{{ data.item.brand.brand_name|default:"—" }}</span>
-              {% endif %}
-            </td>
-            <td class="text-center">
-              <span class="badge-count badge-avail">{{ data.available_stock }}</span>
-            </td>
-            <td class="text-center">
-              <span class="badge-count badge-assigned">{{ data.assigned_count }}</span>
-            </td>
-            <td class="text-center">
-              <span class="badge-count badge-total">{{ data.total_items }}</span>
-            </td>
-            <td class="text-center">
-              {% if can_edit %}
-              <span class="editable-view" style="font-weight:700;color:#1e293b;">
-                {% if data.cpu %}₹{{ data.cpu }}{% else %}<span class="text-muted">—</span>{% endif %}
-              </span>
-              <input type="number" step="0.01" class="editable-input form-control form-control-sm" style="width:100px;"
-                     value="{{ data.cpu|default:'' }}"
-                     onblur="saveItemField(this, {{ data.item.id }}, 'cost')"
-                     onkeydown="if(event.key==='Enter') saveItemField(this, {{ data.item.id }}, 'cost')">
-              {% else %}
-              {% if data.cpu %}
-                <span style="font-weight:700;color:#1e293b;">₹{{ data.cpu }}</span>
-              {% else %}
-                <span class="text-muted">—</span>
-              {% endif %}
-              {% endif %}
+          {% if can_edit %}
+          <tr id="manualEntryRow" style="display:none;">
+            <td><input id="manualProductCode" class="form-control form-control-sm" maxlength="12" placeholder="Code"></td>
+            <td><input id="manualItemName" class="form-control form-control-sm" placeholder="Item Name"></td>
+            <td><input id="manualCategory" class="form-control form-control-sm" placeholder="Category"></td>
+            <td><input id="manualBrand" class="form-control form-control-sm" placeholder="Brand"></td>
+            <td class="text-center"><input id="manualTotalCount" class="form-control form-control-sm d-inline-block" style="width:96px;" type="number" min="0" step="1" value="0"></td>
+            <td class="text-center"><input id="manualCost" class="form-control form-control-sm d-inline-block" style="width:96px;" type="number" min="0" step="0.01"></td>
+            <td class="text-center"><span class="mi-badge">0</span></td>
+            <td class="text-center"><span class="mi-badge">0</span></td>
+            <td class="text-center" colspan="3">
+              <button class="btn btn-sm btn-success" type="button" onclick="submitManualEntry(this)"><i class="bi bi-check-lg"></i></button>
+              <button class="btn btn-sm btn-outline-secondary" type="button" onclick="hideManualEntryRow()"><i class="bi bi-x-lg"></i></button>
+              <div id="manualEntryError" class="text-danger small mt-1" style="display:none;"></div>
             </td>
           </tr>
+          {% endif %}
+          {% for data in items_data %}
+          <tr>
+            <td>
+              <span class="mi-view">{{ data.item.product_code|default:"-" }}</span>
+              {% if can_edit %}<input class="mi-edit form-control form-control-sm" value="{{ data.item.product_code|default:'' }}" maxlength="12" onblur="saveProductCode(this, {{ data.item.id }})">{% endif %}
+            </td>
+            <td>
+              <span class="mi-view fw-semibold">{{ data.item.item_name }}</span>
+              {% if can_edit %}<input class="mi-edit form-control form-control-sm" value="{{ data.item.item_name }}" onblur="saveItemField(this, {{ data.item.id }}, 'item_name')">{% endif %}
+            </td>
+            <td>
+              <span class="mi-view">{{ data.item.category.category_name|default:"-" }}</span>
+              {% if can_edit %}<input class="mi-edit form-control form-control-sm" value="{{ data.item.category.category_name|default:'' }}" onblur="saveItemField(this, {{ data.item.id }}, 'category')">{% endif %}
+            </td>
+            <td>
+              <span class="mi-view">{{ data.item.brand.brand_name|default:"-" }}</span>
+              {% if can_edit %}<input class="mi-edit form-control form-control-sm" value="{{ data.item.brand.brand_name|default:'' }}" onblur="saveItemField(this, {{ data.item.id }}, 'brand')">{% endif %}
+            </td>
+            <td class="text-center">
+              <span class="mi-view mi-badge">{{ data.available_stock }}</span>
+              {% if can_edit %}<input class="mi-edit form-control form-control-sm text-center" style="width:96px;" type="number" min="0" step="1" value="{{ data.available_stock }}" onblur="saveItemField(this, {{ data.item.id }}, 'total_count')">{% endif %}
+            </td>
+            <td class="text-center">
+              <span class="mi-view mi-badge">{% if data.cpu %}{{ data.cpu }}{% else %}-{% endif %}</span>
+              {% if can_edit %}<input class="mi-edit form-control form-control-sm text-center" style="width:96px;" type="number" min="0" step="0.01" value="{{ data.cpu|default:'' }}" onblur="saveItemField(this, {{ data.item.id }}, 'cost')">{% endif %}
+            </td>
+            <td class="text-center"><span class="mi-badge">{{ data.assigned_count }}</span></td>
+            <td class="text-center"><span class="mi-badge">{{ data.archived_count }}</span></td>
+            <td class="text-center"><span class="mi-badge">{{ data.inactive_count }}</span></td>
+            <td class="text-center"><span class="mi-badge">{{ data.under_maintenance_count }}</span></td>
+            <td class="text-center"><span class="mi-badge">{{ data.disposed_count }}</span></td>
+          </tr>
+          {% empty %}
+          <tr><td colspan="11" class="text-center text-muted py-5">No master inventory items found.</td></tr>
           {% endfor %}
         </tbody>
       </table>
     </div>
-    {% else %}
-    <div class="empty-state">
-      <i class="bi bi-inbox"></i>
-      <p>No items in Master Inventory yet.</p>
-    </div>
-    {% endif %}
-
   </div>
-
 </div>
 
 <script>
-function filterMasterInventory() {
-  const filter = document.getElementById('miSearchInput').value.toLowerCase().trim();
-  const rows = document.querySelectorAll('#miTable tbody tr');
-  rows.forEach(row => {
-    row.style.display = row.textContent.toLowerCase().includes(filter) ? '' : 'none';
-  });
-}
-
-{% if can_edit %}
-let editModeOn = false;
-
-function toggleEditMode() {
-  editModeOn = !editModeOn;
-  const btn = document.getElementById('editModeBtn');
-  if (editModeOn) {
-    btn.innerHTML = '<i class="bi bi-check-lg"></i> Done';
-    btn.style.cssText = 'background:#0d9488;color:white;border-color:#0d9488;';
-  } else {
-    document.querySelectorAll('.editable-input').forEach(input => {
-      const viewEl = input.previousElementSibling;
-      if (!viewEl) return;
-      const val = input.value.trim();
-      if ((input.getAttribute('onblur') || '').includes('cost')) {
-        viewEl.innerHTML = val ? `\u20B9${parseFloat(val).toLocaleString('en-IN')}` : '<span class="text-muted">\u2014</span>';
-      } else {
-        viewEl.textContent = val || '\u2014';
-      }
-    });
-    btn.innerHTML = '<i class="bi bi-pencil-square"></i> Edit';
-    btn.style.cssText = 'background:white;color:#0d9488;border-color:#0d9488;';
-  }
-  document.querySelectorAll('.editable-view').forEach(el => el.style.display = editModeOn ? 'none' : '');
-  document.querySelectorAll('.editable-input').forEach(el => el.style.display = editModeOn ? 'inline-block' : 'none');
-}
-
 function getCsrf() {
   const c = document.cookie.split(';').find(x => x.trim().startsWith('csrftoken='));
   return c ? decodeURIComponent(c.trim().split('=')[1]) : '';
 }
-
-function saveItemField(input, itemId, field) {
-  const val = input.value.trim();
-  const payload = { item_id: itemId };
-  payload[field] = val;
-  fetch('{% url "central_admin:save_item_edit" %}', {
+function toggleEditMode() {
+  document.getElementById('inventoryTable').classList.toggle('is-editing');
+}
+function showManualEntryRow() {
+  const row = document.getElementById('manualEntryRow');
+  if (row) row.style.display = '';
+  document.getElementById('manualItemName')?.focus();
+}
+function hideManualEntryRow() {
+  const row = document.getElementById('manualEntryRow');
+  if (row) row.style.display = 'none';
+}
+function submitManualEntry(btn) {
+  const err = document.getElementById('manualEntryError');
+  const payload = {
+    product_code: document.getElementById('manualProductCode').value.trim(),
+    item_name: document.getElementById('manualItemName').value.trim(),
+    category: document.getElementById('manualCategory').value.trim(),
+    brand: document.getElementById('manualBrand').value.trim(),
+    total_count: document.getElementById('manualTotalCount').value,
+    cost: document.getElementById('manualCost').value,
+  };
+  if (!payload.item_name) {
+    err.textContent = 'Item Name is required.';
+    err.style.display = 'block';
+    return;
+  }
+  btn.disabled = true;
+  fetch('{% url "room_incharge:create_master_inventory_item" room_slug=room_slug %}', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCsrf() },
     body: JSON.stringify(payload),
-  })
-  .then(r => r.json())
-  .then(data => {
-    const viewEl = input.previousElementSibling;
-    if (data.success) {
-      if (viewEl) {
-        if (field === 'cost') {
-          viewEl.innerHTML = val ? `\u20B9${parseFloat(val).toLocaleString('en-IN')}` : '<span class="text-muted">\u2014</span>';
-        } else {
-          viewEl.textContent = val || '\u2014';
-        }
-      }
-      input.style.borderColor = '#059669';
-      setTimeout(() => { input.style.borderColor = ''; }, 1500);
-    } else {
-      input.style.borderColor = '#dc2626';
-      setTimeout(() => { input.style.borderColor = ''; }, 2000);
+  }).then(r => r.json().then(data => ({ ok: r.ok, data }))).then(({ ok, data }) => {
+    btn.disabled = false;
+    if (!ok || !data.success) {
+      err.textContent = data.error || 'Manual entry failed.';
+      err.style.display = 'block';
+      return;
     }
-  })
-  .catch(() => {
-    input.style.borderColor = '#dc2626';
-    setTimeout(() => { input.style.borderColor = ''; }, 2000);
+    window.location.reload();
+  }).catch(() => {
+    btn.disabled = false;
+    err.textContent = 'Network error.';
+    err.style.display = 'block';
   });
 }
-{% endif %}
+function saveProductCode(input, itemId) {
+  fetch('{% url "room_incharge:save_product_code" room_slug=room_slug %}', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCsrf() },
+    body: JSON.stringify({ item_id: itemId, product_code: input.value.trim() }),
+  }).then(r => r.json()).then(data => {
+    if (!data.success) alert(data.error || 'Save failed.');
+  });
+}
+function saveItemField(input, itemId, field) {
+  const payload = { item_id: itemId };
+  payload[field] = input.value.trim();
+  fetch('{% url "room_incharge:save_item_edit" room_slug=room_slug %}', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCsrf() },
+    body: JSON.stringify(payload),
+  }).then(r => r.json()).then(data => {
+    if (!data.success) alert(data.error || 'Save failed.');
+  });
+}
 </script>
 {% endblock content %}

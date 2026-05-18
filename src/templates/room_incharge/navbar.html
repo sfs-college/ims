@@ -105,6 +105,10 @@
     padding: 6px 14px;
     letter-spacing: 0.2px;
     transition: background 0.15s;
+    max-width: 160px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
   .nb-room-switcher .btn:hover { background: #1e293b; }
   .nb-room-switcher .dropdown-menu {
@@ -112,9 +116,21 @@
     border: 1px solid rgba(0,0,0,0.08);
     box-shadow: 0 10px 28px rgba(0,0,0,0.1);
     padding: 6px 0;
-    min-width: 160px;
+    min-width: 200px;
+    max-width: 280px;
+    max-height: min(60vh, 360px);
+    overflow-y: auto;
+    overflow-x: hidden;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
     font-family: 'DM Sans', sans-serif;
     font-size: 0.82rem;
+  }
+  .nb-room-switcher .dropdown-menu::-webkit-scrollbar { width: 6px; }
+  .nb-room-switcher .dropdown-menu::-webkit-scrollbar-track { background: #f8fafc; border-radius: 999px; }
+  .nb-room-switcher .dropdown-menu::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+    border-radius: 999px;
   }
   .nb-room-switcher .dropdown-item {
     padding: 8px 16px;
@@ -122,6 +138,9 @@
     color: #334155;
     border-radius: 0;
     transition: background 0.12s;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
   .nb-room-switcher .dropdown-item:hover { background: #f8fafc; color: #1e293b; }
   .nb-room-switcher .dropdown-item.active {
@@ -245,7 +264,12 @@
                  alt="Profile">
           </div>
           <ul class="dropdown-menu dropdown-menu-end">
-            <li><a class="dropdown-item text-danger" href="{% url 'core:logout' %}">Logout</a></li>
+            <li>
+              <a class="dropdown-item text-danger" href="{% url 'core:logout' %}"
+                 onclick="if(window.IS_CAPACITOR||(window.Capacitor&&window.Capacitor.isNativePlatform&&window.Capacitor.isNativePlatform())){event.preventDefault();fetch('{% url \"core:logout\" %}',{method:'POST',headers:{'X-CSRFToken':document.cookie.match(/csrftoken=([^;]+)/)?.[1]||''}}).then(()=>window.location.href='{% url \"core:app_home\" %}').catch(()=>window.location.href='{% url \"core:app_home\" %}');}">
+                Logout
+              </a>
+            </li>
           </ul>
         </div>
       </div>

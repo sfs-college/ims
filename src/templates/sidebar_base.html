@@ -136,8 +136,8 @@
                 window.history.back();
                 return;
             }
-            // Final fallback: go to landing page
-            window.location.href = '{% url "landing_page" %}';
+            // Final fallback: go to app home or landing page
+            window.location.href = window.IS_CAPACITOR ? '/core/app/?app=1' : '/';
         }
         </script>
         {% endblock back_button %}

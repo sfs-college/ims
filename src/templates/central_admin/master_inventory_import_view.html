@@ -4,11 +4,15 @@
 {% block title %} | Item Import Preview {% endblock title %}
 
 {% block navbar %}
+{% if room_slug %}
+{% include "room_incharge/navbar.html" %}
+{% else %}
 {% include "central_admin/navbar.html" %}
+{% endif %}
 {% endblock navbar %} 
 
 {% block sidebar %}
-{% comment %} {% include "room_incharge/sidebar.html" %} {% endcomment %}
+{% if room_slug %}{% include "room_incharge/sidebar.html" %}{% endif %}
 {% endblock sidebar %}
 
 {% block style %}
@@ -252,7 +256,7 @@
             <p class="small text-muted mb-0">Re-upload the source file to execute the database commit.</p>
         </div>
         
-        <form method="post" action="{% url 'central_admin:master_inventory_import_confirm' %}" enctype="multipart/form-data" class="d-flex align-items-center"> 
+        <form method="post" action="{% if room_slug %}{% url 'room_incharge:master_inventory_import_confirm' room_slug=room_slug %}{% else %}{% url 'central_admin:master_inventory_import_confirm' %}{% endif %}" enctype="multipart/form-data" class="d-flex align-items-center"> 
             {% csrf_token %} 
             <input type="file" name="file" class="form-control form-control-sm me-3" style="width: 250px;" required>
             
@@ -260,7 +264,7 @@
                 Confirm & Sync
             </button> 
             
-             <a href="{% url 'central_admin:master_inventory_import' %}" class="btn btn-link text-muted text-decoration-none ms-2 small">
+             <a href="{% if room_slug %}{% url 'room_incharge:master_inventory_import' room_slug=room_slug %}{% else %}{% url 'central_admin:master_inventory_import' %}{% endif %}" class="btn btn-link text-muted text-decoration-none ms-2 small">
                 Discard
             </a> 
         </form>
