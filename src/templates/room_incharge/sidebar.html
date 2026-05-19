@@ -285,7 +285,7 @@
     <div class="nav-divider"></div>
 
     {% comment %} Master Inventory — only visible if access has been granted {% endcomment %}
-    {% if request.user.profile.master_inventory_access %}
+    {% if request.user.profile.master_inventory_access.all %}
     <a class="navlink {% if request.resolver_match.url_name == 'master_inventory' %}active{% endif %}"
        href="{% url 'room_incharge:master_inventory' room_slug=room_slug %}">
       <span class="material-symbols-outlined">inventory_2</span>
@@ -294,7 +294,7 @@
     {% endif %}
 
     {% comment %} Assign Inventory — only visible if assign access has been granted {% endcomment %}
-    {% if request.user.profile.assign_inventory_access %}
+    {% if request.user.profile.assign_inventory_access.all %}
     <a class="navlink {% if request.resolver_match.url_name == 'assign_inventory' %}active{% endif %}"
        href="{% url 'room_incharge:assign_inventory' room_slug=room_slug %}">
       <span class="material-symbols-outlined">move_item</span>

@@ -9,11 +9,11 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <title>Notifications | {{ room.room_name }}</title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700;9..40,800&display=swap" rel="stylesheet">
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body {
-            font-family: 'Plus Jakarta Sans', sans-serif;
+            font-family: 'DM Sans', sans-serif;
             background: #f1f5f9;
             min-height: 100vh;
             color: #1e293b;
@@ -206,7 +206,8 @@
 <!-- ── Top bar ──────────────────────────────────────────────── -->
 <div class="top-bar">
     <div class="top-bar-left">
-        <a href="{% url 'room_incharge:room_dashboard' room.slug %}" class="back-btn">
+        <a href="{% url 'room_incharge:room_dashboard' room.slug %}" class="back-btn"
+           onclick="if(window.IS_CAPACITOR||(window.Capacitor&&window.Capacitor.isNativePlatform&&window.Capacitor.isNativePlatform())){event.preventDefault();window.history.length>1?window.history.back():window.location.href='{% url \"room_incharge:room_dashboard\" room.slug %}';}">
             <i class="bi bi-arrow-left"></i> Back to Dashboard
         </a>
         <div class="top-bar-title">
@@ -262,7 +263,7 @@
                 </p>
             </div>
             <div class="notif-meta">
-                <span class="notif-time">{{ req.updated_on|date:"d M, H:i" }}</span>
+                <span class="notif-time">{{ req.created_on|date:"d M, H:i" }}</span>
                 <button class="dismiss-btn" onclick="dismissItem('n-stock-{{ req.id }}', 'stock', {{ req.id }})" title="Dismiss"><i class="bi bi-x-lg"></i></button>
             </div>
         </div>
@@ -304,7 +305,7 @@
                 </p>
             </div>
             <div class="notif-meta">
-                <span class="notif-time">{{ req.updated_on|date:"d M, H:i" }}</span>
+                <span class="notif-time">{{ req.created_on|date:"d M, H:i" }}</span>
                 <button class="dismiss-btn" onclick="dismissItem('n-assigned-{{ req.id }}', 'assigned', {{ req.id }})" title="Dismiss"><i class="bi bi-x-lg"></i></button>
             </div>
         </div>

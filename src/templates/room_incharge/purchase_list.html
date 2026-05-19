@@ -4,7 +4,39 @@
 {% block title %} | Purchase List{% endblock title %}
 
 {% block style %}
-<link rel="stylesheet" href="{% static 'styles/inventory/room_incharge/purchase_list/style.css' %}">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700;9..40,800&display=swap');
+  :root {
+    --accent:#6c63ff; --surface:#fff; --surface-2:#f8f8fc;
+    --border:#ebebf5; --text:#1a1a2e; --text-muted:#7c7c9a;
+  }
+  body { background:#f4f4fb; font-family:'DM Sans',sans-serif; }
+  .page-header { display:flex; justify-content:space-between; align-items:center; margin:28px 0 20px; flex-wrap:wrap; gap:12px; }
+  .page-title { font-size:20px; font-weight:700; color:var(--text); margin:0; }
+  .data-card { background:var(--surface); border-radius:14px; border:1px solid var(--border); overflow:hidden; box-shadow:0 1px 8px rgba(0,0,0,0.04); }
+  .data-table { width:100%; border-collapse:collapse; }
+  .data-table thead tr { background:var(--surface-2); border-bottom:1px solid var(--border); }
+  .data-table thead th { padding:12px 16px; font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:0.07em; color:var(--text-muted); white-space:nowrap; }
+  .data-table tbody tr { border-bottom:1px solid var(--border); transition:background 0.14s; }
+  .data-table tbody tr:last-child { border-bottom:none; }
+  .data-table tbody tr:hover { background:#f9f8ff; }
+  .data-table tbody td { padding:13px 16px; font-size:13.5px; color:var(--text); vertical-align:middle; }
+  .status-pill { display:inline-flex; align-items:center; gap:4px; padding:3px 10px; border-radius:20px; font-size:11.5px; font-weight:700; }
+  .s-requested { background:#f1f5f9; color:#475569; border:1px solid #e2e8f0; }
+  .s-approved  { background:#d1fae5; color:#065f46; border:1px solid #a7f3d0; }
+  .s-completed { background:#dbeafe; color:#1e40af; border:1px solid #bfdbfe; }
+  .s-stocked   { background:#d1fae5; color:#065f46; border:1px solid #a7f3d0; }
+  .s-rejected  { background:#fee2e2; color:#991b1b; border:1px solid #fecaca; }
+  .btn-view { display:inline-flex; align-items:center; gap:5px; padding:6px 12px; background:#f0f0ff; color:var(--accent); border:1px solid #ddd8ff; border-radius:7px; font-size:12px; font-weight:600; cursor:pointer; font-family:inherit; transition:all 0.14s; }
+  .btn-view:hover { background:var(--accent); color:#fff; }
+  .empty-state { text-align:center; padding:60px 24px; color:var(--text-muted); }
+  .empty-state i { font-size:3rem; display:block; margin-bottom:12px; opacity:0.2; }
+  @media(max-width:768px) {
+    .data-table thead th, .data-table tbody td { font-size:0.75rem; padding:9px 10px; }
+    .page-header { flex-direction:column; align-items:flex-start; }
+  }
+</style>
 {% endblock style %}
 
 {% block navbar %}
@@ -17,137 +49,134 @@
 
 {% block content %}
 <section>
-    <div style="display:flex;justify-content:space-between;align-items:center;margin:28px 0 20px;flex-wrap:wrap;gap:12px;">
-        <h4 style="font-size:20px;font-weight:700;color:#1a1a2e;margin:0;">Purchases</h4>
-        <div>
-            <div class="dropdown">
-                <button style="display:inline-flex;align-items:center;gap:6px;padding:9px 18px;background:linear-gradient(135deg,#6c63ff,#8b7cf8);color:#fff;border:none;border-radius:9px;font-size:13.5px;font-weight:600;cursor:pointer;box-shadow:0 2px 12px rgba(108,99,255,0.3);" type="button" data-bs-toggle="dropdown" aria-expanded="false">
-                    <i class="bi bi-plus-lg"></i> Create Purchase
-                </button>
-                <ul class="dropdown-menu">
-                    <li><a class="dropdown-item" href="{% url 'room_incharge:purchase_create' room_slug=room_slug %}">Existing Item</a></li>
-                    <li><a class="dropdown-item" href="{% url 'room_incharge:purchase_new_item_create' room_slug=room_slug %}">New Item</a></li>
-                </ul>
-            </div>
-        </div>
+  <div class="page-header">
+    <h4 class="page-title">Purchases</h4>
+    <div class="dropdown">
+      <button style="display:inline-flex;align-items:center;gap:6px;padding:9px 18px;background:linear-gradient(135deg,#6c63ff,#8b7cf8);color:#fff;border:none;border-radius:9px;font-size:13.5px;font-weight:600;cursor:pointer;box-shadow:0 2px 12px rgba(108,99,255,0.3);font-family:inherit;" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+        <i class="bi bi-plus-lg"></i> Create Purchase
+      </button>
+      <ul class="dropdown-menu">
+        <li><a class="dropdown-item" href="{% url 'room_incharge:purchase_create' room_slug=room_slug %}">Existing Item</a></li>
+        <li><a class="dropdown-item" href="{% url 'room_incharge:purchase_new_item_create' room_slug=room_slug %}">New Item</a></li>
+      </ul>
     </div>
-    <div class="row">
-        <div class="col-md-12">
-            <div class="table-responsive">
-                <table class="table">
-                    <thead>
-                        <tr>
-                            <th>Purchase ID</th>
-                            <th>Item</th>
-                            <th>Quantity</th>
-                            <th>Unit of Measure</th>
-                            <th>Vendor</th>
-                            <th>Status</th>
-                            <th>Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for purchase in purchases %}
-                        <tr>
-                            <td>{{ purchase.purchase_id }}</td>
-                            <td>{{ purchase.item.item_name }}</td>
-                            <td>{{ purchase.quantity }}</td>
-                            <td>{{ purchase.unit_of_measure }}</td>
-                            <td>{{ purchase.vendor.vendor_name }}</td>
-                            <td>
+  </div>
 
-                                {% if purchase.status == 'requested' %}
-                                <span class="fw-semibold text-dark">Requested</span>
-                                {% endif %}
-                                {% if purchase.status == 'approved' %}
-                                <span class="fw-semibold text-success">Approved</span>
-                                {% elif purchase.status == 'completed' %}
-                                {% if not purchase.added_to_stock %}
-                                <span class="fw-semibold text-primary">Purchase completed</span>
-                                {% else %}
-                                <span class="fw-semibold text-success">Added to Stock</span>
-                                {% endif %}
-                                {% endif %}
-                                {% if purchase.status == 'rejected' %}
-                                <span class="fw-semibold text-danger">Rejected</span>
-                                {% endif %}
+  <div class="data-card">
+    {% if purchases %}
+    <div class="table-responsive">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Purchase ID</th>
+            <th>Item</th>
+            <th>Qty</th>
+            <th>Unit</th>
+            <th>Vendor</th>
+            <th>Status</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for purchase in purchases %}
+          <tr>
+            <td style="font-family:monospace;font-weight:700;color:#6c63ff;font-size:0.8rem;">{{ purchase.purchase_id }}</td>
+            <td style="font-weight:600;">{{ purchase.item.item_name }}</td>
+            <td>{{ purchase.quantity }}</td>
+            <td>{{ purchase.unit_of_measure }}</td>
+            <td>{{ purchase.vendor.vendor_name }}</td>
+            <td>
+              {% if purchase.status == 'requested' %}
+                <span class="status-pill s-requested"><i class="bi bi-clock" style="font-size:10px;"></i> Requested</span>
+              {% elif purchase.status == 'approved' %}
+                <span class="status-pill s-approved"><i class="bi bi-check-circle-fill" style="font-size:10px;"></i> Approved</span>
+              {% elif purchase.status == 'completed' %}
+                {% if not purchase.added_to_stock %}
+                  <span class="status-pill s-completed"><i class="bi bi-bag-check-fill" style="font-size:10px;"></i> Completed</span>
+                {% else %}
+                  <span class="status-pill s-stocked"><i class="bi bi-box-seam-fill" style="font-size:10px;"></i> In Stock</span>
+                {% endif %}
+              {% elif purchase.status == 'rejected' %}
+                <span class="status-pill s-rejected"><i class="bi bi-x-circle-fill" style="font-size:10px;"></i> Rejected</span>
+              {% endif %}
+            </td>
+            <td>
+              <button type="button" class="btn-view" data-bs-toggle="modal" data-bs-target="#purchaseModal{{ purchase.id }}">
+                <i class="bi bi-eye" style="font-size:11px;"></i> View
+              </button>
+            </td>
+          </tr>
 
-                            </td>
-                            <td>
-                                <button type="button"
-                                    style="display:inline-flex;align-items:center;gap:5px;padding:6px 12px;background:#f0f0ff;color:#6c63ff;border:1px solid #ddd8ff;border-radius:7px;font-size:12.5px;font-weight:600;cursor:pointer;"
-                                    data-bs-toggle="modal"
-                                    data-bs-target="#purchaseModal{{ purchase.id }}">
-                                    <i class="bi bi-eye" style="font-size:11px;"></i> View
-                                </button>
-                            </td>
-                        </tr>
-
-                        <!-- Modal -->
-                        <div class="modal fade" id="purchaseModal{{ purchase.id }}" tabindex="-1"
-                            aria-labelledby="purchaseModalLabel{{ purchase.id }}" aria-hidden="true">
-                            <div class="modal-dialog">
-                                <div class="modal-content">
-                                    <div class="modal-header">
-                                        <h5 class="modal-title" id="purchaseModalLabel{{ purchase.id }}">Purchase
-                                            Details
-                                        </h5>
-                                        <button type="button" class="btn-close" data-bs-dismiss="modal"
-                                            aria-label="Close"></button>
-                                    </div>
-                                    <div class="modal-body">
-                                        <p><strong>Purchase ID:</strong> {{ purchase.purchase_id }}</p>
-                                        <p><strong>Item:</strong> {{ purchase.item.item_name }}</p>
-                                        <p><strong>Quantity:</strong> {{ purchase.quantity }}</p>
-                                        <p><strong>Unit of Measure:</strong> {{ purchase.unit_of_measure }}</p>
-                                        <p><strong>Vendor:</strong> {{ purchase.vendor.vendor_name }}</p>
-                                        <p><strong>Created On:</strong> {{ purchase.created_on }}</p>
-                                        <p><strong>Updated On:</strong> {{ purchase.updated_on }}</p>
-                                        {% if purchase.receipt %}
-                                        <p><strong>Receipt:</strong> <a href="{{ purchase.receipt.receipt.url }}"
-                                                target="_blank">View</a></p>
-                                        {% endif %}
-                                    </div>
-                                    <div class="modal-footer">
-                                        {% if purchase.status == 'requested' %}
-                                        <a href="{% url 'room_incharge:purchase_update' room_slug=room_slug purchase_slug=purchase.slug %}"
-                                            style="display:inline-flex;align-items:center;gap:5px;padding:7px 14px;background:#f0f0ff;color:#6c63ff;border:1px solid #ddd8ff;border-radius:8px;font-size:12.5px;font-weight:600;text-decoration:none;">
-                                            <i class="bi bi-pencil" style="font-size:11px;"></i> Edit
-                                        </a>
-                                        {% endif %}
-                                        {% if purchase.status == 'approved' %}
-                                        <a href="{% url 'room_incharge:purchase_complete' room_slug=room_slug purchase_slug=purchase.slug %}"
-                                            style="display:inline-flex;align-items:center;gap:5px;padding:7px 14px;background:linear-gradient(135deg,#059669,#047857);color:#fff;border-radius:8px;font-size:12.5px;font-weight:700;text-decoration:none;">
-                                            <i class="bi bi-check-circle"></i> Complete Purchase
-                                        </a>
-                                        {% elif purchase.status == 'completed' %}
-                                        {% if not purchase.added_to_stock %}
-                                        <a href="{% url 'room_incharge:purchase_add_to_stock' room_slug=room_slug purchase_slug=purchase.slug %}"
-                                            style="display:inline-flex;align-items:center;gap:5px;padding:7px 14px;background:linear-gradient(135deg,#6c63ff,#8b7cf8);color:#fff;border-radius:8px;font-size:12.5px;font-weight:700;text-decoration:none;">
-                                            <i class="bi bi-box-arrow-in-down"></i> Add to Stock
-                                        </a>
-                                        {% else %}
-                                        <span class="fw-semibold text-success">Added to Stock</span>
-                                        {% endif %}
-                                        {% endif %}
-                                        {% if purchase.status == 'rejected' %}
-                                        <span class="fw-semibold text-danger">Rejected</span>
-                                        {% endif %}
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                        {% endfor %}
-                    </tbody>
-                </table>
+          <!-- Modal -->
+          <div class="modal fade" id="purchaseModal{{ purchase.id }}" tabindex="-1" aria-hidden="true">
+            <div class="modal-dialog modal-dialog-centered">
+              <div class="modal-content" style="border-radius:16px;border:none;font-family:'DM Sans',sans-serif;">
+                <div class="modal-header" style="background:linear-gradient(135deg,#6c63ff,#8b7cf8);color:#fff;border-radius:16px 16px 0 0;border:none;">
+                  <h5 class="modal-title fw-bold"><i class="bi bi-bag-check me-2"></i>Purchase Details</h5>
+                  <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body p-4">
+                  <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px;">
+                    <div style="background:#f8fafc;border-radius:10px;padding:12px;">
+                      <div style="font-size:10px;font-weight:700;text-transform:uppercase;color:#94a3b8;margin-bottom:4px;">Purchase ID</div>
+                      <div style="font-weight:700;font-family:monospace;color:#6c63ff;">{{ purchase.purchase_id }}</div>
+                    </div>
+                    <div style="background:#f8fafc;border-radius:10px;padding:12px;">
+                      <div style="font-size:10px;font-weight:700;text-transform:uppercase;color:#94a3b8;margin-bottom:4px;">Item</div>
+                      <div style="font-weight:600;color:#1e293b;">{{ purchase.item.item_name }}</div>
+                    </div>
+                    <div style="background:#f8fafc;border-radius:10px;padding:12px;">
+                      <div style="font-size:10px;font-weight:700;text-transform:uppercase;color:#94a3b8;margin-bottom:4px;">Quantity</div>
+                      <div style="font-weight:700;color:#1e293b;">{{ purchase.quantity }} {{ purchase.unit_of_measure }}</div>
+                    </div>
+                    <div style="background:#f8fafc;border-radius:10px;padding:12px;">
+                      <div style="font-size:10px;font-weight:700;text-transform:uppercase;color:#94a3b8;margin-bottom:4px;">Vendor</div>
+                      <div style="font-weight:600;color:#1e293b;">{{ purchase.vendor.vendor_name }}</div>
+                    </div>
+                  </div>
+                  <div style="font-size:12px;color:#94a3b8;margin-bottom:4px;">Created: {{ purchase.created_on|date:"d M Y, H:i" }}</div>
+                  <div style="font-size:12px;color:#94a3b8;">Updated: {{ purchase.updated_on|date:"d M Y, H:i" }}</div>
+                  {% if purchase.receipt %}
+                  <div style="margin-top:12px;">
+                    <a href="{{ purchase.receipt.receipt.url }}" target="_blank" style="display:inline-flex;align-items:center;gap:5px;color:#6c63ff;font-size:13px;font-weight:600;text-decoration:none;">
+                      <i class="bi bi-file-earmark-text"></i> View Receipt
+                    </a>
+                  </div>
+                  {% endif %}
+                </div>
+                <div class="modal-footer" style="border:none;padding:12px 20px 20px;gap:8px;">
+                  {% if purchase.status == 'requested' %}
+                  <a href="{% url 'room_incharge:purchase_update' room_slug=room_slug purchase_slug=purchase.slug %}"
+                     style="display:inline-flex;align-items:center;gap:5px;padding:8px 16px;background:#f0f0ff;color:#6c63ff;border:1px solid #ddd8ff;border-radius:8px;font-size:12.5px;font-weight:600;text-decoration:none;">
+                    <i class="bi bi-pencil" style="font-size:11px;"></i> Edit
+                  </a>
+                  {% endif %}
+                  {% if purchase.status == 'approved' %}
+                  <a href="{% url 'room_incharge:purchase_complete' room_slug=room_slug purchase_slug=purchase.slug %}"
+                     style="display:inline-flex;align-items:center;gap:5px;padding:8px 16px;background:linear-gradient(135deg,#059669,#047857);color:#fff;border-radius:8px;font-size:12.5px;font-weight:700;text-decoration:none;">
+                    <i class="bi bi-check-circle"></i> Complete Purchase
+                  </a>
+                  {% elif purchase.status == 'completed' and not purchase.added_to_stock %}
+                  <a href="{% url 'room_incharge:purchase_add_to_stock' room_slug=room_slug purchase_slug=purchase.slug %}"
+                     style="display:inline-flex;align-items:center;gap:5px;padding:8px 16px;background:linear-gradient(135deg,#6c63ff,#8b7cf8);color:#fff;border-radius:8px;font-size:12.5px;font-weight:700;text-decoration:none;">
+                    <i class="bi bi-box-arrow-in-down"></i> Add to Stock
+                  </a>
+                  {% endif %}
+                  <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Close</button>
+                </div>
+              </div>
             </div>
-        </div>
+          </div>
+          {% endfor %}
+        </tbody>
+      </table>
     </div>
+    {% else %}
+    <div class="empty-state">
+      <i class="bi bi-bag-x"></i>
+      <p>No purchases found. Create one to get started.</p>
+    </div>
+    {% endif %}
+  </div>
 </section>
 {% endblock content %}
-
-{% block script %}
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"
-    integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz"
-    crossorigin="anonymous"></script>
-{% endblock script %}
