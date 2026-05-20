@@ -491,6 +491,7 @@ class Item(models.Model):
     # Serviceable/unserviceable counts (from Archive assignments)
     serviceable_count = models.IntegerField(default=0)
     unserviceable_count = models.IntegerField(default=0)
+    is_serviceable = models.BooleanField(default=True)
 
     is_listed = models.BooleanField(default=True)
 
@@ -507,12 +508,23 @@ class Item(models.Model):
         if not self.item_description:
             self.item_description = f"{self.brand.brand_name} {self.item_name} - {self.category.category_name}"
 
+        used_count = self.active_count + self.inactive_count + self.archived_count
+        if used_count > self.total_count:
+            raise ValidationError("Available, active, inactive and archived counts cannot exceed total assigned.")
+
         # AVAILABLE COUNT CALCULATION
         # available = total - active - inactive - archived (serviceable+unserviceable)
-        calculated_available = self.total_count - self.active_count - self.inactive_count - self.archived_count
+        calculated_available = self.total_count - used_count
         self.available_count = max(calculated_available, 0)
         # Keep in_use in sync with active for backward compatibility
         self.in_use = self.active_count
+
+        update_fields = kwargs.get("update_fields")
+        if update_fields is not None:
+            update_fields = set(update_fields)
+            if update_fields & {"total_count", "active_count", "inactive_count", "archived_count"}:
+                update_fields.update({"available_count", "in_use"})
+            kwargs["update_fields"] = list(update_fields)
 
         super().save(*args, **kwargs)
 

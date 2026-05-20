@@ -2559,6 +2559,7 @@ def assign_inventory_api(request):
                     total_count=quantity,
                     cost=master_item.cost,
                     is_listed=True,
+                    is_serviceable=master_item.is_serviceable,
                     item_description=master_item.item_description,
                     created_by=profile,
                 )
@@ -3104,6 +3105,51 @@ def save_item_edit(request):
 
     master_item.save()
     return JsonResponse({'success': True})
+
+
+def toggle_item_condition(request, room_slug=None):
+    if request.method != 'POST':
+        return JsonResponse({'error': 'POST required'}, status=405)
+
+    profile = getattr(request.user, 'profile', None)
+    if not profile:
+        return JsonResponse({'error': 'Unauthorized'}, status=403)
+
+    import json
+    try:
+        data = json.loads(request.body)
+    except Exception:
+        return JsonResponse({'error': 'Invalid JSON'}, status=400)
+
+    item_id = data.get('item_id')
+    if not item_id:
+        return JsonResponse({'error': 'Item is required'}, status=400)
+
+    if room_slug:
+        if profile.is_central_admin or profile.is_sub_admin:
+            room = get_object_or_404(Room, slug=room_slug, organisation=profile.org)
+        else:
+            room = get_object_or_404(Room, slug=room_slug, incharge=profile)
+        item = get_object_or_404(Item, id=item_id, organisation=profile.org, room=room)
+    else:
+        if not (profile.is_central_admin or profile.is_sub_admin):
+            return JsonResponse({'error': 'Unauthorized'}, status=403)
+        item = get_object_or_404(Item, id=item_id, organisation=profile.org, room__isnull=True)
+
+    if 'is_serviceable' in data:
+        item.is_serviceable = bool(data.get('is_serviceable'))
+    else:
+        item.is_serviceable = not item.is_serviceable
+    item.save(update_fields=['is_serviceable', 'updated_on'])
+
+    if not room_slug:
+        Item.objects.filter(
+            organisation=profile.org,
+            item_name=item.item_name,
+            room__isnull=False,
+        ).update(is_serviceable=item.is_serviceable, updated_on=timezone.now())
+
+    return JsonResponse({'success': True, 'is_serviceable': item.is_serviceable})
 
 
 def get_asset_tags(request):
@@ -4802,6 +4848,7 @@ def incharge_assign_inventory_api(request):
                     total_count=quantity,
                     cost=master_item.cost,
                     is_listed=True,
+                    is_serviceable=master_item.is_serviceable,
                     item_description=master_item.item_description,
                     created_by=profile,
                 )

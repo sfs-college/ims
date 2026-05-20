@@ -43,6 +43,7 @@
   .svc-pill { display:inline-flex; align-items:center; gap:4px; padding:3px 10px; border-radius:20px; font-size:12px; font-weight:700; cursor:pointer; transition:all 0.15s; }
   .svc-pill.serviceable { background:#f0fdf4; color:#16a34a; border:1px solid #bbf7d0; }
   .svc-pill.unserviceable { background:#fef2f2; color:#991b1b; border:1px solid #fecaca; }
+  .condition-btn { min-width:118px; justify-content:center; font-family:'DM Sans',sans-serif; }
   .actions-wrap { display:flex; gap:7px; align-items:center; flex-wrap:wrap; }
   .btn-stock-request { display:inline-flex; align-items:center; gap:5px; padding:6px 12px; background:linear-gradient(135deg,#f59e0b,#f97316); color:white; border:none; border-radius:7px; font-size:12.5px; font-weight:600; cursor:pointer; transition:all 0.14s; font-family:'DM Sans',sans-serif; box-shadow:0 2px 8px rgba(245,158,11,0.25); }
   .btn-stock-request:hover { transform:translateY(-1px); box-shadow:0 4px 14px rgba(245,158,11,0.35); }
@@ -123,7 +124,7 @@
             <th>Active</th>
             <th>Inactive</th>
             <th>Archived</th>
-            <th>Serviceable / Unserviceable</th>
+            <th>Condition</th>
             <th>Actions</th>
           </tr>
         </thead>
@@ -149,17 +150,14 @@
             <td><span class="stock-pill stock-inactive">{{ item.inactive_count }}</span></td>
             <td><span class="stock-pill stock-archived">{{ item.archived_count }}</span></td>
             <td>
-              <div class="svc-toggle-wrap">
-                <span class="svc-pill serviceable" title="Serviceable archived items">
-                  <i class="bi bi-check-circle-fill" style="font-size:10px;"></i>
-                  {{ item.serviceable_count }}
-                </span>
-                <span style="color:#94a3b8;font-size:11px;font-weight:700;">/</span>
-                <span class="svc-pill unserviceable" title="Unserviceable archived items">
-                  <i class="bi bi-x-circle-fill" style="font-size:10px;"></i>
-                  {{ item.unserviceable_count }}
-                </span>
-              </div>
+              <button type="button"
+                      class="svc-pill condition-btn {% if item.is_serviceable %}serviceable{% else %}unserviceable{% endif %}"
+                      data-item-id="{{ item.id }}"
+                      data-serviceable="{% if item.is_serviceable %}true{% else %}false{% endif %}"
+                      onclick="toggleCondition(this)">
+                <i class="bi {% if item.is_serviceable %}bi-check-circle-fill{% else %}bi-x-circle-fill{% endif %}" style="font-size:10px;"></i>
+                <span>{% if item.is_serviceable %}Serviceable{% else %}Unserviceable{% endif %}</span>
+              </button>
             </td>
             <td>
               <div class="actions-wrap">
@@ -240,6 +238,50 @@
 </div>
 
 <script>
+function getCsrf() {
+  const c = document.cookie.split(';').find(x => x.trim().startsWith('csrftoken='));
+  return c ? decodeURIComponent(c.trim().split('=')[1]) : '';
+}
+function showConditionToast(message, ok=true) {
+  let toast = document.getElementById('conditionToast');
+  if (!toast) {
+    toast = document.createElement('div');
+    toast.id = 'conditionToast';
+    toast.style.cssText = 'position:fixed;right:18px;bottom:18px;z-index:1080;padding:10px 14px;border-radius:10px;color:#fff;font-size:.85rem;font-weight:800;box-shadow:0 10px 24px rgba(15,23,42,.24);';
+    document.body.appendChild(toast);
+  }
+  toast.textContent = message;
+  toast.style.background = ok ? '#059669' : '#dc2626';
+  toast.style.display = 'block';
+  setTimeout(() => { toast.style.display = 'none'; }, 2200);
+}
+function toggleCondition(btn) {
+  const nextValue = btn.dataset.serviceable !== 'true';
+  btn.disabled = true;
+  fetch('{% url "room_incharge:toggle_item_condition" room_slug=room_slug %}', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCsrf() },
+    body: JSON.stringify({ item_id: btn.dataset.itemId, is_serviceable: nextValue }),
+  }).then(r => r.json().then(data => ({ ok: r.ok, data }))).then(({ ok, data }) => {
+    btn.disabled = false;
+    if (!ok || !data.success) {
+      showConditionToast('Failed to update - please try again', false);
+      return;
+    }
+    const icon = btn.querySelector('i');
+    const label = btn.querySelector('span');
+    btn.dataset.serviceable = data.is_serviceable ? 'true' : 'false';
+    btn.classList.toggle('serviceable', data.is_serviceable);
+    btn.classList.toggle('unserviceable', !data.is_serviceable);
+    icon.className = 'bi ' + (data.is_serviceable ? 'bi-check-circle-fill' : 'bi-x-circle-fill');
+    label.textContent = data.is_serviceable ? 'Serviceable' : 'Unserviceable';
+    showConditionToast('Condition updated');
+  }).catch(() => {
+    btn.disabled = false;
+    showConditionToast('Failed to update - please try again', false);
+  });
+}
+
 function openStockModal(itemId, itemName, total, available, active) {
   document.getElementById('srItemId').value = itemId;
   document.getElementById('srItemName').textContent = itemName;
