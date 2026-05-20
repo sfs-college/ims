@@ -156,6 +156,15 @@
         background:#f1f5f9; color:#475569; padding:5px 12px;
         border-radius:8px; font-weight:700; font-size:0.88rem;
     }
+    .condition-badge {
+        border-radius:999px;
+        cursor:pointer;
+        min-width:108px;
+        padding:5px 12px;
+        transition:all 0.15s;
+    }
+    .condition-badge.serviceable { background:#f0fdf4; color:#16a34a; border:1px solid #bbf7d0; }
+    .condition-badge.unserviceable { background:#fef2f2; color:#991b1b; border:1px solid #fecaca; }
     .badge-available { background:#d1fae5; color:#065f46; }
     .badge-assigned  { background:#dbeafe; color:#1e40af; }
     .badge-total     { background:#f3e8ff; color:#6b21a8; }
@@ -350,7 +359,7 @@
             <label class="fc-pill selected" data-field="stock"><input type="checkbox" checked>Stock</label>
             <label class="fc-pill selected" data-field="cost"><input type="checkbox" checked>Cost</label>
             <label class="fc-pill selected" data-field="assigned"><input type="checkbox" checked>Assigned</label>
-            <label class="fc-pill selected" data-field="archived"><input type="checkbox" checked>Archived</label>
+            <label class="fc-pill selected" data-field="archived"><input type="checkbox" checked>Condition</label>
             <label class="fc-pill selected" data-field="compstatus"><input type="checkbox" checked>Comp. Status</label>
         </div>
 
@@ -398,7 +407,7 @@
                         </div>
                     </th>
                     <th data-col="assigned" class="text-center">Assigned to Rooms</th>
-                    <th data-col="archived" class="text-center">Archived</th>
+                    <th data-col="archived" class="text-center">Condition</th>
                     <th data-col="compstatus">
                         <div class="col-toggle-header">
                             <span id="compStatusColLabel">Inactive</span>
@@ -418,7 +427,7 @@
                     <td data-col="stock" class="text-center"><input id="manualTotalCount" type="number" min="0" step="1" class="form-control form-control-sm" value="0" style="width:100px;display:inline-block;"></td>
                     <td data-col="cost" class="text-center"><input id="manualCost" type="number" min="0" step="0.01" class="form-control form-control-sm" placeholder="Cost" style="width:100px;display:inline-block;"></td>
                     <td data-col="assigned" class="text-center"><span class="badge-count badge-assigned">0</span></td>
-                    <td data-col="archived" class="text-center"><span class="badge-count" style="background:#fef3c7;color:#92400e;border:1px solid #fde68a;">0</span></td>
+                    <td data-col="archived" class="text-center"><span class="badge-count condition-badge serviceable">Serviceable</span></td>
                     <td data-col="compstatus" class="text-center">
                         <button type="button" class="btn btn-sm btn-success" onclick="submitManualEntry(this)"><i class="bi bi-check-lg"></i></button>
                         <button type="button" class="btn btn-sm btn-outline-secondary" onclick="hideManualEntryRow()"><i class="bi bi-x-lg"></i></button>
@@ -497,9 +506,13 @@
                         </button>
                     </td>
                     <td data-col="archived" class="text-center">
-                        <span class="badge-count" style="background:#fef3c7; color:#92400e; border:1px solid #fde68a;">
-                            {{ data.archived_count }}
-                        </span>
+                        <button type="button"
+                                class="badge-count condition-badge {% if data.item.is_serviceable %}serviceable{% else %}unserviceable{% endif %}"
+                                data-item-id="{{ data.item.id }}"
+                                data-serviceable="{% if data.item.is_serviceable %}true{% else %}false{% endif %}"
+                                onclick="toggleCondition(this)">
+                            {% if data.item.is_serviceable %}Serviceable{% else %}Unserviceable{% endif %}
+                        </button>
                     </td>
                     <td data-col="compstatus" class="text-center"
                         data-inactive="{{ data.inactive_count }}"
@@ -1300,6 +1313,47 @@ function saveItemField(input, itemId, field) {
 }
 
 // ── ASSET TAG MODAL ──
+function showConditionToast(message, ok=true) {
+    let toast = document.getElementById('conditionToast');
+    if (!toast) {
+        toast = document.createElement('div');
+        toast.id = 'conditionToast';
+        toast.style.cssText = 'position:fixed;right:18px;bottom:18px;z-index:1080;padding:10px 14px;border-radius:10px;color:#fff;font-size:.85rem;font-weight:800;box-shadow:0 10px 24px rgba(15,23,42,.24);';
+        document.body.appendChild(toast);
+    }
+    toast.textContent = message;
+    toast.style.background = ok ? '#059669' : '#dc2626';
+    toast.style.display = 'block';
+    setTimeout(() => { toast.style.display = 'none'; }, 2200);
+}
+
+function toggleCondition(btn) {
+    const nextValue = btn.dataset.serviceable !== 'true';
+    btn.disabled = true;
+    fetch('{% url "central_admin:toggle_item_condition" %}', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCsrf() },
+        body: JSON.stringify({ item_id: btn.dataset.itemId, is_serviceable: nextValue }),
+    })
+    .then(r => r.json().then(data => ({ ok: r.ok, data })))
+    .then(({ ok, data }) => {
+        btn.disabled = false;
+        if (!ok || !data.success) {
+            showConditionToast('Failed to update - please try again', false);
+            return;
+        }
+        btn.dataset.serviceable = data.is_serviceable ? 'true' : 'false';
+        btn.textContent = data.is_serviceable ? 'Serviceable' : 'Unserviceable';
+        btn.classList.toggle('serviceable', data.is_serviceable);
+        btn.classList.toggle('unserviceable', !data.is_serviceable);
+        showConditionToast('Condition updated');
+    })
+    .catch(() => {
+        btn.disabled = false;
+        showConditionToast('Failed to update - please try again', false);
+    });
+}
+
 function openTagModal(itemName) {
     document.getElementById('tagModalItemName').textContent = itemName;
     document.getElementById('tagModalContent').innerHTML =

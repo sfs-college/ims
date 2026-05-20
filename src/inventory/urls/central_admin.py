@@ -110,6 +110,7 @@ urlpatterns = [
     path('booking-control/<int:booking_id>/add-return/', aura.booking_add_return_note, name='booking_control_add_return'),
     path('api/save-product-code/', aura.save_product_code, name='save_product_code'),
     path('api/save-item-edit/', aura.save_item_edit, name='save_item_edit'),
+    path('api/toggle-item-condition/', aura.toggle_item_condition, name='toggle_item_condition'),
     path('api/master-inventory/manual-create/', aura.create_master_inventory_item, name='create_master_inventory_item'),
     path('api/asset-tags/', aura.get_asset_tags, name='get_asset_tags'),
     

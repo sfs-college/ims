@@ -1,0 +1,221 @@
+{% extends "sidebar_base.html" %}
+{% load static %}
+
+{% block title %} | Systems{% endblock title %}
+
+{% block style %}
+<link rel="stylesheet" href="{% static 'styles/inventory/room_incharge/system_list/style.css' %}">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&display=swap');
+  :root { --accent:#6c63ff; --surface:#fff; --surface-2:#f8fafc; --border:#e2e8f0; --text:#1e293b; --muted:#64748b; }
+  body { background:#f4f4fb; font-family:'DM Sans',sans-serif; }
+  .systems-wrap { padding:24px 0 48px; }
+  .systems-head { display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap; margin-bottom:18px; }
+  .systems-title { margin:0; color:var(--text); font-size:1.35rem; font-weight:800; }
+  .systems-actions { display:flex; gap:8px; flex-wrap:wrap; }
+  .sys-btn { display:inline-flex; align-items:center; gap:6px; padding:8px 14px; border-radius:8px; border:1px solid var(--border); background:#fff; color:#334155; font-size:.82rem; font-weight:700; text-decoration:none; cursor:pointer; }
+  .sys-btn.primary { background:linear-gradient(135deg,#6c63ff,#8b7cf8); border-color:#6c63ff; color:#fff; }
+  .board { display:grid; grid-template-columns:repeat(4,minmax(180px,1fr)); gap:14px; margin-bottom:24px; }
+  .lane { background:var(--surface); border:1px solid var(--border); border-radius:14px; min-height:220px; box-shadow:0 1px 8px rgba(15,23,42,.04); overflow:hidden; }
+  .lane-head { display:flex; justify-content:space-between; align-items:center; padding:12px 14px; background:var(--surface-2); border-bottom:1px solid var(--border); font-size:.78rem; font-weight:800; text-transform:uppercase; letter-spacing:.05em; color:var(--muted); }
+  .lane-body { padding:12px; min-height:166px; }
+  .lane.drop-over { outline:2px solid #a5b4fc; outline-offset:-4px; }
+  .item-card { background:#fff; border:1px solid var(--border); border-radius:10px; padding:10px 11px; margin-bottom:9px; cursor:grab; box-shadow:0 1px 4px rgba(15,23,42,.04); }
+  .item-card:active { cursor:grabbing; }
+  .item-name { color:var(--text); font-weight:800; font-size:.9rem; }
+  .item-meta { display:flex; gap:6px; flex-wrap:wrap; margin-top:7px; color:var(--muted); font-size:.74rem; font-weight:700; }
+  .count-pill { display:inline-flex; align-items:center; gap:4px; border-radius:999px; padding:2px 8px; background:#eef2ff; color:#4f46e5; border:1px solid #c7d2fe; }
+  .empty { color:#94a3b8; font-size:.85rem; text-align:center; padding:28px 12px; }
+  .systems-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(230px,1fr)); gap:14px; }
+  .system-card { background:#fff; border:1px solid var(--border); border-radius:12px; padding:14px; box-shadow:0 1px 8px rgba(15,23,42,.04); }
+  .system-card h5 { margin:0 0 10px; font-size:1rem; color:var(--text); font-weight:800; }
+  .system-stats { display:flex; gap:6px; flex-wrap:wrap; margin-bottom:10px; }
+  .status-badge { display:inline-flex; align-items:center; gap:4px; border-radius:999px; padding:3px 9px; font-size:.72rem; font-weight:800; }
+  .active { background:#ecfdf5; color:#047857; border:1px solid #a7f3d0; }
+  .inactive { background:#fef2f2; color:#991b1b; border:1px solid #fecaca; }
+  .archived { background:#fffbeb; color:#92400e; border:1px solid #fde68a; }
+  .system-link { color:var(--accent); font-size:.78rem; font-weight:800; text-decoration:none; }
+  .toast-lite { position:fixed; right:18px; bottom:18px; z-index:1080; display:none; padding:10px 14px; border-radius:10px; color:#fff; font-size:.85rem; font-weight:800; box-shadow:0 10px 24px rgba(15,23,42,.24); }
+  .toast-lite.ok { background:#059669; }
+  .toast-lite.err { background:#dc2626; }
+  @media (max-width:1000px) { .board { grid-template-columns:repeat(2,minmax(180px,1fr)); } }
+  @media (max-width:620px) { .systems-wrap { padding:14px 0 36px; } .board { grid-template-columns:1fr; } }
+</style>
+{% endblock style %}
+
+{% block navbar %}{% include "room_incharge/navbar.html" %}{% endblock navbar %}
+{% block sidebar %}{% include "room_incharge/sidebar.html" %}{% endblock sidebar %}
+
+{% block content %}
+<div class="systems-wrap">
+  {% csrf_token %}
+  <div class="systems-head">
+    <div>
+      <h1 class="systems-title">Systems</h1>
+      <div class="text-muted small">{{ room.room_name }} item allocation</div>
+    </div>
+    <div class="systems-actions">
+      <a class="sys-btn" href="{% url 'room_incharge:system_import' room_slug=room_slug %}"><i class="bi bi-file-earmark-spreadsheet"></i> Import</a>
+      <a class="sys-btn primary" href="{% url 'room_incharge:system_create' room_slug=room_slug %}"><i class="bi bi-plus-circle"></i> Create System</a>
+    </div>
+  </div>
+
+  <div class="board">
+    <section class="lane" data-lane="available">
+      <div class="lane-head"><span>Available Items</span><span>{{ items|length }}</span></div>
+      <div class="lane-body">
+        {% for item in items %}
+          {% if item.available_count > 0 %}
+          <div class="item-card" draggable="true"
+               data-item-id="{{ item.id }}"
+               data-item-name="{{ item.item_name|escape }}"
+               data-available-count="{{ item.available_count }}"
+               data-source="available">
+            <div class="item-name">{{ item.item_name }}</div>
+            <div class="item-meta">
+              <span class="count-pill"><i class="bi bi-box-seam"></i>{{ item.available_count }} available</span>
+              <span>Total {{ item.total_count }}</span>
+            </div>
+          </div>
+          {% endif %}
+        {% empty %}
+          <div class="empty">No items assigned to this room.</div>
+        {% endfor %}
+      </div>
+    </section>
+
+    <section class="lane drop-lane" data-lane="active">
+      <div class="lane-head"><span>Active</span><span>{{ active_items|length }}</span></div>
+      <div class="lane-body">
+        {% for entry in active_items %}
+        <div class="item-card" draggable="true" data-item-id="{{ entry.item.id }}" data-item-name="{{ entry.item.item_name|escape }}" data-available-count="{{ entry.count }}" data-source="active">
+          <div class="item-name">{{ entry.item.item_name }}</div>
+          <div class="item-meta"><span class="count-pill">{{ entry.count }} active</span></div>
+        </div>
+        {% empty %}<div class="empty">Drop items here to mark active.</div>{% endfor %}
+      </div>
+    </section>
+
+    <section class="lane drop-lane" data-lane="inactive">
+      <div class="lane-head"><span>Inactive</span><span>{{ inactive_items|length }}</span></div>
+      <div class="lane-body">
+        {% for entry in inactive_items %}
+        <div class="item-card" draggable="true" data-item-id="{{ entry.item.id }}" data-item-name="{{ entry.item.item_name|escape }}" data-available-count="{{ entry.count }}" data-source="inactive">
+          <div class="item-name">{{ entry.item.item_name }}</div>
+          <div class="item-meta"><span class="count-pill">{{ entry.count }} inactive</span></div>
+        </div>
+        {% empty %}<div class="empty">Drop items here to mark inactive.</div>{% endfor %}
+      </div>
+    </section>
+
+    <section class="lane drop-lane" data-lane="archive">
+      <div class="lane-head"><span>Archive</span><span>{{ archived_items|length }}</span></div>
+      <div class="lane-body">
+        {% for entry in archived_items %}
+        <div class="item-card" data-item-id="{{ entry.item.id }}" data-item-name="{{ entry.item.item_name|escape }}" data-available-count="{{ entry.count }}">
+          <div class="item-name">{{ entry.item.item_name }}</div>
+          <div class="item-meta"><span class="count-pill">{{ entry.count }} archived</span></div>
+        </div>
+        {% empty %}<div class="empty">Drop items here to archive.</div>{% endfor %}
+      </div>
+    </section>
+  </div>
+
+  <div class="systems-head" style="margin-top:8px;">
+    <h2 class="systems-title" style="font-size:1.05rem;">Created Systems</h2>
+  </div>
+  {% if systems %}
+  <div class="systems-grid">
+    {% for system in systems %}
+    <article class="system-card">
+      <h5>{{ system.system_name }}</h5>
+      <div class="system-stats">
+        <span class="status-badge active">{{ system.active_component_count }} Active</span>
+        <span class="status-badge inactive">{{ system.inactive_component_count }} Inactive</span>
+        <span class="status-badge archived">{{ system.archived_component_count }} Archived</span>
+      </div>
+      <a class="system-link" href="{% url 'room_incharge:system_component_list' room_slug=room_slug system_slug=system.slug %}">View components</a>
+    </article>
+    {% endfor %}
+  </div>
+  {% else %}
+  <div class="empty" style="background:#fff;border:1px solid var(--border);border-radius:12px;">No systems created yet. Drag items above to get started.</div>
+  {% endif %}
+</div>
+<div id="sysToast" class="toast-lite"></div>
+
+<script>
+const systemItems = Array.from(document.querySelectorAll('.item-card[draggable="true"]')).map(card => ({
+  id: card.dataset.itemId,
+  name: card.dataset.itemName,
+  available_count: Number(card.dataset.availableCount || 0),
+  source: card.dataset.source || 'available'
+}));
+console.log('Systems items array:', systemItems);
+
+function getCsrf() {
+  const c = document.cookie.split(';').find(x => x.trim().startsWith('csrftoken='));
+  return c ? decodeURIComponent(c.trim().split('=')[1]) : '';
+}
+function showSysToast(message, ok=true) {
+  const el = document.getElementById('sysToast');
+  el.textContent = message;
+  el.className = 'toast-lite ' + (ok ? 'ok' : 'err');
+  el.style.display = 'block';
+  setTimeout(() => { el.style.display = 'none'; }, 2200);
+}
+let dragged = null;
+document.querySelectorAll('.item-card[draggable="true"]').forEach(card => {
+  card.addEventListener('dragstart', event => {
+    dragged = card;
+    event.dataTransfer.setData('text/plain', card.dataset.itemId);
+  });
+});
+document.querySelectorAll('.drop-lane').forEach(lane => {
+  lane.addEventListener('dragover', event => {
+    event.preventDefault();
+    lane.classList.add('drop-over');
+  });
+  lane.addEventListener('dragleave', () => lane.classList.remove('drop-over'));
+  lane.addEventListener('drop', event => {
+    event.preventDefault();
+    lane.classList.remove('drop-over');
+    if (!dragged) return;
+    moveItem(dragged, lane.dataset.lane);
+  });
+});
+function moveItem(card, target) {
+  const source = card.dataset.source || 'available';
+  const itemName = card.dataset.itemName || 'item';
+  const maxCount = Math.max(1, Number(card.dataset.availableCount || 1));
+  const rawCount = window.prompt(`How many ${itemName} unit(s) do you want to move?`, '1');
+  if (rawCount === null) return;
+  const count = Number.parseInt(rawCount, 10);
+  if (!Number.isInteger(count) || count < 1 || count > maxCount) {
+    showSysToast(`Enter a count between 1 and ${maxCount}.`, false);
+    return;
+  }
+  const archive = target === 'archive';
+  const url = archive
+    ? '{% url "room_incharge:systems_archive" room_slug=room_slug %}'
+    : '{% url "room_incharge:systems_assign" room_slug=room_slug %}';
+  const payload = archive
+    ? { item_id: card.dataset.itemId, from: source, count, category: 'serviceable', remark: 'Archived from systems board' }
+    : { item_id: card.dataset.itemId, from: source, target, count };
+
+  fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCsrf(), 'X-Requested-With': 'XMLHttpRequest' },
+    body: JSON.stringify(payload),
+  }).then(r => r.json().then(data => ({ ok: r.ok, data }))).then(({ ok, data }) => {
+    if (!ok || !data.success) {
+      showSysToast(data.error || 'Move failed. Please try again.', false);
+      return;
+    }
+    showSysToast(data.message || `Updated ${itemName}`);
+    setTimeout(() => window.location.reload(), 450);
+  }).catch(() => showSysToast('Failed to update item.', false));
+}
+</script>
+{% endblock content %}

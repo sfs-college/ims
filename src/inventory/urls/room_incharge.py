@@ -108,6 +108,7 @@ urlpatterns = [
     path('rooms/<slug:room_slug>/api/master-inventory/manual-create/', aura_views.create_master_inventory_item, name='create_master_inventory_item'),
     path('rooms/<slug:room_slug>/api/save-product-code/', aura_views.save_product_code, name='save_product_code'),
     path('rooms/<slug:room_slug>/api/save-item-edit/', aura_views.save_item_edit, name='save_item_edit'),
+    path('rooms/<slug:room_slug>/api/toggle-item-condition/', aura_views.toggle_item_condition, name='toggle_item_condition'),
     # Assign Inventory — for room incharges with granted assign access
     path('rooms/<slug:room_slug>/assign-inventory/', aura_views.RoomInchargeAssignInventoryView.as_view(), name='assign_inventory'),
     path('rooms/<slug:room_slug>/api/assign-inventory/', aura_views.incharge_assign_inventory_api, name='incharge_assign_inventory_api'),

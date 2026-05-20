@@ -11,7 +11,6 @@ from inventory.forms.room_incharge import PurchaseCompleteForm
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.http import HttpResponse, HttpResponseForbidden
 from django.template.loader import render_to_string
-from weasyprint import HTML
 import pandas as pd
 import io
 import logging
@@ -394,17 +393,23 @@ class SystemListView(LoginRequiredMixin, ListView):
     model = Item
     context_object_name = 'items'
 
+    def get_room(self):
+        profile = self.request.user.profile
+        if profile.is_central_admin or profile.is_sub_admin:
+            return get_object_or_404(Room, slug=self.kwargs['room_slug'], organisation=profile.org)
+        return get_object_or_404(Room, slug=self.kwargs['room_slug'], incharge=profile)
+
     def get_queryset(self):
-        room = get_object_or_404(Room, slug=self.kwargs['room_slug'])
-        return Item.objects.filter(room=room).order_by('item_name')
+        room = self.get_room()
+        return Item.objects.filter(room=room).select_related('category', 'brand').order_by('item_name')
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        room = get_object_or_404(Room, slug=self.kwargs['room_slug'])
+        room = self.get_room()
+        items = context['items']
         context['room_slug'] = self.kwargs['room_slug']
+        context['room'] = room
         context['room_settings'] = RoomSettings.objects.get_or_create(room=room)[0]
-
-        items = Item.objects.filter(room=room).order_by('item_name')
 
         # Build active/inactive entries from item fields
         active_items = [
@@ -420,9 +425,22 @@ class SystemListView(LoginRequiredMixin, ListView):
             for item in items if item.archived_count > 0
         ]
 
+        systems = (
+            System.objects
+            .filter(room=room)
+            .annotate(
+                active_component_count=Count('systemcomponent', filter=Q(systemcomponent__status='active')),
+                inactive_component_count=Count('systemcomponent', filter=Q(systemcomponent__status='inactive')),
+                archived_component_count=Count('systemcomponent', filter=Q(systemcomponent__status__in=['under_maintenance', 'disposed'])),
+            )
+            .prefetch_related('systemcomponent_set__component_item')
+            .order_by('system_name')
+        )
+
         context['active_items'] = active_items
         context['inactive_items'] = inactive_items
         context['archived_items'] = archived_items
+        context['systems'] = systems
         return context
 
 class SystemConfigurationView(LoginRequiredMixin, View):
@@ -1664,6 +1682,7 @@ class RoomReportView(LoginRequiredMixin, View):
 
         html_string = render_to_string('room_incharge/room_report.html', context)
         try:
+            from weasyprint import HTML
             html = HTML(string=html_string)
             pdf = html.write_pdf()
         except Exception as e:
@@ -1957,7 +1976,10 @@ class SystemsAssignView(LoginRequiredMixin, View):
         item_id = data.get('item_id')
         target  = data.get('target')   # 'active' or 'inactive'
         from_   = data.get('from')     # 'available', 'active', 'inactive'
-        count   = int(data.get('count', 0))
+        try:
+            count = int(data.get('count', 0))
+        except (TypeError, ValueError):
+            return JsonResponse({'error': 'Count must be at least 1.'}, status=400)
 
         if target not in ('active', 'inactive'):
             return JsonResponse({'error': 'Invalid target.'}, status=400)
@@ -1966,24 +1988,20 @@ class SystemsAssignView(LoginRequiredMixin, View):
         if count < 1:
             return JsonResponse({'error': 'Count must be at least 1.'}, status=400)
 
-        item = get_object_or_404(Item, id=item_id, room=room)
-
-        # Determine available units from source
-        if from_ == 'available':
-            source_count = item.available_count
-        elif from_ == 'active':
-            source_count = item.active_count
-        else:
-            source_count = item.inactive_count
-
-        if count > source_count:
-            return JsonResponse({
-                'error': f'Only {source_count} unit(s) available in {from_}.'
-            }, status=400)
-
         from django.db import transaction as _tx
         with _tx.atomic():
-            item.refresh_from_db()
+            item = get_object_or_404(Item.objects.select_for_update(), id=item_id, room=room)
+
+            if from_ == 'available':
+                source_count = item.available_count
+            elif from_ == 'active':
+                source_count = item.active_count
+            else:
+                source_count = item.inactive_count
+
+            if count > source_count:
+                return JsonResponse({'error': 'Insufficient available count'}, status=400)
+
             # Deduct from source
             if from_ == 'available':
                 item.available_count = max(0, item.available_count - count)
@@ -2001,7 +2019,10 @@ class SystemsAssignView(LoginRequiredMixin, View):
             # Recalculate available_count
             item.available_count = max(0, item.total_count - item.active_count - item.inactive_count - item.archived_count)
             item.in_use = item.active_count
-            item.save(update_fields=['active_count', 'inactive_count', 'available_count', 'in_use', 'updated_on'])
+            try:
+                item.save(update_fields=['active_count', 'inactive_count', 'available_count', 'in_use', 'updated_on'])
+            except ValidationError as exc:
+                return JsonResponse({'error': exc.messages[0] if hasattr(exc, 'messages') else str(exc)}, status=400)
 
         return JsonResponse({
             'success': True,
@@ -2029,7 +2050,10 @@ class SystemsArchiveView(LoginRequiredMixin, View):
 
         item_id  = data.get('item_id')
         from_    = data.get('from', 'available')
-        count    = int(data.get('count', 0))
+        try:
+            count = int(data.get('count', 0))
+        except (TypeError, ValueError):
+            return JsonResponse({'error': 'Count must be at least 1.'}, status=400)
         category = data.get('category', 'serviceable')
         remark   = data.get('remark', '').strip()
 
@@ -2040,23 +2064,20 @@ class SystemsArchiveView(LoginRequiredMixin, View):
         if count < 1:
             return JsonResponse({'error': 'Count must be at least 1.'}, status=400)
 
-        item = get_object_or_404(Item, id=item_id, room=room)
-
-        if from_ == 'available':
-            source_count = item.available_count
-        elif from_ == 'active':
-            source_count = item.active_count
-        else:
-            source_count = item.inactive_count
-
-        if count > source_count:
-            return JsonResponse({
-                'error': f'Only {source_count} unit(s) available in {from_}.'
-            }, status=400)
-
         from django.db import transaction as _tx
         with _tx.atomic():
-            item.refresh_from_db()
+            item = get_object_or_404(Item.objects.select_for_update(), id=item_id, room=room)
+
+            if from_ == 'available':
+                source_count = item.available_count
+            elif from_ == 'active':
+                source_count = item.active_count
+            else:
+                source_count = item.inactive_count
+
+            if count > source_count:
+                return JsonResponse({'error': 'Insufficient available count'}, status=400)
+
             # Deduct from source
             if from_ == 'available':
                 item.available_count = max(0, item.available_count - count)
@@ -2075,10 +2096,13 @@ class SystemsArchiveView(LoginRequiredMixin, View):
             # Recalculate available
             item.available_count = max(0, item.total_count - item.active_count - item.inactive_count - item.archived_count)
             item.in_use = item.active_count
-            item.save(update_fields=[
-                'active_count', 'inactive_count', 'available_count', 'in_use',
-                'archived_count', 'serviceable_count', 'unserviceable_count', 'updated_on'
-            ])
+            try:
+                item.save(update_fields=[
+                    'active_count', 'inactive_count', 'available_count', 'in_use',
+                    'archived_count', 'serviceable_count', 'unserviceable_count', 'updated_on'
+                ])
+            except ValidationError as exc:
+                return JsonResponse({'error': exc.messages[0] if hasattr(exc, 'messages') else str(exc)}, status=400)
 
             # Create Archive record
             Archive.objects.create(
