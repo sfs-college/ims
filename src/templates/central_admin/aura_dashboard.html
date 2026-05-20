@@ -1,21 +1,14 @@
-{% extends "sidebar_base.html" %}
+{% extends "base.html" %}
 {% load static %}
 
 {% block title %} | AURA Command Center{% endblock title %}
 
 {% block extra_head %}
-<input type="hidden" name="csrfmiddlewaretoken" value="{% csrf_token %}">
 {% endblock %}
-{% block back_button %}
-<a href="javascript:void(0)" class="universal-back-btn" id="universalBackBtn"
-   onclick="(function(){
-       if(window.history.length > 1){ window.history.back(); }
-       else { window.location.href='{% url "central_admin:dashboard" %}'; }
-   })()">
-    <span class="material-symbols-outlined">arrow_back</span>
-    <span>Back</span>
-</a>
-{% endblock back_button %}
+
+{% block navbar %}
+{% include "central_admin/navbar.html" %}
+{% endblock navbar %}
 
 {% block style %}
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
@@ -356,10 +349,11 @@
 <div class="container-fluid py-4">
     <div class="aura-header d-flex justify-content-between align-items-center">
         <div>
-            <a href="{% url 'central_admin:dashboard' %}" class="btn btn-sm btn-outline-secondary mb-3 rounded-pill px-3">
-                <i class="bi bi-arrow-left me-1"></i> Dashboard
+            <a href="{% url 'central_admin:dashboard' %}" class="universal-back-btn" title="Back to Dashboard">
+                <span class="material-symbols-outlined">arrow_back</span>
+                <span>Dashboard</span>
             </a>
-            <h1 class="fw-bold text-dark mb-0">AURA <span class="text-primary">Command</span></h1>
+            <h1 class="fw-bold text-dark mb-0 mt-3">AURA <span class="text-primary">Command</span></h1>
             <p class="text-muted mb-0">Admin Unified Report & Analysis System</p>
         </div>
         <div class="text-end d-flex align-items-center gap-3 justify-content-end">
@@ -1019,7 +1013,7 @@ textarea.bcc-form-input { resize:vertical; min-height:80px; }
                     </label>
                     <span id="bfcSelectedCount" style="font-size:0.82rem;color:#78350f;background:#fde68a;border-radius:20px;padding:2px 12px;font-weight:600;display:none;">0 selected</span>
                     <button id="bfcBulkDeleteBtn" onclick="confirmBulkDelete()"
-                            style="display:none;background:linear-gradient(135deg,#dc2626,#b91c1c);color:#fff;border:none;border-radius:10px;padding:7px 18px;font-weight:700;font-size:0.82rem;cursor:pointer;transition:opacity 0.2s;display:none;align-items:center;gap:6px;">
+                            style="display:none;background:linear-gradient(135deg,#dc2626,#b91c1c);color:#fff;border:none;border-radius:10px;padding:7px 18px;font-weight:700;font-size:0.82rem;cursor:pointer;transition:opacity 0.2s;align-items:center;gap:6px;">
                         <i class="bi bi-trash3-fill"></i> Delete Selected
                     </button>
                 </div>
@@ -1700,15 +1694,28 @@ textarea.bcc-form-input { resize:vertical; min-height:80px; }
     // 5. Global Delete (Restricted to Central Admin Backend)
     function deleteRecord(model, id) {
         if(confirm('CRITICAL ACTION: Purge this record from AURA database? This cannot be undone.')) {
+            const csrf = '{{ csrf_token }}';
             fetch('{% url "central_admin:aura_api_delete" %}', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'X-CSRFToken': '{{ csrf_token }}' },
+                headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrf },
                 body: JSON.stringify({ model: model, id: id })
-            }).then(res => {
-                if(res.ok) {
-                    if(model === 'bookings') loadBookingData();
-                    else loadAuraData();
+            })
+            .then(res => {
+                if (res.ok) return res.json();
+                return res.json().then(d => Promise.reject(new Error(d.message || `HTTP ${res.status}`)));
+            })
+            .then(data => {
+                if (data.status === 'success') {
+                    loadAuraData();
+                    showBfcToast('Record purged successfully.', 'success');
+                } else {
+                    showBfcToast(data.message || 'Delete failed.', 'error');
+                    loadAuraData();
                 }
+            })
+            .catch(err => {
+                showBfcToast(err.message || 'Delete failed. Please try again.', 'error');
+                loadAuraData();
             });
         }
     }
@@ -1761,19 +1768,36 @@ textarea.bcc-form-input { resize:vertical; min-height:80px; }
     function bulkDeleteRecords() {
         const model = document.getElementById('modelSelector').value;
         const selectedIds = Array.from(document.querySelectorAll('.record-checkbox:checked')).map(cb => cb.value);
-        
-        if (confirm(`MASS PURGE: Are you sure you want to delete ${selectedIds.length} records? This action is permanent.`)) {
-            fetch('{% url "central_admin:aura_api_bulk_delete" %}', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'X-CSRFToken': '{{ csrf_token }}' },
-                body: JSON.stringify({ model: model, ids: selectedIds })
-            }).then(res => {
-                if (res.ok) {
-                    loadAuraData();
-                    alert('Records purged successfully.');
-                }
-            });
-        }
+
+        if (!selectedIds.length) return;
+        if (!confirm(`MASS PURGE: Are you sure you want to delete ${selectedIds.length} records? This action is permanent.`)) return;
+
+        const csrf = '{{ csrf_token }}';
+        fetch('{% url "central_admin:aura_api_bulk_delete" %}', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrf },
+            body: JSON.stringify({ model: model, ids: selectedIds })
+        })
+        .then(res => {
+            if (res.ok) return res.json();
+            return res.json().then(d => Promise.reject(new Error(d.message || `HTTP ${res.status}`)));
+        })
+        .then(data => {
+            if (data.status === 'success') {
+                loadAuraData();
+                showBfcToast(
+                    data.deleted_count
+                        ? `${data.deleted_count} record${data.deleted_count !== 1 ? 's' : ''} purged.`
+                        : 'Records purged successfully.',
+                    'success'
+                );
+            } else {
+                showBfcToast(data.message || 'Bulk delete failed.', 'error');
+            }
+        })
+        .catch(err => {
+            showBfcToast(err.message || 'Bulk delete failed. Please try again.', 'error');
+        });
     }
 
         // ── Booking Requests bulk delete helpers (Central Admin only) ──

@@ -5,13 +5,13 @@ from django.views.generic import TemplateView, ListView, CreateView, UpdateView,
 from django.template.loader import render_to_string
 from core.models import User, UserProfile
 from django.db.models import Q
-from inventory.models import Room, Vendor, Purchase, Issue, Department, Item, StockRequest, IssueTimeExtensionRequest, RoomBooking, RoomBookingRequest, RoomCancellationRequest
+from inventory.models import Room, Vendor, Purchase, Issue, IssueRemark, Department, Item, StockRequest, IssueTimeExtensionRequest, RoomBooking, RoomBookingRequest, RoomCancellationRequest
 from django.contrib.auth.tokens import PasswordResetTokenGenerator
 from django.utils.http import urlsafe_base64_encode
 from django.utils.encoding import force_bytes
 from django.contrib.auth.base_user import BaseUserManager
 from django.db import transaction, connection
-from inventory.forms.central_admin import PeopleCreateForm, RoomCreateForm, DepartmentForm, VendorForm
+from inventory.forms.central_admin import PeopleCreateForm, RoomCreateForm, DepartmentForm, VendorForm, AddIssueRemarkForm, AdminIssueCloseForm
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.core.mail import send_mail
 from django.contrib import messages
@@ -1099,6 +1099,274 @@ def admin_deescalate_issue(request, pk):
         messages.error(request, "Issue is already at the lowest escalation level.")
 
     return redirect("central_admin:issue_list")
+
+
+# ─────────────────────────────────────────────────────────
+# ISSUE REMARK + ADMIN CLOSE  (central / sub-admin)
+# ─────────────────────────────────────────────────────────
+
+@require_POST
+def admin_add_issue_remark(request, pk):
+    """
+    Sub-admin or Central Admin adds a free-text remark to an issue.
+    Does NOT touch issue.status, issue.resolved, or any other field.
+    Persists the remark in the IssueRemark audit table.
+    Sends the remark via email to the assigned incharge AND
+    the original reporter (if either/both have email addresses).
+    """
+    profile = getattr(request.user, 'profile', None)
+    if not profile or not (profile.is_central_admin or profile.is_sub_admin):
+        messages.error(request, 'You are not authorised to add remarks.')
+        return redirect('central_admin:issue_list')
+
+    issue = get_object_or_404(Issue, pk=pk)
+    form  = AddIssueRemarkForm(request.POST)
+    if not form.is_valid():
+        messages.error(request, 'Remark cannot be empty.')
+        return redirect('central_admin:issue_list')
+
+    remark_text = form.cleaned_data['remark_text'].strip()
+    admin_type  = 'central_admin' if profile.is_central_admin else 'sub_admin'
+
+    IssueRemark.objects.create(
+        issue      = issue,
+        admin_type = admin_type,
+        remark_text = remark_text,
+        created_by = profile,
+    )
+
+    # ── Email incharge + reporter ──────────────────────────
+    room            = issue.room
+    incharge_email  = room.incharge.user.email if room and room.incharge else None
+    reporter_email  = issue.reporter_email or None
+
+    admin_name = f"{profile.first_name} {profile.last_name}".strip() or admin_type.replace('_', ' ').title()
+
+    # Deduplicate, skip empties — at minimum one of them always has a value
+    all_recipients = list(filter(None, {incharge_email, reporter_email}))
+
+    if all_recipients:
+        try:
+            safe_send_mail(
+                subject=f"[Blixtro] Admin Remark on Issue — {issue.ticket_id}",
+                message=(
+                    f"Dear {'Student' if reporter_email else 'Incharge'},\n\n"
+                    f"An administrator has added a remark on an issue.\n\n"
+                    f"Issue  : {issue.subject}  ({issue.ticket_id})\n"
+                    f"Room   : {room.room_name}\n"
+                    f"Status : {issue.get_status_display()}\n\n"
+                    f"Remark from {admin_name}:\n{remark_text}\n\n"
+                    "Best regards,\nBlixtro — SFS College Inventory & Booking System"
+                ),
+                recipient_list=all_recipients,
+                html_message=build_email_shell(
+                    title="Admin Remark — Issue Update",
+                    intro_html=(
+                        f"Dear <strong>{'Student / Incharge'}</strong>, an administrator has added a remark "
+                        f"on an issue for <strong>{room.room_name}</strong>."
+                    ),
+                    sections=[
+                        {
+                            "title": "Issue Details",
+                            "rows": [
+                                {"label": "Ticket ID", "value": issue.ticket_id},
+                                {"label": "Subject",  "value": issue.subject},
+                                {"label": "Status",   "value": issue.get_status_display()},
+                                {"label": "Room",     "value": room.room_name},
+                            ],
+                        },
+                        {
+                            "title": f"Remark from {admin_name}",
+                            "body_html": (
+                                f'<div style="white-space:pre-line;font-size:13px;line-height:1.7;color:#334155;">'
+                                f'{remark_text}'
+                                f'</div>'
+                            ),
+                        },
+                    ],
+                    outro_html="The issue status is unchanged. Please continue to track it as usual.",
+                    accent="#6c63ff",
+                ),
+            )
+        except Exception as _e:
+            logger.error(f"[admin_add_issue_remark] Email failed (non-fatal): {_e}")
+
+    messages.success(request, 'Remark added successfully.')
+    return redirect('central_admin:issue_list')
+
+
+@require_POST
+def admin_close_issue(request, pk):
+    """
+    Central Admin only: permanently closes an issue with a required reason.
+    Saves the reason in issue.closure_reason, keeps issue.status='closed',
+    and does NOT touch issue.resolved.
+    Also sends the incharge and the original reporter a closure notification.
+    """
+    profile = getattr(request.user, 'profile', None)
+    if not profile or not profile.is_central_admin:
+        messages.error(request, 'Only Central Admin can close issues.')
+        return redirect('central_admin:issue_list')
+
+    issue     = get_object_or_404(Issue, pk=pk)
+    form      = AdminIssueCloseForm(request.POST)
+    if not form.is_valid():
+        messages.error(request, 'A closure reason is required.')
+        return redirect('central_admin:issue_list')
+
+    closure_reason = form.cleaned_data['closure_reason'].strip()
+    issue.status          = 'closed'
+    issue.resolved        = False          # resolved=True means "fixed"
+    issue.closure_reason  = closure_reason
+    issue.save(update_fields=['status', 'resolved', 'closure_reason', 'updated_on'])
+
+    admin_name = f"{profile.first_name} {profile.last_name}".strip() or 'Central Admin'
+
+    # ── Email incharge + reporter ──────────────────────────
+    room            = issue.room
+    incharge_email  = room.incharge.user.email if room and room.incharge else None
+    reporter_email  = issue.reporter_email or None
+
+    # Deduplicate, skip empties
+    all_recipients = list(filter(None, {incharge_email, reporter_email}))
+
+    if all_recipients:
+        try:
+            safe_send_mail(
+                subject=f"[Blixtro] Issue Closed — {issue.ticket_id}",
+                message=(
+                    f"Dear {'Student / Incharge'},\n\n"
+                    f"The issue has been permanently closed by the central administrator.\n\n"
+                    f"Issue   : {issue.subject}  ({issue.ticket_id})\n"
+                    f"Room    : {room.room_name}\n"
+                    f"Closed by: {admin_name}\n\n"
+                    f"Reason for closure:\n{closure_reason}\n\n"
+                    "This issue will no longer receive actions from admin.\n\n"
+                    "Best regards,\nBlixtro — SFS College Inventory & Booking System"
+                ),
+                recipient_list=all_recipients,
+                html_message=build_email_shell(
+                    title="Admin Remark — Issue Update",
+                    intro_html=(
+                        f"Dear <strong>Incharge</strong>, an administrator has added a remark "
+                        f"on an issue for <strong>{room.room_name}</strong>."
+                    ),
+                    sections=[
+                        {
+                            "title": "Issue Details",
+                            "rows": [
+                                {"label": "Ticket ID", "value": issue.ticket_id},
+                                {"label": "Subject",  "value": issue.subject},
+                                {"label": "Status",   "value": issue.get_status_display()},
+                                {"label": "Room",     "value": room.room_name},
+                            ],
+                        },
+                        {
+                            "title": f"Remark from {admin_name}",
+                            "body_html": (
+                                f'<div style="white-space:pre-line;font-size:13px;line-height:1.7;color:#334155;">'
+                                f'{remark_text}'
+                                f'</div>'
+                            ),
+                        },
+                    ],
+                    outro_html="The issue status is unchanged. Please continue to track it as usual.",
+                    accent="#6c63ff",
+                ),
+            )
+        except Exception as _e:
+            logger.error(f"[admin_add_issue_remark] Email failed (non-fatal): {_e}")
+
+    messages.success(request, 'Remark added successfully.')
+    return redirect('central_admin:issue_list')
+
+
+@require_POST
+def admin_close_issue(request, pk):
+    """
+    Central Admin only: permanently closes an issue with a required reason.
+    Saves the reason in issue.closure_reason, keeps issue.status='closed',
+    and does NOT touch issue.resolved.
+    Also sends a closure notification to the assigned incharge AND
+    the original reporter (if either/both have email addresses).
+    """
+    profile = getattr(request.user, 'profile', None)
+    if not profile or not profile.is_central_admin:
+        messages.error(request, 'Only Central Admin can close issues.')
+        return redirect('central_admin:issue_list')
+
+    issue     = get_object_or_404(Issue, pk=pk)
+    form      = AdminIssueCloseForm(request.POST)
+    if not form.is_valid():
+        messages.error(request, 'A closure reason is required.')
+        return redirect('central_admin:issue_list')
+
+    closure_reason = form.cleaned_data['closure_reason'].strip()
+    issue.status          = 'closed'
+    issue.resolved        = False          # resolved=True means "fixed"
+    issue.closure_reason  = closure_reason
+    issue.save(update_fields=['status', 'resolved', 'closure_reason', 'updated_on'])
+
+    admin_name = f"{profile.first_name} {profile.last_name}".strip() or 'Central Admin'
+
+    # ── Email incharge + reporter ──────────────────────────
+    room            = issue.room
+    incharge_email  = room.incharge.user.email if room and room.incharge else None
+    reporter_email  = issue.reporter_email or None
+
+    # Deduplicate, skip empties
+    all_recipients = list(filter(None, {incharge_email, reporter_email}))
+
+    if all_recipients:
+        try:
+            safe_send_mail(
+                subject=f"[Blixtro] Issue Closed — {issue.ticket_id}",
+                message=(
+                    f"Dear {'Student / Incharge'},\n\n"
+                    f"The following issue has been permanently closed by the central administrator.\n\n"
+                    f"Issue   : {issue.subject}  ({issue.ticket_id})\n"
+                    f"Room    : {room.room_name}\n"
+                    f"Closed by: {admin_name}\n\n"
+                    f"Reason for closure:\n{closure_reason}\n\n"
+                    "This issue will no longer receive actions from admin.\n\n"
+                    "Best regards,\nBlixtro — SFS College Inventory & Booking System"
+                ),
+                recipient_list=all_recipients,
+                html_message=build_email_shell(
+                    title="Issue Closed",
+                    intro_html=(
+                        f"The issue <strong>{issue.subject}</strong> ({issue.ticket_id}) "
+                        f"for room <strong>{room.room_name}</strong> has been permanently closed by "
+                        f"<strong>{admin_name}</strong>."
+                    ),
+                    sections=[
+                        {
+                            "title": "Closure Details",
+                            "rows": [
+                                {"label": "Ticket ID", "value": issue.ticket_id},
+                                {"label": "Subject",   "value": issue.subject},
+                                {"label": "Closed By", "value": admin_name},
+                            ],
+                        },
+                        {
+                            "title": "Reason",
+                            "body_html": (
+                                f'<div style="white-space:pre-line;font-size:13px;line-height:1.7;color:#334155;">'
+                                f'{closure_reason}'
+                                f'</div>'
+                            ),
+                        },
+                    ],
+                    outro_html="No further admin action will be taken on this issue.",
+                    accent="#6c63ff",
+                ),
+            )
+        except Exception as _e:
+            logger.error(f"[admin_close_issue] Email failed (non-fatal): {_e}")
+
+    messages.success(request, f'Issue {issue.ticket_id} closed successfully.')
+    return redirect('central_admin:issue_list')
+
 
 class ApprovalRequestListView(LoginRequiredMixin, ListView):
     template_name       = "central_admin/edit_request_list.html"

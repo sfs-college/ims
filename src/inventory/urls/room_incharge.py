@@ -70,10 +70,14 @@ urlpatterns = [
     path('rooms/<slug:room_slug>/report/', room_incharge.RoomReportView.as_view(), name='room_report'),
     
     # Issues URLs
-    # ROOM INCHARGE ISSUE LIST
+    # ROOM INCHARGE ISSUE LIST (per-room, kept for in_progress / resolve actions)
     path('rooms/<slug:room_slug>/issues/', 
      room_incharge.IssueListView.as_view(), 
      name='issue_list'),
+    # CENTRALISED ISSUES LIST (no room_slug — room filter + count)
+    path('room-issues/', 
+     room_incharge.CentralIssuesListView.as_view(), 
+     name='central_issue_list'),
 
     # ISSUE ACTION CONTROLS
     path(

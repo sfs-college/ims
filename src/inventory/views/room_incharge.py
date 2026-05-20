@@ -26,7 +26,7 @@ from django.views.generic import FormView, View
 from django.urls import reverse
 from django.http import JsonResponse
 from django.core.exceptions import PermissionDenied
-from django.db.models import Q, F
+from django.db.models import Q, F, Count
 
 logger = logging.getLogger(__name__)
 
@@ -1133,6 +1133,82 @@ class IssueListView(LoginRequiredMixin, ListView):
         return context
 
 
+class CentralIssuesListView(LoginRequiredMixin, ListView):
+    """
+    All issues across every room assigned to this incharge.
+    No room_slug in the URL — the room is chosen via a ?room= dropdown.
+    Query params:
+      ?room=<slug>     – filter to a single room (only rooms with ≥1 open/in_progress issue are shown)
+      ?q=<text>        – full-text search on subject / description / ticket_id
+    Context:
+      issues             – filtered Issue queryset
+      rooms_with_counts  – list of {room, issue_count} for the dropdown
+      selected_room      – Room object (if ?room= is set)
+    """
+    template_name = 'room_incharge/issue_list.html'
+    model         = Issue
+    context_object_name = 'issues'
+    paginate_by   = 25
+
+    def get_base_qs(self):
+        profile = self.request.user.profile
+        rooms   = profile.rooms_incharge.all()
+        return Issue.objects.filter(room__in=rooms)
+
+    def get_rooms_with_counts(self):
+        """Return rooms the incharge manages that have at least one open/in_progress issue."""
+        profile = self.request.user.profile
+        return (
+            Room.objects
+            .filter(incharge=profile)
+            .annotate(issue_count=Count('issue', filter=Q(issue__status__in=['open', 'in_progress'])))
+            .filter(issue_count__gt=0)
+            .order_by('room_name')
+        )
+
+    def get_queryset(self):
+        qs   = self.get_base_qs()
+        slug = self.request.GET.get('room', '').strip()
+        q    = self.request.GET.get('q', '').strip()
+
+        if slug:
+            qs = qs.filter(room__slug=slug)
+
+        if q:
+            qs = qs.filter(
+                Q(subject__icontains=q)
+                | Q(description__icontains=q)
+                | Q(ticket_id__icontains=q)
+            )
+
+        return qs.select_related('room', 'room__incharge', 'assigned_to').order_by('-created_on')
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        slug    = self.request.GET.get('room', '').strip()
+        search  = self.request.GET.get('q', '').strip()
+
+        selected_room = None
+        room_settings = RoomSettings.objects.none()
+        if slug:
+            try:
+                selected_room = Room.objects.get(slug=slug, incharge=self.request.user.profile)
+                room_settings = RoomSettings.objects.get_or_create(room=selected_room)[0]
+            except Room.DoesNotExist:
+                pass
+
+        context.update({
+            'room':               selected_room,
+            'room_slug':          slug,
+            'room_settings':      room_settings,
+            'rooms_with_counts':  self.get_rooms_with_counts(),
+            'selected_room_slug': slug,
+            'search_query':       search,
+            'is_central_view':    True,
+        })
+        return context
+
+
 class MarkInProgressView(LoginRequiredMixin, View):
     def post(self, request, room_slug, pk):
         profile = request.user.profile
@@ -1682,6 +1758,24 @@ class RoomInchargeNotificationsView(LoginRequiredMixin, View):
             if not_dismissed("issue", r.id)
         ]
 
+        # ── Cross-room summary (for the Issues section header / badge) ──
+        profile      = request.user.profile
+        managed_rooms = profile.rooms_incharge.all()
+        all_open_issues_count = Issue.objects.filter(
+            room__in=managed_rooms, status__in=['open', 'in_progress']
+        ).count()
+        rooms_with_counts_qs = (
+            Room.objects
+            .filter(incharge=profile)
+            .annotate(_cnt=Count('issue', filter=Q(issue__status__in=['open', 'in_progress'])))
+            .filter(_cnt__gt=0)
+            .order_by('room_name')
+        )
+        rooms_with_counts = [
+            {'room': r, 'issue_count': r.issue_count}
+            for r in rooms_with_counts_qs
+        ]
+
         context = {
             "room":                   room,
             "room_slug":              room_slug,
@@ -1689,6 +1783,10 @@ class RoomInchargeNotificationsView(LoginRequiredMixin, View):
             "stock_notifications":    stock_notifications,
             "assigned_notifications": assigned_notifications,
             "issue_notifications":    issue_notifications,
+            "all_open_issues_count":  all_open_issues_count,
+            "rooms_with_counts":      rooms_with_counts,
+            "managed_rooms":          managed_rooms,
+            "central_issues_url":     reverse('room_incharge:central_issue_list'),
         }
         return render(request, self.template_name, context)
 
