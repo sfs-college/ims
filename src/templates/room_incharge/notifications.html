@@ -19,7 +19,7 @@
             color: #1e293b;
         }
 
-        /* ── Top bar ─────────────────────────────────────── */
+        /* ── Top bar ──────────────────────────────────────── */
         .top-bar {
             position: sticky; top: 0; z-index: 100;
             background: #fff;
@@ -62,10 +62,10 @@
         /* ── Page body ───────────────────────────────────── */
         .page-body { max-width: 780px; margin: 0 auto; padding: 28px 20px 80px; }
 
-        /* ── Section ─────────────────────────────────────── */
+        /* ── Section ──────────────────────────────────────── */
         .section-header {
             display: flex; align-items: center; justify-content: space-between;
-            margin-bottom: 12px; margin-top: 30px;
+            margin-bottom: 12px; margin-top: 28px;
         }
         .section-title {
             display: flex; align-items: center; gap: 8px;
@@ -86,7 +86,7 @@
             border: 1px solid #e5e7eb;
             display: flex; align-items: flex-start; gap: 14px;
             box-shadow: 0 1px 4px rgba(0,0,0,0.04);
-            transition: transform 0.18s, box-shadow 0.18s, opacity 0.28s, transform 0.28s;
+            transition: transform 0.18s, box-shadow 0.18s, opacity 0.28s;
         }
         .notif-item:hover { transform: translateY(-2px); box-shadow: 0 6px 18px rgba(0,0,0,0.07); }
 
@@ -134,16 +134,16 @@
         .nb-gray   { background:#f1f5f9; color:#475569; }
         .nb-blue   { background:#dbeafe; color:#1e40af; }
 
-        /* ── Empty state ─────────────────────────────────── */
+        /* ── Empty state ──────────────────────────────────── */
         .empty-section {
             text-align: center; padding: 32px 20px; color: #94a3b8;
-            background: #f8fafc; border-radius: 14px;
+            background: #f1f5f9; border-radius: 14px;
             border: 1.5px dashed #e2e8f0;
         }
         .empty-section i { font-size: 2rem; opacity: 0.22; display: block; margin-bottom: 8px; }
         .empty-section p { font-size: 0.83rem; margin: 0; }
 
-        /* ── All clear ───────────────────────────────────── */
+        /* ── All clear ──────────────────────────────────── */
         #allClearMsg {
             display: none; text-align: center; padding: 72px 20px 40px;
             color: #94a3b8;
@@ -316,12 +316,19 @@
 
     <!-- ════════════════════════════
          3. ISSUE NOTIFICATIONS
-    ════════════════════════════ -->
+    ══════════════════════════════ -->
     <div class="section-header">
         <div class="section-title">
             <i class="bi bi-exclamation-triangle" style="color:#d97706;"></i>
             Issues
             <span class="section-count">{{ issue_notifications|length }}</span>
+            {% if all_open_issues_count > 0 and all_open_issues_count != issue_notifications|length %}
+            <a href="{% url 'room_incharge:central_issue_list' %}"
+               style="font-size:0.72rem;color:#6c63ff;text-decoration:none;margin-left:4px;white-space:nowrap;"
+               title="View all {{ all_open_issues_count }} open/issues across your rooms">
+                [All: {{ all_open_issues_count }}]
+            </a>
+            {% endif %}
         </div>
     </div>
 

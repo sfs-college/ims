@@ -1,197 +1,6 @@
-<style>
-  @import url('https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600&display=swap');
-
-  :root {
-    --sb-bg: #0d0f14;
-    --sb-w: 240px;
-    --accent: #6c63ff;
-    --accent-lt: #a89dff;
-    --accent-glow: rgba(108,99,255,0.14);
-    --text-dim: rgba(255,255,255,0.4);
-    --text-hover: rgba(255,255,255,0.88);
-    --border: rgba(255,255,255,0.06);
-    /* must match --nb-h in navbar.html */
-    --nb-h: 75px;
-  }
-
-  /* ── Sidebar shell ───────────────────────────────────────────────── */
-  .sidebar {
-    width: var(--sb-w);
-    /* sit below the fixed navbar, accounting for Capacitor safe-area-inset-top */
-    height: calc(100vh - var(--nb-h) - var(--sat, 0px));
-    top: calc(var(--nb-h) + var(--sat, 0px));
-    background: var(--sb-bg);
-    display: flex;
-    flex-direction: column;
-    padding: 14px 0 10px;
-    position: fixed;
-    left: 0;
-    font-family: 'DM Sans', sans-serif;
-    border-right: 1px solid var(--border);
-    overflow-y: auto;
-    overflow-x: hidden;
-    scrollbar-width: none;
-    flex-shrink: 0;
-    z-index: 999;
-    transition: transform 0.28s cubic-bezier(0.4,0,0.2,1);
-  }
-  .sidebar::-webkit-scrollbar { display: none; }
-
-  .sidebar::after {
-    content: '';
-    position: absolute;
-    top: -50px; right: -60px;
-    width: 160px; height: 160px;
-    background: radial-gradient(circle, var(--accent-glow) 0%, transparent 70%);
-    pointer-events: none;
-  }
-
-  /* ── Room label header in sidebar ───────────────────────────────── */
-  .sidebar-room-header {
-    padding: 10px 14px 12px;
-    border-bottom: 1px solid var(--border);
-    margin-bottom: 6px;
-  }
-  .sidebar-room-label {
-    font-size: 10px;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-    color: rgba(255,255,255,0.3);
-    margin-bottom: 3px;
-  }
-  .sidebar-room-name {
-    font-size: 13px;
-    font-weight: 600;
-    color: rgba(255,255,255,0.85);
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-  .sidebar-room-badge {
-    display: inline-block;
-    background: rgba(108,99,255,0.18);
-    color: var(--accent-lt);
-    border: 1px solid rgba(108,99,255,0.3);
-    border-radius: 5px;
-    font-size: 10px;
-    font-weight: 700;
-    padding: 1px 7px;
-    margin-top: 3px;
-    letter-spacing: 0.04em;
-  }
-
-  /* ── Nav items ───────────────────────────────────────────────────── */
-  .sidebar .nav {
-    display: flex;
-    flex-direction: column;
-    gap: 1px;
-    padding: 0 9px;
-    position: relative;
-    z-index: 1;
-  }
-
-  .sidebar .navlink {
-    display: flex;
-    align-items: center;
-    gap: 9px;
-    padding: 9px 11px;
-    border-radius: 8px;
-    text-decoration: none;
-    color: var(--text-dim);
-    font-size: 13px;
-    font-weight: 500;
-    transition: all 0.16s ease;
-    position: relative;
-    border: 1px solid transparent;
-    min-width: 0;
-  }
-
-  .sidebar .navlink .material-symbols-outlined {
-    font-size: 18px;
-    flex-shrink: 0;
-    transition: color 0.16s, transform 0.16s;
-    margin: 0 !important;
-  }
-
-  .sidebar .menu-text {
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    flex: 1;
-    min-width: 0;
-  }
-
-  .sidebar .navlink:hover {
-    background: rgba(255,255,255,0.05);
-    color: var(--text-hover);
-  }
-  .sidebar .navlink:hover .material-symbols-outlined {
-    transform: scale(1.08);
-    color: var(--accent-lt);
-  }
-
-  .sidebar .navlink.active {
-    background: linear-gradient(135deg, rgba(108,99,255,0.2), rgba(108,99,255,0.07));
-    color: #fff;
-    border-color: rgba(108,99,255,0.22);
-  }
-  .sidebar .navlink.active .material-symbols-outlined { color: var(--accent-lt); }
-  .sidebar .navlink.active::before {
-    content: '';
-    position: absolute;
-    left: 0; top: 18%; bottom: 18%;
-    width: 2.5px;
-    background: linear-gradient(180deg, var(--accent), var(--accent-lt));
-    border-radius: 0 3px 3px 0;
-  }
-
-  .sidebar .nav-divider {
-    height: 1px;
-    background: var(--border);
-    margin: 4px 2px;
-  }
-
-  /* ── Main content offset (desktop) ──────────────────────────────── */
-  .main-content {
-    margin-left: var(--sb-w);
-    transition: margin-left 0.28s cubic-bezier(0.4,0,0.2,1);
-  }
-
-  /* ── Overlay (mobile dim) ────────────────────────────────────────── */
-  .sidebar-overlay {
-    display: none;
-    position: fixed;
-    inset: 0;
-    top: var(--nb-h);
-    background: rgba(0,0,0,0.52);
-    backdrop-filter: blur(2px);
-    z-index: 998;
-  }
-  .sidebar-overlay.open { display: block; }
-
-  /* ── Old floating toggle — hidden; navbar button handles this now ── */
-  .sidebar-toggle { display: none !important; }
-
-  /* ── Mobile breakpoint ───────────────────────────────────────────── */
-  @media (max-width: 900px) {
-    .sidebar {
-      transform: translateX(-100%);
-      box-shadow: 4px 0 28px rgba(0,0,0,0.5);
-    }
-    .sidebar.open { transform: translateX(0); }
-    .main-content { margin-left: 0 !important; }
-  }
-</style>
-
-<button class="sidebar-toggle" id="sidebarToggle" aria-label="Toggle sidebar">
-  <span class="material-symbols-outlined" style="font-size:19px">menu</span>
-</button>
-<div class="sidebar-overlay" id="sidebarOverlay"></div>
-
 <section class="sidebar" id="mainSidebar">
 
-  {% comment %} Room name + label header in sidebar {% endcomment %}
+  {% comment %} Room name + label header {% endcomment %}
   {% with current_room=None %}
   {% for r in request.user.profile.rooms_incharge.all %}
     {% if r.slug == room_slug %}
@@ -270,8 +79,8 @@
 
     <div class="nav-divider"></div>
 
-    <a class="navlink {% if request.resolver_match.url_name == 'issue_list' %}active{% endif %}"
-       href="{% url 'room_incharge:issue_list' room_slug=room_slug %}">
+    <a class="navlink {% if request.resolver_match.url_name == 'issue_list' or request.resolver_match.url_name == 'central_issue_list' %}active{% endif %}"
+       href="{% if request.resolver_match.url_name == 'central_issue_list' %}{% url 'room_incharge:central_issue_list' %}{% else %}{% url 'room_incharge:issue_list' room_slug=room_slug %}{% endif %}">
       <span class="material-symbols-outlined">report</span>
       <span class="menu-text">Issues</span>
     </a>
@@ -284,8 +93,7 @@
 
     <div class="nav-divider"></div>
 
-    {% comment %} Master Inventory — only visible if access has been granted {% endcomment %}
-    {% if request.user.profile.master_inventory_access.all %}
+    {% if request.user.profile.master_inventory_access %}
     <a class="navlink {% if request.resolver_match.url_name == 'master_inventory' %}active{% endif %}"
        href="{% url 'room_incharge:master_inventory' room_slug=room_slug %}">
       <span class="material-symbols-outlined">inventory_2</span>
@@ -293,8 +101,7 @@
     </a>
     {% endif %}
 
-    {% comment %} Assign Inventory — only visible if assign access has been granted {% endcomment %}
-    {% if request.user.profile.assign_inventory_access.all %}
+    {% if request.user.profile.assign_inventory_access %}
     <a class="navlink {% if request.resolver_match.url_name == 'assign_inventory' %}active{% endif %}"
        href="{% url 'room_incharge:assign_inventory' room_slug=room_slug %}">
       <span class="material-symbols-outlined">move_item</span>
@@ -310,26 +117,3 @@
 
   </div>
 </section>
-
-<script>
-  // ── Global toggle — ──────────────
-  function toggleSidebar() {
-    var sidebar = document.getElementById('mainSidebar');
-    var overlay = document.getElementById('sidebarOverlay');
-    if (!sidebar) return;
-    var isOpen = sidebar.classList.toggle('open');
-    if (overlay) overlay.classList.toggle('open', isOpen);
-  }
-
-  // Old floating button
-  var _sbToggleBtn = document.getElementById('sidebarToggle');
-  if (_sbToggleBtn) _sbToggleBtn.addEventListener('click', toggleSidebar);
-
-  // Overlay click closes sidebar
-  var _sbOverlay = document.getElementById('sidebarOverlay');
-  if (_sbOverlay) _sbOverlay.addEventListener('click', function() {
-    var sidebar = document.getElementById('mainSidebar');
-    if (sidebar) sidebar.classList.remove('open');
-    _sbOverlay.classList.remove('open');
-  });
-</script>

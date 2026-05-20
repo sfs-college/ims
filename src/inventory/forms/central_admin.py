@@ -89,3 +89,33 @@ class RoomCreateForm(form_mixin.BootstrapFormMixin, forms.ModelForm):
     class Meta:
         model = Room
         fields = ['label', 'room_name', 'department', 'incharge','room_category', 'capacity']
+
+
+class AddIssueRemarkForm(forms.Form):
+    """Sub-admin or Central Admin adds a remark to an issue without changing its status."""
+    remark_text = forms.CharField(
+        label='Remark',
+        widget=forms.Textarea(
+            attrs={
+                'class': 'form-control',
+                'rows': 4,
+                'placeholder': 'Type your remark here…',
+            }
+        ),
+        required=True,
+    )
+
+
+class AdminIssueCloseForm(forms.Form):
+    """Central Admin closes an issue permanently with a required reason."""
+    closure_reason = forms.CharField(
+        label='Reason for Closing',
+        widget=forms.Textarea(
+            attrs={
+                'class': 'form-control',
+                'rows': 4,
+                'placeholder': 'Explain why this issue is being closed…',
+            }
+        ),
+        required=True,
+    )

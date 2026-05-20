@@ -2,6 +2,7 @@
 {% load static %} 
 {% block title %} | Login{% endblock title %} 
 {% block style %}
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
   body {
@@ -16,6 +17,7 @@
     box-shadow: 0 10px 40px rgba(0,0,0,0.08);
     border: 1px solid #e2e8f0;
     width: 100%; max-width: 400px;
+    position: relative;
   }
   .login-card h3 {
     font-family: 'DM Sans', sans-serif;
@@ -75,8 +77,20 @@
 </style>
 {% endblock style %}
 {% block content %}
-<div class="login-wrap">
+    <div class="login-wrap">
   <div class="login-card shadow-sm">
+    {% if form.non_field_errors %}
+    <div class="toast-container position-absolute top-0 start-50 translate-middle-x mt-3" style="z-index:1100">
+      <div id="loginErrorToast" class="toast align-items-center text-bg-danger border-0 shadow show" role="alert" aria-live="assertive" aria-atomic="true">
+        <div class="d-flex">
+          <div class="toast-body fw-semibold">
+            <i class="bi bi-exclamation-triangle-fill me-1"></i> {{ form.non_field_errors.0 }}
+          </div>
+          <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+        </div>
+      </div>
+    </div>
+    {% endif %}
     {% if is_capacitor %}
     <button class="cap-back-btn" style="display:flex;" onclick="goAppHome()">
       <i class="bi bi-arrow-left"></i> Back
@@ -117,7 +131,6 @@
     </div>
   </div>
 </div>
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
 <script>
 function togglePwd(btn) {
   const wrap  = btn.closest('.pw-wrap');

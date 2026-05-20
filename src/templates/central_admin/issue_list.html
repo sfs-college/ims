@@ -93,17 +93,17 @@
         </td>
         <td>{{ issue.created_on|date:"d-M-Y H:i" }}</td>
         <td>
-          <button class="btn btn-outline-dark btn-sm" type="button" data-bs-toggle="modal" data-bs-target="#issueModal{{ forloop.counter }}">
+          <button class="btn btn-outline-dark btn-sm" type="button" data-bs-toggle="modal" data-bs-target="#issueModal{{ issue.id }}">
             View Details
           </button>
         </td>
       </tr>
       <!-- Modal -->
-      <div class="modal fade" id="issueModal{{ forloop.counter }}" tabindex="-1" aria-labelledby="issueModalLabel{{ forloop.counter }}" aria-hidden="true">
+      <div class="modal fade" id="issueModal{{ issue.id }}" tabindex="-1" aria-labelledby="issueModalLabel{{ issue.id }}" aria-hidden="true">
         <div class="modal-dialog modal-lg modal-dialog-scrollable">
           <div class="modal-content">
             <div class="modal-header">
-              <h5 class="modal-title" id="issueModalLabel{{ forloop.counter }}">{{ issue.subject }}</h5>
+              <h5 class="modal-title" id="issueModalLabel{{ issue.id }}">{{ issue.subject }}</h5>
               <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body">
@@ -118,6 +118,37 @@
                   {% endif %}
                 </div>
               </div>
+
+              <div class="mb-3">
+                <h6 class="fw-bold" style="color:#6c63ff;">
+                  <i class="bi bi-diagram-2 me-1"></i>Admin Remarks
+                </h6>
+                {% if issue.admin_remarks.all %}
+                  <div style="max-height:200px;overflow-y:auto;">
+                    {% for remark in issue.admin_remarks.all %}
+                    <div class="p-3 mb-2 rounded"
+                         style="background:#f5f3ff;border:1px solid #e0d9ff;border-left:3px solid #6c63ff;font-size:0.88rem;">
+                      <div class="d-flex align-items-center gap-2 mb-1">
+                        <span class="badge rounded-pill {% if remark.admin_type == 'central_admin' %}bg-danger{% else %}bg-warning text-dark{% endif %}"
+                              style="font-size:0.7rem;">
+                          {% if remark.admin_type == 'central_admin' %}Central Admin{% else %}Sub Admin{% endif %}
+                        </span>
+                        <span class="text-muted fst-italic small">
+                          {{ remark.created_by.first_name }} {{ remark.created_by.last_name }}
+                        </span>
+                        <span class="text-muted small">· {{ remark.created_at|date:"d-M-Y H:i" }}</span>
+                      </div>
+                      <div style="color:#1a1a2e;white-space:pre-line;">{{ remark.remark_text }}</div>
+                    </div>
+                    {% endfor %}
+                  </div>
+                {% else %}
+                  <div class="p-3 bg-light rounded border" style="font-size:0.88rem;">
+                    <span class="text-muted fst-italic">No admin remarks yet.</span>
+                  </div>
+                {% endif %}
+              </div>
+
               <div class="mb-3"><h6 class="fw-bold">Created By</h6><p>{{ issue.created_by }}</p></div>
               <div class="mb-3"><h6 class="fw-bold">Room</h6><p>{{ issue.room.room_name }}</p></div>
               <div class="mb-3">
@@ -151,6 +182,15 @@
               </div>
               <div class="mb-3"><h6 class="fw-bold">Resolved</h6><p>{% if issue.resolved %}Yes{% else %}No{% endif %}</p></div>
               <div class="mb-3"><h6 class="fw-bold">Created On</h6><p>{{ issue.created_on|date:"d-M-Y H:i:s" }}</p></div>
+              
+              {% if issue.closure_reason %}
+              <div style="background:#fef2f2;border:1px solid #fecaca;border-left:4px solid #dc2626;border-radius:10px;padding:12px 16px;margin-top:8px;">
+                <p class="fw-semibold mb-1" style="color:#991b1b;font-size:0.85rem;">
+                  <i class="bi bi-x-circle-fill me-1"></i>Closed — Admin Message
+                </p>
+                <p class="mb-0" style="font-size:0.88rem;color:#991b1b;">{{ issue.closure_reason }}</p>
+              </div>
+              {% endif %}
             </div>
             <div class="modal-footer flex-wrap gap-2">
               {% if issue.resolved %}
@@ -170,6 +210,20 @@
                   <button class="btn btn-outline-danger">De-escalate</button>
                 </form>
               {% endif %}
+
+              {% if issue.status == 'open' or issue.status == 'in_progress' %}
+              <button type="button" class="btn btn-sm btn-outline-info"
+                      onclick="openAdminRemarkModal('{{ issue.id }}', '{{ issue.ticket_id|escapejs }}')">
+                <i class="bi bi-chat-left-text me-1"></i>Add Remark
+              </button>
+              {% if request.user.profile.is_central_admin and not request.user.profile.is_sub_admin %}
+              <button type="button" class="btn btn-sm btn-danger"
+                      onclick="openAdminCloseModal('{{ issue.id }}', '{{ issue.ticket_id|escapejs }}')">
+                <i class="bi bi-x-circle me-1"></i>Close Issue
+              </button>
+              {% endif %}
+              {% endif %}
+
               <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
             </div>
           </div>
@@ -180,3 +234,100 @@
   </table>
 </div>
 {% endblock content %}
+
+<!-- ── Admin Send Remark Modal ── -->
+<div class="modal fade" id="adminRemarkModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content" style="border-radius:16px; border:none;">
+      <div class="modal-header" style="background:linear-gradient(135deg,#6366f1,#9333ea); color:white; border-radius:16px 16px 0 0;">
+        <h5 class="modal-title fw-bold">
+          <i class="bi bi-chat-left-text me-2"></i>Add Admin Remark
+        </h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <form id="adminRemarkForm" method="POST">
+        {% csrf_token %}
+        <div class="modal-body p-4">
+          <p style="font-size:0.88rem;color:#475569;margin-bottom:4px;">
+            Ticket: <strong id="adminRemarkTicketId"></strong>
+          </p>
+          <div style="background:#f0f4ff;border:1px solid #d0d9ff;border-radius:10px;padding:10px 14px;margin-bottom:16px;font-size:0.82rem;color:#3740a0;">
+            <i class="bi bi-info-circle me-1"></i>
+            This remark is added to the issue audit trail and will be visible to the assigned
+            incharge and all other admins. The issue status will <strong>not</strong> change.
+          </div>
+          <label style="font-size:0.78rem;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:0.05em;display:block;margin-bottom:6px;">
+            Remark <span class="text-danger">*</span>
+          </label>
+          <textarea id="adminRemarkText" name="remark_text" class="form-control" rows="4" required
+              placeholder="e.g. Investigating this issue with the network team. Will update shortly."
+              style="border-radius:10px;border:1.5px solid #e2e8f0;font-size:0.9rem;"></textarea>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn fw-bold"
+              style="background:linear-gradient(135deg,#6366f1,#9333ea);color:#fff;border:none;">
+            <i class="bi bi-send me-1"></i>Send Remark
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- ── Admin Close Issue Modal ── -->
+<div class="modal fade" id="adminCloseModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content" style="border-radius:16px; border:none;">
+      <div class="modal-header" style="background:#0f172a; color:white; border-radius:16px 16px 0 0;">
+        <h5 class="modal-title fw-bold">
+          <i class="bi bi-x-circle me-2"></i>Close Issue
+        </h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <form id="adminCloseForm" method="POST">
+        {% csrf_token %}
+        <div class="modal-body p-4">
+          <p style="font-size:0.88rem;color:#475569;margin-bottom:4px;">
+            Closing ticket: <strong id="adminCloseTicketId"></strong>
+          </p>
+          <div style="background:#fef2f2;border:1px solid #fecaca;border-radius:10px;padding:10px 14px;margin-bottom:16px;font-size:0.82rem;color:#991b1b;">
+            <i class="bi bi-info-circle me-1"></i>
+            This permanently closes the issue. The incharge and all admins will see your reason.
+            Status becomes <strong>Closed</strong>; the <strong>Resolved</strong> flag is not changed.
+          </div>
+          <label style="font-size:0.78rem;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:0.05em;display:block;margin-bottom:6px;">
+            Reason for Closing <span class="text-danger">*</span>
+          </label>
+          <textarea id="adminCloseReason" name="closure_reason" class="form-control" rows="4" required
+              placeholder="Explain why this issue is being closed…"
+              style="border-radius:10px;border:1.5px solid #e2e8f0;font-size:0.9rem;"></textarea>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn btn-danger fw-bold">
+            <i class="bi bi-x-circle me-1"></i>Close Issue
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<script>
+function openAdminRemarkModal(issueId, ticketId) {
+  document.getElementById('adminRemarkTicketId').textContent = ticketId;
+  document.getElementById('adminRemarkForm').action =
+    '{% url "central_admin:admin_add_issue_remark" 0 %}'.replace('/0/', '/'+issueId+'/');
+  document.getElementById('adminRemarkText').value = '';
+  new bootstrap.Modal(document.getElementById('adminRemarkModal')).show();
+}
+
+function openAdminCloseModal(issueId, ticketId) {
+  document.getElementById('adminCloseTicketId').textContent = ticketId;
+  document.getElementById('adminCloseForm').action =
+    '{% url "central_admin:admin_close_issue" 0 %}'.replace('/0/', '/'+issueId+'/');
+  document.getElementById('adminCloseReason').value = '';
+  new bootstrap.Modal(document.getElementById('adminCloseModal')).show();
+}
+</script>

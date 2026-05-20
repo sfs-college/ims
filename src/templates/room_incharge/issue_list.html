@@ -94,7 +94,28 @@
 <div style="display:flex;justify-content:space-between;align-items:center;margin:20px 0 16px;flex-wrap:wrap;gap:10px;">
   <div>
     <h4 style="font-size:20px;font-weight:700;color:#1a1a2e;margin:0;">Issues</h4>
-    <p style="font-size:13px;color:#7c7c9a;margin:3px 0 0;">{{ room.room_name }}</p>
+    {% if is_central_view %}
+    <form method="get" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;" id="roomFilterForm">
+      <p style="font-size:13px;color:#475569;margin:3px 0 0;font-weight:600;">All Rooms</p>
+      <select name="room" id="roomFilterSelect" class="form-select"
+              style="width:auto;min-width:220px;font-size:0.85rem;border-radius:9px;border:1.5px solid #e2e8f0;padding:4px 30px 4px 12px;background:#fff;cursor:pointer;"
+              onchange="this.form.submit()">
+        <option value="">-- Show all rooms --</option>
+        {% for rc in rooms_with_counts %}
+        {% with r=rc cnt=rc.issue_count %}
+        <option value="{{ r.slug }}" {% if selected_room_slug == r.slug %}selected{% endif %}>
+          {% if r.label %}{{ r.label }} — {% endif %}{{ r.room_name }}  {{ cnt }} open
+        </option>
+        {% endwith %}
+        {% endfor %}
+      </select>
+    </form>
+    {% elif room.room_name %}
+    <p style="font-size:13px;color:#7c7c9a;margin:3px 0 0;">
+      {% if room.label %}<span style="display:inline-block;background:rgba(108,99,255,0.12);color:#6c63ff;border:1px solid rgba(108,99,255,0.25);border-radius:7px;font-size:11px;font-weight:700;padding:1px 8px;margin-right:5px;">{{ room.label }}</span>{% endif %}
+      {{ room.room_name }}
+    </p>
+    {% endif %}
   </div>
 </div>
 

@@ -163,7 +163,7 @@
                  alt="Profile">
           </div>
           <ul class="dropdown-menu dropdown-menu-end">
-            <li><a class="dropdown-item text-danger" href="{% url 'core:logout' %}" onclick="if(window.IS_CAPACITOR||window.Capacitor&&window.Capacitor.isNativePlatform&&window.Capacitor.isNativePlatform()){event.preventDefault();fetch('{% url \"core:logout\" %}',{method:'POST',headers:{'X-CSRFToken':document.cookie.match(/csrftoken=([^;]+)/)?.[1]||''}}).then(()=>window.location.href='{% url \"core:app_home\" %}').catch(()=>window.location.href='{% url \"core:app_home\" %}');}">Logout</a></li>
+            <li><a class="dropdown-item text-danger" href="{% url 'core:logout' %}" data-logout-url="{% url 'core:logout' %}" data-home-url="{% url 'core:app_home' %}" onclick="if(window.IS_CAPACITOR||window.Capacitor&&window.Capacitor.isNativePlatform&&window.Capacitor.isNativePlatform()){event.preventDefault();fetch(this.getAttribute('data-logout-url'),{method:'POST',headers:{'X-CSRFToken':document.cookie.match(/csrftoken=([^;]+)/)?.[1]||''}}).then(()=>window.location.href=this.getAttribute('data-home-url')).catch(()=>window.location.href=this.getAttribute('data-home-url'));}">Logout</a></li>
           </ul>
         </div>
       </div>

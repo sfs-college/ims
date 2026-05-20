@@ -24,7 +24,41 @@
         --sal: env(safe-area-inset-left, 0px);
         --sar: env(safe-area-inset-right, 0px);
     }
-    body { font-family: 'DM Sans', sans-serif; }
+    body {
+        padding-top: var(--sat);
+        padding-bottom: var(--sab);
+    }
+    /* ── Universal back-btn ─────────────────────────────────── */
+    .universal-back-btn {
+      position: fixed;
+      top: calc(72px + var(--sat));
+      right: max(16px, env(safe-area-inset-right, 16px));
+      padding: 8px 14px;
+      background: linear-gradient(135deg, #6366f1, #8b5cf6);
+      color: white;
+      border: none;
+      border-radius: 12px;
+      font-weight: 600;
+      font-size: 13px;
+      text-decoration: none;
+      box-shadow: 0 4px 12px rgba(99,102,241,0.3);
+      z-index: 1005;
+      transition: opacity 0.2s ease, transform 0.2s ease;
+      cursor: pointer;
+      font-family: 'DM Sans', sans-serif;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .universal-back-btn:hover { transform: translateY(-1px); box-shadow: 0 6px 16px rgba(99,102,241,0.35); color: white; text-decoration: none; }
+    .universal-back-btn .material-symbols-outlined { font-size: 18px; }
+    @media (max-width: 900px) {
+      .universal-back-btn { top: calc(60px + var(--sat)); right: max(12px, env(safe-area-inset-right, 12px)); padding: 7px 12px; font-size: 12px; gap: 5px; }
+      .universal-back-btn .material-symbols-outlined { font-size: 16px; }
+    }
+    @media (max-width: 768px) {
+      body { padding-bottom: calc(90px + var(--sab)) !important; }
+    }
     </style>
     {% block style %}{% endblock style %}
 </head>

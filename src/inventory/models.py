@@ -388,7 +388,39 @@ class Issue(models.Model):
         return f"{self.ticket_id or 'TICKET'} - {self.subject}"
 
 
+class IssueRemark(models.Model):
+    """Persistent remark thread for an issue.  Each row is one remark
+    added by a specific admin profile (sub-admin or central admin).
+
+    Multiple remarks per issue are allowed and are kept in insertion order.
+    The incharge_remark / closure_reason live directly on Issue for backward
+    compatibility; this table holds the per-admin remark audit trail.
+    """
+
+    class AdminType(models.TextChoices):
+        SUB_ADMIN = 'sub_admin', 'Sub Admin'
+        CENTRAL_ADMIN = 'central_admin', 'Central Admin'
+
+    issue = models.ForeignKey(Issue, on_delete=models.CASCADE, related_name='admin_remarks')
+
+    admin_type = models.CharField(max_length=20, choices=AdminType.choices)
+    remark_text = models.TextField()
+
+    created_by = models.ForeignKey(
+        'core.UserProfile', on_delete=models.SET_NULL, null=True, blank=True
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['created_at']           # oldest first
+        indexes = [models.Index(fields=['issue', 'created_at'])]
+
+    def __str__(self):
+        return f"{self.get_admin_type_display()} remark on {self.issue.ticket_id} at {self.created_at:%Y-%m-%d %H:%M}"
+
+
 class Category(models.Model):
+    organisation = models.ForeignKey(Organisation, on_delete=models.CASCADE)
     organisation = models.ForeignKey(Organisation, on_delete=models.CASCADE)
     room = models.ForeignKey(Room, on_delete=models.CASCADE, null=True, blank=True)
     category_name = models.CharField(max_length=255)

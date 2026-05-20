@@ -455,72 +455,97 @@ def aura_data_manager(request):
     return JsonResponse({'results': data})
 
 def aura_delete_record(request):
-    # BUG FIX: use getattr to avoid AttributeError on AnonymousUser
     profile = getattr(request.user, 'profile', None)
-    if request.method == 'POST' and profile and (profile.is_central_admin or profile.is_sub_admin):
-        data = json.loads(request.body)
-        model_name = data.get('model')
-        record_id = data.get('id')
-        
-        model_map = {'issues': Issue, 'items': Item, 'rooms': Room, 'bookings': RoomBooking}
-        model = model_map.get(model_name)
-        # BUG FIX: return 400 for invalid model instead of crashing with ValueError
-        if model is None:
-            return JsonResponse({'status': 'error', 'message': 'Invalid model'}, status=400)
-        obj = get_object_or_404(model, id=record_id)
-        
-        # Ownership check
-        is_owner = False
-        if model_name == 'rooms' and obj.organisation == request.user.profile.org:
-            is_owner = True
-        elif hasattr(obj, 'room') and obj.room.organisation == request.user.profile.org:
-            is_owner = True
-        elif hasattr(obj, 'organisation') and obj.organisation == request.user.profile.org:
-            is_owner = True
-            
-        if is_owner:
-            if model_name == 'bookings':
-                # Cancel the booking (mark as cancelled, keep in history)
-                profile = request.user.profile
-                room_name = format_room_list(obj)
-                cancelled_by_name = f"{profile.first_name} {profile.last_name}".strip() or str(profile)
-                obj.status = 'cancelled'
-                obj.cancelled_by = profile
-                obj.cancelled_on = timezone.now()
-                obj.save(update_fields=['status', 'cancelled_by', 'cancelled_on'])
+    if request.method != 'POST' or not profile or not profile.is_central_admin:
+        return JsonResponse({'status': 'error', 'message': 'Only Central Admin can delete records.'}, status=403)
 
-                admin_emails = list(
-                    UserProfile.objects.filter(
-                        Q(is_central_admin=True) | Q(is_sub_admin=True)
-                    ).values_list('user__email', flat=True)
-                )[:5]
-                all_recipients = list({obj.faculty_email} | set(admin_emails))
-                try:
-                    send_mail(
-                        subject=f"[Blixtro] Room Booking Cancelled — {room_name}",
-                        message=(
-                            f"Dear {obj.faculty_name},\n\n"
-                            f"Your confirmed room booking has been cancelled by the administration.\n\n"
-                            f"Booking Details:\n"
-                            f"  Room    : {room_name}\n"
-                            f"  Date    : {obj.start_datetime.strftime('%d %b %Y, %H:%M')} – {obj.end_datetime.strftime('%H:%M')}\n"
-                            f"  Purpose : {obj.purpose or 'Not specified'}\n"
-                            f"  Cancelled by : {cancelled_by_name}\n\n"
-                            "The room slot has been freed and is now available for others to book.\n"
-                            "If you have questions, please contact the administration.\n\n"
-                            "Regards,\nBlixtro — SFS College Inventory & Booking System"
-                        ),
-                        from_email=None,
-                        recipient_list=all_recipients,
-                        fail_silently=True,
-                    )
-                except Exception as _e:
-                    logger.error(f"[aura_delete_record] Email failed (non-fatal): {_e}")
-                return JsonResponse({'status': 'success'})
-            
-            obj.delete()
-            return JsonResponse({'status': 'success'})
-            
+    data = json.loads(request.body)
+    model_name = data.get('model')
+    record_id = data.get('id')
+
+    model_map = {
+        'issues': Issue, 'items': Item, 'rooms': Room,
+        'bookings': RoomBooking, 'purchases': Purchase,
+        'vendors': Vendor, 'departments': Department,
+        'credentials': RoomBookingCredentials,
+        'booking_requests': RoomBookingRequest,
+    }
+    model = model_map.get(model_name)
+    if not model:
+        return JsonResponse({'status': 'error', 'message': 'Invalid model'}, status=400)
+    obj = get_object_or_404(model, id=record_id)
+
+    # ── Organisation-scoped ownership check ───────────────────
+    org = request.user.profile.org
+    _is_owner = False
+
+    if model_name == 'rooms':
+        _is_owner = obj.organisation_id == org.id
+    elif model_name == 'bookings':
+        _is_owner = obj.room and obj.room.organisation_id == org.id
+    elif model_name in ('items', 'issues'):
+        _is_owner = obj.room_id and obj.room.organisation_id == org.id
+    elif model_name == 'purchases':
+        _is_owner = (
+            getattr(obj, 'organisation_id', None) == org.id
+            or (obj.room_id and obj.room.organisation_id == org.id)
+        )
+    elif model_name == 'vendors':
+        _is_owner = obj.organisation_id == org.id
+    elif model_name == 'departments':
+        _is_owner = Room.objects.filter(department=obj, organisation=org).exists()
+    elif model_name == 'credentials':
+        _is_owner = True
+    elif model_name == 'booking_requests':
+        _is_owner = obj.room and obj.room.organisation_id == org.id
+
+    if not _is_owner:
+        return JsonResponse({'status': 'error', 'message': 'You do not have permission to delete this record.'}, status=403)
+
+    # ── Execute delete ───────────────────────────────────────
+    if model_name == 'bookings':
+        # Cancel the booking (mark as cancelled, keep in history)
+        _profile = request.user.profile
+        room_name = format_room_list(obj)
+        cancelled_by_name = f"{_profile.first_name} {_profile.last_name}".strip() or str(_profile)
+        obj.status = 'cancelled'
+        obj.cancelled_by = _profile
+        obj.cancelled_on = timezone.now()
+        obj.save(update_fields=['status', 'cancelled_by', 'cancelled_on'])
+
+        admin_emails = list(
+            UserProfile.objects.filter(
+                Q(is_central_admin=True) | Q(is_sub_admin=True)
+            ).values_list('user__email', flat=True)
+        )[:5]
+        all_recipients = list({obj.faculty_email} | set(admin_emails))
+        try:
+            send_mail(
+                subject=f"[Blixtro] Room Booking Cancelled — {room_name}",
+                message=(
+                    f"Dear {obj.faculty_name},\n\n"
+                    f"Your confirmed room booking has been cancelled by the administration.\n\n"
+                    f"Booking Details:\n"
+                    f"  Room    : {room_name}\n"
+                    f"  Date    : {obj.start_datetime.strftime('%d %b %Y, %H:%M')} – {obj.end_datetime.strftime('%H:%M')}\n"
+                    f"  Purpose : {obj.purpose or 'Not specified'}\n"
+                    f"  Cancelled by : {cancelled_by_name}\n\n"
+                    "The room slot has been freed and is now available for others to book.\n"
+                    "If you have questions, please contact the administration.\n\n"
+                    "Regards,\nBlixtro — SFS College Inventory & Booking System"
+                ),
+                from_email=None,
+                recipient_list=all_recipients,
+                fail_silently=True,
+            )
+        except Exception as _e:
+            logger.error(f"[aura_delete_record] Email failed (non-fatal): {_e}")
+        return JsonResponse({'status': 'success'})
+
+    # Hard-delete for all other models
+    obj.delete()
+    return JsonResponse({'status': 'success'})
+
     return JsonResponse({'status': 'error'}, status=403)
 
 
