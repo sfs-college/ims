@@ -260,9 +260,15 @@
     </a>
 
     <a href="{% url 'room_incharge:system_list' room_slug=room_slug %}" class="nav-card card-indigo">
-      <span class="nav-card-icon"><span class="material-symbols-outlined">devices</span></span>
+      <span class="nav-card-icon"><span class="material-symbols-outlined">view_kanban</span></span>
       <span class="nav-card-label">Systems</span>
-      <p class="nav-card-desc">Manage systems in this room.</p>
+      <p class="nav-card-desc">Manage active, inactive and archived items.</p>
+    </a>
+
+    <a href="{% url 'room_incharge:configurations_list' room_slug=room_slug %}" class="nav-card card-purple">
+      <span class="nav-card-icon"><span class="material-symbols-outlined">settings_applications</span></span>
+      <span class="nav-card-label">Configurations</span>
+      <p class="nav-card-desc">Manage item spec configurations for this room.</p>
     </a>
 
     <a href="{% url 'room_incharge:archive_list' room_slug=room_slug %}" class="nav-card card-amber">

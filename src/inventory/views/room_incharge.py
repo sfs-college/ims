@@ -886,12 +886,12 @@ class ArchiveListView(LoginRequiredMixin, ListView):
 
     def get_queryset(self):
         room_slug = self.kwargs['room_slug']
-        # Active archives: not yet fully resolved
+        # Active archives: not yet returned to stock (serviced = returned to available)
         return Archive.objects.filter(
             room__slug=room_slug,
             organisation=self.request.user.profile.org,
         ).exclude(
-            archive_status__in=['serviced', 'not_serviceable']
+            archive_status='serviced'
         ).select_related('item').order_by('-archived_on')
 
     def get_context_data(self, **kwargs):
@@ -899,11 +899,11 @@ class ArchiveListView(LoginRequiredMixin, ListView):
         room = Room.objects.get(slug=self.kwargs['room_slug'])
         context['room_slug'] = self.kwargs['room_slug']
         context['room_settings'] = RoomSettings.objects.get_or_create(room=room)[0]
-        # History: serviced or not_serviceable (resolved archives)
+        # History: only serviced (returned to available stock)
         context['history_archives'] = Archive.objects.filter(
             room=room,
             organisation=self.request.user.profile.org,
-            archive_status__in=['serviced', 'not_serviceable'],
+            archive_status='serviced',
         ).select_related('item').order_by('-archived_on')
         return context
 
