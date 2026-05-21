@@ -39,8 +39,30 @@
   .toast-lite { position:fixed; right:18px; bottom:18px; z-index:1080; display:none; padding:10px 14px; border-radius:10px; color:#fff; font-size:.85rem; font-weight:800; box-shadow:0 10px 24px rgba(15,23,42,.24); }
   .toast-lite.ok { background:#059669; }
   .toast-lite.err { background:#dc2626; }
+  .qty-modal-bg { position:fixed; inset:0; z-index:1070; display:none; align-items:center; justify-content:center; padding:18px; background:rgba(15,23,42,.46); backdrop-filter:blur(2px); opacity:0; transition:opacity .18s ease; }
+  .qty-modal-bg.show { opacity:1; }
+  .qty-modal { width:min(440px,100%); background:#fff; border-radius:16px; border:1px solid var(--border); box-shadow:0 18px 50px rgba(15,23,42,.22); padding:22px; transform:translateY(10px) scale(.98); transition:transform .2s ease; }
+  .qty-modal-bg.show .qty-modal { transform:translateY(0) scale(1); }
+  .qty-modal-head { display:flex; justify-content:space-between; align-items:flex-start; gap:12px; margin-bottom:16px; }
+  .qty-modal-title { margin:0; color:var(--text); font-size:1.05rem; font-weight:800; }
+  .qty-modal-sub { margin:4px 0 0; color:var(--muted); font-size:.8rem; line-height:1.35; }
+  .qty-close { width:34px; height:34px; border-radius:9px; border:1px solid var(--border); background:#fff; color:var(--muted); display:inline-flex; align-items:center; justify-content:center; cursor:pointer; flex:0 0 auto; }
+  .qty-stats { display:grid; grid-template-columns:repeat(3,1fr); gap:9px; margin-bottom:16px; }
+  .qty-stat { border:1px solid var(--border); background:var(--surface-2); border-radius:11px; padding:11px 8px; text-align:center; min-width:0; }
+  .qty-stat strong { display:block; color:var(--text); font-size:1.35rem; line-height:1; }
+  .qty-stat span { display:block; color:var(--muted); font-size:.66rem; font-weight:800; letter-spacing:.04em; text-transform:uppercase; margin-top:5px; }
+  .qty-field-label { display:block; color:var(--muted); font-size:.72rem; font-weight:800; letter-spacing:.04em; text-transform:uppercase; margin-bottom:7px; }
+  .qty-row { display:flex; gap:9px; align-items:center; margin-bottom:14px; }
+  .qty-step { width:42px; height:42px; border-radius:10px; border:1px solid var(--border); background:#fff; color:var(--text); font-weight:900; cursor:pointer; }
+  .qty-input { flex:1; min-width:0; height:42px; border-radius:10px; border:1.5px solid var(--border); text-align:center; font-size:1.15rem; font-weight:800; color:var(--text); outline:none; }
+  .qty-input:focus { border-color:var(--accent); box-shadow:0 0 0 3px rgba(108,99,255,.12); }
+  .qty-warning { display:none; background:#fef2f2; color:#b91c1c; border:1px solid #fecaca; border-radius:10px; padding:9px 11px; font-size:.78rem; font-weight:700; margin-bottom:14px; }
+  .qty-actions { display:flex; gap:9px; }
+  .qty-action { flex:1; border-radius:10px; border:1px solid var(--border); background:#fff; color:#334155; padding:10px 12px; font-size:.84rem; font-weight:800; cursor:pointer; }
+  .qty-action.primary { flex:1.6; border-color:var(--accent); background:linear-gradient(135deg,#6c63ff,#8b7cf8); color:#fff; }
+  .qty-action:disabled { opacity:.55; cursor:not-allowed; }
   @media (max-width:1000px) { .board { grid-template-columns:repeat(2,minmax(180px,1fr)); } }
-  @media (max-width:620px) { .systems-wrap { padding:14px 0 36px; } .board { grid-template-columns:1fr; } }
+  @media (max-width:620px) { .systems-wrap { padding:14px 0 36px; } .board { grid-template-columns:1fr; } .qty-stats { grid-template-columns:1fr; } .qty-actions { flex-direction:column; } }
 </style>
 {% endblock style %}
 
@@ -145,6 +167,34 @@
 </div>
 <div id="sysToast" class="toast-lite"></div>
 
+<div id="qtyModalBg" class="qty-modal-bg" role="dialog" aria-modal="true" aria-labelledby="qtyModalTitle">
+  <div class="qty-modal">
+    <div class="qty-modal-head">
+      <div>
+        <h3 class="qty-modal-title" id="qtyModalTitle">Assign units</h3>
+        <p class="qty-modal-sub"><span id="qtyItemName">Item</span> from <span id="qtySourceName">Available</span> to <span id="qtyTargetName">Active</span></p>
+      </div>
+      <button type="button" class="qty-close" onclick="closeQtyModal()" aria-label="Close"><i class="bi bi-x-lg"></i></button>
+    </div>
+    <div class="qty-stats">
+      <div class="qty-stat"><strong id="qtyAvailable">0</strong><span>Available</span></div>
+      <div class="qty-stat"><strong id="qtyAssigning">1</strong><span>Assigning</span></div>
+      <div class="qty-stat"><strong id="qtyRemaining">0</strong><span>Remaining</span></div>
+    </div>
+    <label class="qty-field-label" for="qtyCountInput">Units to move</label>
+    <div class="qty-row">
+      <button type="button" class="qty-step" onclick="stepMoveQty(-1)">-</button>
+      <input type="number" id="qtyCountInput" class="qty-input" min="1" value="1" oninput="syncMoveQty()">
+      <button type="button" class="qty-step" onclick="stepMoveQty(1)">+</button>
+    </div>
+    <div id="qtyWarning" class="qty-warning"><i class="bi bi-exclamation-triangle-fill me-1"></i>Enter a valid unit count.</div>
+    <div class="qty-actions">
+      <button type="button" class="qty-action" onclick="closeQtyModal()">Cancel</button>
+      <button type="button" class="qty-action primary" id="qtyConfirmBtn" onclick="confirmMoveItem()"><i class="bi bi-check2-circle me-1"></i>Confirm</button>
+    </div>
+  </div>
+</div>
+
 <script>
 const systemItems = Array.from(document.querySelectorAll('.item-card[draggable="true"]')).map(card => ({
   id: card.dataset.itemId,
@@ -166,6 +216,7 @@ function showSysToast(message, ok=true) {
   setTimeout(() => { el.style.display = 'none'; }, 2200);
 }
 let dragged = null;
+let pendingMove = null;
 document.querySelectorAll('.item-card[draggable="true"]').forEach(card => {
   card.addEventListener('dragstart', event => {
     dragged = card;
@@ -189,9 +240,45 @@ function moveItem(card, target) {
   const source = card.dataset.source || 'available';
   const itemName = card.dataset.itemName || 'item';
   const maxCount = Math.max(1, Number(card.dataset.availableCount || 1));
-  const rawCount = window.prompt(`How many ${itemName} unit(s) do you want to move?`, '1');
-  if (rawCount === null) return;
-  const count = Number.parseInt(rawCount, 10);
+  pendingMove = { card, target, source, itemName, maxCount };
+  document.getElementById('qtyItemName').textContent = itemName;
+  document.getElementById('qtySourceName').textContent = source.replace('_', ' ');
+  document.getElementById('qtyTargetName').textContent = target === 'archive' ? 'Archive' : target;
+  document.getElementById('qtyAvailable').textContent = maxCount;
+  const input = document.getElementById('qtyCountInput');
+  input.value = 1;
+  input.max = maxCount;
+  syncMoveQty();
+  const bg = document.getElementById('qtyModalBg');
+  bg.style.display = 'flex';
+  requestAnimationFrame(() => bg.classList.add('show'));
+  setTimeout(() => input.focus(), 80);
+}
+function closeQtyModal() {
+  const bg = document.getElementById('qtyModalBg');
+  bg.classList.remove('show');
+  setTimeout(() => { bg.style.display = 'none'; }, 180);
+}
+function stepMoveQty(delta) {
+  const input = document.getElementById('qtyCountInput');
+  const max = pendingMove ? pendingMove.maxCount : 1;
+  input.value = Math.max(1, Math.min(max, Number.parseInt(input.value || '1', 10) + delta));
+  syncMoveQty();
+}
+function syncMoveQty() {
+  const input = document.getElementById('qtyCountInput');
+  const max = pendingMove ? pendingMove.maxCount : 0;
+  const count = Number.parseInt(input.value || '0', 10);
+  const valid = Number.isInteger(count) && count >= 1 && count <= max;
+  document.getElementById('qtyAssigning').textContent = valid ? count : '-';
+  document.getElementById('qtyRemaining').textContent = valid ? max - count : '-';
+  document.getElementById('qtyWarning').style.display = valid ? 'none' : 'block';
+  document.getElementById('qtyConfirmBtn').disabled = !valid;
+}
+function confirmMoveItem() {
+  if (!pendingMove) return;
+  const { card, target, source, itemName, maxCount } = pendingMove;
+  const count = Number.parseInt(document.getElementById('qtyCountInput').value, 10);
   if (!Number.isInteger(count) || count < 1 || count > maxCount) {
     showSysToast(`Enter a count between 1 and ${maxCount}.`, false);
     return;
@@ -213,9 +300,14 @@ function moveItem(card, target) {
       showSysToast(data.error || 'Move failed. Please try again.', false);
       return;
     }
+    closeQtyModal();
     showSysToast(data.message || `Updated ${itemName}`);
     setTimeout(() => window.location.reload(), 450);
   }).catch(() => showSysToast('Failed to update item.', false));
 }
+document.addEventListener('keydown', event => {
+  if (event.key === 'Escape' && document.getElementById('qtyModalBg').style.display === 'flex') closeQtyModal();
+  if (event.key === 'Enter' && document.activeElement?.id === 'qtyCountInput') confirmMoveItem();
+});
 </script>
 {% endblock content %}
