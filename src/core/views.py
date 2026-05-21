@@ -277,6 +277,24 @@ class ResetPasswordView(PasswordResetView):
     success_url = reverse_lazy('core:done_password_reset')
     template_name = 'core/password_reset/password_reset_form.html'
 
+    def form_valid(self, form):
+        """
+        Wrap the parent form_valid in a try/except so that SMTP failures
+        (or any email backend error) return a user-facing error message
+        instead of a 500 server error.
+        """
+        try:
+            return super().form_valid(form)
+        except Exception as e:
+            logger.error(f"[ResetPasswordView] Email send failed: {e}")
+            from django.contrib import messages as _msgs
+            _msgs.error(
+                self.request,
+                "We could not send the password reset email at this time. "
+                "Please try again later or contact your administrator."
+            )
+            return self.form_invalid(form)
+
 
 class DonePasswordResetView(PasswordResetDoneView):
     template_name = 'core/password_reset/password_reset_done.html'
