@@ -393,6 +393,13 @@ class SystemListView(LoginRequiredMixin, ListView):
     model = Item
     context_object_name = 'items'
 
+    def dispatch(self, request, *args, **kwargs):
+        response = super().dispatch(request, *args, **kwargs)
+        response['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
+        response['Pragma'] = 'no-cache'
+        response['Expires'] = '0'
+        return response
+
     def get_room(self):
         profile = self.request.user.profile
         if profile.is_central_admin or profile.is_sub_admin:
@@ -434,7 +441,7 @@ class SystemListView(LoginRequiredMixin, ListView):
                 archived_component_count=Count('systemcomponent', filter=Q(systemcomponent__status__in=['under_maintenance', 'disposed'])),
             )
             .prefetch_related('systemcomponent_set__component_item')
-            .order_by('system_name')
+            .order_by('-created_on', 'system_name')
         )
 
         context['active_items'] = active_items

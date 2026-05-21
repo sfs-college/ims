@@ -25,8 +25,9 @@
         -webkit-text-fill-color: transparent; font-weight: 800; font-size: 1.8rem; margin: 0;
     }
     .type-toggle {
-        display: flex; background: #f1f5f9; border-radius: 14px;
+        display: flex; flex-wrap: wrap; background: #f1f5f9; border-radius: 14px;
         padding: 5px; position: relative;
+        max-width: 100%; overflow: hidden;
     }
     .toggle-slider {
         position: absolute; top: 5px; height: calc(100% - 10px);
@@ -38,6 +39,7 @@
         font-weight: 600; font-size: 0.88rem; text-decoration: none; color: #64748b;
         transition: color 0.22s ease; white-space: nowrap;
         display: flex; align-items: center; gap: 6px; cursor: pointer; user-select: none;
+        min-width: 0;
     }
     .type-toggle .tab-btn.active { color: #6366f1; }
     .type-toggle .tab-btn:hover:not(.active) { color: #1e293b; }
@@ -51,13 +53,15 @@
     .tab-panel        { display: none; }
     .tab-panel.active { display: block; }
     .request-grid {
-        display: grid; grid-template-columns: repeat(auto-fill, minmax(360px,1fr)); gap: 25px;
+        display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 340px),1fr)); gap: 25px;
+        width: 100%;
     }
     .request-card {
         background: #fff; border-radius: 18px; padding: 24px;
         border: 1px solid rgba(0,0,0,0.05); transition: all 0.3s cubic-bezier(0.4,0,0.2,1);
         position: relative; overflow: hidden; display: flex; flex-direction: column;
         box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+        min-width: 0; max-width: 100%;
     }
     .request-card:hover { transform: translateY(-5px); box-shadow: 0 18px 38px rgba(0,0,0,0.08); }
     .request-card::before {
@@ -81,13 +85,17 @@
     .detail-zone {
         background: #f8fafc; border-radius: 12px; padding: 14px;
         font-size: 0.84rem; color: #475569; margin-bottom: 14px; border: 1px solid #edf2f7;
+        min-width: 0; overflow-wrap: anywhere;
     }
     .change-item {
         display: flex; justify-content: space-between;
         padding: 4px 0; border-bottom: 1px solid #edf2f7;
+        gap: 12px; min-width: 0;
     }
+    .change-item span { min-width: 0; overflow-wrap: anywhere; }
     .change-item:last-child { border-bottom: none; }
     .action-group { display: flex; gap: 10px; margin-top: auto; padding-top: 6px; }
+    .action-group form { min-width: 0; }
     .btn-approve-grad {
         flex: 2; background: var(--success-grad); color: #fff; border: none;
         padding: 10px; border-radius: 10px; font-weight: 600; font-size: 0.88rem;
