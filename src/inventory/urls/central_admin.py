@@ -10,6 +10,7 @@ urlpatterns = [
     path('people/<slug:people_slug>/delete/', central_admin.PeopleDeleteView.as_view(), name='people_delete'),
     path('people/api/<slug:people_slug>/', central_admin.get_person_api, name='get_person_api'),
     path('people/api/<slug:people_slug>/edit/', central_admin.edit_person_api, name='edit_person_api'),
+    path('people/api/<slug:people_slug>/send-reset-email/', central_admin.send_person_reset_email_api, name='send_person_reset_email_api'),
     path('rooms/', central_admin.RoomListView.as_view(), name='room_list'),
     path('rooms/create/', central_admin.RoomCreateView.as_view(), name='room_create'),
     path('rooms/<slug:room_slug>/delete/', central_admin.RoomDeleteView.as_view(), name='room_delete'),

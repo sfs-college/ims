@@ -85,12 +85,28 @@ class BrandForm(forms.ModelForm):
         fields = ['brand_name']
         
         
+name_validator = RegexValidator(
+    regex=r'^[a-zA-Z\s\-\'\.]+$',
+    message='Names can only contain letters, spaces, hyphens, apostrophes, and periods.'
+)
+
+
 class PeopleCreateForm(form_mixin.BootstrapFormMixin, forms.ModelForm):
     """
     Clean form: NO organisation field (org is auto-assigned in the view).
     """
+    first_name = forms.CharField(
+        max_length=255,
+        validators=[name_validator],
+        label="First Name"
+    )
+    last_name = forms.CharField(
+        max_length=255,
+        required=False,
+        validators=[name_validator],
+        label="Last Name"
+    )
     email = forms.EmailField(label="Official Email")
-    last_name = forms.CharField(max_length=255, required=False)
 
     ROLE_CHOICES = (
         ('central_admin', 'Central Admin'),
@@ -104,10 +120,42 @@ class PeopleCreateForm(form_mixin.BootstrapFormMixin, forms.ModelForm):
         model = UserProfile
         fields = ['first_name', 'last_name']  # org removed entirely
 
+    def __init__(self, *args, **kwargs):
+        self.current_profile = kwargs.pop('current_profile', None)
+        super().__init__(*args, **kwargs)
+        if self.current_profile and self.current_profile.is_sub_admin:
+            self.fields['role'].choices = [('room_incharge', 'Room Incharge')]
+            self.fields['role'].initial = 'room_incharge'
+
+    def clean(self):
+        cleaned_data = super().clean()
+        role = cleaned_data.get('role')
+        if self.current_profile and self.current_profile.is_sub_admin and role != 'room_incharge':
+            raise forms.ValidationError("Sub Admin is restricted from creating Central Admin or Sub Admin accounts.")
+        return cleaned_data
+
     def clean_email(self):
-        email = self.cleaned_data.get('email')
-        if User.objects.filter(email=email).exists():
-            raise forms.ValidationError("A user with this email already exists.")
+        email = self.cleaned_data.get('email').strip().lower()
+        
+        # Enforce @sfscollege.in domain
+        if not email.endswith('@sfscollege.in'):
+            raise forms.ValidationError("Email address must belong to the @sfscollege.in domain.")
+
+        # Check if user already exists in the system
+        try:
+            existing_user = User.objects.get(email=email)
+            if hasattr(existing_user, 'profile'):
+                profile_org = existing_user.profile.org
+                if self.current_profile and profile_org and profile_org != self.current_profile.org:
+                    raise forms.ValidationError("A user with this email belongs to another organization.")
+                elif self.current_profile and profile_org == self.current_profile.org:
+                    p = existing_user.profile
+                    # Check if they already have an active staff/admin role
+                    if p.is_central_admin or p.is_sub_admin or p.is_incharge:
+                        raise forms.ValidationError("A person with this email is already registered in your organization.")
+        except User.DoesNotExist:
+            pass
+
         return email
 
     def save(self, commit=True):

@@ -138,6 +138,7 @@ TEMPLATES = [
                 'django.contrib.messages.context_processors.messages',
                 'core.context_processors.firebase_config',
                 'core.context_processors.home_url',
+                'core.context_processors.dashboard_url',
             ],
         },
     },

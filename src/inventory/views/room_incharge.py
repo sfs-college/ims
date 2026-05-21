@@ -2153,45 +2153,102 @@ class ArchiveStatusUpdateView(LoginRequiredMixin, View):
             room = get_object_or_404(Room, slug=room_slug, incharge=profile)
         archive = get_object_or_404(Archive, slug=archive_slug, room=room)
         try:
+            logger.info(f"[ArchiveStatusUpdateView] raw body: {request.body}")
             data = _json.loads(request.body)
-        except Exception:
+            logger.info(f"[ArchiveStatusUpdateView] parsed JSON data: {data}")
+        except Exception as e:
+            logger.error(f"[ArchiveStatusUpdateView] JSON parse failed: {e}")
             return JsonResponse({'error': 'Invalid JSON'}, status=400)
 
         new_status = data.get('status', '').strip()
-        item = archive.item
-        count = archive.count
+        try:
+            qty = int(data.get('qty', archive.count))
+            logger.info(f"[ArchiveStatusUpdateView] parsed qty: {qty}")
+        except (ValueError, TypeError) as e:
+            logger.warning(f"[ArchiveStatusUpdateView] qty parsing exception: {e}, falling back to archive.count={archive.count}")
+            qty = archive.count
 
+        if qty <= 0 or qty > archive.count:
+            return JsonResponse({'error': f'Invalid quantity: must be between 1 and {archive.count}.'}, status=400)
+
+        item = archive.item
         from django.db import transaction as _tx
 
         # Serviceable category options
         if archive.archive_category == 'serviceable':
             if new_status == 'under_maintenance':
-                archive.archive_status = 'under_maintenance'
-                archive.save(update_fields=['archive_status', 'updated_on'])
-                return JsonResponse({'success': True, 'message': 'Status updated to Under Maintenance.'})
+                with _tx.atomic():
+                    if qty == archive.count:
+                        archive.archive_status = 'under_maintenance'
+                        archive.save(update_fields=['archive_status', 'updated_on'])
+                    else:
+                        archive.count = archive.count - qty
+                        archive.save(update_fields=['count', 'updated_on'])
+                        Archive.objects.create(
+                            organisation=archive.organisation,
+                            department=archive.department,
+                            room=archive.room,
+                            item=archive.item,
+                            count=qty,
+                            archive_type=archive.archive_type,
+                            archive_category='serviceable',
+                            archive_status='under_maintenance',
+                            remark=archive.remark
+                        )
+                return JsonResponse({'success': True, 'message': f'{qty} unit(s) updated to Under Maintenance.'})
 
             elif new_status == 'serviced':
                 with _tx.atomic():
-                    archive.archive_status = 'serviced'
-                    archive.save(update_fields=['archive_status', 'updated_on'])
+                    if qty == archive.count:
+                        archive.archive_status = 'serviced'
+                        archive.save(update_fields=['archive_status', 'updated_on'])
+                    else:
+                        archive.count = archive.count - qty
+                        archive.save(update_fields=['count', 'updated_on'])
+                        Archive.objects.create(
+                            organisation=archive.organisation,
+                            department=archive.department,
+                            room=archive.room,
+                            item=archive.item,
+                            count=qty,
+                            archive_type=archive.archive_type,
+                            archive_category='serviceable',
+                            archive_status='serviced',
+                            remark=archive.remark
+                        )
                     # Return count to available
                     item.refresh_from_db()
-                    item.archived_count = max(0, item.archived_count - count)
-                    item.serviceable_count = max(0, item.serviceable_count - count)
+                    item.archived_count = max(0, item.archived_count - qty)
+                    item.serviceable_count = max(0, item.serviceable_count - qty)
                     item.available_count = max(0, item.total_count - item.active_count - item.inactive_count - item.archived_count)
                     item.save(update_fields=['archived_count', 'serviceable_count', 'available_count', 'updated_on'])
-                return JsonResponse({'success': True, 'message': f'{count} unit(s) returned to available stock.'})
+                return JsonResponse({'success': True, 'message': f'{qty} unit(s) returned to available stock.'})
 
             elif new_status == 'not_serviceable':
                 with _tx.atomic():
-                    archive.archive_category = 'unserviceable'
-                    archive.archive_status = 'not_serviceable'
-                    archive.save(update_fields=['archive_category', 'archive_status', 'updated_on'])
+                    if qty == archive.count:
+                        archive.archive_category = 'unserviceable'
+                        archive.archive_status = 'not_serviceable'
+                        archive.save(update_fields=['archive_category', 'archive_status', 'updated_on'])
+                    else:
+                        archive.count = archive.count - qty
+                        archive.save(update_fields=['count', 'updated_on'])
+                        Archive.objects.create(
+                            organisation=archive.organisation,
+                            department=archive.department,
+                            room=archive.room,
+                            item=archive.item,
+                            count=qty,
+                            archive_type=archive.archive_type,
+                            archive_category='unserviceable',
+                            archive_status='not_serviceable',
+                            remark=archive.remark
+                        )
                     item.refresh_from_db()
-                    item.serviceable_count = max(0, item.serviceable_count - count)
-                    item.unserviceable_count += count
+                    item.serviceable_count = max(0, item.serviceable_count - qty)
+                    item.unserviceable_count += qty
                     item.save(update_fields=['serviceable_count', 'unserviceable_count', 'updated_on'])
-                return JsonResponse({'success': True, 'message': 'Marked as Not Serviceable.'})
+                return JsonResponse({'success': True, 'message': f'{qty} unit(s) marked as Not Serviceable.'})
 
             else:
                 return JsonResponse({'error': 'Invalid status for serviceable item.'}, status=400)
@@ -2200,14 +2257,29 @@ class ArchiveStatusUpdateView(LoginRequiredMixin, View):
         elif archive.archive_category == 'unserviceable':
             if new_status == 'revert':
                 with _tx.atomic():
+                    if qty == archive.count:
+                        archive.archive_status = 'serviced'
+                        archive.save(update_fields=['archive_status', 'updated_on'])
+                    else:
+                        archive.count = archive.count - qty
+                        archive.save(update_fields=['count', 'updated_on'])
+                        Archive.objects.create(
+                            organisation=archive.organisation,
+                            department=archive.department,
+                            room=archive.room,
+                            item=archive.item,
+                            count=qty,
+                            archive_type=archive.archive_type,
+                            archive_category='unserviceable',
+                            archive_status='serviced',
+                            remark=archive.remark
+                        )
                     item.refresh_from_db()
-                    item.archived_count = max(0, item.archived_count - count)
-                    item.unserviceable_count = max(0, item.unserviceable_count - count)
+                    item.archived_count = max(0, item.archived_count - qty)
+                    item.unserviceable_count = max(0, item.unserviceable_count - qty)
                     item.available_count = max(0, item.total_count - item.active_count - item.inactive_count - item.archived_count)
                     item.save(update_fields=['archived_count', 'unserviceable_count', 'available_count', 'updated_on'])
-                    archive.archive_status = 'serviced'
-                    archive.save(update_fields=['archive_status', 'updated_on'])
-                return JsonResponse({'success': True, 'message': f'{count} unit(s) reverted to available stock.'})
+                return JsonResponse({'success': True, 'message': f'{qty} unit(s) reverted to available stock.'})
             else:
                 return JsonResponse({'error': 'Only revert is allowed for unserviceable items.'}, status=400)
 

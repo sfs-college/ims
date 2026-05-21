@@ -202,6 +202,17 @@
     border-color: #0ea5e9;
   }
 
+  .btn-action-email {
+    background: #f5f3ff;
+    color: #8b5cf6;
+    border: 1px solid #ddd6fe;
+  }
+  .btn-action-email:hover {
+    background: #8b5cf6;
+    color: white;
+    border-color: #8b5cf6;
+  }
+
   /* Mobile responsiveness */
   @media (max-width: 768px) {
     .data-table {
@@ -408,14 +419,33 @@
           </td>
           <td data-label="Action">
             <div class="action-buttons mobile-action-group">
-              <button class="btn-action btn-action-edit" onclick="openEditModal('{{ person.slug }}')">
-                <span class="material-symbols-outlined" style="font-size:14px">edit</span>
-                Edit
-              </button>
-              <a href="{% url 'central_admin:people_delete' people_slug=person.slug %}" class="btn-action btn-action-delete">
-                <span class="material-symbols-outlined" style="font-size:14px">delete</span>
-                Delete
-              </a>
+              {% if request.user.profile.is_sub_admin and (person.is_central_admin or person.is_sub_admin) %}
+                <button class="btn-action btn-action-edit" style="opacity: 0.5; cursor: not-allowed;" onclick="alert('Sub Admins are restricted from editing Central Admin and Sub Admin accounts.')">
+                  <span class="material-symbols-outlined" style="font-size:14px">lock</span>
+                  Edit
+                </button>
+                <button class="btn-action btn-action-email" style="opacity: 0.5; cursor: not-allowed;" onclick="alert('Sub Admins are restricted from sending password setup emails to Central Admin and Sub Admin accounts.')">
+                  <span class="material-symbols-outlined" style="font-size:14px">lock</span>
+                  Send Email
+                </button>
+                <button class="btn-action btn-action-delete" style="opacity: 0.5; cursor: not-allowed;" onclick="alert('Sub Admins are restricted from deleting Central Admin and Sub Admin accounts.')">
+                  <span class="material-symbols-outlined" style="font-size:14px">lock</span>
+                  Delete
+                </button>
+              {% else %}
+                <button class="btn-action btn-action-edit" onclick="openEditModal('{{ person.slug }}')">
+                  <span class="material-symbols-outlined" style="font-size:14px">edit</span>
+                  Edit
+                </button>
+                <button class="btn-action btn-action-email" id="btn-email-{{ person.slug }}" onclick="sendResetEmail('{{ person.slug }}')">
+                  <span class="material-symbols-outlined" style="font-size:14px">mail</span>
+                  Send Email
+                </button>
+                <a href="{% url 'central_admin:people_delete' people_slug=person.slug %}" class="btn-action btn-action-delete">
+                  <span class="material-symbols-outlined" style="font-size:14px">delete</span>
+                  Delete
+                </a>
+              {% endif %}
             </div>
           </td>
         </tr>
@@ -458,10 +488,14 @@
           
           <div class="mb-3">
             <label for="editRole" class="form-label">Role</label>
-            <select class="form-select" id="editRole" name="role" required>
-              <option value="central_admin">Central Admin</option>
-              <option value="sub_admin">Sub Admin</option>
-              <option value="incharge">Room Incharge</option>
+            <select class="form-select" id="editRole" name="role" required {% if request.user.profile.is_sub_admin %}disabled{% endif %}>
+              {% if request.user.profile.is_sub_admin %}
+                <option value="incharge">Room Incharge</option>
+              {% else %}
+                <option value="central_admin">Central Admin</option>
+                <option value="sub_admin">Sub Admin</option>
+                <option value="incharge">Room Incharge</option>
+              {% endif %}
             </select>
           </div>
           
@@ -545,8 +579,95 @@
 }
 </style>
 
+<!-- Premium Alert Modal -->
+<div class="modal fade" id="premiumAlertModal" tabindex="-1" aria-hidden="true" style="z-index: 1060;">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content" style="border: none; border-radius: 16px; box-shadow: 0 10px 30px rgba(0,0,0,0.15); overflow: hidden;">
+      <div id="premiumAlertHeader" class="modal-header text-white" style="border: none; padding: 20px 24px;">
+        <h5 class="modal-title d-flex align-items-center" style="font-weight: 700; font-family: 'DM Sans', sans-serif; margin: 0;">
+          <span id="premiumAlertIcon" class="material-symbols-outlined me-2" style="font-size: 28px; vertical-align: middle;"></span>
+          <span id="premiumAlertTitle">System Status</span>
+        </h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body" style="padding: 24px; background: #fafafa;">
+        <p id="premiumAlertMessage" style="font-size: 14.5px; color: #334155; line-height: 1.6; font-family: 'DM Sans', sans-serif; margin-bottom: 0;"></p>
+      </div>
+      <div class="modal-footer" style="border: none; padding: 16px 24px; background: #f1f5f9; display: flex; justify-content: flex-end;">
+        <button type="button" class="btn text-white" id="premiumAlertBtn" data-bs-dismiss="modal" style="border-radius: 8px; padding: 8px 20px; font-weight: 600; font-family: 'DM Sans', sans-serif; transition: all 0.2s;"></button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <script>
 let currentPersonData = null;
+
+window.showPremiumAlert = function(title, message, type) {
+  const modalEl = document.getElementById('premiumAlertModal');
+  const header = document.getElementById('premiumAlertHeader');
+  const icon = document.getElementById('premiumAlertIcon');
+  const titleEl = document.getElementById('premiumAlertTitle');
+  const msgEl = document.getElementById('premiumAlertMessage');
+  const btn = document.getElementById('premiumAlertBtn');
+
+  titleEl.textContent = title;
+  msgEl.textContent = message;
+
+  if (type === 'error') {
+    header.style.background = 'linear-gradient(135deg, #ef4444, #b91c1c)';
+    icon.textContent = 'error';
+    btn.textContent = 'Acknowledge';
+    btn.style.background = '#ef4444';
+  } else if (type === 'warning') {
+    header.style.background = 'linear-gradient(135deg, #f59e0b, #d97706)';
+    icon.textContent = 'warning';
+    btn.textContent = 'Understand';
+    btn.style.background = '#f59e0b';
+  } else {
+    // success/info
+    header.style.background = 'linear-gradient(135deg, #10b981, #059669)';
+    icon.textContent = 'check_circle';
+    btn.textContent = 'Great';
+    btn.style.background = '#10b981';
+  }
+
+  const modal = new bootstrap.Modal(modalEl);
+  modal.show();
+};
+
+function sendResetEmail(slug) {
+  const btn = document.getElementById('btn-email-' + slug);
+  if (!btn) return;
+  const originalHtml = btn.innerHTML;
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1" style="width: 12px; height: 12px;"></span>Sending...';
+
+  const url = '{% url "central_admin:send_person_reset_email_api" people_slug="SLUG" %}'.replace('SLUG', slug);
+  fetch(url, {
+    method: 'POST',
+    headers: {
+      'X-CSRFToken': getCsrfToken(),
+      'X-Requested-With': 'XMLHttpRequest'
+    }
+  })
+  .then(response => response.json())
+  .then(result => {
+    if (result.status === 'success') {
+      showPremiumAlert('Email Sent Successfully', result.message, 'success');
+    } else {
+      showPremiumAlert('Failed to Send Email', result.error, 'error');
+    }
+  })
+  .catch(error => {
+    console.error('Error:', error);
+    showPremiumAlert('Connection Error', 'Could not communicate with the server to trigger the password set email. Please check your network.', 'error');
+  })
+  .finally(() => {
+    btn.disabled = false;
+    btn.innerHTML = originalHtml;
+  });
+}
 
 function openEditModal(slug) {
   // Fetch person data
@@ -560,12 +681,12 @@ function openEditModal(slug) {
         const modal = new bootstrap.Modal(document.getElementById('editPersonModal'));
         modal.show();
       } else {
-        alert('Error loading person data: ' + data.error);
+        showPremiumAlert('Access Warning', 'Error loading person details: ' + data.error, 'warning');
       }
     })
     .catch(error => {
       console.error('Error:', error);
-      alert('Error loading person data');
+      showPremiumAlert('Connection Error', 'Failed to retrieve person details due to a network connection error.', 'error');
     });
 }
 
@@ -573,7 +694,10 @@ function populateEditForm(person) {
   document.getElementById('editPersonSlug').value = person.slug;
   document.getElementById('editFullName').value = person.user.full_name;
   document.getElementById('editEmail').value = person.user.email;
-  document.getElementById('editRole').value = person.role;
+  const roleSelect = document.getElementById('editRole');
+  if (roleSelect) {
+    roleSelect.value = person.role;
+  }
   
   // Store original email for comparison
   currentPersonData.original_email = person.user.email;
@@ -625,12 +749,12 @@ function savePerson() {
       bootstrap.Modal.getInstance(document.getElementById('editPersonModal')).hide();
       location.reload();
     } else {
-      alert('Error: ' + result.error);
+      showPremiumAlert('Update Failed', result.error, 'warning');
     }
   })
   .catch(error => {
     console.error('Error:', error);
-    alert('Error saving changes');
+    showPremiumAlert('Server Error', 'Failed to update person details. Please try again later.', 'error');
   })
   .finally(() => {
     submitBtn.disabled = false;

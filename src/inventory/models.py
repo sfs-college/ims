@@ -881,6 +881,7 @@ class StockRequest(models.Model):
                         related_name="reviewed_stock_requests"
                       )
     created_on      = models.DateTimeField(auto_now_add=True)
+    remark          = models.TextField(blank=True, default="")
 
     def __str__(self):
         return f"StockReq: {self.item.item_name} +{self.requested_count} ({self.status})"
