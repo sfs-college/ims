@@ -167,6 +167,15 @@ def _master_inventory_context(org):
         for row in Item.objects.filter(organisation=org)
         .values('item_name').annotate(total=models.Sum('archived_count'))
     }
+    item_status_map = {
+        row['item_name']: row
+        for row in Item.objects.filter(organisation=org, room__isnull=False)
+        .values('item_name')
+        .annotate(
+            inactive_total=models.Sum('inactive_count'),
+            archived_total=models.Sum('archived_count'),
+        )
+    }
     sc_map = {}
     for row in (
         SC.objects.filter(
@@ -187,6 +196,7 @@ def _master_inventory_context(org):
         total_items = available + assigned
         cpu = item.cost or 0
         sc = sc_map.get(name, {})
+        item_status = item_status_map.get(name, {})
         items_data.append({
             'item': item,
             'available_stock': available,
@@ -194,8 +204,8 @@ def _master_inventory_context(org):
             'total_items': total_items,
             'cpu': cpu,
             'total_cost': round(float(cpu) * total_items, 2) if cpu else 0,
-            'archived_count': archived_map.get(name, 0),
-            'inactive_count': sc.get('inactive', 0),
+            'archived_count': item_status.get('archived_total') or archived_map.get(name, 0),
+            'inactive_count': item_status.get('inactive_total') or sc.get('inactive', 0),
             'under_maintenance_count': sc.get('under_maintenance', 0),
             'disposed_count': sc.get('disposed', 0),
         })
@@ -2861,7 +2871,10 @@ def save_product_code(request):
 
     import json
     from inventory.models import AssetTag
-    data = json.loads(request.body)
+    try:
+        data = json.loads(request.body)
+    except Exception:
+        return JsonResponse({'error': 'Invalid JSON'}, status=400)
     item_id = data.get('item_id')
     code = (data.get('product_code') or '').strip()
 
@@ -3049,7 +3062,10 @@ def save_item_edit(request):
 
     import json
     from decimal import Decimal, InvalidOperation
-    data = json.loads(request.body)
+    try:
+        data = json.loads(request.body)
+    except Exception:
+        return JsonResponse({'error': 'Invalid JSON'}, status=400)
     item_id = data.get('item_id')
     org = profile.org
 
@@ -3130,9 +3146,13 @@ def toggle_item_condition(request, room_slug=None):
             room = get_object_or_404(Room, slug=room_slug, organisation=profile.org)
         else:
             room = get_object_or_404(Room, slug=room_slug, incharge=profile)
-        item = get_object_or_404(Item, id=item_id, organisation=profile.org, room=room)
+        item = Item.objects.filter(id=item_id, organisation=profile.org, room=room).first()
+        if item is None:
+            if not _has_master_inventory_edit_access(profile):
+                return JsonResponse({'error': 'Unauthorized'}, status=403)
+            item = get_object_or_404(Item, id=item_id, organisation=profile.org, room__isnull=True)
     else:
-        if not (profile.is_central_admin or profile.is_sub_admin):
+        if not _has_master_inventory_edit_access(profile):
             return JsonResponse({'error': 'Unauthorized'}, status=403)
         item = get_object_or_404(Item, id=item_id, organisation=profile.org, room__isnull=True)
 
@@ -3143,10 +3163,18 @@ def toggle_item_condition(request, room_slug=None):
     item.save(update_fields=['is_serviceable', 'updated_on'])
 
     if not room_slug:
+        # Toggled from master inventory — sync to all room items with same name
         Item.objects.filter(
             organisation=profile.org,
             item_name=item.item_name,
             room__isnull=False,
+        ).update(is_serviceable=item.is_serviceable, updated_on=timezone.now())
+    else:
+        # Toggled from room incharge view — sync back to master inventory item
+        Item.objects.filter(
+            organisation=profile.org,
+            item_name=item.item_name,
+            room__isnull=True,
         ).update(is_serviceable=item.is_serviceable, updated_on=timezone.now())
 
     return JsonResponse({'success': True, 'is_serviceable': item.is_serviceable})
@@ -4755,7 +4783,7 @@ def incharge_assign_inventory_api(request):
 
     # Check access
     try:
-        AssignInventoryAccess.objects.get(organisation=profile.org, incharge=profile)
+        AssignInventoryAccess.objects.get(organisation=profile.org, incharge=profile, can_assign=True)
     except AssignInventoryAccess.DoesNotExist:
         return JsonResponse({'error': 'You do not have assign inventory access.'}, status=403)
 

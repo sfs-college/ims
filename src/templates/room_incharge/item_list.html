@@ -124,7 +124,7 @@
             <th>Active</th>
             <th>Inactive</th>
             <th>Archived</th>
-            <th>Condition</th>
+            <th>Serviceable</th>
             <th>Actions</th>
           </tr>
         </thead>
@@ -275,7 +275,7 @@ function toggleCondition(btn) {
     btn.classList.toggle('unserviceable', !data.is_serviceable);
     icon.className = 'bi ' + (data.is_serviceable ? 'bi-check-circle-fill' : 'bi-x-circle-fill');
     label.textContent = data.is_serviceable ? 'Serviceable' : 'Unserviceable';
-    showConditionToast('Condition updated');
+    showConditionToast('Serviceability updated');
   }).catch(() => {
     btn.disabled = false;
     showConditionToast('Failed to update - please try again', false);

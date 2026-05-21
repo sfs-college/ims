@@ -9,7 +9,7 @@ from django.dispatch import receiver
 from django.conf import settings
 from django.core.mail import send_mail
 import pytz, uuid
-from django.core.validators import FileExtensionValidator
+from django.core.validators import FileExtensionValidator, RegexValidator
 from inventory.booking_utils import format_room_list
 
 class Room(models.Model):
@@ -81,8 +81,25 @@ class Vendor(models.Model):
     organisation = models.ForeignKey(Organisation, on_delete=models.CASCADE)
     vendor_name = models.CharField(max_length=255)
     email = models.EmailField()
-    contact_number = models.CharField(max_length=15)
-    alternate_number = models.CharField(max_length=15)
+    contact_number = models.CharField(
+        max_length=10,
+        validators=[
+            RegexValidator(
+                regex=r'^\d{10}$',
+                message='Contact number must be exactly 10 digits (numbers only).',
+            )
+        ],
+    )
+    alternate_number = models.CharField(
+        max_length=10,
+        blank=True,
+        validators=[
+            RegexValidator(
+                regex=r'^\d{10}$',
+                message='Alternate number must be exactly 10 digits (numbers only).',
+            )
+        ],
+    )
     address = models.CharField(max_length=255)
     vendor_id = models.CharField(max_length=8, unique=True)
     created_on = models.DateTimeField(auto_now_add=True)

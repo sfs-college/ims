@@ -241,29 +241,37 @@
 
   <div class="nav-grid">
 
+    {% if room_settings.categories_tab %}
     <a href="{% url 'room_incharge:category_list' room_slug=room_slug %}" class="nav-card card-purple">
       <span class="nav-card-icon"><span class="material-symbols-outlined">category</span></span>
       <span class="nav-card-label">Categories</span>
       <p class="nav-card-desc">Manage item categories in this room.</p>
     </a>
+    {% endif %}
 
+    {% if room_settings.brands_tab %}
     <a href="{% url 'room_incharge:brand_list' room_slug=room_slug %}" class="nav-card card-teal">
       <span class="nav-card-icon"><span class="material-symbols-outlined">branding_watermark</span></span>
       <span class="nav-card-label">Brands</span>
       <p class="nav-card-desc">Manage brands of items in this room.</p>
     </a>
+    {% endif %}
 
+    {% if room_settings.items_tab %}
     <a href="{% url 'room_incharge:item_list' room_slug=room_slug %}" class="nav-card card-blue">
       <span class="nav-card-icon"><span class="material-symbols-outlined">inventory_2</span></span>
       <span class="nav-card-label">Items</span>
       <p class="nav-card-desc">Manage items and stock in this room.</p>
     </a>
+    {% endif %}
 
+    {% if room_settings.systems_tab %}
     <a href="{% url 'room_incharge:system_list' room_slug=room_slug %}" class="nav-card card-indigo">
       <span class="nav-card-icon"><span class="material-symbols-outlined">view_kanban</span></span>
       <span class="nav-card-label">Systems</span>
       <p class="nav-card-desc">Manage active, inactive and archived items.</p>
     </a>
+    {% endif %}
 
     <a href="{% url 'room_incharge:configurations_list' room_slug=room_slug %}" class="nav-card card-purple">
       <span class="nav-card-icon"><span class="material-symbols-outlined">settings_applications</span></span>

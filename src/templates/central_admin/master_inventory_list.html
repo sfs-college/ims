@@ -158,10 +158,12 @@
     }
     .condition-badge {
         border-radius:999px;
-        cursor:default;
+        cursor:pointer;
         min-width:108px;
         padding:5px 12px;
         transition:all 0.15s;
+        border:0;
+        font-family:'DM Sans', sans-serif;
     }
     .condition-badge.serviceable { background:#f0fdf4; color:#16a34a; border:1px solid #bbf7d0; }
     .condition-badge.unserviceable { background:#fef2f2; color:#991b1b; border:1px solid #fecaca; }
@@ -359,7 +361,7 @@
             <label class="fc-pill selected" data-field="stock"><input type="checkbox" checked>Stock</label>
             <label class="fc-pill selected" data-field="cost"><input type="checkbox" checked>Cost</label>
             <label class="fc-pill selected" data-field="assigned"><input type="checkbox" checked>Assigned</label>
-            <label class="fc-pill selected" data-field="archived"><input type="checkbox" checked>Condition</label>
+            <label class="fc-pill selected" data-field="archived"><input type="checkbox" checked>Serviceable</label>
             <label class="fc-pill selected" data-field="compstatus"><input type="checkbox" checked>Comp. Status</label>
         </div>
 
@@ -407,14 +409,7 @@
                         </div>
                     </th>
                     <th data-col="assigned" class="text-center">Assigned to Rooms</th>
-                    <th data-col="archived" class="text-center">
-                        <div class="col-toggle-header">
-                            <span id="conditionColLabel">Condition</span>
-                            <span class="col-toggle-btn" onclick="cycleCondition(event)">
-                                <i class="bi bi-arrow-repeat"></i>
-                            </span>
-                        </div>
-                    </th>
+                    <th data-col="archived" class="text-center">Serviceable</th>
                     <th data-col="compstatus">
                         <div class="col-toggle-header">
                             <span id="compStatusColLabel">Inactive</span>
@@ -434,7 +429,7 @@
                     <td data-col="stock" class="text-center"><input id="manualTotalCount" type="number" min="0" step="1" class="form-control form-control-sm" value="0" style="width:100px;display:inline-block;"></td>
                     <td data-col="cost" class="text-center"><input id="manualCost" type="number" min="0" step="0.01" class="form-control form-control-sm" placeholder="Cost" style="width:100px;display:inline-block;"></td>
                     <td data-col="assigned" class="text-center"><span class="badge-count badge-assigned">0</span></td>
-                    <td data-col="archived" class="text-center"><span class="badge-count condition-badge serviceable">Serviceable</span></td>
+                    <td data-col="archived" class="text-center"><span class="badge-count">-</span></td>
                     <td data-col="compstatus" class="text-center">
                         <button type="button" class="btn btn-sm btn-success" onclick="submitManualEntry(this)"><i class="bi bi-check-lg"></i></button>
                         <button type="button" class="btn btn-sm btn-outline-secondary" onclick="hideManualEntryRow()"><i class="bi bi-x-lg"></i></button>
@@ -512,11 +507,14 @@
                             <i class="bi bi-eye me-1"></i>View Details
                         </button>
                     </td>
-                    <td data-col="archived" class="text-center"
-                        data-condition="{% if data.item.is_serviceable %}serviceable{% else %}unserviceable{% endif %}">
-                        <span class="badge-count condition-badge condition-display {% if data.item.is_serviceable %}serviceable{% else %}unserviceable{% endif %}">
+                    <td data-col="archived" class="text-center">
+                        <button type="button"
+                            class="badge-count condition-badge condition-display {% if data.item.is_serviceable %}serviceable{% else %}unserviceable{% endif %}"
+                            data-item-id="{{ data.item.id }}"
+                            data-serviceable="{% if data.item.is_serviceable %}true{% else %}false{% endif %}"
+                            onclick="toggleCondition(this)">
                             {% if data.item.is_serviceable %}Serviceable{% else %}Unserviceable{% endif %}
-                        </span>
+                        </button>
                     </td>
                     <td data-col="compstatus" class="text-center"
                         data-inactive="{{ data.inactive_count }}"
@@ -749,33 +747,6 @@ function cycleCost(e) {
 }
 
 // ── EXPORT ──
-// CONDITION COLUMN TOGGLE
-// States: 0=current condition, 1=serviceable only, 2=unserviceable only
-let conditionState = 0;
-const conditionLabels = ['Condition', 'Serviceable', 'Unserviceable'];
-
-function cycleCondition(e) {
-    e.stopPropagation();
-    conditionState = (conditionState + 1) % 3;
-    document.getElementById('conditionColLabel').textContent = conditionLabels[conditionState];
-    document.querySelectorAll('td[data-col="archived"]').forEach(td => {
-        const span = td.querySelector('.condition-display');
-        if (!span) return;
-        const condition = td.getAttribute('data-condition') || 'serviceable';
-        const isServiceable = condition === 'serviceable';
-        if (conditionState === 0) {
-            span.textContent = isServiceable ? 'Serviceable' : 'Unserviceable';
-            span.className = 'badge-count condition-badge condition-display ' + condition;
-        } else if (conditionState === 1) {
-            span.textContent = isServiceable ? 'Yes' : '-';
-            span.className = 'badge-count condition-badge condition-display ' + (isServiceable ? 'serviceable' : '');
-        } else {
-            span.textContent = isServiceable ? '-' : 'Yes';
-            span.className = 'badge-count condition-badge condition-display ' + (isServiceable ? '' : 'unserviceable');
-        }
-    });
-}
-
 function getExportFields() {
     return getSelectedFields();
 }
@@ -1377,7 +1348,7 @@ function toggleCondition(btn) {
         btn.textContent = data.is_serviceable ? 'Serviceable' : 'Unserviceable';
         btn.classList.toggle('serviceable', data.is_serviceable);
         btn.classList.toggle('unserviceable', !data.is_serviceable);
-        showConditionToast('Condition updated');
+        showConditionToast('Serviceability updated');
     })
     .catch(() => {
         btn.disabled = false;

@@ -28,9 +28,43 @@ class RoomForm(forms.ModelForm):
 
 
 class VendorForm(form_mixin.BootstrapFormMixin, forms.ModelForm):
+    contact_number = forms.CharField(
+        max_length=10,
+        min_length=10,
+        validators=[
+            RegexValidator(
+                regex=r'^\d{10}$',
+                message='Contact number must be exactly 10 digits (numbers only).',
+            )
+        ],
+        widget=forms.TextInput(attrs={
+            'pattern': r'\d{10}',
+            'maxlength': '10',
+            'inputmode': 'numeric',
+            'title': 'Enter exactly 10 digits',
+        }),
+    )
+    alternate_number = forms.CharField(
+        max_length=10,
+        min_length=10,
+        required=False,
+        validators=[
+            RegexValidator(
+                regex=r'^\d{10}$',
+                message='Alternate number must be exactly 10 digits (numbers only).',
+            )
+        ],
+        widget=forms.TextInput(attrs={
+            'pattern': r'\d{10}',
+            'maxlength': '10',
+            'inputmode': 'numeric',
+            'title': 'Enter exactly 10 digits',
+        }),
+    )
+
     class Meta:
         model = Vendor
-        fields = ['vendor_name','email','contact_number','alternate_number','address']  
+        fields = ['vendor_name', 'email', 'contact_number', 'alternate_number', 'address']
 
 
 class Issues(forms.ModelForm):
