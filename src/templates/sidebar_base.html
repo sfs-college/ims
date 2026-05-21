@@ -44,24 +44,10 @@
 
     <!-- Universal Back Button -->
     {% block back_button %}
-    <a href="javascript:void(0)" class="universal-back-btn" id="universalBackBtn"
-       onclick="handleUniversalBack()">
+    <a href="{{ dashboard_url }}" class="universal-back-btn" id="universalBackBtn">
         <span class="material-symbols-outlined">arrow_back</span>
-        <span>Back</span>
+        <span>Back to Dashboard</span>
     </a>
-    <script>
-    function handleUniversalBack() {
-        if (window.IS_CAPACITOR && window.history.length <= 1) {
-            window.location.href = '{% url "core:app_home" %}';
-            return;
-        }
-        if (window.history.length > 1) {
-            window.history.back();
-            return;
-        }
-        window.location.href = window.IS_CAPACITOR ? '/core/app/?app=1' : '/';
-    }
-    </script>
     {% endblock back_button %}
 
     <!-- Sidebar (filled by child template block) -->

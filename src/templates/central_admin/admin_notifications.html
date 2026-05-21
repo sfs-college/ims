@@ -174,7 +174,7 @@
 <div class="top-bar">
     <div class="top-bar-left">
         <a href="{% url 'central_admin:dashboard' %}" class="back-btn"
-           onclick="if(window.IS_CAPACITOR||(window.Capacitor&&window.Capacitor.isNativePlatform&&window.Capacitor.isNativePlatform())){event.preventDefault();window.history.length>1?window.history.back():window.location.href='{% url \"central_admin:dashboard\" %}';}">
+           onclick="if(window.IS_CAPACITOR||(window.Capacitor&&window.Capacitor.isNativePlatform&&window.Capacitor.isNativePlatform())){event.preventDefault();window.location.href='{% url 'central_admin:dashboard' %}';}">
             <i class="bi bi-arrow-left"></i> Back to Dashboard
         </a>
         <div class="top-bar-title">

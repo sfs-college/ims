@@ -38,6 +38,7 @@
   .badge-status.archived { background:#f1f5f9; color:#475569; }
   .badge-status.under_maintenance { background:var(--amber-lt); color:var(--amber); }
   .badge-status.serviced { background:var(--green-lt); color:var(--green); }
+  .badge-status.reverted { background:#e0f2fe; color:#0369a1; }
   .badge-status.not_serviceable { background:var(--red-lt); color:var(--red); }
   .date-cell { font-size:0.82rem; color:#64748b; white-space:nowrap; }
   .archive-empty { text-align:center; padding:56px 24px; color:var(--text-muted); }
@@ -72,7 +73,28 @@
   .toast-msg.t-info    { background:var(--accent); }
   .toast-msg.out { animation:toastOut 0.25s ease forwards; }
   @keyframes toastIn  { from{opacity:0;transform:translateX(24px);} to{opacity:1;transform:translateX(0);} }
-  @keyframes toastOut { to{opacity:0;transform:translateX(24px);} }
+  .qty-modal-bg { position:fixed; inset:0; z-index:1070; display:none; align-items:center; justify-content:center; padding:18px; background:rgba(15,23,42,.46); backdrop-filter:blur(2px); opacity:0; transition:opacity .18s ease; }
+  .qty-modal-bg.show { opacity:1; }
+  .qty-modal { width:min(440px,100%); background:#fff; border-radius:16px; border:1px solid var(--border); box-shadow:0 18px 50px rgba(15,23,42,.22); padding:22px; transform:translateY(10px) scale(.98); transition:transform .2s ease; font-family:inherit; }
+  .qty-modal-bg.show .qty-modal { transform:translateY(0) scale(1); }
+  .qty-modal-head { display:flex; justify-content:space-between; align-items:flex-start; gap:12px; margin-bottom:16px; }
+  .qty-modal-title { margin:0; color:#1e293b; font-size:1.05rem; font-weight:800; }
+  .qty-modal-sub { margin:4px 0 0; color:var(--text-muted); font-size:.8rem; line-height:1.35; }
+  .qty-close { width:34px; height:34px; border-radius:9px; border:1px solid var(--border); background:#fff; color:var(--text-muted); display:inline-flex; align-items:center; justify-content:center; cursor:pointer; flex:0 0 auto; }
+  .qty-stats { display:grid; grid-template-columns:repeat(3,1fr); gap:9px; margin-bottom:16px; }
+  .qty-stat { border:1px solid var(--border); background:#f8fafc; border-radius:11px; padding:11px 8px; text-align:center; min-width:0; }
+  .qty-stat strong { display:block; color:#1e293b; font-size:1.35rem; line-height:1; }
+  .qty-stat span { display:block; color:var(--text-muted); font-size:.66rem; font-weight:800; letter-spacing:.04em; text-transform:uppercase; margin-top:5px; }
+  .qty-field-label { display:block; color:var(--text-muted); font-size:.72rem; font-weight:800; letter-spacing:.04em; text-transform:uppercase; margin-bottom:7px; }
+  .qty-row { display:flex; gap:9px; align-items:center; margin-bottom:14px; }
+  .qty-step { width:42px; height:42px; border-radius:10px; border:1px solid var(--border); background:#fff; color:#1e293b; font-weight:900; cursor:pointer; }
+  .qty-input { flex:1; min-width:0; height:42px; border-radius:10px; border:1.5px solid var(--border); text-align:center; font-size:1.15rem; font-weight:800; color:#1e293b; outline:none; }
+  .qty-input:focus { border-color:var(--accent); box-shadow:0 0 0 3px rgba(108,99,255,.12); }
+  .qty-warning { display:none; background:#fef2f2; color:#b91c1c; border:1px solid #fecaca; border-radius:10px; padding:9px 11px; font-size:.78rem; font-weight:700; margin-bottom:14px; }
+  .qty-actions { display:flex; gap:9px; }
+  .qty-action { flex:1; border-radius:10px; border:1px solid var(--border); background:#fff; color:#334155; padding:10px 12px; font-size:.84rem; font-weight:800; cursor:pointer; font-family:inherit; }
+  .qty-action.primary { flex:1.6; border-color:var(--accent); background:linear-gradient(135deg,#6c63ff,#8b7cf8); color:#fff; }
+  .qty-action:disabled { opacity:.55; cursor:not-allowed; }
 </style>
 {% endblock style %}
 
@@ -179,8 +201,9 @@
               </td>
               <td><span class="count-pill">{{ archive.count }}</span></td>
               <td>
-                <span class="badge-status {{ archive.archive_status }}">
-                  {% if archive.archive_status == 'serviced' %}Serviced
+                <span class="badge-status {% if archive.archive_status == 'serviced' and archive.archive_category == 'unserviceable' %}reverted{% else %}{{ archive.archive_status }}{% endif %}">
+                  {% if archive.archive_status == 'serviced' %}
+                    {% if archive.archive_category == 'unserviceable' %}Reverted{% else %}Serviced{% endif %}
                   {% elif archive.archive_status == 'not_serviceable' %}Not Serviceable
                   {% else %}{{ archive.archive_status|title }}{% endif %}
                 </span>
@@ -213,13 +236,43 @@
   </div>
 </div>
 
+<div id="qtyModalBg" class="qty-modal-bg" role="dialog" aria-modal="true" aria-labelledby="qtyModalTitle">
+  <div class="qty-modal">
+    <div class="qty-modal-head">
+      <div>
+        <h3 class="qty-modal-title" id="qtyModalTitle">Move units</h3>
+        <p class="qty-modal-sub"><span id="qtyItemName">Item</span> to <span id="qtyTargetName">Active</span></p>
+      </div>
+      <button type="button" class="qty-close" onclick="closeQtyModal()" aria-label="Close"><i class="bi bi-x-lg"></i></button>
+    </div>
+    <div class="qty-stats">
+      <div class="qty-stat"><strong id="qtyAvailable">0</strong><span>Archived</span></div>
+      <div class="qty-stat"><strong id="qtyAssigning">1</strong><span>Moving</span></div>
+      <div class="qty-stat"><strong id="qtyRemaining">0</strong><span>Remaining</span></div>
+    </div>
+    <label class="qty-field-label" for="qtyCountInput">Units to move</label>
+    <div class="qty-row">
+      <button type="button" class="qty-step" onclick="stepMoveQty(-1)">-</button>
+      <input type="number" id="qtyCountInput" class="qty-input" min="1" value="1" oninput="syncMoveQty()">
+      <button type="button" class="qty-step" onclick="stepMoveQty(1)">+</button>
+    </div>
+    <div id="qtyWarning" class="qty-warning"><i class="bi bi-exclamation-triangle-fill me-1"></i>Enter a valid unit count.</div>
+    <div class="qty-actions">
+      <button type="button" class="qty-action" onclick="closeQtyModal()">Cancel</button>
+      <button type="button" class="qty-action primary" id="qtyConfirmBtn" onclick="confirmUpdateStatus()"><i class="bi bi-check2-circle me-1"></i>Confirm</button>
+    </div>
+  </div>
+</div>
+
 <script>
 const CSRF=(()=>{ const c=document.cookie.split(';').find(x=>x.trim().startsWith('csrftoken=')); return c?decodeURIComponent(c.trim().split('=')[1]):''; })();
 const ROOM_SLUG='{{ room_slug }}';
 let _currentSlug=null;
+let _currentCount=0;
 
 function openDetail(slug, itemName, category, status, count, remark){
   _currentSlug=slug;
+  _currentCount=count;
   document.getElementById('detailItemName').textContent=itemName;
   // Detail rows
   const statusLabels={archived:'Archived',under_maintenance:'Under Maintenance',serviced:'Serviced',not_serviceable:'Not Serviceable'};
@@ -252,22 +305,89 @@ function closeDetail(){
   const m=document.getElementById('detailModal');
   m.classList.remove('open'); setTimeout(()=>m.style.display='none',220);
 }
+let _pendingStatus = null;
+let _pendingItemName = '';
+
+function closeQtyModal() {
+  const bg = document.getElementById('qtyModalBg');
+  bg.classList.remove('show');
+  setTimeout(() => { bg.style.display = 'none'; }, 180);
+}
+
+function stepMoveQty(delta) {
+  const input = document.getElementById('qtyCountInput');
+  input.value = Math.max(1, Math.min(_currentCount, parseInt(input.value || '1', 10) + delta));
+  syncMoveQty();
+}
+
+function syncMoveQty() {
+  const input = document.getElementById('qtyCountInput');
+  const max = _currentCount;
+  const count = parseInt(input.value || '0', 10);
+  const valid = Number.isInteger(count) && count >= 1 && count <= max;
+  document.getElementById('qtyAssigning').textContent = valid ? count : '-';
+  document.getElementById('qtyRemaining').textContent = valid ? max - count : '-';
+  document.getElementById('qtyWarning').style.display = valid ? 'none' : 'block';
+  document.getElementById('qtyConfirmBtn').disabled = !valid;
+}
+
 function updateStatus(newStatus){
   hideAlert('detailAlert');
+  _pendingStatus = newStatus;
+  
+  const actionLabels={
+    under_maintenance: 'Under Maintenance',
+    serviced: 'Serviced',
+    not_serviceable: 'Not Serviceable',
+    revert: 'Revert to Available Stock'
+  };
+  const label = actionLabels[newStatus] || newStatus;
+  
+  closeDetail();
+  
+  _pendingItemName = document.getElementById('detailItemName').textContent;
+  document.getElementById('qtyItemName').textContent = _pendingItemName;
+  document.getElementById('qtyTargetName').textContent = label;
+  document.getElementById('qtyAvailable').textContent = _currentCount;
+  
+  const input = document.getElementById('qtyCountInput');
+  input.value = _currentCount;
+  input.max = _currentCount;
+  syncMoveQty();
+  
+  const bg = document.getElementById('qtyModalBg');
+  bg.style.display = 'flex';
+  requestAnimationFrame(() => bg.classList.add('show'));
+  setTimeout(() => input.focus(), 80);
+}
+
+function confirmUpdateStatus() {
+  const count = parseInt(document.getElementById('qtyCountInput').value, 10);
+  if (!Number.isInteger(count) || count < 1 || count > _currentCount) {
+    showToast('Invalid unit count.', 't-error');
+    return;
+  }
+  
+  closeQtyModal();
+  
   fetch(`/room_incharge/rooms/${ROOM_SLUG}/api/archive/${_currentSlug}/update-status/`,{
     method:'POST',
     headers:{'Content-Type':'application/json','X-CSRFToken':CSRF},
-    body:JSON.stringify({status:newStatus})
+    body:JSON.stringify({status:_pendingStatus, qty:count})
   }).then(r=>r.json()).then(d=>{
     if(d.success){
       showToast(d.message,'t-success');
-      closeDetail();
       setTimeout(()=>location.reload(),800);
     } else {
-      showAlert('detailAlert','error',d.error||'Update failed.');
+      showToast(d.error||'Update failed.', 't-error');
     }
-  }).catch(()=>showAlert('detailAlert','error','Network error.'));
+  }).catch(()=>showToast('Network error.', 't-error'));
 }
+
+document.addEventListener('keydown', event => {
+  if (event.key === 'Escape' && document.getElementById('qtyModalBg').style.display === 'flex') closeQtyModal();
+  if (event.key === 'Enter' && document.activeElement?.id === 'qtyCountInput') confirmUpdateStatus();
+});
 function showAlert(id,type,msg){ const el=document.getElementById(id); el.className='modal-alert '+type; el.textContent=msg; el.style.display='block'; }
 function hideAlert(id){ document.getElementById(id).style.display='none'; }
 function showToast(msg,type){

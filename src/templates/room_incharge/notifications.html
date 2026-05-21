@@ -207,7 +207,7 @@
 <div class="top-bar">
     <div class="top-bar-left">
         <a href="{% url 'room_incharge:room_dashboard' room.slug %}" class="back-btn"
-           onclick="if(window.IS_CAPACITOR||(window.Capacitor&&window.Capacitor.isNativePlatform&&window.Capacitor.isNativePlatform())){event.preventDefault();window.history.length>1?window.history.back():window.location.href='{% url \"room_incharge:room_dashboard\" room.slug %}';}">
+           onclick="if(window.IS_CAPACITOR||(window.Capacitor&&window.Capacitor.isNativePlatform&&window.Capacitor.isNativePlatform())){event.preventDefault();window.location.href='{% url 'room_incharge:room_dashboard' room.slug %}';}">
             <i class="bi bi-arrow-left"></i> Back to Dashboard
         </a>
         <div class="top-bar-title">
@@ -253,13 +253,18 @@
                     {% endif %}
                     &mdash; {{ req.item.item_name }}
                 </div>
-                <p class="notif-sub">
+                 <p class="notif-sub">
                     {% if req.status == "approved" %}
                         +{{ req.requested_count }} unit{{ req.requested_count|pluralize }} approved and added to stock.
                     {% else %}
                         Request for +{{ req.requested_count }} unit{{ req.requested_count|pluralize }} was rejected.
                     {% endif %}
-                    {% if req.reviewed_by %} Reviewed by {{ req.reviewed_by }}.{% endif %}
+                    {% if req.reviewed_by %}
+                        Reviewed by <strong>{{ req.reviewed_by.user.get_full_name|default:req.reviewed_by.user.username }}</strong>.
+                    {% endif %}
+                    {% if req.remark %}
+                        <br><strong style="color: #475569;"><i class="bi bi-chat-left-text me-1"></i>Admin Remark:</strong> <span style="font-style: italic; color: #1e293b;">{{ req.remark }}</span>
+                    {% endif %}
                 </p>
             </div>
             <div class="notif-meta">

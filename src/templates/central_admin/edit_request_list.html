@@ -1,4 +1,4 @@
-{% extends 'sidebar_base.html' %}
+{% extends 'base.html' %}
 {% load static %}
 
 {% block title %} | Approval Hub{% endblock %}
@@ -289,13 +289,19 @@
                     <h6 class="fw-bold small mb-1">Reason</h6>
                     <p class="mb-0">{{ r.reason|default:"No justification provided." }}</p>
                 </div>
+                <div style="padding: 12px 20px; background: #fafafa; border-top: 1px solid #f1f5f9;">
+                    <label class="form-label small fw-bold text-muted text-uppercase mb-1" style="font-size:0.7rem; display:block;"><i class="bi bi-chat-left-dots me-1"></i>Admin Remark</label>
+                    <input type="text" placeholder="Add approval/rejection remark (optional)..." class="form-control form-control-sm" style="border-radius:8px; border:1px solid #cbd5e1; font-size:0.8rem; font-family:'DM Sans', sans-serif;" oninput="syncRemark({{ r.pk }}, this.value)">
+                </div>
                 <div class="action-group">
                     <form method="post" action="{% url 'central_admin:approve_stock_request' r.pk %}" class="flex-grow-1">
                         {% csrf_token %}<input type="hidden" name="next_type" value="item_edit">
+                        <input type="hidden" name="remark" id="approve-remark-{{ r.pk }}" value="">
                         <button type="submit" class="btn-approve-grad w-100"><i class="bi bi-check-lg me-1"></i> Approve +{{ r.requested_count }}</button>
                     </form>
                     <form method="post" action="{% url 'central_admin:reject_stock_request' r.pk %}" class="flex-grow-1">
                         {% csrf_token %}<input type="hidden" name="next_type" value="item_edit">
+                        <input type="hidden" name="remark" id="reject-remark-{{ r.pk }}" value="">
                         <button type="submit" class="btn-reject-outline w-100"><i class="bi bi-x-lg me-1"></i> Reject</button>
                     </form>
                 </div>
@@ -881,6 +887,13 @@ document.addEventListener('DOMContentLoaded', function() {
     var slider = document.getElementById('toggleSlider');
     var tabs   = Array.from(toggle.querySelectorAll('.tab-btn'));
     var panels = Array.from(document.querySelectorAll('.tab-panel'));
+
+    window.syncRemark = function(pk, val) {
+        const approveInput = document.getElementById('approve-remark-' + pk);
+        const rejectInput = document.getElementById('reject-remark-' + pk);
+        if (approveInput) approveInput.value = val;
+        if (rejectInput) rejectInput.value = val;
+    };
 
     function moveSlider(tabEl) {
         var tr = toggle.getBoundingClientRect();

@@ -119,15 +119,20 @@ class PeopleCreateView(LoginRequiredMixin, CreateView):
     form_class = PeopleCreateForm
     success_url = reverse_lazy('central_admin:people_list')
 
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs['current_profile'] = getattr(self.request.user, 'profile', None)
+        return kwargs
+
     @transaction.atomic
     def form_valid(self, form):
         current_profile = getattr(self.request.user, "profile", None)
         role = form.cleaned_data.get('role')
         email = form.cleaned_data.get('email')
 
-        # Prevent Sub Admin from creating Central Admin
-        if current_profile and current_profile.is_sub_admin and role == 'central_admin':
-            form.add_error('role', "Sub Admin cannot create a Central Admin account.")
+        # Prevent Sub Admin from creating Central Admin or Sub Admin
+        if current_profile and current_profile.is_sub_admin and role != 'room_incharge':
+            form.add_error('role', "Sub Admin is restricted from creating Central Admin or Sub Admin accounts.")
             return self.form_invalid(form)
 
         # Validate email format before attempting to create user
@@ -139,22 +144,40 @@ class PeopleCreateView(LoginRequiredMixin, CreateView):
             form.add_error('email', "Enter a valid email address.")
             return self.form_invalid(form)
 
-        # Create Django User
-        random_password = BaseUserManager().make_random_password()
+        # Check if user already exists
+        try:
+            user = User.objects.get(email=email)
+            # Update existing user details
+            user.first_name = form.cleaned_data.get('first_name')
+            user.last_name = form.cleaned_data.get('last_name')
+            user.is_active = True
+            user.is_staff = True
+            user.save()
 
-        user = User.objects.create_user(
-            email=email,
-            first_name=form.cleaned_data.get('first_name'),
-            last_name=form.cleaned_data.get('last_name'),
-            password=random_password,
-        )
-        user.is_active = True
-        user.is_staff = True
-        user.save()
+            if hasattr(user, 'profile'):
+                userprofile = user.profile
+                userprofile.first_name = form.cleaned_data.get('first_name')
+                userprofile.last_name = form.cleaned_data.get('last_name')
+            else:
+                userprofile = form.save(commit=False)
+                userprofile.user = user
+        except User.DoesNotExist:
+            # Create Django User
+            random_password = BaseUserManager().make_random_password()
 
-        # Create UserProfile
-        userprofile = form.save(commit=False)
-        userprofile.user = user
+            user = User.objects.create_user(
+                email=email,
+                first_name=form.cleaned_data.get('first_name'),
+                last_name=form.cleaned_data.get('last_name'),
+                password=random_password,
+            )
+            user.is_active = True
+            user.is_staff = True
+            user.save()
+
+            # Create UserProfile
+            userprofile = form.save(commit=False)
+            userprofile.user = user
 
         if current_profile:
             userprofile.org = current_profile.org
@@ -163,6 +186,7 @@ class PeopleCreateView(LoginRequiredMixin, CreateView):
         userprofile.is_central_admin = False
         userprofile.is_sub_admin = False
         userprofile.is_incharge = False
+        userprofile.is_student = False
 
         if role == 'central_admin':
             userprofile.is_central_admin = True
@@ -211,6 +235,16 @@ class PeopleDeleteView(LoginRequiredMixin, DeleteView):
     slug_field = 'slug'
     slug_url_kwarg = 'people_slug'
     success_url = reverse_lazy('central_admin:people_list')
+
+    def dispatch(self, request, *args, **kwargs):
+        current_profile = getattr(self.request.user, "profile", None)
+        person = self.get_object()
+        if current_profile and current_profile.is_sub_admin and (person.is_central_admin or person.is_sub_admin):
+            from django.contrib import messages
+            messages.error(self.request, "Sub Admin is restricted from deleting Central Admin and Sub Admin accounts.")
+            from django.shortcuts import redirect
+            return redirect(self.success_url)
+        return super().dispatch(request, *args, **kwargs)
 
     def delete(self, request, *args, **kwargs):
         """
@@ -1041,14 +1075,48 @@ class ApproveStockRequestView(LoginRequiredMixin, View):
     def post(self, request, pk, *args, **kwargs):
         stock_req = get_object_or_404(StockRequest, pk=pk, status="pending")
         item = stock_req.item
+        remark = request.POST.get("remark", "").strip()
 
         item.total_count     += stock_req.requested_count
         item.available_count += stock_req.requested_count
         item.save(update_fields=["total_count", "available_count"])
 
+        profile = None
+        if hasattr(request.user, 'profile'):
+            profile = request.user.profile
+        else:
+            from inventory.models import UserProfile
+            profile, _ = UserProfile.objects.get_or_create(user=request.user)
+
+        reviewer_name = f"{profile.first_name} {profile.last_name}".strip() if profile else ""
+        if not reviewer_name:
+            reviewer_name = request.user.get_full_name() or request.user.username
+
         stock_req.status      = "approved"
-        stock_req.reviewed_by = request.user.profile
-        stock_req.save(update_fields=["status", "reviewed_by"])
+        stock_req.reviewed_by = profile
+        stock_req.remark      = remark
+        stock_req.save(update_fields=["status", "reviewed_by", "remark"])
+
+        # Send Email notification to room incharge
+        room = stock_req.room
+        if room and room.incharge and room.incharge.user.email:
+            incharge_name = f"{room.incharge.first_name} {room.incharge.last_name}".strip() or room.incharge.user.username
+            try:
+                safe_send_mail(
+                    subject=f"[Blixtro] Stock Request Approved — {item.item_name}",
+                    message=(
+                        f"Dear {incharge_name},\n\n"
+                        f"Your stock request for room \"{room.room_name}\" has been approved.\n\n"
+                        f"Item: {item.item_name}\n"
+                        f"Requested Count: +{stock_req.requested_count}\n"
+                        f"Status: Approved by {reviewer_name}\n"
+                        f"Admin Remark: {remark or 'No remark provided.'}\n\n"
+                        f"Best regards,\nBlixtro — SFS College Inventory & Booking System"
+                    ),
+                    recipient_list=[room.incharge.user.email]
+                )
+            except Exception as e:
+                logger.error(f"[ApproveStockRequest] safe_send_mail error: {e}")
 
         messages.success(
             request,
@@ -1061,9 +1129,45 @@ class ApproveStockRequestView(LoginRequiredMixin, View):
 class RejectStockRequestView(LoginRequiredMixin, View):
     def post(self, request, pk, *args, **kwargs):
         stock_req = get_object_or_404(StockRequest, pk=pk, status="pending")
+        item = stock_req.item
+        remark = request.POST.get("remark", "").strip()
+
+        profile = None
+        if hasattr(request.user, 'profile'):
+            profile = request.user.profile
+        else:
+            from inventory.models import UserProfile
+            profile, _ = UserProfile.objects.get_or_create(user=request.user)
+
+        reviewer_name = f"{profile.first_name} {profile.last_name}".strip() if profile else ""
+        if not reviewer_name:
+            reviewer_name = request.user.get_full_name() or request.user.username
+
         stock_req.status      = "rejected"
-        stock_req.reviewed_by = request.user.profile
-        stock_req.save(update_fields=["status", "reviewed_by"])
+        stock_req.reviewed_by = profile
+        stock_req.remark      = remark
+        stock_req.save(update_fields=["status", "reviewed_by", "remark"])
+
+        # Send Email notification to room incharge
+        room = stock_req.room
+        if room and room.incharge and room.incharge.user.email:
+            incharge_name = f"{room.incharge.first_name} {room.incharge.last_name}".strip() or room.incharge.user.username
+            try:
+                safe_send_mail(
+                    subject=f"[Blixtro] Stock Request Rejected — {item.item_name}",
+                    message=(
+                        f"Dear {incharge_name},\n\n"
+                        f"Your stock request for room \"{room.room_name}\" has been rejected.\n\n"
+                        f"Item: {item.item_name}\n"
+                        f"Requested Count: +{stock_req.requested_count}\n"
+                        f"Status: Rejected by {reviewer_name}\n"
+                        f"Admin Remark: {remark or 'No remark provided.'}\n\n"
+                        f"Best regards,\nBlixtro — SFS College Inventory & Booking System"
+                    ),
+                    recipient_list=[room.incharge.user.email]
+                )
+            except Exception as e:
+                logger.error(f"[RejectStockRequest] safe_send_mail error: {e}")
 
         messages.info(request, "Stock request rejected.")
         next_type = request.POST.get("next_type", "item_edit")
@@ -1124,7 +1228,8 @@ def admin_add_issue_remark(request, pk):
     the original reporter (if either/both have email addresses).
     """
     profile = getattr(request.user, 'profile', None)
-    if not profile or not (profile.is_central_admin or profile.is_sub_admin):
+    is_admin = (profile and (profile.is_central_admin or profile.is_sub_admin)) or request.user.is_superuser
+    if not is_admin:
         messages.error(request, 'You are not authorised to add remarks.')
         return redirect('central_admin:issue_list')
 
@@ -1135,7 +1240,9 @@ def admin_add_issue_remark(request, pk):
         return redirect('central_admin:issue_list')
 
     remark_text = form.cleaned_data['remark_text'].strip()
-    admin_type  = 'central_admin' if profile.is_central_admin else 'sub_admin'
+    admin_type  = 'central_admin'
+    if profile and profile.is_sub_admin and not profile.is_central_admin:
+        admin_type = 'sub_admin'
 
     IssueRemark.objects.create(
         issue      = issue,
@@ -1214,8 +1321,9 @@ def admin_close_issue(request, pk):
     the original reporter (if either/both have email addresses).
     """
     profile = getattr(request.user, 'profile', None)
-    if not profile or not profile.is_central_admin:
-        messages.error(request, 'Only Central Admin can close issues.')
+    is_admin = (profile and (profile.is_central_admin or profile.is_sub_admin)) or request.user.is_superuser
+    if not is_admin:
+        messages.error(request, 'Only Central Admin or Sub Admin can close issues.')
         return redirect('central_admin:issue_list')
 
     issue     = get_object_or_404(Issue, pk=pk)
@@ -1230,7 +1338,9 @@ def admin_close_issue(request, pk):
     issue.closure_reason  = closure_reason
     issue.save(update_fields=['status', 'resolved', 'closure_reason', 'updated_on'])
 
-    admin_name = f"{profile.first_name} {profile.last_name}".strip() or 'Central Admin'
+    admin_name = 'Central Admin'
+    if profile:
+        admin_name = f"{profile.first_name} {profile.last_name}".strip() or ('Central Admin' if profile.is_central_admin else 'Sub Admin')
 
     # ── Email incharge + reporter ──────────────────────────
     room            = issue.room
@@ -2087,6 +2197,10 @@ def get_person_api(request, people_slug):
     try:
         person = get_object_or_404(UserProfile, slug=people_slug, org=request.user.profile.org)
         
+        # Block sub admin from editing central/sub admin accounts
+        if request.user.profile.is_sub_admin and (person.is_central_admin or person.is_sub_admin):
+            return JsonResponse({'error': 'Sub Admin is restricted from editing Central Admin and Sub Admin accounts.'}, status=403)
+        
         # Determine role
         role = 'unknown'
         if person.is_central_admin:
@@ -2134,9 +2248,25 @@ def edit_person_api(request, people_slug):
         new_role = data.get('role', '')
         email_changed = data.get('email_changed', False)
         
+        # Block sub admin from editing central/sub admin accounts or setting central/sub admin roles
+        if request.user.profile.is_sub_admin:
+            if person.is_central_admin or person.is_sub_admin:
+                return JsonResponse({'error': 'Sub Admin is restricted from editing Central Admin and Sub Admin accounts.'}, status=403)
+            if new_role in ['central_admin', 'sub_admin']:
+                return JsonResponse({'error': 'Sub Admin is restricted from creating or promoting accounts to Central Admin or Sub Admin.'}, status=403)
+        
         # Validation
         if not new_full_name or not new_email or not new_role:
             return JsonResponse({'error': 'All fields are required'}, status=400)
+
+        # Name regex validation
+        import re
+        if not re.match(r'^[a-zA-Z\s\-\'\.]+$', new_full_name):
+            return JsonResponse({'error': 'Full name can only contain letters, spaces, hyphens, apostrophes, and periods.'}, status=400)
+
+        # Email domain validation
+        if not new_email.endswith('@sfscollege.in'):
+            return JsonResponse({'error': 'Email address must belong to the @sfscollege.in domain.'}, status=400)
         
         # Check if email is being changed to an existing user
         if email_changed and new_email != user.email:
@@ -2157,30 +2287,83 @@ def edit_person_api(request, people_slug):
             
             user.save()
             
-            # Update role flags
-            person.is_central_admin = (new_role == 'central_admin')
-            person.is_sub_admin = (new_role == 'sub_admin')
-            person.is_incharge = (new_role == 'incharge')
+            # Update role flags if NOT a sub admin
+            if not request.user.profile.is_sub_admin:
+                person.is_central_admin = (new_role == 'central_admin')
+                person.is_sub_admin = (new_role == 'sub_admin')
+                person.is_incharge = (new_role == 'incharge')
             person.save()
             
-            # Always send password reset email to ensure user can set password
             if email_changed and new_email != old_email:
                 transfer_user_data(old_email, new_email, person)
-            
-            # Send password reset email (both for email changes and to ensure password is set)
-            send_password_reset_email(user)
         
         update_person()
         
         return JsonResponse({
             'status': 'success',
-            'message': 'Person updated successfully. Password reset email has been sent to ' + new_email
+            'message': 'Person updated successfully.'
         })
         
     except json.JSONDecodeError:
         return JsonResponse({'error': 'Invalid JSON data'}, status=400)
     except Exception as e:
         return JsonResponse({'error': str(e)}, status=500)
+
+
+@require_POST
+def send_person_reset_email_api(request, people_slug):
+    """
+    API endpoint to manually trigger the password set/reset email for a user
+    """
+    if not request.user.profile.is_central_admin and not request.user.profile.is_sub_admin:
+        return JsonResponse({'error': 'Unauthorized'}, status=403)
+        
+    try:
+        person = get_object_or_404(UserProfile, slug=people_slug, org=request.user.profile.org)
+        user = person.user
+        
+        # Block sub admin from triggering emails for central/sub admin accounts
+        if request.user.profile.is_sub_admin and (person.is_central_admin or person.is_sub_admin):
+            return JsonResponse({'error': 'Sub Admin is restricted from sending password setup emails to Central Admin and Sub Admin accounts.'}, status=403)
+        
+        # Generate password reset token
+        from django.contrib.auth.tokens import PasswordResetTokenGenerator
+        from django.utils.http import urlsafe_base64_encode
+        from django.utils.encoding import force_bytes
+        from django.conf import settings
+        
+        token_generator = PasswordResetTokenGenerator()
+        token = token_generator.make_token(user)
+        uid = urlsafe_base64_encode(force_bytes(user.pk))
+        
+        domain = getattr(settings, 'SITE_URL', 'http://localhost:8000')
+        if domain.endswith('/'):
+            domain = domain.rstrip('/')
+        reset_link = f"{domain}{reverse('core:confirm_password_reset', kwargs={'uidb64': uid, 'token': token})}"
+        
+        subject = "Your Blixtro Account - Set Your Password"
+        message = (
+            "Hi,\n\n"
+            "An administrator has sent you a link to set your password and activate your account on the SFS College Inventory Management System (Blixtro IMS):\n\n"
+            f"{reset_link}\n\n"
+            "Important: This link will expire in 3 days for security reasons.\n\n"
+            "Best regards,\nSFS IMS Team"
+        )
+        
+        safe_send_mail(
+            subject=subject,
+            message=message,
+            recipient_list=[user.email],
+            from_email=getattr(settings, 'DEFAULT_FROM_EMAIL', 'noreply@sfscollege.in'),
+            fail_silently=False,
+        )
+        
+        return JsonResponse({
+            'status': 'success',
+            'message': f'Password set email successfully sent to {user.email}'
+        })
+    except Exception as e:
+        return JsonResponse({'error': f'Failed to send email: {str(e)}'}, status=500)
 
 
 def transfer_user_data(old_email, new_email, profile):

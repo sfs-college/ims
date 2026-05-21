@@ -23,16 +23,6 @@
 </style>
 {% endblock style %}
 
-{% block back_button %}
-<a href="javascript:void(0)" class="universal-back-btn" id="universalBackBtn"
-   onclick="(function(){
-       if(window.history.length > 1){ window.history.back(); }
-       else { window.location.href='{% url "central_admin:dashboard" %}'; }
-   })()">
-    <span class="material-symbols-outlined">arrow_back</span>
-    <span>Back</span>
-</a>
-{% endblock back_button %}
 
 {% block navbar %}{% include "central_admin/navbar.html" %}{% endblock navbar %}
 {% block sidebar %}{% include "central_admin/sidebar.html" %}{% endblock sidebar %}

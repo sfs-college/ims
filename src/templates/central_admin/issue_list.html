@@ -211,12 +211,12 @@
                 </form>
               {% endif %}
 
-              {% if issue.status == 'open' or issue.status == 'in_progress' %}
+              {% if issue.status != 'closed' %}
               <button type="button" class="btn btn-sm btn-outline-info"
                       onclick="openAdminRemarkModal('{{ issue.id }}', '{{ issue.ticket_id|escapejs }}')">
                 <i class="bi bi-chat-left-text me-1"></i>Add Remark
               </button>
-              {% if request.user.profile.is_central_admin and not request.user.profile.is_sub_admin %}
+              {% if request.user.profile.is_central_admin or request.user.profile.is_sub_admin or request.user.is_superuser %}
               <button type="button" class="btn btn-sm btn-danger"
                       onclick="openAdminCloseModal('{{ issue.id }}', '{{ issue.ticket_id|escapejs }}')">
                 <i class="bi bi-x-circle me-1"></i>Close Issue
@@ -233,7 +233,7 @@
     </tbody>
   </table>
 </div>
-{% endblock content %}
+
 
 <!-- ── Admin Send Remark Modal ── -->
 <div class="modal fade" id="adminRemarkModal" tabindex="-1">
@@ -331,3 +331,5 @@ function openAdminCloseModal(issueId, ticketId) {
   new bootstrap.Modal(document.getElementById('adminCloseModal')).show();
 }
 </script>
+{% endblock content %}
+

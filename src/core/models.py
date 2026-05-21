@@ -74,6 +74,11 @@ class UserProfile(models.Model):
     is_student = models.BooleanField(_('is student'), default=False)
     slug = models.SlugField(unique=True, db_index=True)
     
+    # Fields existing in database schema
+    security_key = models.CharField(max_length=255, null=True, blank=True)
+    booking_email = models.EmailField(null=True, blank=True)
+    booking_password = models.CharField(max_length=255, default='', blank=True)
+    
     def save(self, *args, **kwargs):
         if not self.slug:
             base_slug = slugify(f"{self.first_name}-{self.last_name}{self.org}")
