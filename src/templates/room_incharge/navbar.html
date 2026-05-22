@@ -219,7 +219,7 @@
     <div class="nb-actions">
 
       <!-- Room Switcher  -->
-      {% if request.user.is_authenticated and request.user.profile.rooms_incharge.count > 1 %}
+      {% if request.user.is_authenticated and request.user.profile.rooms_incharge.all %}
       <div class="nb-room-switcher dropdown">
         <button class="btn dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
           {% with current_room=request.resolver_match.kwargs.room_slug %}
@@ -232,28 +232,14 @@
           {% for room in request.user.profile.rooms_incharge.all %}
             <li>
               <a class="dropdown-item {% if room.slug == request.resolver_match.kwargs.room_slug %}active{% endif %}"
-                 href="{% url 'room_incharge:room_dashboard' room_slug=room.slug %}">
+                 href="{% url 'room_incharge:room_dashboard' room_slug=room.slug %}"
+                 onclick="if(window.IS_CAPACITOR||(window.Capacitor&&window.Capacitor.isNativePlatform&&window.Capacitor.isNativePlatform())){event.preventDefault();window.location.href=this.href;}">
                 {% if room.label %}<span style="font-size:0.75rem;font-weight:700;color:#6c63ff;margin-right:4px;">{{ room.label }}</span>{% endif %}{{ room.room_name }}
               </a>
             </li>
           {% endfor %}
         </ul>
       </div>
-      {% else %}
-      {% comment %} Single room — show room name + label in navbar {% endcomment %}
-      {% with current_room=request.resolver_match.kwargs.room_slug %}
-        {% for room in request.user.profile.rooms_incharge.all %}
-          {% if room.slug == current_room %}
-          <div style="display:flex;align-items:center;gap:6px;background:#0f172a;border-radius:9px;padding:5px 12px;">
-            {% if room.label %}
-              <span style="font-size:0.7rem;font-weight:800;color:#a89dff;letter-spacing:0.05em;">{{ room.label }}</span>
-              <span style="color:rgba(255,255,255,0.25);font-size:0.75rem;">—</span>
-            {% endif %}
-            <span style="font-size:0.78rem;font-weight:600;color:#fff;">{{ room.room_name }}</span>
-          </div>
-          {% endif %}
-        {% endfor %}
-      {% endwith %}
       {% endif %}
 
       <!-- Profile avatar + logout dropdown -->

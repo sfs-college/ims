@@ -49,17 +49,21 @@
     </a>
     {% endif %}
 
+    {% if room_settings.configurations_tab %}
     <a class="navlink {% if request.resolver_match.url_name == 'configurations_list' %}active{% endif %}"
        href="{% url 'room_incharge:configurations_list' room_slug=room_slug %}">
       <span class="material-symbols-outlined">settings_applications</span>
       <span class="menu-text">Configurations</span>
     </a>
+    {% endif %}
 
+    {% if room_settings.archives_tab %}
     <a class="navlink {% if request.resolver_match.url_name == 'archive_list' %}active{% endif %}"
       href="{% url 'room_incharge:archive_list' room_slug=room_slug %}">
       <span class="material-symbols-outlined">inventory</span>
       <span class="menu-text">Archives</span>
     </a>
+    {% endif %}
 
     {% if room_settings.categories_tab %}
     <a class="navlink {% if request.resolver_match.url_name == 'category_list' %}active{% endif %}"
@@ -79,17 +83,21 @@
 
     <div class="nav-divider"></div>
 
+    {% if room_settings.issues_tab %}
     <a class="navlink {% if request.resolver_match.url_name == 'issue_list' or request.resolver_match.url_name == 'central_issue_list' %}active{% endif %}"
        href="{% if request.resolver_match.url_name == 'central_issue_list' %}{% url 'room_incharge:central_issue_list' %}{% else %}{% url 'room_incharge:issue_list' room_slug=room_slug %}{% endif %}">
       <span class="material-symbols-outlined">report</span>
       <span class="menu-text">Issues</span>
     </a>
+    {% endif %}
 
+    {% if room_settings.notifications_tab %}
     <a class="navlink {% if request.resolver_match.url_name == 'notifications' %}active{% endif %}"
        href="{% url 'room_incharge:notifications' room_slug=room_slug %}">
       <span class="material-symbols-outlined">notifications</span>
       <span class="menu-text">Notifications</span>
     </a>
+    {% endif %}
 
     <div class="nav-divider"></div>
 

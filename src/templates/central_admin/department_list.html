@@ -264,6 +264,108 @@
       padding: 6px 8px;
     }
   }
+
+  /* ── Departments Card Grid ── */
+  .departments-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 16px;
+    margin-top: 8px;
+  }
+  
+  .dept-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    transition: all 0.18s ease;
+    box-shadow: 0 1px 6px rgba(0,0,0,0.03);
+    position: relative;
+    overflow: hidden;
+  }
+  
+  .dept-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 3px;
+    background: linear-gradient(90deg, var(--accent), var(--accent-lt));
+    opacity: 0;
+    transition: opacity 0.18s;
+  }
+  
+  .dept-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 6px 20px rgba(108,99,255,0.08);
+    border-color: #d8d4ff;
+  }
+  
+  .dept-card:hover::before {
+    opacity: 1;
+  }
+  
+  .dept-card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+  }
+  
+  .dept-icon-bg {
+    width: 38px;
+    height: 38px;
+    border-radius: 10px;
+    background: rgba(108,99,255,0.08);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  
+  .dept-icon-bg .material-symbols-outlined {
+    font-size: 20px;
+    color: var(--accent);
+  }
+  
+  .rooms-count-badge {
+    background: rgba(13,148,136,0.08);
+    color: #0d9488;
+    border: 1px solid rgba(13,148,136,0.15);
+    border-radius: 20px;
+    font-size: 11px;
+    font-weight: 700;
+    padding: 3px 10px;
+    font-family: 'DM Sans', sans-serif;
+  }
+  
+  .dept-name {
+    font-size: 15.5px;
+    font-weight: 700;
+    color: var(--text);
+    margin: 2px 0 0 0;
+    line-height: 1.3;
+  }
+  
+  .dept-card-footer {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 8px;
+    margin-top: auto;
+    border-top: 1px solid var(--border);
+    padding-top: 12px;
+  }
+
+  .dept-card-footer .btn-action-edit,
+  .dept-card-footer .btn-action-delete {
+    font-size: 12px;
+    padding: 6px 12px;
+    border-radius: 7px;
+    height: auto;
+    min-height: unset;
+  }
 </style>
 {% endblock style %}
 
@@ -284,47 +386,38 @@
   </a>
 </div>
 
-<div class="data-card">
   {% if departments %}
-  <div class="table-responsive-stack">
-    <table class="data-table">
-      <thead>
-        <tr>
-          <th>Department Name</th>
-          <th>Action</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for department in departments %}
-        <tr>
-          <td data-label="Department Name">
-            <span class="row-label">
-              <span class="row-dot"></span>
-              {{ department.department_name }}
-            </span>
-          </td>
-          <td data-label="Action">
-            <div class="action-buttons">
-              <a href="{% url 'central_admin:department_update' department_slug=department.slug %}" class="btn-action-edit">
-                <span class="material-symbols-outlined" style="font-size:14px">edit</span>
-                Edit
-              </a>
-              <a href="{% url 'central_admin:department_delete' department_slug=department.slug %}" class="btn-action-delete">
-                <span class="material-symbols-outlined" style="font-size:14px">delete</span>
-                Delete
-              </a>
-            </div>
-          </td>
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table>
+  <div class="departments-grid">
+    {% for department in departments %}
+    <div class="dept-card">
+      <div class="dept-card-header">
+        <div class="dept-icon-bg">
+          <span class="material-symbols-outlined">corporate_fare</span>
+        </div>
+        <span class="rooms-count-badge">{{ department.room_set.count }} Rooms</span>
+      </div>
+      <div class="dept-card-body">
+        <h5 class="dept-name">{{ department.department_name }}</h5>
+      </div>
+      <div class="dept-card-footer">
+        <a href="{% url 'central_admin:department_update' department_slug=department.slug %}" class="btn-action-edit">
+          <span class="material-symbols-outlined" style="font-size:14px">edit</span>
+          Edit
+        </a>
+        <a href="{% url 'central_admin:department_delete' department_slug=department.slug %}" class="btn-action-delete">
+          <span class="material-symbols-outlined" style="font-size:14px">delete</span>
+          Delete
+        </a>
+      </div>
+    </div>
+    {% endfor %}
   </div>
   {% else %}
-  <div class="empty-state">
-    <span class="material-symbols-outlined">tile_medium</span>
-    <p>No departments found. Create your first department.</p>
+  <div class="data-card">
+    <div class="empty-state">
+      <span class="material-symbols-outlined">tile_medium</span>
+      <p>No departments found. Create your first department.</p>
+    </div>
   </div>
   {% endif %}
-</div>
 {% endblock content %}

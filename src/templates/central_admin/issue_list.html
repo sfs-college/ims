@@ -73,7 +73,7 @@
       {% for issue in issues %}
       <tr>
         <td>{{ issue.created_by }}</td>
-        <td>{{ issue.room.room_name }}</td>
+        <td>{% if issue.room.label %}{{ issue.room.label }} — {% endif %}{{ issue.room.room_name }}</td>
         <td>
           {% if issue.assigned_to %}
             <span style="display:inline-flex;align-items:center;gap:5px;">
@@ -150,7 +150,7 @@
               </div>
 
               <div class="mb-3"><h6 class="fw-bold">Created By</h6><p>{{ issue.created_by }}</p></div>
-              <div class="mb-3"><h6 class="fw-bold">Room</h6><p>{{ issue.room.room_name }}</p></div>
+              <div class="mb-3"><h6 class="fw-bold">Room</h6><p>{% if issue.room.label %}{{ issue.room.label }} — {% endif %}{{ issue.room.room_name }}</p></div>
               <div class="mb-3">
                 <h6 class="fw-bold">Room Incharge</h6>
                 <p>

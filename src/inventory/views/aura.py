@@ -172,8 +172,11 @@ def _master_inventory_context(org):
         for row in Item.objects.filter(organisation=org, room__isnull=False)
         .values('item_name')
         .annotate(
+            active_total=models.Sum('active_count'),
             inactive_total=models.Sum('inactive_count'),
             archived_total=models.Sum('archived_count'),
+            serviceable_total=models.Sum('serviceable_count'),
+            unserviceable_total=models.Sum('unserviceable_count'),
         )
     }
     sc_map = {}
@@ -204,9 +207,10 @@ def _master_inventory_context(org):
             'total_items': total_items,
             'cpu': cpu,
             'total_cost': round(float(cpu) * total_items, 2) if cpu else 0,
-            'archived_count': item_status.get('archived_total') or archived_map.get(name, 0),
+            'active_count': item_status.get('active_total') or 0,
             'inactive_count': item_status.get('inactive_total') or sc.get('inactive', 0),
-            'under_maintenance_count': sc.get('under_maintenance', 0),
+            'under_maintenance_count': item_status.get('serviceable_total') or sc.get('under_maintenance', 0),
+            'not_serviceable_count': item_status.get('unserviceable_total') or 0,
             'disposed_count': sc.get('disposed', 0),
         })
 
@@ -380,13 +384,14 @@ def aura_data_manager(request):
                     row['label'] = f"{obj.subject}"
                     row['detail_head'] = "Metadata"
                     assigned = obj.assigned_to.user.get_full_name() if obj.assigned_to else "N/A"
-                    row['detail'] = f"Email: {obj.reporter_email}<br>Ticket ID: {obj.ticket_id}<br>Status: {obj.status}<br>Room: {obj.room.room_name}<br>Assigned: {assigned}"
+                    room_name = f"{obj.room.label} - {obj.room.room_name}" if (obj.room and obj.room.label) else (obj.room.room_name if obj.room else '—')
+                    row['detail'] = f"Email: {obj.reporter_email}<br>Ticket ID: {obj.ticket_id}<br>Status: {obj.status}<br>Room: {room_name}<br>Assigned: {assigned}"
                 elif model_name == 'items':
                     from inventory.models import AssetTag
                     row['label_head'] = "Items"
                     row['label'] = f"{obj.item_name}"
                     row['detail_head'] = "Metadata"
-                    room_name = obj.room.room_name if obj.room else 'Master Inventory'
+                    room_name = f"{obj.room.label} - {obj.room.room_name}" if (obj.room and obj.room.label) else (obj.room.room_name if obj.room else 'Master Inventory')
                     prod_code = obj.product_code or '—'
                     # Asset tag range for this room
                     tag_range = '—'
@@ -402,7 +407,7 @@ def aura_data_manager(request):
                     row['detail'] = f"Room: {room_name}<br>Product Code: {prod_code}<br>Asset Tags: {tag_range}<br>Qty: {obj.total_count}<br>Available: {obj.available_count}<br>In Use: {obj.in_use}"
                 elif model_name == 'purchases':
                     row['label_head'] = "Purchase ID"
-                    room_name = obj.room.room_name if obj.room else 'No Room Assigned'
+                    room_name = f"{obj.room.label} - {obj.room.room_name}" if (obj.room and obj.room.label) else (obj.room.room_name if obj.room else 'No Room Assigned')
                     row['label'] = f"{obj.purchase_id or 'Pending ID'}<br>Room: {room_name}"
                     row['detail_head'] = "Metadata"
                     item_name = obj.item.item_name if obj.item else 'N/A'
@@ -423,7 +428,7 @@ def aura_data_manager(request):
                     row['label_head'] = "Booking Request"
                     row['label'] = f"{obj.faculty_name}"
                     row['detail_head'] = "Metadata"
-                    room_name = obj.room.room_name if obj.room else '—'
+                    room_name = f"{obj.room.label} - {obj.room.room_name}" if (obj.room and obj.room.label) else (obj.room.room_name if obj.room else '—')
                     row['room_name'] = room_name
                     row['faculty_name'] = obj.faculty_name
                     row['faculty_email'] = obj.faculty_email
@@ -439,10 +444,12 @@ def aura_data_manager(request):
                     row['detail'] = obj.designation or 'Faculty'
                     row['email'] = obj.email
                     row['designation'] = obj.designation or 'Faculty'
-                    # Never expose plaintext passwords in API responses.
-                    # The UI uses a masked placeholder; actual password is
-                    # only sent when the admin explicitly edits a credential.
-                    row['password'] = '••••••••'
+                    # Expose plaintext passwords only to central admins for the reveal feature.
+                    # For sub-admins or others, mask it because they have view-only access.
+                    if profile and profile.is_central_admin and not profile.is_sub_admin:
+                        row['password'] = obj.password
+                    else:
+                        row['password'] = '••••••••'
                 else:
                     row['label_head'] = "Primary Record"
                     row['label'] = str(obj)
@@ -768,11 +775,12 @@ def aura_generate_report_pdf(request):
             elif model_name == 'issues':
                 label = f"{obj.subject}"
                 assigned = obj.assigned_to.user.get_full_name() if obj.assigned_to else "N/A"
-                detail = f"Email: {obj.reporter_email}<br/>Ticket ID: {obj.ticket_id}<br/>Status: {obj.status}<br/>Room: {obj.room.room_name}<br/>Assigned: {assigned}"
+                room_name = f"{obj.room.label} - {obj.room.room_name}" if (obj.room and obj.room.label) else (obj.room.room_name if obj.room else '—')
+                detail = f"Email: {obj.reporter_email}<br/>Ticket ID: {obj.ticket_id}<br/>Status: {obj.status}<br/>Room: {room_name}<br/>Assigned: {assigned}"
             elif model_name == 'items':
                 from inventory.models import AssetTag
                 label = f"{obj.item_name}"
-                room_name = obj.room.room_name if obj.room else 'Master Inventory'
+                room_name = f"{obj.room.label} - {obj.room.room_name}" if (obj.room and obj.room.label) else (obj.room.room_name if obj.room else 'Master Inventory')
                 prod_code = obj.product_code or '—'
                 tag_range = '—'
                 if obj.room and obj.product_code:
@@ -784,7 +792,8 @@ def aura_generate_report_pdf(request):
                         tag_range = f"{tags.first().tag_id} → {tags.last().tag_id}"
                 detail = f"Room: {room_name}<br/>Product Code: {prod_code}<br/>Asset Tags: {tag_range}<br/>Qty: {obj.total_count}<br/>Available: {obj.available_count}<br/>In Use: {obj.in_use}"
             elif model_name == 'purchases':
-                label = f"{obj.purchase_id or 'Pending ID'}<br/>Room: {obj.room.room_name if obj.room else 'No Room'}"
+                room_name = f"{obj.room.label} - {obj.room.room_name}" if (obj.room and obj.room.label) else (obj.room.room_name if obj.room else 'No Room')
+                label = f"{obj.purchase_id or 'Pending ID'}<br/>Room: {room_name}"
                 item_name = obj.item.item_name if obj.item else 'N/A'
                 vendor_name = obj.vendor.vendor_name if obj.vendor else 'No Vendor'
                 detail = f"Item: {item_name}<br/>Vendor: {vendor_name}<br/>Status: {obj.status.title()}"
@@ -1818,12 +1827,13 @@ def aura_generate_report_excel(request):
             elif model_name == 'issues':
                 label = obj.subject
                 assigned = obj.assigned_to.user.get_full_name() if obj.assigned_to else "N/A"
-                detail = f"Email: {obj.reporter_email}\nTicket ID: {obj.ticket_id}\nStatus: {obj.status}\nRoom: {obj.room.room_name}\nAssigned: {assigned}"
+                room_name = f"{obj.room.label} - {obj.room.room_name}" if (obj.room and obj.room.label) else (obj.room.room_name if obj.room else '—')
+                detail = f"Email: {obj.reporter_email}\nTicket ID: {obj.ticket_id}\nStatus: {obj.status}\nRoom: {room_name}\nAssigned: {assigned}"
                 
             elif model_name == 'items':
                 from inventory.models import AssetTag
                 label = obj.item_name
-                room_name = obj.room.room_name if obj.room else 'Master Inventory'
+                room_name = f"{obj.room.label} - {obj.room.room_name}" if (obj.room and obj.room.label) else (obj.room.room_name if obj.room else 'Master Inventory')
                 prod_code = obj.product_code or '—'
                 tag_range = '—'
                 if obj.room and obj.product_code:
@@ -1836,7 +1846,8 @@ def aura_generate_report_excel(request):
                 detail = f"Room: {room_name}\nProduct Code: {prod_code}\nAsset Tags: {tag_range}\nQty: {obj.total_count}\nAvailable: {obj.available_count}\nIn Use: {obj.in_use}"
 
             elif model_name == 'purchases':
-                label = f"{obj.purchase_id or 'Pending ID'}<br/>Room: {obj.room.room_name if obj.room else 'No Room'}"
+                room_name = f"{obj.room.label} - {obj.room.room_name}" if (obj.room and obj.room.label) else (obj.room.room_name if obj.room else 'No Room')
+                label = f"{obj.purchase_id or 'Pending ID'}\nRoom: {room_name}"
                 item_name = obj.item.item_name if obj.item else 'N/A'
                 vendor_name = obj.vendor.vendor_name if obj.vendor else 'No Vendor'
                 detail = f"Item: {item_name}<br/>Vendor: {vendor_name}<br/>Status: {obj.status.title()}"
@@ -2932,7 +2943,7 @@ def save_product_code(request):
 
 
 @require_POST
-def create_master_inventory_item(request):
+def create_master_inventory_item(request, room_slug=None):
     profile = getattr(request.user, 'profile', None)
     if not _has_master_inventory_edit_access(profile):
         return JsonResponse({'error': 'Unauthorized'}, status=403)

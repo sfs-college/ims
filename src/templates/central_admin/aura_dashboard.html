@@ -1928,7 +1928,7 @@ textarea.bcc-form-input { resize:vertical; min-height:80px; }
                 <td class="fw-semibold">${escHtml(row.email)}</td>
                 <td><span class="badge bg-light text-dark border px-2">${escHtml(row.designation)}</span></td>
                 <td><code class="text-muted">${maskedPwd}</code>
-                    ${IS_CENTRAL_ADMIN ? `<button class="btn btn-link btn-sm p-0 ms-2 text-muted" title="Reveal" onclick="revealPwd(this,'${escHtml(row.password || '')}')"><i class="bi bi-eye"></i></button>` : ''}
+                    ${IS_CENTRAL_ADMIN ? `<button class="btn btn-link btn-sm p-0 ms-2 text-muted" title="Reveal" data-password="${escHtml(row.password || '')}" onclick="revealPwd(this)"><i class="bi bi-eye"></i></button>` : ''}
                 </td>
                 ${actionCell}
             `;
@@ -1953,7 +1953,8 @@ textarea.bcc-form-input { resize:vertical; min-height:80px; }
     }
 
     // Reveal password cell in-place
-    function revealPwd(btn, pwd) {
+    function revealPwd(btn) {
+        const pwd = btn.dataset.password || '';
         const cell = btn.closest('td');
         cell.innerHTML = `<code class="text-dark">${escHtml(pwd)}</code>
             <button class="btn btn-link btn-sm p-0 ms-2 text-muted" onclick="loadFacultyCredentials()"><i class="bi bi-eye-slash"></i></button>`;

@@ -121,8 +121,14 @@
             <th>Product Code</th>
             <th>Total Stock</th>
             <th>Available</th>
-            <th>Active</th>
-            <th>Inactive</th>
+            <th style="min-width:140px; text-align:center; vertical-align:middle;">
+              <div class="col-toggle-header" style="display:flex; align-items:center; justify-content:center; gap:6px; cursor:pointer; user-select:none; white-space:nowrap;">
+                <span id="activityHeader">Active</span>
+                <span class="col-toggle-btn" onclick="cycleActivityView(event)" style="display:inline-flex; align-items:center; gap:3px; padding:2px 8px; border-radius:12px; font-size:0.65rem; font-weight:700; border:1.5px solid currentColor; transition:all 0.15s; background:white; color:var(--accent); cursor:pointer;">
+                  <i class="bi bi-arrow-repeat"></i>
+                </span>
+              </div>
+            </th>
             <th style="min-width:180px; text-align:center; vertical-align:middle;">
               <div class="col-toggle-header" style="display:flex; align-items:center; justify-content:center; gap:6px; cursor:pointer; user-select:none; white-space:nowrap;">
                 <span id="dynamicHeader">Under Maintenance</span>
@@ -152,8 +158,10 @@
             </td>
             <td><span class="stock-pill stock-total">{{ item.total_count }}</span></td>
             <td><span class="stock-pill stock-avail">{{ item.available_count }}</span></td>
-            <td><span class="stock-pill stock-active">{{ item.active_count }}</span></td>
-            <td><span class="stock-pill stock-inactive">{{ item.inactive_count }}</span></td>
+            <td>
+              <span class="stock-pill stock-active active-count-span">{{ item.active_count }}</span>
+              <span class="stock-pill stock-inactive inactive-count-span" style="display:none;">{{ item.inactive_count }}</span>
+            </td>
             <td>
               <span class="stock-pill stock-archived maint-count-span"><i class="bi bi-tools me-1"></i>{{ item.serviceable_count }}</span>
               <span class="stock-pill stock-inactive unserv-count-span" style="display:none;"><i class="bi bi-x-circle me-1"></i>{{ item.unserviceable_count }}</span>
@@ -383,6 +391,7 @@ function escHtml(str) {
 }
 
 let currentItemsView = localStorage.getItem('currentItemsView') || 'maintenance';
+let currentActivityView = localStorage.getItem('currentActivityView') || 'active';
 
 function switchItemsView(view) {
   currentItemsView = view;
@@ -409,8 +418,34 @@ function cycleArchiveView(e) {
   switchItemsView(nextView);
 }
 
+function switchActivityView(view) {
+  currentActivityView = view;
+  localStorage.setItem('currentActivityView', view);
+  
+  const header = document.getElementById('activityHeader');
+  const activeSpans = document.querySelectorAll('.active-count-span');
+  const inactiveSpans = document.querySelectorAll('.inactive-count-span');
+  
+  if (view === 'active') {
+    if (header) header.textContent = 'Active';
+    activeSpans.forEach(el => el.style.display = 'inline-flex');
+    inactiveSpans.forEach(el => el.style.display = 'none');
+  } else {
+    if (header) header.textContent = 'Inactive';
+    activeSpans.forEach(el => el.style.display = 'none');
+    inactiveSpans.forEach(el => el.style.display = 'inline-flex');
+  }
+}
+
+function cycleActivityView(e) {
+  if (e) e.stopPropagation();
+  const nextView = currentActivityView === 'active' ? 'inactive' : 'active';
+  switchActivityView(nextView);
+}
+
 document.addEventListener('DOMContentLoaded', () => {
   switchItemsView(currentItemsView);
+  switchActivityView(currentActivityView);
 });
 </script>
 {% endblock content %}

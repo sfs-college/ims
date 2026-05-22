@@ -361,8 +361,8 @@
             <label class="fc-pill selected" data-field="stock"><input type="checkbox" checked>Stock</label>
             <label class="fc-pill selected" data-field="cost"><input type="checkbox" checked>Cost</label>
             <label class="fc-pill selected" data-field="assigned"><input type="checkbox" checked>Assigned</label>
-            <label class="fc-pill selected" data-field="archived"><input type="checkbox" checked>Serviceable</label>
-            <label class="fc-pill selected" data-field="compstatus"><input type="checkbox" checked>Comp. Status</label>
+            <label class="fc-pill selected" data-field="archived"><input type="checkbox" checked>Archive</label>
+            <label class="fc-pill selected" data-field="activity"><input type="checkbox" checked>Activity</label>
         </div>
 
         <div style="display:flex; gap:6px; flex-shrink:0;">
@@ -409,11 +409,18 @@
                         </div>
                     </th>
                     <th data-col="assigned" class="text-center">Assigned to Rooms</th>
-                    <th data-col="archived" class="text-center">Serviceable</th>
-                    <th data-col="compstatus">
-                        <div class="col-toggle-header">
-                            <span id="compStatusColLabel">Inactive</span>
-                            <span class="col-toggle-btn" onclick="cycleCompStatus(event)">
+                    <th data-col="archived" style="min-width:180px; text-align:center; vertical-align:middle;">
+                        <div class="col-toggle-header" onclick="cycleArchive(event)" style="display:flex; align-items:center; justify-content:center; gap:6px; cursor:pointer; user-select:none; white-space:nowrap;">
+                            <span id="archiveColLabel">Under Maintenance</span>
+                            <span class="col-toggle-btn" style="display:inline-flex; align-items:center; gap:3px; padding:2px 8px; border-radius:12px; font-size:0.65rem; font-weight:700; border:1.5px solid currentColor; transition:all 0.15s; background:white; color:var(--purple); cursor:pointer;">
+                                <i class="bi bi-arrow-repeat"></i>
+                            </span>
+                        </div>
+                    </th>
+                    <th data-col="activity" style="min-width:140px; text-align:center; vertical-align:middle;">
+                        <div class="col-toggle-header" onclick="cycleActivity(event)" style="display:flex; align-items:center; justify-content:center; gap:6px; cursor:pointer; user-select:none; white-space:nowrap;">
+                            <span id="activityColLabel">Active</span>
+                            <span class="col-toggle-btn" style="display:inline-flex; align-items:center; gap:3px; padding:2px 8px; border-radius:12px; font-size:0.65rem; font-weight:700; border:1.5px solid currentColor; transition:all 0.15s; background:white; color:var(--purple); cursor:pointer;">
                                 <i class="bi bi-arrow-repeat"></i>
                             </span>
                         </div>
@@ -430,7 +437,7 @@
                     <td data-col="cost" class="text-center"><input id="manualCost" type="number" min="0" step="0.01" class="form-control form-control-sm" placeholder="Cost" style="width:100px;display:inline-block;"></td>
                     <td data-col="assigned" class="text-center"><span class="badge-count badge-assigned">0</span></td>
                     <td data-col="archived" class="text-center"><span class="badge-count">-</span></td>
-                    <td data-col="compstatus" class="text-center">
+                    <td data-col="activity" class="text-center">
                         <button type="button" class="btn btn-sm btn-success" onclick="submitManualEntry(this)"><i class="bi bi-check-lg"></i></button>
                         <button type="button" class="btn btn-sm btn-outline-secondary" onclick="hideManualEntryRow()"><i class="bi bi-x-lg"></i></button>
                         <div id="manualEntryError" class="text-danger small mt-1" style="display:none;"></div>
@@ -507,21 +514,23 @@
                             <i class="bi bi-eye me-1"></i>View Details
                         </button>
                     </td>
-                    <td data-col="archived" class="text-center">
-                        <button type="button"
-                            class="badge-count condition-badge condition-display {% if data.item.is_serviceable %}serviceable{% else %}unserviceable{% endif %}"
-                            data-item-id="{{ data.item.id }}"
-                            data-serviceable="{% if data.item.is_serviceable %}true{% else %}false{% endif %}"
-                            onclick="toggleCondition(this)">
-                            {% if data.item.is_serviceable %}Serviceable{% else %}Unserviceable{% endif %}
-                        </button>
-                    </td>
-                    <td data-col="compstatus" class="text-center"
-                        data-inactive="{{ data.inactive_count }}"
+                    <td data-col="archived" class="text-center"
                         data-maintenance="{{ data.under_maintenance_count }}"
-                        data-disposed="{{ data.disposed_count }}">
-                        <span class="badge-count compstatus-display"
-                            style="background:#fef2f2; color:#991b1b; border:1px solid #fecaca;">
+                        data-unserviceable="{{ data.not_serviceable_count }}">
+                        <span class="badge-count maint-count-span" style="background:#fff7ed; color:#c2410c; border:1px solid #fed7aa;">
+                            <i class="bi bi-tools me-1"></i>{{ data.under_maintenance_count }}
+                        </span>
+                        <span class="badge-count unserv-count-span" style="display:none; background:#fef2f2; color:#991b1b; border:1px solid #fecaca;">
+                            <i class="bi bi-x-circle me-1"></i>{{ data.not_serviceable_count }}
+                        </span>
+                    </td>
+                    <td data-col="activity" class="text-center"
+                        data-active="{{ data.active_count }}"
+                        data-inactive="{{ data.inactive_count }}">
+                        <span class="badge-count active-count-span" style="background:#f0fdf4; color:#16a34a; border:1px solid #bbf7d0;">
+                            {{ data.active_count }}
+                        </span>
+                        <span class="badge-count inactive-count-span" style="display:none; background:#fef2f2; color:#991b1b; border:1px solid #fecaca;">
                             {{ data.inactive_count }}
                         </span>
                     </td>
@@ -687,7 +696,7 @@ function getSelectedFields() {
 
 function applyFieldVisibility() {
     const selected = getSelectedFields();
-    const allCols = ['prodcode','name','category','brand','stock','cost','assigned', 'archived','compstatus'];
+    const allCols = ['prodcode','name','category','brand','stock','cost','assigned', 'archived','activity'];
     allCols.forEach(col => {
         const show = selected.includes(col);
         document.querySelectorAll(`[data-col="${col}"]`).forEach(el => {
@@ -720,8 +729,10 @@ function cycleStock(e) {
     document.querySelectorAll('td[data-col="stock"]').forEach(td => {
         const val = td.getAttribute(stockAttrs[stockState]);
         const span = td.querySelector('.stock-display');
-        span.textContent = val;
-        span.className = 'badge-count stock-display ' + stockClasses[stockState];
+        if (span) {
+            span.textContent = val;
+            span.className = 'badge-count stock-display ' + stockClasses[stockState];
+        }
     });
 }
 
@@ -736,12 +747,14 @@ function cycleCost(e) {
     document.getElementById('costColLabel').textContent = costLabels[costState];
     document.querySelectorAll('td[data-col="cost"]').forEach(td => {
         const span = td.querySelector('.cost-display');
-        if (costState === 0) {
-            const cpu = parseFloat(td.getAttribute('data-cpu'));
-            span.textContent = cpu > 0 ? '₹' + cpu.toLocaleString('en-IN') : '—';
-        } else {
-            const tc = parseFloat(td.getAttribute('data-total-cost'));
-            span.textContent = tc > 0 ? '₹' + tc.toLocaleString('en-IN', {minimumFractionDigits:2}) : '—';
+        if (span) {
+            if (costState === 0) {
+                const cpu = parseFloat(td.getAttribute('data-cpu'));
+                span.textContent = cpu > 0 ? '₹' + cpu.toLocaleString('en-IN') : '—';
+            } else {
+                const tc = parseFloat(td.getAttribute('data-total-cost'));
+                span.textContent = tc > 0 ? '₹' + tc.toLocaleString('en-IN', {minimumFractionDigits:2}) : '—';
+            }
         }
     });
 }
@@ -881,9 +894,10 @@ const allStockData = [
         cpu: {{ data.cpu|default:0 }},
         totalCost: {{ data.total_cost|default:0 }},
         archived: {{ data.archived_count|default:0 }},
+        active: {{ data.active_count|default:0 }},
         inactive: {{ data.inactive_count|default:0 }},
         under_maintenance: {{ data.under_maintenance_count|default:0 }},
-        disposed: {{ data.disposed_count|default:0 }},
+        not_serviceable: {{ data.not_serviceable_count|default:0 }}
     },
     {% endfor %}
 ];
@@ -934,15 +948,19 @@ function applyStockFilter() {
     const totTotal     = filtered.reduce((s,d) => s + d.total,     0);
     const totArchived  = filtered.reduce((s,d) => s + d.archived,  0);
 
-    // Dynamic comp status
-    const compKeys   = ['inactive', 'under_maintenance', 'disposed'];
-    const compLabels = ['Inactive', 'Under Maintenance', 'Disposed'];
-    const compStyles = [
-        'background:#fef2f2; color:#991b1b; border:1px solid #fecaca;',
+    let sfArchiveState = window.sfArchiveState || 0; // 0=maintenance, 1=unserviceable
+    const sfArchiveKeys = ['under_maintenance', 'not_serviceable'];
+    const sfArchiveStyles = [
         'background:#fff7ed; color:#c2410c; border:1px solid #fed7aa;',
-        'background:#f1f5f9; color:#475569; border:1px solid #e2e8f0;',
+        'background:#fef2f2; color:#991b1b; border:1px solid #fecaca;',
     ];
-    let sfCompState = window.sfCompState || 0;
+
+    let sfActivityState = window.sfActivityState || 0; // 0=active, 1=inactive
+    const sfActivityKeys = ['active', 'inactive'];
+    const sfActivityStyles = [
+        'background:#f0fdf4; color:#16a34a; border:1px solid #bbf7d0;',
+        'background:#fef2f2; color:#991b1b; border:1px solid #fecaca;',
+    ];
 
     const rows = filtered.map(d => `
         <tr>
@@ -954,16 +972,17 @@ function applyStockFilter() {
             <td class="text-center"><span class="badge-count badge-assigned">${d.assigned}</span></td>
             <td class="text-center"><span class="badge-count badge-total">${d.total}</span></td>
             <td class="text-center">
-                <span class="badge-count sf-archived-pill" style="background:#fef3c7; color:#92400e; border:1px solid #fde68a;">
-                    ${d.archived}
+                <span class="badge-count sf-archived-pill" style="${sfArchiveStyles[sfArchiveState]}"
+                    data-under_maintenance="${d.under_maintenance}"
+                    data-not_serviceable="${d.not_serviceable}">
+                    ${d[sfArchiveKeys[sfArchiveState]]}
                 </span>
             </td>
             <td class="text-center">
-                <span class="badge-count sf-comp-pill" style="${compStyles[sfCompState]}"
-                    data-inactive="${d.inactive}"
-                    data-under_maintenance="${d.under_maintenance}"
-                    data-disposed="${d.disposed}">
-                    ${d[compKeys[sfCompState]]}
+                <span class="badge-count sf-activity-pill" style="${sfActivityStyles[sfActivityState]}"
+                    data-active="${d.active}"
+                    data-inactive="${d.inactive}">
+                    ${d[sfActivityKeys[sfActivityState]]}
                 </span>
             </td>
         </tr>`).join('');
@@ -1003,10 +1022,18 @@ function applyStockFilter() {
                         <th class="text-center">Available</th>
                         <th class="text-center">Assigned</th>
                         <th class="text-center">Total</th>
-                        <th class="text-center">Archived</th>
                         <th class="text-center" style="cursor:pointer; white-space:nowrap;"
-                            onclick="cycleSfComp()">
-                            <span id="sfCompLabel">${compLabels[sfCompState]}</span>
+                            onclick="cycleSfArchive()">
+                            <span id="sfArchiveLabel">${archiveLabels[sfArchiveState]}</span>
+                            <span style="font-size:0.65rem; background:white; color:var(--purple);
+                                border:1.5px solid var(--purple); border-radius:12px;
+                                padding:1px 7px; margin-left:4px; font-weight:700;">
+                                <i class="bi bi-arrow-repeat"></i>
+                            </span>
+                        </th>
+                        <th class="text-center" style="cursor:pointer; white-space:nowrap;"
+                            onclick="cycleSfActivity()">
+                            <span id="sfActivityLabel">${activityLabels[sfActivityState]}</span>
                             <span style="font-size:0.65rem; background:white; color:var(--purple);
                                 border:1.5px solid var(--purple); border-radius:12px;
                                 padding:1px 7px; margin-left:4px; font-weight:700;">
@@ -1020,21 +1047,35 @@ function applyStockFilter() {
         </div>`;
 }
 
-// Cycle comp status inside stock filter modal
-function cycleSfComp() {
-    const compKeys   = ['inactive', 'under_maintenance', 'disposed'];
-    const compLabels = ['Inactive', 'Under Maintenance', 'Disposed'];
-    const compStyles = [
-        'background:#fef2f2; color:#991b1b; border:1px solid #fecaca;',
+function cycleSfArchive() {
+    const archiveKeys = ['under_maintenance', 'not_serviceable'];
+    const archiveLabels = ['Under Maintenance', 'Not Serviceable'];
+    const archiveStyles = [
         'background:#fff7ed; color:#c2410c; border:1px solid #fed7aa;',
-        'background:#f1f5f9; color:#475569; border:1px solid #e2e8f0;',
+        'background:#fef2f2; color:#991b1b; border:1px solid #fecaca;',
     ];
-    window.sfCompState = ((window.sfCompState || 0) + 1) % 3;
-    document.getElementById('sfCompLabel').textContent = compLabels[window.sfCompState];
-    document.querySelectorAll('.sf-comp-pill').forEach(pill => {
-        const val = pill.getAttribute('data-' + compKeys[window.sfCompState]);
+    window.sfArchiveState = ((window.sfArchiveState || 0) + 1) % 2;
+    document.getElementById('sfArchiveLabel').textContent = archiveLabels[window.sfArchiveState];
+    document.querySelectorAll('.sf-archived-pill').forEach(pill => {
+        const val = pill.getAttribute('data-' + archiveKeys[window.sfArchiveState]);
         pill.textContent = val;
-        pill.style.cssText = compStyles[window.sfCompState];
+        pill.style.cssText = archiveStyles[window.sfArchiveState];
+    });
+}
+
+function cycleSfActivity() {
+    const activityKeys = ['active', 'inactive'];
+    const activityLabels = ['Active', 'Inactive'];
+    const activityStyles = [
+        'background:#f0fdf4; color:#16a34a; border:1px solid #bbf7d0;',
+        'background:#fef2f2; color:#991b1b; border:1px solid #fecaca;',
+    ];
+    window.sfActivityState = ((window.sfActivityState || 0) + 1) % 2;
+    document.getElementById('sfActivityLabel').textContent = activityLabels[window.sfActivityState];
+    document.querySelectorAll('.sf-activity-pill').forEach(pill => {
+        const val = pill.getAttribute('data-' + activityKeys[window.sfActivityState]);
+        pill.textContent = val;
+        pill.style.cssText = activityStyles[window.sfActivityState];
     });
 }
 
@@ -1159,26 +1200,105 @@ function submitUnassign(roomItemId, maxQty, inputId) {
     });
 }
 
-// ── COMPONENT STATUS COLUMN TOGGLE ──
-// States: 0=inactive, 1=under_maintenance, 2=disposed
-let compStatusState = 0;
-const compStatusLabels = ['Inactive', 'Under Maintenance', 'Disposed'];
-const compStatusDataKeys = ['inactive', 'maintenance', 'disposed'];
-const compStatusStyles = [
-    'background:#fef2f2; color:#991b1b; border:1px solid #fecaca;',
-    'background:#fff7ed; color:#c2410c; border:1px solid #fed7aa;',
-    'background:#f1f5f9; color:#475569; border:1px solid #e2e8f0;',
-];
+// ── SYNC STOCK DISPLAY HELPER ──
+function syncStockDisplay(td, val) {
+    const span = td.querySelector('.stock-display');
+    if (!span) return;
+    
+    if (val !== undefined) {
+        td.setAttribute('data-available', val || 0);
+        const assigned = parseInt(td.getAttribute('data-assigned') || '0', 10);
+        const total = parseInt(val || '0', 10) + assigned;
+        td.setAttribute('data-total', total.toString());
+        
+        // Also update total cost on the cost td
+        const row = td.closest('tr');
+        const costTd = row.querySelector('td[data-col="cost"]');
+        if (costTd) {
+            const cpu = parseFloat(costTd.getAttribute('data-cpu') || 0);
+            const totalCost = cpu * total;
+            costTd.setAttribute('data-total-cost', totalCost.toFixed(2));
+            syncCostDisplay(costTd); // keep cost display in sync!
+        }
+    }
+    
+    const stockAttrs = ['data-available', 'data-assigned', 'data-total'];
+    const stockClasses = ['badge-available', 'badge-assigned', 'badge-total'];
+    const currentVal = td.getAttribute(stockAttrs[stockState]);
+    span.textContent = currentVal;
+    span.className = 'badge-count stock-display ' + stockClasses[stockState];
+}
 
-function cycleCompStatus(e) {
-    e.stopPropagation();
-    compStatusState = (compStatusState + 1) % 3;
-    document.getElementById('compStatusColLabel').textContent = compStatusLabels[compStatusState];
-    document.querySelectorAll('td[data-col="compstatus"]').forEach(td => {
-        const val = td.getAttribute('data-' + compStatusDataKeys[compStatusState]);
-        const span = td.querySelector('.compstatus-display');
-        span.textContent = val;
-        span.style.cssText = compStatusStyles[compStatusState];
+// ── SYNC COST DISPLAY HELPER ──
+function syncCostDisplay(td, val) {
+    const span = td.querySelector('.cost-display');
+    if (!span) return;
+    
+    if (val !== undefined) {
+        td.setAttribute('data-cpu', val || 0);
+        
+        // Find total items from stock td in same row
+        const row = td.closest('tr');
+        const stockTd = row.querySelector('td[data-col="stock"]');
+        const totalItems = stockTd ? parseInt(stockTd.getAttribute('data-total') || '0', 10) : 0;
+        const totalCost = parseFloat(val || 0) * totalItems;
+        td.setAttribute('data-total-cost', totalCost.toFixed(2));
+    }
+    
+    if (costState === 0) {
+        const cpu = parseFloat(td.getAttribute('data-cpu') || 0);
+        span.textContent = cpu > 0 ? '₹' + cpu.toLocaleString('en-IN') : '—';
+    } else {
+        const tc = parseFloat(td.getAttribute('data-total-cost') || 0);
+        span.textContent = tc > 0 ? '₹' + tc.toLocaleString('en-IN', {minimumFractionDigits:2}) : '—';
+    }
+}
+
+// ── ARCHIVE COLUMN TOGGLE ──
+let archiveState = 0; // 0=maintenance, 1=unserviceable
+const archiveLabels = ['Under Maintenance', 'Not Serviceable'];
+
+function cycleArchive(e) {
+    if (e) e.stopPropagation();
+    archiveState = (archiveState + 1) % 2;
+    document.getElementById('archiveColLabel').textContent = archiveLabels[archiveState];
+    
+    document.querySelectorAll('td[data-col="archived"]').forEach(td => {
+        const maintSpan = td.querySelector('.maint-count-span');
+        const unservSpan = td.querySelector('.unserv-count-span');
+        if (maintSpan && unservSpan) {
+            if (archiveState === 0) {
+                maintSpan.style.display = 'inline-flex';
+                unservSpan.style.display = 'none';
+            } else {
+                maintSpan.style.display = 'none';
+                unservSpan.style.display = 'inline-flex';
+            }
+        }
+    });
+}
+
+// ── ACTIVITY COLUMN TOGGLE ──
+let activityState = 0; // 0=active, 1=inactive
+const activityLabels = ['Active', 'Inactive'];
+
+function cycleActivity(e) {
+    if (e) e.stopPropagation();
+    activityState = (activityState + 1) % 2;
+    document.getElementById('activityColLabel').textContent = activityLabels[activityState];
+    
+    document.querySelectorAll('td[data-col="activity"]').forEach(td => {
+        const activeSpan = td.querySelector('.active-count-span');
+        const inactiveSpan = td.querySelector('.inactive-count-span');
+        if (activeSpan && inactiveSpan) {
+            if (activityState === 0) {
+                activeSpan.style.display = 'inline-flex';
+                inactiveSpan.style.display = 'none';
+            } else {
+                activeSpan.style.display = 'none';
+                inactiveSpan.style.display = 'inline-flex';
+            }
+        }
     });
 }
 
@@ -1211,14 +1331,18 @@ function toggleEditMode() {
         });
 
         document.querySelectorAll('.editable-input').forEach(input => {
-            const viewEl = input.previousElementSibling;
-            if (!viewEl) return;
+            const td = input.closest('td');
+            const col = td.getAttribute('data-col');
             const val = input.value.trim();
-            const field = input.getAttribute('onblur') || '';
-            if (field.includes('cost')) {
-                viewEl.textContent = val ? '₹' + parseFloat(val).toLocaleString('en-IN') : '—';
+            if (col === 'stock') {
+                syncStockDisplay(td, val);
+            } else if (col === 'cost') {
+                syncCostDisplay(td, val);
             } else {
-                if (val) viewEl.textContent = val;
+                const viewEl = input.previousElementSibling;
+                if (viewEl) {
+                    viewEl.textContent = val || '—';
+                }
             }
         });
 
@@ -1290,21 +1414,15 @@ function saveItemField(input, itemId, field) {
     .then(r => r.json())
     .then(data => {
         if (data.success) {
-            const viewEl = input.previousElementSibling;
-            if (viewEl) {
-                if (field === 'cost') {
-                    viewEl.textContent = val ? '₹' + parseFloat(val).toLocaleString('en-IN') : '—';
-                    // Update data attrs for toggle
-                    input.closest('td').setAttribute('data-cpu', val || 0);
-                } else if (field === 'total_count') {
-                    viewEl.textContent = val || '0';
-                    const td = input.closest('td');
-                    if (td) {
-                        td.setAttribute('data-available', val || 0);
-                        const assigned = parseInt(td.getAttribute('data-assigned') || '0', 10);
-                        td.setAttribute('data-total', (parseInt(val || '0', 10) + assigned).toString());
-                    }
-                } else {
+            const td = input.closest('td');
+            const col = td.getAttribute('data-col');
+            if (col === 'stock') {
+                syncStockDisplay(td, val);
+            } else if (col === 'cost') {
+                syncCostDisplay(td, val);
+            } else {
+                const viewEl = input.previousElementSibling;
+                if (viewEl) {
                     viewEl.textContent = val || '—';
                 }
             }

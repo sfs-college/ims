@@ -111,10 +111,10 @@
     color: var(--accent);
   }
 
-  /* ── Nav Cards Grid — strict 2 columns ── */
+  /* ── Nav Cards Grid — responsive grid ── */
   .nav-grid {
     display: grid;
-    grid-template-columns: repeat(2, 1fr);
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
     gap: 14px;
   }
 
@@ -216,6 +216,35 @@
     </div>
     <div class="dash-header-right">
 
+      <!-- Room Switcher Dropdown -->
+      {% if request.user.profile.rooms_incharge.all %}
+      <div class="dropdown">
+        <button class="btn dropdown-toggle select-report" type="button" data-bs-toggle="dropdown" aria-expanded="false"
+                style="background: var(--surface); border: 1.5px solid var(--border); border-radius: 12px; padding: 9px 16px; font-size: 13.5px; font-weight: 600; color: var(--text); display: flex; align-items: center; gap: 8px; box-shadow: 0 2px 6px rgba(0,0,0,0.05); transition: all 0.16s ease; text-decoration: none;">
+          <span class="material-symbols-outlined" style="font-size:18px; color: var(--accent); vertical-align: middle;">meeting_room</span>
+          <span>Switch Room</span>
+        </button>
+        <ul class="dropdown-menu dropdown-menu-end shadow" style="border-radius: 12px; border: 1px solid rgba(0,0,0,0.08); padding: 6px 0; min-width: 220px; font-family: 'DM Sans', sans-serif;">
+          {% for r in request.user.profile.rooms_incharge.all %}
+            <li>
+              <a class="dropdown-item {% if r.slug == room_slug %}active{% endif %}"
+                 href="{% url 'room_incharge:room_dashboard' room_slug=r.slug %}"
+                 style="padding: 10px 18px; font-weight: 500; font-size: 13.5px; display: flex; align-items: center; justify-content: space-between;"
+                 onclick="if(window.IS_CAPACITOR||(window.Capacitor&&window.Capacitor.isNativePlatform&&window.Capacitor.isNativePlatform())){event.preventDefault();window.location.href=this.href;}">
+                <span>
+                  {% if r.label %}<span style="font-size:0.75rem;font-weight:700;color:#6c63ff;margin-right:6px;background:rgba(108,99,255,0.1);padding:2px 6px;border-radius:5px;">{{ r.label }}</span>{% endif %}
+                  {{ r.room_name }}
+                </span>
+                {% if r.slug == room_slug %}
+                  <i class="bi bi-check-circle-fill text-primary" style="font-size: 14px; margin-left: 8px;"></i>
+                {% endif %}
+              </a>
+            </li>
+          {% endfor %}
+        </ul>
+      </div>
+      {% endif %}
+
       <!-- Notifications Bell Icon -->
       <a href="{% url 'room_incharge:notifications' room_slug=room_slug %}"
          class="bell-btn" title="Notifications">
@@ -240,57 +269,44 @@
   </div>
 
   <div class="nav-grid">
-
-    {% if room_settings.categories_tab %}
-    <a href="{% url 'room_incharge:category_list' room_slug=room_slug %}" class="nav-card card-purple">
-      <span class="nav-card-icon"><span class="material-symbols-outlined">category</span></span>
-      <span class="nav-card-label">Categories</span>
-      <p class="nav-card-desc">Manage item categories in this room.</p>
+    {% for r in request.user.profile.rooms_incharge.all %}
+    <a href="{% url 'room_incharge:room_dashboard' room_slug=r.slug %}"
+       class="nav-card"
+       style="{% if r.slug == room_slug %}border: 1.5px solid var(--accent); box-shadow: 0 4px 18px rgba(108,99,255,0.12);{% endif %} text-decoration: none; padding-bottom: {% if r.slug == room_slug %}36px{% else %}20px{% endif %};"
+       onclick="if(window.IS_CAPACITOR||(window.Capacitor&&window.Capacitor.isNativePlatform&&window.Capacitor.isNativePlatform())){event.preventDefault();window.location.href=this.href;}">
+      <div style="display: flex; align-items: center; justify-content: space-between; width: 100%;">
+        <span class="nav-card-icon" style="background: rgba(108,99,255,0.08); width: 42px; height: 42px; border-radius: 10px; display: flex; align-items: center; justify-content: center;">
+          <span class="material-symbols-outlined" style="font-size: 22px; color: var(--accent);">meeting_room</span>
+        </span>
+        {% if r.label %}
+          <span style="background: rgba(108,99,255,0.08); color: var(--accent); border: 1px solid rgba(108,99,255,0.15); border-radius: 6px; font-size: 11px; font-weight: 700; padding: 2px 8px; font-family: 'DM Sans', sans-serif;">{{ r.label }}</span>
+        {% endif %}
+      </div>
+      <div style="margin-top: 6px;">
+        <span class="nav-card-label" style="font-size: 16px; font-weight: 700; color: var(--text); display: block;">{{ r.room_name }}</span>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 4px; margin-top: 6px; border-top: 1px solid var(--border); padding-top: 8px; width: 100%;">
+        <div style="display: flex; align-items: center; gap: 6px; font-size: 12.5px; color: var(--text-muted);">
+          <span class="material-symbols-outlined" style="font-size: 15px; color: var(--accent);">schema</span>
+          <span>Department: <strong style="color: var(--text); font-weight: 500;">{{ r.department.department_name|default:"—" }}</strong></span>
+        </div>
+        <div style="display: flex; align-items: center; gap: 6px; font-size: 12.5px; color: var(--text-muted);">
+          <span class="material-symbols-outlined" style="font-size: 15px; color: var(--accent);">tag</span>
+          <span>Category: <strong style="color: var(--text); font-weight: 500;">{{ r.get_room_category_display|default:"—" }}</strong></span>
+        </div>
+        <div style="display: flex; align-items: center; gap: 6px; font-size: 12.5px; color: var(--text-muted);">
+          <span class="material-symbols-outlined" style="font-size: 15px; color: var(--accent);">groups</span>
+          <span>Capacity: <strong style="color: var(--text); font-weight: 500;">{{ r.capacity|default:"—" }}</strong></span>
+        </div>
+      </div>
+      {% if r.slug == room_slug %}
+      <div style="position: absolute; bottom: 10px; right: 12px; display: flex; align-items: center; gap: 4px; background: rgba(16,185,129,0.08); border: 1px solid rgba(16,185,129,0.2); border-radius: 20px; padding: 2px 10px;">
+        <span style="background: #10b981; width: 6px; height: 6px; display: inline-block; border-radius: 50%;"></span>
+        <span style="font-size: 10px; font-weight: 800; color: #10b981; text-transform: uppercase; letter-spacing: 0.05em;">Currently Active</span>
+      </div>
+      {% endif %}
     </a>
-    {% endif %}
-
-    {% if room_settings.brands_tab %}
-    <a href="{% url 'room_incharge:brand_list' room_slug=room_slug %}" class="nav-card card-teal">
-      <span class="nav-card-icon"><span class="material-symbols-outlined">branding_watermark</span></span>
-      <span class="nav-card-label">Brands</span>
-      <p class="nav-card-desc">Manage brands of items in this room.</p>
-    </a>
-    {% endif %}
-
-    {% if room_settings.items_tab %}
-    <a href="{% url 'room_incharge:item_list' room_slug=room_slug %}" class="nav-card card-blue">
-      <span class="nav-card-icon"><span class="material-symbols-outlined">inventory_2</span></span>
-      <span class="nav-card-label">Items</span>
-      <p class="nav-card-desc">Manage items and stock in this room.</p>
-    </a>
-    {% endif %}
-
-    {% if room_settings.systems_tab %}
-    <a href="{% url 'room_incharge:system_list' room_slug=room_slug %}" class="nav-card card-indigo">
-      <span class="nav-card-icon"><span class="material-symbols-outlined">view_kanban</span></span>
-      <span class="nav-card-label">Systems</span>
-      <p class="nav-card-desc">Manage active, inactive and archived items.</p>
-    </a>
-    {% endif %}
-
-    <a href="{% url 'room_incharge:configurations_list' room_slug=room_slug %}" class="nav-card card-purple">
-      <span class="nav-card-icon"><span class="material-symbols-outlined">settings_applications</span></span>
-      <span class="nav-card-label">Configurations</span>
-      <p class="nav-card-desc">Manage item spec configurations for this room.</p>
-    </a>
-
-    <a href="{% url 'room_incharge:archive_list' room_slug=room_slug %}" class="nav-card card-amber">
-      <span class="nav-card-icon"><span class="material-symbols-outlined">inventory</span></span>
-      <span class="nav-card-label">Archives</span>
-      <p class="nav-card-desc">View archived items in this room.</p>
-    </a>
-
-    <a href="{% url 'room_incharge:issue_list' room_slug=room_slug %}" class="nav-card card-rose">
-      <span class="nav-card-icon"><span class="material-symbols-outlined">report</span></span>
-      <span class="nav-card-label">Issues</span>
-      <p class="nav-card-desc">Manage issues reported in this room.</p>
-    </a>
-
+    {% endfor %}
   </div>
 </section>
 {% endblock content %}

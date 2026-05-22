@@ -54,6 +54,10 @@ class RoomSettings(models.Model):
     systems_tab = models.BooleanField(default=True)
     categories_tab = models.BooleanField(default=True)
     brands_tab = models.BooleanField(default=True)
+    configurations_tab = models.BooleanField(default=True)
+    archives_tab = models.BooleanField(default=True)
+    issues_tab = models.BooleanField(default=True)
+    notifications_tab = models.BooleanField(default=True)
     
     def __str__(self):
         return f"{self.room.room_name} settings"

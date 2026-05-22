@@ -125,10 +125,17 @@ class RoomSettingsForm(form_mixin.BootstrapFormMixin, forms.ModelForm):
     systems_tab = forms.BooleanField(widget=forms.CheckboxInput(attrs={'class': 'form-check-input'}), required=False)
     categories_tab = forms.BooleanField(widget=forms.CheckboxInput(attrs={'class': 'form-check-input'}), required=False)
     brands_tab = forms.BooleanField(widget=forms.CheckboxInput(attrs={'class': 'form-check-input'}), required=False)
+    configurations_tab = forms.BooleanField(widget=forms.CheckboxInput(attrs={'class': 'form-check-input'}), required=False)
+    archives_tab = forms.BooleanField(widget=forms.CheckboxInput(attrs={'class': 'form-check-input'}), required=False)
+    issues_tab = forms.BooleanField(widget=forms.CheckboxInput(attrs={'class': 'form-check-input'}), required=False)
+    notifications_tab = forms.BooleanField(widget=forms.CheckboxInput(attrs={'class': 'form-check-input'}), required=False)
 
     class Meta:
         model = RoomSettings
-        fields = ['items_tab', 'item_groups_tab', 'systems_tab', 'categories_tab', 'brands_tab']
+        fields = [
+            'items_tab', 'item_groups_tab', 'systems_tab', 'categories_tab', 'brands_tab',
+            'configurations_tab', 'archives_tab', 'issues_tab', 'notifications_tab'
+        ]
         
 
 class ExcelUploadForm(forms.Form):
