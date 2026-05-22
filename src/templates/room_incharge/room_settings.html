@@ -52,12 +52,28 @@
         <label class="toggle-switch"><input type="checkbox" name="systems_tab" id="id_systems_tab" {% if form.systems_tab.value %}checked{% endif %}><span class="toggle-slider"></span></label>
       </div>
       <div class="toggle-row">
+        <div><div class="toggle-label">Configurations Tab</div><div class="toggle-sub">Show configuration patterns management</div></div>
+        <label class="toggle-switch"><input type="checkbox" name="configurations_tab" id="id_configurations_tab" {% if form.configurations_tab.value %}checked{% endif %}><span class="toggle-slider"></span></label>
+      </div>
+      <div class="toggle-row">
+        <div><div class="toggle-label">Archives Tab</div><div class="toggle-sub">Show archived/unserviceable inventory items</div></div>
+        <label class="toggle-switch"><input type="checkbox" name="archives_tab" id="id_archives_tab" {% if form.archives_tab.value %}checked{% endif %}><span class="toggle-slider"></span></label>
+      </div>
+      <div class="toggle-row">
         <div><div class="toggle-label">Categories Tab</div><div class="toggle-sub">Show item categories management</div></div>
         <label class="toggle-switch"><input type="checkbox" name="categories_tab" id="id_categories_tab" {% if form.categories_tab.value %}checked{% endif %}><span class="toggle-slider"></span></label>
       </div>
       <div class="toggle-row">
         <div><div class="toggle-label">Brands Tab</div><div class="toggle-sub">Show brands management</div></div>
         <label class="toggle-switch"><input type="checkbox" name="brands_tab" id="id_brands_tab" {% if form.brands_tab.value %}checked{% endif %}><span class="toggle-slider"></span></label>
+      </div>
+      <div class="toggle-row">
+        <div><div class="toggle-label">Issues Tab</div><div class="toggle-sub">Show maintenance and support issue logs</div></div>
+        <label class="toggle-switch"><input type="checkbox" name="issues_tab" id="id_issues_tab" {% if form.issues_tab.value %}checked{% endif %}><span class="toggle-slider"></span></label>
+      </div>
+      <div class="toggle-row">
+        <div><div class="toggle-label">Notifications Tab</div><div class="toggle-sub">Show real-time updates and notifications</div></div>
+        <label class="toggle-switch"><input type="checkbox" name="notifications_tab" id="id_notifications_tab" {% if form.notifications_tab.value %}checked{% endif %}><span class="toggle-slider"></span></label>
       </div>
       <button type="submit" class="btn-save"><i class="bi bi-check-circle me-2"></i>Save Settings</button>
     </form>

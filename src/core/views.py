@@ -290,8 +290,7 @@ class ResetPasswordView(PasswordResetView):
             from django.contrib import messages as _msgs
             _msgs.error(
                 self.request,
-                "We could not send the password reset email at this time. "
-                "Please try again later or contact your administrator."
+                f"We could not send the password reset email: {str(e)}"
             )
             return self.form_invalid(form)
 

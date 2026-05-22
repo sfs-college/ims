@@ -304,3 +304,63 @@ class CustomPasswordResetForm(PasswordResetForm):
             raise ValidationError('No account found with this email address.')
             
         return email
+
+    def save(
+        self,
+        domain_override=None,
+        subject_template_name="registration/password_reset_subject.txt",
+        email_template_name="registration/password_reset_email.html",
+        use_https=False,
+        token_generator=None,
+        from_email=None,
+        request=None,
+        html_email_template_name=None,
+        extra_email_context=None,
+    ):
+        """
+        Generate a one-time use-link for resetting a password and send it to the user
+        using safe_send_mail to prevent any connection or SMTP errors.
+        """
+        from django.contrib.auth.tokens import default_token_generator
+        from django.utils.http import urlsafe_base64_encode
+        from django.utils.encoding import force_bytes
+        from django.urls import reverse
+        from django.conf import settings
+        from inventory.email import safe_send_mail
+        
+        email = self.cleaned_data.get("email")
+        if not email:
+            return
+            
+        token_generator = token_generator or default_token_generator
+        
+        active_users = User.objects.filter(email__iexact=email, is_active=True)
+        for user in active_users:
+            token = token_generator.make_token(user)
+            uid = urlsafe_base64_encode(force_bytes(user.pk))
+            
+            domain = getattr(settings, 'SITE_URL', 'http://localhost:8000')
+            if domain.endswith('/'):
+                domain = domain.rstrip('/')
+            
+            reset_link = f"{domain}{reverse('core:confirm_password_reset', kwargs={'uidb64': uid, 'token': token})}"
+            
+            subject = "Reset Your Blixtro Password"
+            message = (
+                "Hi,\n\n"
+                "We received a request to reset the password for your account on the SFS College Inventory Management System (Blixtro IMS):\n\n"
+                f"{reset_link}\n\n"
+                "If you did not request this change, you can safely ignore this email.\n\n"
+                "Best regards,\nSFS IMS Team"
+            )
+            
+            # Send using our production-safe Mailjet API sender
+            success = safe_send_mail(
+                subject=subject,
+                message=message,
+                recipient_list=[user.email],
+                from_email=from_email or getattr(settings, 'DEFAULT_FROM_EMAIL', 'noreply@sfscollege.in'),
+                fail_silently=False,
+            )
+            if not success:
+                raise Exception("Email delivery failed via Mailjet API. Please verify the mail settings or contact system administrator.")

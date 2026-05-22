@@ -95,11 +95,20 @@
             <th class="text-center">Available Stock</th>
             <th class="text-center">Cost / Unit</th>
             <th class="text-center">Assigned</th>
-            <th class="text-center">Archived</th>
-            <th class="text-center">
-              <div class="comp-toggle-header" onclick="cycleCompStatus()">
-                <span id="compStatusLabel">Inactive</span>
-                <span class="comp-toggle-btn"><i class="bi bi-arrow-repeat"></i></span>
+            <th class="text-center" style="min-width:180px; vertical-align:middle;">
+              <div class="comp-toggle-header" onclick="cycleArchiveView(event)" style="display:flex; align-items:center; justify-content:center; gap:6px; cursor:pointer; user-select:none; white-space:nowrap;">
+                <span id="archiveColLabel">Under Maintenance</span>
+                <span class="comp-toggle-btn" style="display:inline-flex; align-items:center; gap:3px; padding:2px 8px; border-radius:12px; font-size:0.65rem; font-weight:700; border:1.5px solid currentColor; transition:all 0.15s; background:white; color:var(--accent); cursor:pointer;">
+                  <i class="bi bi-arrow-repeat"></i>
+                </span>
+              </div>
+            </th>
+            <th class="text-center" style="min-width:140px; vertical-align:middle;">
+              <div class="comp-toggle-header" onclick="cycleActivityView(event)" style="display:flex; align-items:center; justify-content:center; gap:6px; cursor:pointer; user-select:none; white-space:nowrap;">
+                <span id="activityColLabel">Active</span>
+                <span class="comp-toggle-btn" style="display:inline-flex; align-items:center; gap:3px; padding:2px 8px; border-radius:12px; font-size:0.65rem; font-weight:700; border:1.5px solid currentColor; transition:all 0.15s; background:white; color:var(--accent); cursor:pointer;">
+                  <i class="bi bi-arrow-repeat"></i>
+                </span>
               </div>
             </th>
           </tr>
@@ -114,7 +123,7 @@
             <td class="text-center"><input id="manualTotalCount" class="form-control form-control-sm d-inline-block" style="width:96px;" type="number" min="0" step="1" value="0"></td>
             <td class="text-center"><input id="manualCost" class="form-control form-control-sm d-inline-block" style="width:96px;" type="number" min="0" step="0.01"></td>
             <td class="text-center"><span class="mi-badge">0</span></td>
-            <td class="text-center"><span class="mi-badge">0</span></td>
+            <td class="text-center"><span class="mi-badge">-</span></td>
             <td class="text-center">
               <button class="btn btn-sm btn-success" type="button" onclick="submitManualEntry(this)"><i class="bi bi-check-lg"></i></button>
               <button class="btn btn-sm btn-outline-secondary" type="button" onclick="hideManualEntryRow()"><i class="bi bi-x-lg"></i></button>
@@ -123,7 +132,7 @@
           </tr>
           {% endif %}
           {% for data in items_data %}
-          <tr>
+          <tr data-item-id="{{ data.item.id }}">
             <td>
               <span class="mi-view">{{ data.item.product_code|default:"-" }}</span>
               {% if can_edit %}<input class="mi-edit form-control form-control-sm" value="{{ data.item.product_code|default:'' }}" maxlength="12" onblur="saveProductCode(this, {{ data.item.id }})">{% endif %}
@@ -149,12 +158,25 @@
               {% if can_edit %}<input class="mi-edit form-control form-control-sm text-center" style="width:96px;" type="number" min="0" step="0.01" value="{{ data.cpu|default:'' }}" onblur="saveItemField(this, {{ data.item.id }}, 'cost')">{% endif %}
             </td>
             <td class="text-center"><span class="mi-badge">{{ data.assigned_count }}</span></td>
-            <td class="text-center"><span class="mi-badge">{{ data.archived_count }}</span></td>
-            <td class="text-center"
-                data-inactive="{{ data.inactive_count }}"
+            <td data-col="archived" class="text-center"
                 data-maintenance="{{ data.under_maintenance_count }}"
-                data-disposed="{{ data.disposed_count }}">
-              <span class="mi-badge compstatus-display" style="background:#fef2f2;color:#991b1b;border:1px solid #fecaca;">{{ data.inactive_count }}</span>
+                data-unserviceable="{{ data.not_serviceable_count }}">
+              <span class="mi-badge maint-count-span" style="background:#fff7ed; color:#c2410c; border:1px solid #fed7aa;">
+                <i class="bi bi-tools me-1"></i>{{ data.under_maintenance_count }}
+              </span>
+              <span class="mi-badge unserv-count-span" style="display:none; background:#fef2f2; color:#991b1b; border:1px solid #fecaca;">
+                <i class="bi bi-x-circle me-1"></i>{{ data.not_serviceable_count }}
+              </span>
+            </td>
+            <td data-col="activity" class="text-center"
+                data-active="{{ data.active_count }}"
+                data-inactive="{{ data.inactive_count }}">
+              <span class="mi-badge active-count-span" style="background:#f0fdf4; color:#16a34a; border:1px solid #bbf7d0;">
+                {{ data.active_count }}
+              </span>
+              <span class="mi-badge inactive-count-span" style="display:none; background:#fef2f2; color:#991b1b; border:1px solid #fecaca;">
+                {{ data.inactive_count }}
+              </span>
             </td>
           </tr>
           {% empty %}
@@ -183,25 +205,67 @@ function toggleEditMode() {
     btn.classList.toggle('mi-btn-primary', editing);
     btn.classList.toggle('mi-btn-edit', !editing);
   }
+  if (!editing) {
+    // Sync all view elements from current input values
+    document.querySelectorAll('#inventoryTable tbody tr').forEach(tr => {
+      tr.querySelectorAll('input.mi-edit').forEach(input => {
+        const viewEl = input.previousElementSibling;
+        if (viewEl) {
+          viewEl.textContent = input.value.trim() || '-';
+        }
+      });
+    });
+  }
 }
-// ── Comp status toggle ──
-let _compState = 0;
-const _compLabels = ['Inactive', 'Under Maintenance', 'Disposed'];
-const _compKeys   = ['inactive', 'maintenance', 'disposed'];
-const _compStyles = [
-  'background:#fef2f2;color:#991b1b;border:1px solid #fecaca;',
-  'background:#fff7ed;color:#c2410c;border:1px solid #fed7aa;',
-  'background:#f1f5f9;color:#475569;border:1px solid #e2e8f0;',
-];
-function cycleCompStatus() {
-  _compState = (_compState + 1) % 3;
-  document.getElementById('compStatusLabel').textContent = _compLabels[_compState];
-  document.querySelectorAll('.compstatus-display').forEach(span => {
-    const td = span.closest('td');
-    span.textContent = td.getAttribute('data-' + _compKeys[_compState]);
-    span.style.cssText = _compStyles[_compState];
+
+// ── Archive column toggle ──
+let archiveState = 0; // 0=maintenance, 1=unserviceable
+const archiveLabels = ['Under Maintenance', 'Not Serviceable'];
+
+function cycleArchiveView(e) {
+  if (e) e.stopPropagation();
+  archiveState = (archiveState + 1) % 2;
+  document.getElementById('archiveColLabel').textContent = archiveLabels[archiveState];
+  
+  document.querySelectorAll('td[data-col="archived"]').forEach(td => {
+    const maintSpan = td.querySelector('.maint-count-span');
+    const unservSpan = td.querySelector('.unserv-count-span');
+    if (maintSpan && unservSpan) {
+      if (archiveState === 0) {
+        maintSpan.style.display = 'inline-flex';
+        unservSpan.style.display = 'none';
+      } else {
+        maintSpan.style.display = 'none';
+        unservSpan.style.display = 'inline-flex';
+      }
+    }
   });
 }
+
+// ── Activity column toggle ──
+let activityState = 0; // 0=active, 1=inactive
+const activityLabels = ['Active', 'Inactive'];
+
+function cycleActivityView(e) {
+  if (e) e.stopPropagation();
+  activityState = (activityState + 1) % 2;
+  document.getElementById('activityColLabel').textContent = activityLabels[activityState];
+  
+  document.querySelectorAll('td[data-col="activity"]').forEach(td => {
+    const activeSpan = td.querySelector('.active-count-span');
+    const inactiveSpan = td.querySelector('.inactive-count-span');
+    if (activeSpan && inactiveSpan) {
+      if (activityState === 0) {
+        activeSpan.style.display = 'inline-flex';
+        inactiveSpan.style.display = 'none';
+      } else {
+        activeSpan.style.display = 'none';
+        inactiveSpan.style.display = 'inline-flex';
+      }
+    }
+  });
+}
+
 function showManualEntryRow() {
   const row = document.getElementById('manualEntryRow');
   if (row) row.style.display = '';
@@ -246,23 +310,43 @@ function submitManualEntry(btn) {
   });
 }
 function saveProductCode(input, itemId) {
+  const val = input.value.trim();
   fetch('{% url "room_incharge:save_product_code" room_slug=room_slug %}', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCsrf() },
-    body: JSON.stringify({ item_id: itemId, product_code: input.value.trim() }),
+    body: JSON.stringify({ item_id: itemId, product_code: val }),
   }).then(r => r.json()).then(data => {
-    if (!data.success) alert(data.error || 'Save failed.');
+    if (!data.success) {
+      alert(data.error || 'Save failed.');
+    } else {
+      const viewEl = input.previousElementSibling;
+      if (viewEl) {
+        viewEl.textContent = val || '-';
+      }
+      input.style.borderColor = '#059669';
+      setTimeout(() => { input.style.borderColor = ''; }, 1500);
+    }
   });
 }
 function saveItemField(input, itemId, field) {
+  const val = input.value.trim();
   const payload = { item_id: itemId };
-  payload[field] = input.value.trim();
+  payload[field] = val;
   fetch('{% url "room_incharge:save_item_edit" room_slug=room_slug %}', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCsrf() },
     body: JSON.stringify(payload),
   }).then(r => r.json()).then(data => {
-    if (!data.success) alert(data.error || 'Save failed.');
+    if (!data.success) {
+      alert(data.error || 'Save failed.');
+    } else {
+      const viewEl = input.previousElementSibling;
+      if (viewEl) {
+        viewEl.textContent = val || '-';
+      }
+      input.style.borderColor = '#059669';
+      setTimeout(() => { input.style.borderColor = ''; }, 1500);
+    }
   });
 }
 </script>

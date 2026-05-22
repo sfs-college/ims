@@ -37,17 +37,34 @@ class CategoryListView(LoginRequiredMixin, ListView):
 
     def get_queryset(self):
         room_slug = self.kwargs['room_slug']
-        room = get_object_or_404(Room, slug=room_slug, incharge=self.request.user.profile)
-        return super().get_queryset().filter(room=room, organisation=self.request.user.profile.org)
+        profile = self.request.user.profile
+        if profile.is_central_admin or profile.is_sub_admin:
+            room = get_object_or_404(Room, slug=room_slug, organisation=profile.org)
+        else:
+            room = get_object_or_404(Room, slug=room_slug, incharge=profile)
+        return super().get_queryset().filter(room=room, organisation=profile.org).annotate(
+            item_count=Count('item')
+        ).order_by('category_name')
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        room = get_object_or_404(Room, slug=self.kwargs['room_slug'], incharge=self.request.user.profile)
-        context['room_slug'] = self.kwargs['room_slug']
+        room_slug = self.kwargs['room_slug']
+        profile = self.request.user.profile
+        if profile.is_central_admin or profile.is_sub_admin:
+            room = get_object_or_404(Room, slug=room_slug, organisation=profile.org)
+        else:
+            room = get_object_or_404(Room, slug=room_slug, incharge=profile)
+        context['room_slug'] = room_slug
         context['room_settings'] = RoomSettings.objects.get_or_create(room=room)[0]
         return context
 
 class CategoryUpdateView(LoginRequiredMixin, UpdateView):
+    def dispatch(self, request, *args, **kwargs):
+        profile = getattr(request.user, 'profile', None)
+        if not profile or not (profile.is_central_admin or profile.is_sub_admin):
+            return HttpResponseForbidden("Only administrators can add or edit categories.")
+        return super().dispatch(request, *args, **kwargs)
+
     model = Category
     template_name = 'room_incharge/category_update.html'
     form_class = CategoryForm
@@ -60,19 +77,27 @@ class CategoryUpdateView(LoginRequiredMixin, UpdateView):
 
     def form_valid(self, form):
         category = form.save(commit=False)
-        category.organisation = self.request.user.profile.org
-        category.room = Room.objects.get(slug=self.kwargs['room_slug'])
+        profile = self.request.user.profile
+        category.organisation = profile.org
+        category.room = get_object_or_404(Room, slug=self.kwargs['room_slug'], organisation=profile.org)
         category.save()
         return redirect(self.get_success_url())
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        room = Room.objects.get(slug=self.kwargs['room_slug'])
+        profile = self.request.user.profile
+        room = get_object_or_404(Room, slug=self.kwargs['room_slug'], organisation=profile.org)
         context['room_slug'] = self.kwargs['room_slug']
         context['room_settings'] = RoomSettings.objects.get_or_create(room=room)[0]
         return context
 
 class CategoryCreateView(LoginRequiredMixin, CreateView):
+    def dispatch(self, request, *args, **kwargs):
+        profile = getattr(request.user, 'profile', None)
+        if not profile or not (profile.is_central_admin or profile.is_sub_admin):
+            return HttpResponseForbidden("Only administrators can add or edit categories.")
+        return super().dispatch(request, *args, **kwargs)
+
     model = Category
     template_name = 'room_incharge/category_create.html'
     form_class = CategoryForm
@@ -83,19 +108,22 @@ class CategoryCreateView(LoginRequiredMixin, CreateView):
 
     def form_valid(self, form):
         category = form.save(commit=False)
-        category.organisation = self.request.user.profile.org
-        category.room = Room.objects.get(slug=self.kwargs['room_slug'])
+        profile = self.request.user.profile
+        category.organisation = profile.org
+        category.room = get_object_or_404(Room, slug=self.kwargs['room_slug'], organisation=profile.org)
         category.save()
         return redirect(self.get_success_url())
 
     def get_form_kwargs(self):
         kwargs = super().get_form_kwargs()
-        kwargs['initial']['room'] = Room.objects.get(slug=self.kwargs['room_slug'])
+        profile = self.request.user.profile
+        kwargs['initial']['room'] = get_object_or_404(Room, slug=self.kwargs['room_slug'], organisation=profile.org)
         return kwargs
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        room = Room.objects.get(slug=self.kwargs['room_slug'])
+        profile = self.request.user.profile
+        room = get_object_or_404(Room, slug=self.kwargs['room_slug'], organisation=profile.org)
         context['room_slug'] = self.kwargs['room_slug']
         context['room_settings'] = RoomSettings.objects.get_or_create(room=room)[0]
         return context
@@ -145,16 +173,34 @@ class BrandListView(LoginRequiredMixin, ListView):
 
     def get_queryset(self):
         room_slug = self.kwargs['room_slug']
-        return super().get_queryset().filter(room__slug=room_slug, organisation=self.request.user.profile.org)
+        profile = self.request.user.profile
+        if profile.is_central_admin or profile.is_sub_admin:
+            room = get_object_or_404(Room, slug=room_slug, organisation=profile.org)
+        else:
+            room = get_object_or_404(Room, slug=room_slug, incharge=profile)
+        return super().get_queryset().filter(room=room, organisation=profile.org).annotate(
+            item_count=Count('item')
+        ).order_by('brand_name')
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        room = Room.objects.get(slug=self.kwargs['room_slug'])
-        context['room_slug'] = self.kwargs['room_slug']
+        room_slug = self.kwargs['room_slug']
+        profile = self.request.user.profile
+        if profile.is_central_admin or profile.is_sub_admin:
+            room = get_object_or_404(Room, slug=room_slug, organisation=profile.org)
+        else:
+            room = get_object_or_404(Room, slug=room_slug, incharge=profile)
+        context['room_slug'] = room_slug
         context['room_settings'] = RoomSettings.objects.get_or_create(room=room)[0]
         return context
 
 class BrandCreateView(LoginRequiredMixin, CreateView):
+    def dispatch(self, request, *args, **kwargs):
+        profile = getattr(request.user, 'profile', None)
+        if not profile or not (profile.is_central_admin or profile.is_sub_admin):
+            return HttpResponseForbidden("Only administrators can add or edit brands.")
+        return super().dispatch(request, *args, **kwargs)
+
     model = Brand
     template_name = 'room_incharge/brand_create.html'
     form_class = BrandForm
@@ -165,24 +211,33 @@ class BrandCreateView(LoginRequiredMixin, CreateView):
 
     def form_valid(self, form):
         brand = form.save(commit=False)
-        brand.organisation = self.request.user.profile.org
-        brand.room = Room.objects.get(slug=self.kwargs['room_slug'])
+        profile = self.request.user.profile
+        brand.organisation = profile.org
+        brand.room = get_object_or_404(Room, slug=self.kwargs['room_slug'], organisation=profile.org)
         brand.save()
         return redirect(self.get_success_url())
 
     def get_form_kwargs(self):
         kwargs = super().get_form_kwargs()
-        kwargs['initial']['room'] = Room.objects.get(slug=self.kwargs['room_slug'])
+        profile = self.request.user.profile
+        kwargs['initial']['room'] = get_object_or_404(Room, slug=self.kwargs['room_slug'], organisation=profile.org)
         return kwargs
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        room = Room.objects.get(slug=self.kwargs['room_slug'])
+        profile = self.request.user.profile
+        room = get_object_or_404(Room, slug=self.kwargs['room_slug'], organisation=profile.org)
         context['room_slug'] = self.kwargs['room_slug']
         context['room_settings'] = RoomSettings.objects.get_or_create(room=room)[0]
         return context
 
 class BrandUpdateView(LoginRequiredMixin, UpdateView):
+    def dispatch(self, request, *args, **kwargs):
+        profile = getattr(request.user, 'profile', None)
+        if not profile or not (profile.is_central_admin or profile.is_sub_admin):
+            return HttpResponseForbidden("Only administrators can add or edit brands.")
+        return super().dispatch(request, *args, **kwargs)
+
     model = Brand
     template_name = 'room_incharge/brand_update.html'
     form_class = BrandForm
@@ -195,14 +250,16 @@ class BrandUpdateView(LoginRequiredMixin, UpdateView):
 
     def form_valid(self, form):
         brand = form.save(commit=False)
-        brand.organisation = self.request.user.profile.org
-        brand.room = Room.objects.get(slug=self.kwargs['room_slug'])
+        profile = self.request.user.profile
+        brand.organisation = profile.org
+        brand.room = get_object_or_404(Room, slug=self.kwargs['room_slug'], organisation=profile.org)
         brand.save()
         return redirect(self.get_success_url())
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        room = Room.objects.get(slug=self.kwargs['room_slug'])
+        profile = self.request.user.profile
+        room = get_object_or_404(Room, slug=self.kwargs['room_slug'], organisation=profile.org)
         context['room_slug'] = self.kwargs['room_slug']
         context['room_settings'] = RoomSettings.objects.get_or_create(room=room)[0]
         return context
@@ -1539,7 +1596,7 @@ class RoomReportView(LoginRequiredMixin, View):
 
             with pd.ExcelWriter(excel_buffer, engine='openpyxl') as writer:
                 summary_rows = [{
-                    'Room Name': room.room_name,
+                    'Room Name': f"{room.label} - {room.room_name}" if room.label else room.room_name,
                     'Incharge': f"{room.incharge.first_name} {room.incharge.last_name}" if getattr(room, 'incharge', None) else '',
                     'Department': getattr(room.department, 'department_name', '') if getattr(room, 'department', None) else '',
                     'Created On': fmt_datetime(getattr(room, 'created_on', None)),

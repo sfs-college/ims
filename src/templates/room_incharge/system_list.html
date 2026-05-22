@@ -140,26 +140,7 @@
     </section>
   </div>
 
-  <div class="systems-head" style="margin-top:8px;">
-    <h2 class="systems-title" style="font-size:1.05rem;">Created Systems</h2>
-  </div>
-  {% if systems %}
-  <div class="systems-grid">
-    {% for system in systems %}
-    <article class="system-card">
-      <h5>{{ system.system_name }}</h5>
-      <div class="system-stats">
-        <span class="status-badge active">{{ system.active_component_count }} Active</span>
-        <span class="status-badge inactive">{{ system.inactive_component_count }} Inactive</span>
-        <span class="status-badge archived">{{ system.archived_component_count }} Archived</span>
-      </div>
-      <a class="system-link" href="{% url 'room_incharge:system_component_list' room_slug=room_slug system_slug=system.slug %}">View components</a>
-    </article>
-    {% endfor %}
-  </div>
-  {% else %}
-  <div class="empty" style="background:#fff;border:1px solid var(--border);border-radius:12px;">No systems created yet. Drag items above to get started.</div>
-  {% endif %}
+
 </div>
 <div id="sysToast" class="toast-lite"></div>
 

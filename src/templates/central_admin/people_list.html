@@ -419,16 +419,16 @@
           </td>
           <td data-label="Action">
             <div class="action-buttons mobile-action-group">
-              {% if request.user.profile.is_sub_admin and (person.is_central_admin or person.is_sub_admin) %}
-                <button class="btn-action btn-action-edit" style="opacity: 0.5; cursor: not-allowed;" onclick="alert('Sub Admins are restricted from editing Central Admin and Sub Admin accounts.')">
+              {% if request.user.profile.is_sub_admin and person.is_central_admin or request.user.profile.is_sub_admin and person.is_sub_admin %}
+                <button class="btn-action btn-action-edit" style="opacity: 0.5; cursor: not-allowed;" onclick="showPremiumAlert('Access Restricted', 'Sub Admins are restricted from editing Central Admin and Sub Admin accounts.', 'warning')">
                   <span class="material-symbols-outlined" style="font-size:14px">lock</span>
                   Edit
                 </button>
-                <button class="btn-action btn-action-email" style="opacity: 0.5; cursor: not-allowed;" onclick="alert('Sub Admins are restricted from sending password setup emails to Central Admin and Sub Admin accounts.')">
+                <button class="btn-action btn-action-email" style="opacity: 0.5; cursor: not-allowed;" onclick="showPremiumAlert('Access Restricted', 'Sub Admins are restricted from sending password setup emails to Central Admin and Sub Admin accounts.', 'warning')">
                   <span class="material-symbols-outlined" style="font-size:14px">lock</span>
                   Send Email
                 </button>
-                <button class="btn-action btn-action-delete" style="opacity: 0.5; cursor: not-allowed;" onclick="alert('Sub Admins are restricted from deleting Central Admin and Sub Admin accounts.')">
+                <button class="btn-action btn-action-delete" style="opacity: 0.5; cursor: not-allowed;" onclick="showPremiumAlert('Access Restricted', 'Sub Admins are restricted from deleting Central Admin and Sub Admin accounts.', 'warning')">
                   <span class="material-symbols-outlined" style="font-size:14px">lock</span>
                   Delete
                 </button>
@@ -483,7 +483,6 @@
           <div class="mb-3">
             <label for="editEmail" class="form-label">Email Address</label>
             <input type="email" class="form-control" id="editEmail" name="email" required>
-            <div class="form-text">If email is changed, a password reset link will be sent to the new email address.</div>
           </div>
           
           <div class="mb-3">
@@ -502,7 +501,6 @@
           <div class="alert alert-info d-none" id="emailChangeAlert">
             <strong>Important:</strong> Changing the email address will:
             <ul class="mb-0 mt-2">
-              <li>Send a password reset link to the new email</li>
               <li>Transfer all rooms, items, and issues to the new email</li>
               <li>Maintain the same role and permissions</li>
             </ul>
@@ -511,7 +509,7 @@
       </div>
       <div class="modal-footer">
         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-        <button type="button" class="btn btn-primary" onclick="savePerson()">
+        <button type="button" class="btn btn-primary" id="btn-save-person" onclick="savePerson()">
           <span class="material-symbols-outlined" style="font-size:16px;vertical-align:middle;margin-right:4px">save</span>
           Save Changes
         </button>
@@ -600,6 +598,28 @@
   </div>
 </div>
 
+<!-- Premium Confirmation Modal -->
+<div class="modal fade" id="premiumConfirmModal" tabindex="-1" aria-hidden="true" style="z-index: 1060;">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content" style="border: none; border-radius: 16px; box-shadow: 0 10px 30px rgba(0,0,0,0.15); overflow: hidden;">
+      <div id="premiumConfirmHeader" class="modal-header text-white" style="border: none; padding: 20px 24px; background: linear-gradient(135deg, #6366f1, #8b5cf6);">
+        <h5 class="modal-title d-flex align-items-center" style="font-weight: 700; font-family: 'DM Sans', sans-serif; margin: 0;">
+          <span class="material-symbols-outlined me-2" style="font-size: 28px; vertical-align: middle;">help_outline</span>
+          <span id="premiumConfirmTitle">Confirm Action</span>
+        </h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body" style="padding: 24px; background: #fafafa;">
+        <p id="premiumConfirmMessage" style="font-size: 14.5px; color: #334155; line-height: 1.6; font-family: 'DM Sans', sans-serif; margin-bottom: 0;"></p>
+      </div>
+      <div class="modal-footer" style="border: none; padding: 16px 24px; background: #f1f5f9; display: flex; justify-content: flex-end; gap: 10px;">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" style="border-radius: 8px; padding: 8px 20px; font-weight: 600; font-family: 'DM Sans', sans-serif;">Cancel</button>
+        <button type="button" class="btn text-white" id="premiumConfirmBtn" style="border-radius: 8px; padding: 8px 20px; font-weight: 600; font-family: 'DM Sans', sans-serif; background: linear-gradient(135deg, #6366f1, #8b5cf6);">Confirm</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <script>
 let currentPersonData = null;
 
@@ -636,12 +656,47 @@ window.showPremiumAlert = function(title, message, type) {
   modal.show();
 };
 
+window.showPremiumConfirm = function(title, message, onConfirm) {
+  const modalEl = document.getElementById('premiumConfirmModal');
+  const titleEl = document.getElementById('premiumConfirmTitle');
+  const msgEl = document.getElementById('premiumConfirmMessage');
+  const btn = document.getElementById('premiumConfirmBtn');
+
+  titleEl.textContent = title;
+  msgEl.textContent = message;
+
+  // Clone button to strip old event listeners
+  const newBtn = btn.cloneNode(true);
+  btn.parentNode.replaceChild(newBtn, btn);
+
+  const modal = new bootstrap.Modal(modalEl);
+
+  newBtn.addEventListener('click', function() {
+    modal.hide();
+    if (onConfirm) onConfirm();
+  });
+
+  modal.show();
+};
+
 function sendResetEmail(slug) {
+  showPremiumConfirm(
+    'Confirm Email Dispatch',
+    'Are you sure you want to send the password reset and setup link to this user? This will dispatch an email with the setup link.',
+    function() {
+      executeSendResetEmail(slug);
+    }
+  );
+}
+
+function executeSendResetEmail(slug) {
   const btn = document.getElementById('btn-email-' + slug);
-  if (!btn) return;
-  const originalHtml = btn.innerHTML;
-  btn.disabled = true;
-  btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1" style="width: 12px; height: 12px;"></span>Sending...';
+  let originalHtml = '';
+  if (btn) {
+    originalHtml = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1" style="width: 12px; height: 12px;"></span>Sending...';
+  }
 
   const url = '{% url "central_admin:send_person_reset_email_api" people_slug="SLUG" %}'.replace('SLUG', slug);
   fetch(url, {
@@ -651,21 +706,30 @@ function sendResetEmail(slug) {
       'X-Requested-With': 'XMLHttpRequest'
     }
   })
-  .then(response => response.json())
+  .then(response => {
+    if (!response.ok) {
+      return response.json().then(errData => {
+        throw new Error(errData.error || 'Server error occurred while sending email.');
+      });
+    }
+    return response.json();
+  })
   .then(result => {
     if (result.status === 'success') {
       showPremiumAlert('Email Sent Successfully', result.message, 'success');
     } else {
-      showPremiumAlert('Failed to Send Email', result.error, 'error');
+      showPremiumAlert('Failed to Send Email', result.error || 'Unexpected error occurred.', 'error');
     }
   })
   .catch(error => {
     console.error('Error:', error);
-    showPremiumAlert('Connection Error', 'Could not communicate with the server to trigger the password set email. Please check your network.', 'error');
+    showPremiumAlert('Send Failed', error.message || 'Could not communicate with the server to trigger the password set email. Please check your network.', 'error');
   })
   .finally(() => {
-    btn.disabled = false;
-    btn.innerHTML = originalHtml;
+    if (btn) {
+      btn.disabled = false;
+      btn.innerHTML = originalHtml;
+    }
   });
 }
 
@@ -673,7 +737,14 @@ function openEditModal(slug) {
   // Fetch person data
   const baseUrl = '{% url "central_admin:get_person_api" people_slug="SLUG" %}'.replace('SLUG', slug);
   fetch(baseUrl)
-    .then(response => response.json())
+    .then(response => {
+      if (!response.ok) {
+        return response.json().then(errData => {
+          throw new Error(errData.error || 'Server error occurred while loading details.');
+        });
+      }
+      return response.json();
+    })
     .then(data => {
       if (data.status === 'success') {
         currentPersonData = data.person;
@@ -681,12 +752,12 @@ function openEditModal(slug) {
         const modal = new bootstrap.Modal(document.getElementById('editPersonModal'));
         modal.show();
       } else {
-        showPremiumAlert('Access Warning', 'Error loading person details: ' + data.error, 'warning');
+        showPremiumAlert('Access Warning', 'Error loading person details: ' + (data.error || 'Unknown error'), 'warning');
       }
     })
     .catch(error => {
       console.error('Error:', error);
-      showPremiumAlert('Connection Error', 'Failed to retrieve person details due to a network connection error.', 'error');
+      showPremiumAlert('Connection Error', error.message || 'Failed to retrieve person details due to a network connection error.', 'error');
     });
 }
 
@@ -728,9 +799,11 @@ function savePerson() {
     email_changed: formData.get('email') !== currentPersonData.original_email
   };
   
-  const submitBtn = event.target;
-  submitBtn.disabled = true;
-  submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Saving...';
+  const submitBtn = document.getElementById('btn-save-person');
+  if (submitBtn) {
+    submitBtn.disabled = true;
+    submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Saving...';
+  }
   
   const editUrl = '{% url "central_admin:edit_person_api" people_slug="SLUG" %}'.replace('SLUG', data.slug);
   fetch(editUrl, {
@@ -742,23 +815,34 @@ function savePerson() {
     },
     body: JSON.stringify(data)
   })
-  .then(response => response.json())
+  .then(response => {
+    if (!response.ok) {
+      return response.json().then(errData => {
+        throw new Error(errData.error || 'Server error occurred while saving.');
+      });
+    }
+    return response.json();
+  })
   .then(result => {
     if (result.status === 'success') {
       // Close modal and refresh page
-      bootstrap.Modal.getInstance(document.getElementById('editPersonModal')).hide();
+      const modalEl = document.getElementById('editPersonModal');
+      const instance = bootstrap.Modal.getInstance(modalEl);
+      if (instance) instance.hide();
       location.reload();
     } else {
-      showPremiumAlert('Update Failed', result.error, 'warning');
+      showPremiumAlert('Update Failed', result.error || 'Unexpected error occurred.', 'warning');
     }
   })
   .catch(error => {
     console.error('Error:', error);
-    showPremiumAlert('Server Error', 'Failed to update person details. Please try again later.', 'error');
+    showPremiumAlert('Server Error', error.message || 'Failed to update person details. Please try again later.', 'error');
   })
   .finally(() => {
-    submitBtn.disabled = false;
-    submitBtn.innerHTML = '<span class="material-symbols-outlined" style="font-size:16px;vertical-align:middle;margin-right:4px">save</span>Save Changes';
+    if (submitBtn) {
+      submitBtn.disabled = false;
+      submitBtn.innerHTML = '<span class="material-symbols-outlined" style="font-size:16px;vertical-align:middle;margin-right:4px">save</span>Save Changes';
+    }
   });
 }
 

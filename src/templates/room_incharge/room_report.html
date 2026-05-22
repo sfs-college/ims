@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>{{ room.room_name }} Report</title>
+    <title>{% if room.label %}{{ room.label }} — {% endif %}{{ room.room_name }} Report</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -68,7 +68,7 @@
     </style>
 </head>
 <body>
-    <h1>{{ room.room_name }} Report</h1>
+    <h1>{% if room.label %}{{ room.label }} — {% endif %}{{ room.room_name }} Report</h1>
     <p><strong>Incharge:</strong> {{ room.incharge.first_name }} {{ room.incharge.last_name }}</p>
     <p><strong>Department:</strong> {{ room.department.department_name }}</p>
     <p><strong>Created On:</strong> {{ room.created_on }}</p>

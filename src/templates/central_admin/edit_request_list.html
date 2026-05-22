@@ -275,7 +275,7 @@
                 <span class="req-type">Item Stock Request</span>
                 <h5 class="req-title">{{ r.item.item_name }}</h5>
                 <div class="meta-pills">
-                    <span class="pill"><i class="bi bi-geo-alt me-1"></i>{{ r.room.room_name }}</span>
+                    <span class="pill"><i class="bi bi-geo-alt me-1"></i>{% if r.room.label %}{{ r.room.label }} — {% endif %}{{ r.room.room_name }}</span>
                     <span class="pill"><i class="bi bi-person me-1"></i>{{ r.requested_by }}</span>
                 </div>
                 <div class="detail-zone">
@@ -637,7 +637,7 @@
                             {% endif %}
                         </div>
                         <div style="font-size:0.78rem;color:#64748b;">
-                            <i class="bi bi-geo-alt me-1"></i>{{ r.room.room_name }} &nbsp;·&nbsp;
+                            <i class="bi bi-geo-alt me-1"></i>{% if r.room.label %}{{ r.room.label }} — {% endif %}{{ r.room.room_name }} &nbsp;·&nbsp;
                             +{{ r.requested_count }} units
                             {% if r.requested_by %} &nbsp;·&nbsp; <i class="bi bi-person me-1"></i>{{ r.requested_by }}{% endif %}
                         </div>

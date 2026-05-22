@@ -206,7 +206,7 @@
             <div class="notif-body">
                 <div class="notif-title">
                     New Booking Request <span class="nbadge nb-yellow">Pending</span>
-                    &mdash; {{ req.room.room_name }}
+                    &mdash; {% if req.room.label %}{{ req.room.label }} — {% endif %}{{ req.room.room_name }}
                 </div>
                 <p class="notif-sub">
                     {{ req.faculty_name }} &middot; {{ req.faculty_email }}<br>
@@ -245,7 +245,7 @@
             <div class="notif-icon" style="background:#fee2e2;color:#dc2626;"><i class="bi bi-alarm-fill"></i></div>
             <div class="notif-body">
                 <div class="notif-title">
-                    <span style="color:#dc2626;">⚠ TAT Expiring — {{ req.room.room_name }}</span>
+                    <span style="color:#dc2626;">⚠ TAT Expiring — {% if req.room.label %}{{ req.room.label }} — {% endif %}{{ req.room.room_name }}</span>
                     <span class="nbadge nb-red">Urgent</span>
                 </div>
                 <p class="notif-sub">
@@ -284,7 +284,7 @@
             <div class="notif-body">
                 <div class="notif-title">
                     Cancellation Request <span class="nbadge nb-red">Pending</span>
-                    {% if req.booking %}&mdash; {{ req.booking.room.room_name }}{% endif %}
+                    {% if req.booking %}&mdash; {% if req.booking.room.label %}{{ req.booking.room.label }} — {% endif %}{{ req.booking.room.room_name }}{% endif %}
                 </div>
                 <p class="notif-sub">
                     {{ req.faculty_email }}
@@ -326,7 +326,7 @@
                     &mdash; {{ req.item.item_name }}
                 </div>
                 <p class="notif-sub">
-                    Room: {{ req.room.room_name }}
+                    Room: {% if req.room.label %}{{ req.room.label }} — {% endif %}{{ req.room.room_name }}
                     {% if req.requested_by %} &middot; By {{ req.requested_by }}{% endif %}
                     &middot; +{{ req.requested_count }} unit{{ req.requested_count|pluralize }}
                     {% if req.reason %} &middot; {{ req.reason|truncatechars:55 }}{% endif %}
@@ -407,7 +407,7 @@
                 </div>
                 <p class="notif-sub">
                     Ticket #{{ issue.ticket_id }}
-                    &middot; Room: {{ issue.room.room_name }}
+                    &middot; Room: {% if issue.room.label %}{{ issue.room.label }} — {% endif %}{{ issue.room.room_name }}
                     {% if issue.created_by %} &middot; Raised by {{ issue.created_by }}{% endif %}
                     {% if issue.tat_deadline %} &middot; TAT: {{ issue.tat_deadline|date:"d M, H:i" }}{% endif %}
                 </p>
@@ -444,7 +444,7 @@
             <div class="notif-body">
                 <div class="notif-title">
                     Purchase Request <span class="nbadge nb-yellow">Pending</span>
-                    &mdash; {{ p.room.room_name|default:"No room" }}
+                    &mdash; {% if p.room.label %}{{ p.room.label }} — {% endif %}{{ p.room.room_name|default:"No room" }}
                 </div>
                 <p class="notif-sub">
                     {% if p.item %}Item: {{ p.item.item_name }} &middot; {% endif %}
@@ -521,7 +521,7 @@
             <div class="notif-body">
                 <div class="notif-title">
                     Purchase Approved <span class="nbadge nb-green">Approved</span>
-                    &mdash; {{ p.room.room_name|default:"No room" }}
+                    &mdash; {% if p.room.label %}{{ p.room.label }} — {% endif %}{{ p.room.room_name|default:"No room" }}
                 </div>
                 <p class="notif-sub">
                     {% if p.item %}Item: {{ p.item.item_name }} &middot; {% endif %}
