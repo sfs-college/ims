@@ -4,6 +4,10 @@
     <meta charset="UTF-8">
     <title>{% if room.label %}{{ room.label }} — {% endif %}{{ room.room_name }} Report</title>
     <style>
+        @page {
+            size: A4 landscape;
+            margin: 8mm;
+        }
         body {
             font-family: Arial, sans-serif;
             font-size: 10px;
@@ -65,6 +69,13 @@
             padding: 7px 6px;
             font-size: 10px;
         }
+        .super-dense th, .super-dense td {
+            padding: 3px 2px;
+            font-size: 6.5px;
+            line-height: 1.15;
+            word-wrap: break-word;
+            word-break: break-all;
+        }
     </style>
 </head>
 <body>
@@ -125,21 +136,28 @@
     {% if room_settings.items_tab %}
     <div class="section">
         <h2>Items</h2>
-        <table class="dense">
+        <table class="super-dense">
             <!-- Added colgroup to fix spacing in PDF -->
             <colgroup>
+                <col style="width:3%">
                 <col style="width:5%">
-                <col style="width:9%">
-                <col style="width:12%">
-                <col style="width:9%">
-                <col style="width:9%">
-                <col style="width:9%">
+                <col style="width:6%">
                 <col style="width:8%">
+                <col style="width:6%">
+                <col style="width:5%">
+                <col style="width:5%">
+                <col style="width:4%">
+                <col style="width:5%">
+                <col style="width:5%">
+                <col style="width:4%">
+                <col style="width:5%">
+                <col style="width:4%">
+                <col style="width:4%">
+                <col style="width:6%">
+                <col style="width:6%">
                 <col style="width:7%">
                 <col style="width:7%">
-                <col style="width:8%">
-                <col style="width:8%">
-                <col style="width:9%">
+                <col style="width:5%">
             </colgroup>
             <thead>
                 <tr>
@@ -155,6 +173,13 @@
                     <th>Closing / Balance Qty</th>
                     <th>Unit of Measure</th>
                     <th>Remarks</th>
+                    <th>Active</th>
+                    <th>Inactive</th>
+                    <th>Under Maintenance</th>
+                    <th>Not Serviceable</th>
+                    <th>Created By</th>
+                    <th>Updated By</th>
+                    <th>Updated On</th>
                 </tr>
             </thead>
             <tbody>
@@ -162,7 +187,7 @@
                 <tr>
                     <td>{{ forloop.counter }}</td>
                     <td>{{ item.product_code|default:"—" }}</td>
-                    <td>{{ item.created_on|date:"M. d, Y" }}</td>
+                    <td>{{ item.created_on_str }}</td>
                     <td>{{ item.item_description }}</td>
                     <td>{{ item.category.category_name }}</td>
                     <td>{{ item.total_count|add:"-item.available_count"|default:"0" }}</td>
@@ -172,6 +197,13 @@
                     <td>{{ item.available_count|default:"0" }}</td>
                     <td>{{ item.unit_of_measure|default:"Units" }}</td>
                     <td>{{ item.remarks|default:"" }}</td>
+                    <td>{{ item.active_count }}</td>
+                    <td>{{ item.inactive_count }}</td>
+                    <td>{{ item.serviceable_count }}</td>
+                    <td>{{ item.unserviceable_count }}</td>
+                    <td>{{ item.created_by_email }}</td>
+                    <td>{{ item.updated_by_email }}</td>
+                    <td>{{ item.updated_on_str }}</td>
                 </tr>
                 {% endfor %}
             </tbody>

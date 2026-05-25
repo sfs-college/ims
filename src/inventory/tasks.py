@@ -82,9 +82,10 @@ def escalate_expired_issues():
 
     for issue in issues:
         try:
-            issue.escalation_level += 1
-            issue.status = "escalated"
-            issue.save(update_fields=["escalation_level", "status", "updated_on"])
-            logger.info("Escalated issue %s", issue.ticket_id)
+            res = issue.escalate(notify=True)
+            if res.get("escalated"):
+                logger.info("Escalated issue %s to level %s", issue.ticket_id, issue.escalation_level)
+            else:
+                logger.warning("Issue %s could not be escalated: %s", issue.ticket_id, res.get("reason"))
         except Exception:
             logger.exception("Failed escalation for %s", issue.ticket_id)

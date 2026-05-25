@@ -13,6 +13,11 @@
   :root {
     --accent:#6c63ff; --border:#e2e8f0; --text:#1e293b; --text-muted:#94a3b8;
     --surface:#f8fafc;
+    --primary-grad: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    --purple: #9333ea;
+    --purple-light: #f3e8ff;
+    --text-dark: #1e293b;
+    --text-mid: #475569;
   }
   body { font-family:'DM Sans',sans-serif; }
   .mi-wrap { padding:24px; background:var(--surface); min-height:100vh; }
@@ -26,26 +31,51 @@
     transition:all 0.15s; white-space:nowrap; font-family:'DM Sans',sans-serif;
   }
   .mi-btn:hover { color:#1d4ed8; border-color:#93c5fd; background:#eff6ff; }
-  .mi-btn-primary { background:linear-gradient(135deg,#6c63ff,#8b7cf8); color:#fff; border-color:#6c63ff; }
-  .mi-btn-primary:hover { color:#fff; opacity:0.9; }
+  .mi-btn-primary { background:linear-gradient(135deg,#9333ea,#7c3aed); color:#fff; border-color:#9333ea; box-shadow:0 2px 8px rgba(147,51,234,0.2); }
+  .mi-btn-primary:hover { color:#fff; opacity:0.95; transform:translateY(-1px); }
   .mi-btn-edit { color:#0d9488; border-color:#0d9488; }
   .mi-btn-edit:hover { background:#0d9488; color:#fff; }
+  
   .mi-card { background:#fff; border:1px solid var(--border); border-radius:14px; overflow:hidden; box-shadow:0 1px 8px rgba(0,0,0,0.04); }
   .mi-table { min-width:1100px; margin:0; }
-  .mi-table th { font-size:.72rem; text-transform:uppercase; color:#64748b; background:#f8fafc; white-space:nowrap; font-weight:700; letter-spacing:0.05em; }
-  .mi-table td, .mi-table th { padding:12px 14px; vertical-align:middle; }
+  .mi-table th { font-size:.72rem; text-transform:uppercase; color:#64748b; background:#f8fafc; white-space:nowrap; font-weight:700; letter-spacing:0.05em; text-align:center; vertical-align:middle; }
+  .mi-table th:first-child, .mi-table th:nth-child(2), .mi-table th:nth-child(3), .mi-table th:nth-child(4) { text-align:left; }
+  .mi-table td { padding:12px 14px; vertical-align:middle; text-align:center; }
+  .mi-table td:first-child, .mi-table td:nth-child(2), .mi-table td:nth-child(3), .mi-table td:nth-child(4) { text-align:left; }
   .mi-table tbody tr { border-bottom:1px solid #f1f5f9; transition:background 0.13s; }
   .mi-table tbody tr:last-child { border-bottom:none; }
   .mi-table tbody tr:hover { background:#f9f8ff; }
-  .mi-badge { display:inline-block; min-width:36px; text-align:center; border-radius:8px; padding:4px 10px; font-weight:700; background:#f1f5f9; color:#475569; font-size:0.82rem; }
+  
+  .mi-badge { display:inline-block; min-width:36px; text-align:center; border-radius:8px; padding:5px 12px; font-weight:700; background:#f1f5f9; color:#475569; font-size:0.82rem; }
   .mi-edit { display:none; }
   .is-editing .mi-view { display:none; }
   .is-editing .mi-edit { display:inline-block; }
   #manualEntryRow { background:#eff6ff; }
-  /* Comp status toggle */
-  .comp-toggle-header { display:flex; align-items:center; gap:5px; cursor:pointer; user-select:none; white-space:nowrap; }
-  .comp-toggle-btn { display:inline-flex; align-items:center; gap:3px; padding:2px 7px; border-radius:12px; font-size:0.65rem; font-weight:700; border:1.5px solid var(--accent); color:var(--accent); background:white; transition:all 0.15s; }
-  .comp-toggle-btn:hover { background:var(--accent); color:white; }
+
+  /* Dynamic Header Switchers */
+  .col-toggle-header { display:flex; align-items:center; gap:6px; cursor:pointer; user-select:none; white-space:nowrap; }
+  .col-toggle-btn { display:inline-flex; align-items:center; gap:3px; padding:2px 8px; border-radius:12px; font-size:0.65rem; font-weight:700; border:1.5px solid currentColor; transition:all 0.15s; background:white; color:var(--accent); cursor:pointer; }
+  .col-toggle-btn:hover { background:var(--accent); color:white; }
+
+  /* Columns Selector Pills */
+  .fc-pill {
+    display:inline-flex; align-items:center; padding:4px 10px;
+    border-radius:6px; border:1px solid var(--border); cursor:pointer;
+    font-size:0.72rem; font-weight:600; color:var(--text-muted);
+    transition:all 0.15s; user-select:none; white-space:nowrap;
+    background:white; flex-shrink:0; margin-right:4px;
+  }
+  .fc-pill:hover { border-color:#c4b5fd; color:#6d28d9; background:#faf5ff; }
+  .fc-pill input[type="checkbox"] { display:none; }
+  .fc-pill.selected { background:#f5f3ff; border-color:#c4b5fd; color:#6d28d9; font-weight:700; }
+
+  /* Stock badge states */
+  .badge-available { background:#d1fae5; color:#065f46; }
+  .badge-assigned  { background:#dbeafe; color:#1e40af; }
+  .badge-total     { background:#f3e8ff; color:#6b21a8; }
+
+  @keyframes fdSlideUp { from { transform:translateY(24px); opacity:0; } to { transform:translateY(0); opacity:1; } }
+
   @media (max-width:900px) {
     .mi-wrap { padding:14px; }
     .mi-title { font-size:1.25rem; }
@@ -56,6 +86,7 @@
     .mi-wrap { padding:10px; }
     .mi-title { font-size:1.1rem; }
     .mi-head { flex-direction:column; align-items:flex-start; }
+    #fieldCheckboxes { flex-wrap:wrap !important; }
   }
 </style>
 {% endblock style %}
@@ -69,6 +100,17 @@
       <div class="text-muted small">{{ total_items }} unassigned item{{ total_items|pluralize }} available college-wide</div>
     </div>
     <div class="mi-actions">
+      <!-- Search Input -->
+      <div class="position-relative" style="min-width: 240px; margin-right: 8px;">
+        <i class="bi bi-search position-absolute text-muted" style="left: 12px; top: 50%; transform: translateY(-50%); font-size: 0.9rem;"></i>
+        <input type="text" id="masterSearchInput" class="form-control form-control-sm" placeholder="Search master inventory..." onkeyup="filterMasterInventory()" style="padding-left: 36px; border-radius: 8px; border: 1.5px solid var(--border); font-family: 'DM Sans', sans-serif; font-size: 0.82rem; height: 38px; outline: none; transition: all 0.2s;">
+      </div>
+      
+      <!-- Assign stock (Scope-based Access control) -->
+      <button class="mi-btn mi-btn-primary" type="button" onclick="handleAssignClick()" title="Assign stock to rooms">
+        <i class="bi bi-arrow-right-circle"></i> Assign
+      </button>
+
       {% if can_edit %}
       <a class="mi-btn" href="{% url 'room_incharge:master_inventory_import' room_slug=room_slug %}">
         <i class="bi bi-file-earmark-spreadsheet"></i> Import Excel
@@ -76,11 +118,32 @@
       <button class="mi-btn" type="button" onclick="showManualEntryRow()">
         <i class="bi bi-plus-circle"></i> Manual Entry
       </button>
-      <button class="mi-btn mi-btn-primary" id="editModeBtn" type="button" onclick="toggleEditMode()">
+      <button class="mi-btn" id="editModeBtn" style="color:#0d9488; border-color:#0d9488;" type="button" onclick="toggleEditMode()">
         <i class="bi bi-pencil-square"></i> Edit
       </button>
       {% endif %}
     </div>
+  </div>
+
+  <!-- Columns Visibility pills switcher row -->
+  <div style="background:white; border-radius:12px; border:1px solid var(--border);
+      padding:10px 16px; margin-bottom:20px;
+      display:flex; align-items:center; gap:12px; flex-wrap:nowrap; overflow-x:auto;">
+      <span style="font-size:0.7rem; font-weight:700; text-transform:uppercase;
+          letter-spacing:0.06em; color:var(--text-muted); flex-shrink:0; white-space:nowrap;">
+          <i class="bi bi-layout-three-columns me-1"></i>Columns
+      </span>
+      <div style="display:flex; gap:5px; flex-wrap:nowrap; overflow-x:auto; scrollbar-width:none; flex:1;" id="fieldCheckboxes">
+          <label class="fc-pill selected" data-field="prodcode"><input type="checkbox" checked>Code</label>
+          <label class="fc-pill selected" data-field="name"><input type="checkbox" checked>Item</label>
+          <label class="fc-pill selected" data-field="category"><input type="checkbox" checked>Category</label>
+          <label class="fc-pill selected" data-field="brand"><input type="checkbox" checked>Brand</label>
+          <label class="fc-pill selected" data-field="stock"><input type="checkbox" checked>Stock</label>
+          <label class="fc-pill selected" data-field="cost"><input type="checkbox" checked>Cost</label>
+          <label class="fc-pill selected" data-field="assigned"><input type="checkbox" checked>Assigned</label>
+          <label class="fc-pill selected" data-field="archived"><input type="checkbox" checked>Archive</label>
+          <label class="fc-pill selected" data-field="activity"><input type="checkbox" checked>Activity</label>
+      </div>
   </div>
 
   <div class="mi-card">
@@ -88,25 +151,39 @@
       <table class="table table-hover mi-table" id="inventoryTable">
         <thead>
           <tr>
-            <th>Product Code</th>
-            <th>Item Name</th>
-            <th>Category</th>
-            <th>Brand</th>
-            <th class="text-center">Available Stock</th>
-            <th class="text-center">Cost / Unit</th>
-            <th class="text-center">Assigned</th>
-            <th class="text-center" style="min-width:180px; vertical-align:middle;">
-              <div class="comp-toggle-header" onclick="cycleArchiveView(event)" style="display:flex; align-items:center; justify-content:center; gap:6px; cursor:pointer; user-select:none; white-space:nowrap;">
+            <th data-col="prodcode" style="min-width:130px;">Product Code</th>
+            <th data-col="name">Item Name</th>
+            <th data-col="category">Category</th>
+            <th data-col="brand">Brand</th>
+            <th data-col="stock">
+                <div class="col-toggle-header" onclick="cycleStock(event)">
+                    <span id="stockColLabel">Available Stock</span>
+                    <span class="col-toggle-btn">
+                        <i class="bi bi-arrow-repeat"></i>
+                    </span>
+                </div>
+            </th>
+            <th data-col="cost">
+                <div class="col-toggle-header" onclick="cycleCost(event)">
+                    <span id="costColLabel">Cost / Unit</span>
+                    <span class="col-toggle-btn">
+                        <i class="bi bi-arrow-repeat"></i>
+                    </span>
+                </div>
+            </th>
+            <th data-col="assigned">Assigned to Rooms</th>
+            <th data-col="archived" style="min-width:180px; text-align:center; vertical-align:middle;">
+              <div class="col-toggle-header" onclick="cycleArchiveView(event)" style="display:flex; align-items:center; justify-content:center; gap:6px; cursor:pointer; user-select:none; white-space:nowrap;">
                 <span id="archiveColLabel">Under Maintenance</span>
-                <span class="comp-toggle-btn" style="display:inline-flex; align-items:center; gap:3px; padding:2px 8px; border-radius:12px; font-size:0.65rem; font-weight:700; border:1.5px solid currentColor; transition:all 0.15s; background:white; color:var(--accent); cursor:pointer;">
+                <span class="col-toggle-btn" style="display:inline-flex; align-items:center; gap:3px; padding:2px 8px; border-radius:12px; font-size:0.65rem; font-weight:700; border:1.5px solid currentColor; transition:all 0.15s; background:white; color:var(--accent); cursor:pointer;">
                   <i class="bi bi-arrow-repeat"></i>
                 </span>
               </div>
             </th>
-            <th class="text-center" style="min-width:140px; vertical-align:middle;">
-              <div class="comp-toggle-header" onclick="cycleActivityView(event)" style="display:flex; align-items:center; justify-content:center; gap:6px; cursor:pointer; user-select:none; white-space:nowrap;">
+            <th data-col="activity" style="min-width:140px; text-align:center; vertical-align:middle;">
+              <div class="col-toggle-header" onclick="cycleActivityView(event)" style="display:flex; align-items:center; justify-content:center; gap:6px; cursor:pointer; user-select:none; white-space:nowrap;">
                 <span id="activityColLabel">Active</span>
-                <span class="comp-toggle-btn" style="display:inline-flex; align-items:center; gap:3px; padding:2px 8px; border-radius:12px; font-size:0.65rem; font-weight:700; border:1.5px solid currentColor; transition:all 0.15s; background:white; color:var(--accent); cursor:pointer;">
+                <span class="col-toggle-btn" style="display:inline-flex; align-items:center; gap:3px; padding:2px 8px; border-radius:12px; font-size:0.65rem; font-weight:700; border:1.5px solid currentColor; transition:all 0.15s; background:white; color:var(--accent); cursor:pointer;">
                   <i class="bi bi-arrow-repeat"></i>
                 </span>
               </div>
@@ -116,15 +193,15 @@
         <tbody>
           {% if can_edit %}
           <tr id="manualEntryRow" style="display:none;">
-            <td><input id="manualProductCode" class="form-control form-control-sm" maxlength="12" placeholder="Code"></td>
-            <td><input id="manualItemName" class="form-control form-control-sm" placeholder="Item Name"></td>
-            <td><input id="manualCategory" class="form-control form-control-sm" placeholder="Category"></td>
-            <td><input id="manualBrand" class="form-control form-control-sm" placeholder="Brand"></td>
-            <td class="text-center"><input id="manualTotalCount" class="form-control form-control-sm d-inline-block" style="width:96px;" type="number" min="0" step="1" value="0"></td>
-            <td class="text-center"><input id="manualCost" class="form-control form-control-sm d-inline-block" style="width:96px;" type="number" min="0" step="0.01"></td>
-            <td class="text-center"><span class="mi-badge">0</span></td>
-            <td class="text-center"><span class="mi-badge">-</span></td>
-            <td class="text-center">
+            <td data-col="prodcode"><input id="manualProductCode" class="form-control form-control-sm" maxlength="12" placeholder="Code"></td>
+            <td data-col="name"><input id="manualItemName" class="form-control form-control-sm" placeholder="Item Name"></td>
+            <td data-col="category"><input id="manualCategory" class="form-control form-control-sm" placeholder="Category"></td>
+            <td data-col="brand"><input id="manualBrand" class="form-control form-control-sm" placeholder="Brand"></td>
+            <td data-col="stock" class="text-center"><input id="manualTotalCount" class="form-control form-control-sm d-inline-block" style="width:96px;" type="number" min="0" step="1" value="0"></td>
+            <td data-col="cost" class="text-center"><input id="manualCost" class="form-control form-control-sm d-inline-block" style="width:96px;" type="number" min="0" step="0.01"></td>
+            <td data-col="assigned" class="text-center"><span class="mi-badge">0</span></td>
+            <td data-col="archived" class="text-center"><span class="mi-badge">-</span></td>
+            <td data-col="activity" class="text-center">
               <button class="btn btn-sm btn-success" type="button" onclick="submitManualEntry(this)"><i class="bi bi-check-lg"></i></button>
               <button class="btn btn-sm btn-outline-secondary" type="button" onclick="hideManualEntryRow()"><i class="bi bi-x-lg"></i></button>
               <div id="manualEntryError" class="text-danger small mt-1" style="display:none;"></div>
@@ -133,31 +210,42 @@
           {% endif %}
           {% for data in items_data %}
           <tr data-item-id="{{ data.item.id }}">
-            <td>
+            <td data-col="prodcode">
               <span class="mi-view">{{ data.item.product_code|default:"-" }}</span>
-              {% if can_edit %}<input class="mi-edit form-control form-control-sm" value="{{ data.item.product_code|default:'' }}" maxlength="12" onblur="saveProductCode(this, {{ data.item.id }})">{% endif %}
+              {% if can_edit %}<input class="mi-edit form-control form-control-sm" value="{{ data.item.product_code|default:'' }}" maxlength="12" onblur="saveProductCode(this, {{ data.item.id }})" onkeydown="if(event.key==='Enter') this.blur()">{% endif %}
             </td>
-            <td>
+            <td data-col="name">
               <span class="mi-view fw-semibold">{{ data.item.item_name }}</span>
-              {% if can_edit %}<input class="mi-edit form-control form-control-sm" value="{{ data.item.item_name }}" onblur="saveItemField(this, {{ data.item.id }}, 'item_name')">{% endif %}
+              {% if can_edit %}
+                <input class="mi-edit form-control form-control-sm" value="{{ data.item.item_name }}" onblur="saveItemField(this, {{ data.item.id }}, 'item_name')" onkeydown="if(event.key==='Enter') this.blur()">
+                <div class="mi-edit form-check mt-1" style="font-size:0.72rem; padding-left: 1.25rem; text-align: left;">
+                  <input class="form-check-input" type="checkbox" id="listed-chk-{{ data.item.id }}" {% if data.item.is_listed %}checked{% endif %} onchange="saveItemListed(this, {{ data.item.id }})">
+                  <label class="form-check-label text-muted fw-bold" for="listed-chk-{{ data.item.id }}" style="margin-left:4px;">Listed in Master</label>
+                </div>
+              {% endif %}
             </td>
-            <td>
+            <td data-col="category">
               <span class="mi-view">{{ data.item.category.category_name|default:"-" }}</span>
-              {% if can_edit %}<input class="mi-edit form-control form-control-sm" value="{{ data.item.category.category_name|default:'' }}" onblur="saveItemField(this, {{ data.item.id }}, 'category')">{% endif %}
+              {% if can_edit %}<input class="mi-edit form-control form-control-sm" value="{{ data.item.category.category_name|default:'' }}" onblur="saveItemField(this, {{ data.item.id }}, 'category')" onkeydown="if(event.key==='Enter') this.blur()">{% endif %}
             </td>
-            <td>
+            <td data-col="brand">
               <span class="mi-view">{{ data.item.brand.brand_name|default:"-" }}</span>
-              {% if can_edit %}<input class="mi-edit form-control form-control-sm" value="{{ data.item.brand.brand_name|default:'' }}" onblur="saveItemField(this, {{ data.item.id }}, 'brand')">{% endif %}
+              {% if can_edit %}<input class="mi-edit form-control form-control-sm" value="{{ data.item.brand.brand_name|default:'' }}" onblur="saveItemField(this, {{ data.item.id }}, 'brand')" onkeydown="if(event.key==='Enter') this.blur()">{% endif %}
             </td>
-            <td class="text-center">
-              <span class="mi-view mi-badge">{{ data.available_stock }}</span>
-              {% if can_edit %}<input class="mi-edit form-control form-control-sm text-center" style="width:96px;" type="number" min="0" step="1" value="{{ data.available_stock }}" onblur="saveItemField(this, {{ data.item.id }}, 'total_count')">{% endif %}
+            <td data-col="stock" class="text-center"
+                data-available="{{ data.available_stock }}"
+                data-assigned="{{ data.assigned_count }}"
+                data-total="{{ data.total_items }}">
+              <span class="mi-view mi-badge badge-available stock-display">{{ data.available_stock }}</span>
+              {% if can_edit %}<input class="mi-edit form-control form-control-sm text-center" style="width:96px;" type="number" min="0" step="1" value="{{ data.available_stock }}" onblur="saveItemField(this, {{ data.item.id }}, 'total_count')" onkeydown="if(event.key==='Enter') this.blur()">{% endif %}
             </td>
-            <td class="text-center">
-              <span class="mi-view mi-badge">{% if data.cpu %}{{ data.cpu }}{% else %}-{% endif %}</span>
-              {% if can_edit %}<input class="mi-edit form-control form-control-sm text-center" style="width:96px;" type="number" min="0" step="0.01" value="{{ data.cpu|default:'' }}" onblur="saveItemField(this, {{ data.item.id }}, 'cost')">{% endif %}
+            <td data-col="cost" class="text-center"
+                data-cpu="{% if data.cpu %}{{ data.cpu }}{% else %}0{% endif %}"
+                data-total-cost="{{ data.total_cost }}">
+              <span class="mi-view mi-badge cost-display">{% if data.cpu %}₹{{ data.cpu }}{% else %}-{% endif %}</span>
+              {% if can_edit %}<input class="mi-edit form-control form-control-sm text-center" style="width:96px;" type="number" min="0" step="0.01" value="{{ data.cpu|default:'' }}" onblur="saveItemField(this, {{ data.item.id }}, 'cost')" onkeydown="if(event.key==='Enter') this.blur()">{% endif %}
             </td>
-            <td class="text-center"><span class="mi-badge">{{ data.assigned_count }}</span></td>
+            <td data-col="assigned" class="text-center"><span class="mi-badge badge-assigned">{{ data.assigned_count }}</span></td>
             <td data-col="archived" class="text-center"
                 data-maintenance="{{ data.under_maintenance_count }}"
                 data-unserviceable="{{ data.not_serviceable_count }}">
@@ -188,11 +276,204 @@
   </div>
 </div>
 
+<!-- Not Authorised Premium Glassmorphic Overlay Modal -->
+<div id="notAuthorisedOverlay" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(15,23,42,0.65);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);align-items:center;justify-content:center;padding:20px;">
+    <div style="background:#fff;border-radius:24px;padding:36px;max-width:440px;width:100%;box-shadow:0 30px 60px rgba(0,0,0,0.25);text-align:center;position:relative;animation:fdSlideUp 0.3s cubic-bezier(0.34,1.56,0.64,1);">
+        <div style="width:64px;height:64px;background:linear-gradient(135deg,#ef4444,#dc2626);border-radius:18px;display:flex;align-items:center;justify-content:center;margin:0 auto 20px;box-shadow:0 8px 20px rgba(220,38,38,0.25);">
+            <i class="bi bi-shield-lock-fill" style="color:#fff;font-size:1.8rem;"></i>
+        </div>
+        <h4 style="font-weight:800;color:#1e293b;margin-bottom:8px;font-family:'DM Sans',sans-serif;">Not Authorised</h4>
+        <p style="color:#64748b;font-size:0.875rem;margin-bottom:24px;line-height:1.6;font-family:'DM Sans',sans-serif;">You do not have access to Assign Inventory. Access has not been granted by the administrator.</p>
+        <button onclick="closeNotAuthorisedModal()" style="width:100%;padding:12px;background:linear-gradient(135deg,#6c63ff,#8b7cf8);color:#fff;border:none;border-radius:12px;font-weight:700;font-size:0.9rem;cursor:pointer;box-shadow:0 4px 12px rgba(108,99,255,0.25);transition:opacity 0.2s;font-family:'DM Sans',sans-serif;">
+            Got it
+        </button>
+    </div>
+</div>
+
 <script>
 function getCsrf() {
   const c = document.cookie.split(';').find(x => x.trim().startsWith('csrftoken='));
   return c ? decodeURIComponent(c.trim().split('=')[1]) : '';
 }
+
+// ── SCOPED ASSIGN BUTTON ACCESS CHECK ──
+function handleAssignClick() {
+  const hasAccess = {{ has_assign_access|yesno:"true,false" }};
+  if (hasAccess) {
+    window.location.href = "{% url 'room_incharge:assign_inventory' room_slug=room_slug %}";
+  } else {
+    const modal = document.getElementById('notAuthorisedOverlay');
+    modal.style.display = 'flex';
+  }
+}
+
+function closeNotAuthorisedModal() {
+  document.getElementById('notAuthorisedOverlay').style.display = 'none';
+}
+
+// Close modal when clicking outside box
+document.getElementById('notAuthorisedOverlay').addEventListener('click', function(e) {
+  if (e.target === this) closeNotAuthorisedModal();
+});
+
+// ── COLUMN VISIBILITY ──
+function getSelectedFields() {
+    return [...document.querySelectorAll('#fieldCheckboxes .fc-pill.selected')]
+        .map(el => el.dataset.field);
+}
+
+function applyFieldVisibility() {
+    const selected = getSelectedFields();
+    const allCols = ['prodcode','name','category','brand','stock','cost','assigned', 'archived','activity'];
+    allCols.forEach(col => {
+        const show = selected.includes(col);
+        document.querySelectorAll(`[data-col="${col}"]`).forEach(el => {
+            el.style.display = show ? '' : 'none';
+        });
+    });
+}
+
+document.querySelectorAll('.fc-pill').forEach(label => {
+    label.addEventListener('click', function(e) {
+        e.preventDefault();
+        this.classList.toggle('selected');
+        applyFieldVisibility();
+    });
+});
+
+applyFieldVisibility();
+
+// ── STOCK COLUMN TOGGLE ──
+// States: 0=available, 1=assigned, 2=total
+let stockState = 0;
+const stockLabels = ['Available Stock', 'Assigned to Rooms', 'Total Items'];
+const stockAttrs  = ['data-available', 'data-assigned', 'data-total'];
+const stockClasses= ['badge-available', 'badge-assigned', 'badge-total'];
+function cycleStock(e) {
+    if (e) e.stopPropagation();
+    stockState = (stockState + 1) % 3;
+    document.getElementById('stockColLabel').textContent = stockLabels[stockState];
+    document.querySelectorAll('td[data-col="stock"]').forEach(td => {
+        const val = td.getAttribute(stockAttrs[stockState]);
+        const span = td.querySelector('.stock-display');
+        if (span) {
+            span.textContent = val;
+            span.className = 'mi-view mi-badge stock-display ' + stockClasses[stockState];
+        }
+        const input = td.querySelector('input.mi-edit');
+        if (input) {
+            input.value = val;
+            input.readOnly = false;
+            input.style.backgroundColor = '';
+        }
+    });
+}
+
+// ── COST COLUMN TOGGLE ──
+// States: 0=cpu, 1=total cost
+let costState = 0;
+const costLabels = ['Cost / Unit', 'Total Cost'];
+
+function cycleCost(e) {
+    if (e) e.stopPropagation();
+    costState = (costState + 1) % 2;
+    document.getElementById('costColLabel').textContent = costLabels[costState];
+    document.querySelectorAll('td[data-col="cost"]').forEach(td => {
+        const span = td.querySelector('.cost-display');
+        if (span) {
+            if (costState === 0) {
+                const cpu = td.getAttribute('data-cpu');
+                span.textContent = parseFloat(cpu) > 0 ? '₹' + cpu : '-';
+            } else {
+                const tc = td.getAttribute('data-total-cost');
+                span.textContent = parseFloat(tc) > 0 ? '₹' + tc : '-';
+            }
+        }
+        const input = td.querySelector('input.mi-edit');
+        if (input) {
+            if (costState === 0) {
+                input.value = td.getAttribute('data-cpu') || '0';
+            } else {
+                const tc = parseFloat(td.getAttribute('data-total-cost') || 0);
+                input.value = tc.toFixed(2);
+            }
+            input.readOnly = false;
+            input.style.backgroundColor = '';
+        }
+    });
+}
+
+function syncStockDisplay(td, val) {
+  const span = td.querySelector('.stock-display');
+  if (!span) return;
+  
+  if (val !== undefined) {
+    td.setAttribute('data-available', val || 0);
+    const assigned = parseInt(td.getAttribute('data-assigned') || '0', 10);
+    const total = parseInt(val || '0', 10) + assigned;
+    td.setAttribute('data-total', total.toString());
+    
+    // Also update total cost on the cost td
+    const row = td.closest('tr');
+    const costTd = row.querySelector('td[data-col="cost"]');
+    if (costTd) {
+      const cpu = parseFloat(costTd.getAttribute('data-cpu') || 0);
+      const totalCost = cpu * total;
+      costTd.setAttribute('data-total-cost', totalCost.toFixed(2));
+      syncCostDisplay(costTd); // keep cost display in sync!
+    }
+  }
+  
+  const stockAttrs = ['data-available', 'data-assigned', 'data-total'];
+  const stockClasses = ['badge-available', 'badge-assigned', 'badge-total'];
+  const currentVal = td.getAttribute(stockAttrs[stockState]);
+  span.textContent = currentVal;
+  span.className = 'mi-view mi-badge stock-display ' + stockClasses[stockState];
+
+  const input = td.querySelector('input.mi-edit');
+  if (input) {
+    input.value = currentVal;
+    input.readOnly = false;
+    input.style.backgroundColor = '';
+  }
+}
+
+function syncCostDisplay(td, val) {
+  const span = td.querySelector('.cost-display');
+  if (!span) return;
+  
+  if (val !== undefined) {
+    td.setAttribute('data-cpu', val || 0);
+    
+    // Find total items from stock td in same row
+    const row = td.closest('tr');
+    const stockTd = row.querySelector('td[data-col="stock"]');
+    const totalItems = stockTd ? parseInt(stockTd.getAttribute('data-total') || '0', 10) : 0;
+    const totalCost = parseFloat(val || 0) * totalItems;
+    td.setAttribute('data-total-cost', totalCost.toFixed(2));
+  }
+  
+  if (costState === 0) {
+    const cpu = parseFloat(td.getAttribute('data-cpu') || 0);
+    span.textContent = cpu > 0 ? '₹' + cpu.toLocaleString('en-IN') : '-';
+  } else {
+    const tc = parseFloat(td.getAttribute('data-total-cost') || 0);
+    span.textContent = tc > 0 ? '₹' + tc.toLocaleString('en-IN', {minimumFractionDigits:2}) : '-';
+  }
+
+  const input = td.querySelector('input.mi-edit');
+  if (input) {
+    if (costState === 0) {
+      input.value = td.getAttribute('data-cpu') || '0';
+    } else {
+      const tc = parseFloat(td.getAttribute('data-total-cost') || 0);
+      input.value = tc.toFixed(2);
+    }
+    input.readOnly = false;
+    input.style.backgroundColor = '';
+  }
+}
+
 function toggleEditMode() {
   const table = document.getElementById('inventoryTable');
   const btn = document.getElementById('editModeBtn');
@@ -205,13 +486,26 @@ function toggleEditMode() {
     btn.classList.toggle('mi-btn-primary', editing);
     btn.classList.toggle('mi-btn-edit', !editing);
   }
-  if (!editing) {
-    // Sync all view elements from current input values
+  if (editing) {
+    // Fast dynamic initialization on open (only if in a non-default toggled state!)
+    if (stockState !== 0) {
+      document.querySelectorAll('#inventoryTable td[data-col="stock"]').forEach(td => syncStockDisplay(td));
+    }
+    if (costState !== 0) {
+      document.querySelectorAll('#inventoryTable td[data-col="cost"]').forEach(td => syncCostDisplay(td));
+    }
+  } else {
+    // Fast, lightweight sync of simple text elements when closing Edit Mode (completely avoids heavy recalculations)
     document.querySelectorAll('#inventoryTable tbody tr').forEach(tr => {
       tr.querySelectorAll('input.mi-edit').forEach(input => {
-        const viewEl = input.previousElementSibling;
-        if (viewEl) {
-          viewEl.textContent = input.value.trim() || '-';
+        const td = input.closest('td');
+        const col = td.getAttribute('data-col');
+        if (col !== 'stock' && col !== 'cost') {
+          const val = input.value.trim();
+          const viewEl = input.previousElementSibling;
+          if (viewEl) {
+            viewEl.textContent = val || '-';
+          }
         }
       });
     });
@@ -329,9 +623,88 @@ function saveProductCode(input, itemId) {
   });
 }
 function saveItemField(input, itemId, field) {
-  const val = input.value.trim();
+  const td = input.closest('td');
+  const col = td ? td.getAttribute('data-col') : null;
+  let val = input.value.trim();
   const payload = { item_id: itemId };
-  payload[field] = val;
+
+  if (col === 'stock') {
+    const assigned = parseInt(td.getAttribute('data-assigned') || '0', 10);
+    const available = parseInt(td.getAttribute('data-available') || '0', 10);
+    const total = available + assigned;
+    const inputVal = parseInt(val || '0', 10);
+
+    let finalAvailable = available;
+    if (stockState === 0) { // Available Stock
+      finalAvailable = inputVal;
+      if (isNaN(finalAvailable) || finalAvailable < 0) {
+        alert('Error: Available stock cannot be negative.');
+        syncStockDisplay(td);
+        return;
+      }
+    } else if (stockState === 1) { // Assigned to Rooms
+      const finalAssigned = inputVal;
+      if (isNaN(finalAssigned) || finalAssigned < 0) {
+        alert('Error: Assigned quantity cannot be negative.');
+        syncStockDisplay(td);
+        return;
+      }
+      finalAvailable = total - finalAssigned;
+      if (finalAvailable < 0) {
+        alert('Error: Assigned quantity cannot exceed total items. (Available stock cannot be negative).');
+        syncStockDisplay(td);
+        return;
+      }
+    } else if (stockState === 2) { // Total Items
+      const finalTotal = inputVal;
+      if (isNaN(finalTotal) || finalTotal < 0) {
+        alert('Error: Total items cannot be negative.');
+        syncStockDisplay(td);
+        return;
+      }
+      finalAvailable = finalTotal - assigned;
+      if (finalAvailable < 0) {
+        alert('Error: Total items cannot be less than assigned items.');
+        syncStockDisplay(td);
+        return;
+      }
+    }
+    payload['total_count'] = finalAvailable;
+    val = finalAvailable; // for syncStockDisplay(td, val)
+  } else if (col === 'cost') {
+    const stockTd = td.closest('tr').querySelector('td[data-col="stock"]');
+    const totalItems = stockTd ? parseInt(stockTd.getAttribute('data-total') || '0', 10) : 0;
+    const cpu = parseFloat(td.getAttribute('data-cpu') || '0');
+    const tc = parseFloat(td.getAttribute('data-total-cost') || '0');
+    const inputVal = parseFloat(val || '0');
+
+    let finalCpu = cpu;
+    if (costState === 0) { // Cost / Unit
+      finalCpu = inputVal;
+      if (isNaN(finalCpu) || finalCpu < 0) {
+        alert('Error: Cost per unit cannot be negative.');
+        syncCostDisplay(td);
+        return;
+      }
+    } else if (costState === 1) { // Total Cost
+      const finalTotalCost = inputVal;
+      if (isNaN(finalTotalCost) || finalTotalCost < 0) {
+        alert('Error: Total cost cannot be negative.');
+        syncCostDisplay(td);
+        return;
+      }
+      if (totalItems > 0) {
+        finalCpu = finalTotalCost / totalItems;
+      } else {
+        finalCpu = finalTotalCost; // fallback or total_cost itself if totalItems is 0
+      }
+    }
+    payload['cost'] = finalCpu;
+    val = finalCpu; // for syncCostDisplay(td, val)
+  } else {
+    payload[field] = val;
+  }
+
   fetch('{% url "room_incharge:save_item_edit" room_slug=room_slug %}', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCsrf() },
@@ -339,13 +712,72 @@ function saveItemField(input, itemId, field) {
   }).then(r => r.json()).then(data => {
     if (!data.success) {
       alert(data.error || 'Save failed.');
+      if (col === 'stock') {
+        syncStockDisplay(td);
+      } else if (col === 'cost') {
+        syncCostDisplay(td);
+      }
     } else {
-      const viewEl = input.previousElementSibling;
-      if (viewEl) {
-        viewEl.textContent = val || '-';
+      if (col === 'stock') {
+        syncStockDisplay(td, val);
+      } else if (col === 'cost') {
+        syncCostDisplay(td, val);
+      } else {
+        const viewEl = input.previousElementSibling || input.closest('td').querySelector('.mi-view');
+        if (viewEl) {
+          viewEl.textContent = val || '-';
+        }
       }
       input.style.borderColor = '#059669';
       setTimeout(() => { input.style.borderColor = ''; }, 1500);
+    }
+  }).catch(() => {
+    alert('Network error');
+    if (col === 'stock') {
+        syncStockDisplay(td);
+    } else if (col === 'cost') {
+        syncCostDisplay(td);
+    }
+  });
+}
+
+function saveItemListed(chk, itemId) {
+  const isListed = chk.checked;
+  fetch('{% url "room_incharge:save_item_edit" room_slug=room_slug %}', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCsrf() },
+    body: JSON.stringify({ item_id: itemId, is_listed: isListed }),
+  })
+  .then(r => r.json())
+  .then(data => {
+    if (!data.success) {
+      chk.checked = !isListed;
+      alert(data.error || 'Failed to update listing status');
+    }
+  })
+  .catch(() => {
+    chk.checked = !isListed;
+    alert('Network error');
+  });
+}
+
+function filterMasterInventory() {
+  const query = document.getElementById('masterSearchInput').value.toLowerCase().trim();
+  const rows = document.querySelectorAll('#inventoryTable tbody tr');
+  rows.forEach(row => {
+    if (row.id === 'manualEntryRow') return;
+    
+    const productCode = row.cells[0]?.textContent.toLowerCase() || '';
+    const itemName = row.cells[1]?.textContent.toLowerCase() || '';
+    const category = row.cells[2]?.textContent.toLowerCase() || '';
+    const brand = row.cells[3]?.textContent.toLowerCase() || '';
+    
+    const textToMatch = `${productCode} ${itemName} ${category} ${brand}`;
+    
+    if (textToMatch.includes(query)) {
+      row.style.display = '';
+    } else {
+      row.style.display = 'none';
     }
   });
 }

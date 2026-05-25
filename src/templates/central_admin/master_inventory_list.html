@@ -468,10 +468,16 @@
                     </td>
                     <td data-col="name">
                         <div class="item-name editable-view">{{ data.item.item_name }}</div>
-                        <input type="text" class="editable-input form-control form-control-sm" style="display:none;width:160px;"
-                            value="{{ data.item.item_name }}"
-                            onblur="saveItemField(this, {{ data.item.id }}, 'item_name')"
-                            onkeydown="if(event.key==='Enter') saveItemField(this, {{ data.item.id }}, 'item_name')">
+                        <div class="editable-input" style="display:none;">
+                            <input type="text" class="form-control form-control-sm" style="width:160px;"
+                                value="{{ data.item.item_name }}"
+                                onblur="saveItemField(this, {{ data.item.id }}, 'item_name')"
+                                onkeydown="if(event.key==='Enter') saveItemField(this, {{ data.item.id }}, 'item_name')">
+                            <div class="form-check mt-1" style="font-size:0.72rem; padding-left: 1.25rem; text-align: left;">
+                                <input class="form-check-input" type="checkbox" id="listed-chk-{{ data.item.id }}" {% if data.item.is_listed %}checked{% endif %} onchange="saveItemListed(this, {{ data.item.id }})">
+                                <label class="form-check-label text-muted fw-bold" for="listed-chk-{{ data.item.id }}" style="margin-left:4px;">Listed in Master</label>
+                            </div>
+                        </div>
                     </td>
                     <td data-col="category">
                         <span class="editable-view badge bg-light text-dark border">{{ data.item.category.category_name|default:"—" }}</span>
@@ -733,6 +739,12 @@ function cycleStock(e) {
             span.textContent = val;
             span.className = 'badge-count stock-display ' + stockClasses[stockState];
         }
+        const input = td.querySelector('.editable-input');
+        if (input) {
+            input.value = val;
+            input.readOnly = false;
+            input.style.backgroundColor = '';
+        }
     });
 }
 
@@ -755,6 +767,17 @@ function cycleCost(e) {
                 const tc = parseFloat(td.getAttribute('data-total-cost'));
                 span.textContent = tc > 0 ? '₹' + tc.toLocaleString('en-IN', {minimumFractionDigits:2}) : '—';
             }
+        }
+        const input = td.querySelector('.editable-input');
+        if (input) {
+            if (costState === 0) {
+                input.value = td.getAttribute('data-cpu') || '0';
+            } else {
+                const tc = parseFloat(td.getAttribute('data-total-cost') || 0);
+                input.value = tc.toFixed(2);
+            }
+            input.readOnly = false;
+            input.style.backgroundColor = '';
         }
     });
 }
@@ -1227,6 +1250,13 @@ function syncStockDisplay(td, val) {
     const currentVal = td.getAttribute(stockAttrs[stockState]);
     span.textContent = currentVal;
     span.className = 'badge-count stock-display ' + stockClasses[stockState];
+
+    const input = td.querySelector('.editable-input');
+    if (input) {
+        input.value = currentVal;
+        input.readOnly = false;
+        input.style.backgroundColor = '';
+    }
 }
 
 // ── SYNC COST DISPLAY HELPER ──
@@ -1251,6 +1281,18 @@ function syncCostDisplay(td, val) {
     } else {
         const tc = parseFloat(td.getAttribute('data-total-cost') || 0);
         span.textContent = tc > 0 ? '₹' + tc.toLocaleString('en-IN', {minimumFractionDigits:2}) : '—';
+    }
+
+    const input = td.querySelector('.editable-input');
+    if (input) {
+        if (costState === 0) {
+            input.value = td.getAttribute('data-cpu') || '0';
+        } else {
+            const tc = parseFloat(td.getAttribute('data-total-cost') || 0);
+            input.value = tc.toFixed(2);
+        }
+        input.readOnly = false;
+        input.style.backgroundColor = '';
     }
 }
 
@@ -1314,35 +1356,42 @@ function toggleEditMode() {
         btn.style.background = '#0d9488';
         btn.style.color = 'white';
         btn.style.borderColor = '#0d9488';
+
+        // Fast dynamic initialization on open (only if in a non-default toggled state!)
+        if (stockState !== 0) {
+            document.querySelectorAll('td[data-col="stock"]').forEach(td => syncStockDisplay(td));
+        }
+        if (costState !== 0) {
+            document.querySelectorAll('td[data-col="cost"]').forEach(td => syncCostDisplay(td));
+        }
     } else {
-        // When closing edit mode, sync all view elements from current input values
+        // Fast, lightweight sync of simple text elements when closing Edit Mode (completely avoids heavy recalculations)
+        document.querySelectorAll('.editable-input').forEach(el => {
+            const td = el.closest('td');
+            const col = td.getAttribute('data-col');
+            if (col !== 'stock' && col !== 'cost') {
+                const input = el.tagName === 'INPUT' ? el : el.querySelector('input');
+                if (input) {
+                    const val = input.value.trim();
+                    const viewEl = td.querySelector('.editable-view');
+                    if (viewEl) {
+                        viewEl.textContent = val || '—';
+                    }
+                }
+            }
+        });
+        
+        // Product code view sync (already fast, keeping it)
         document.querySelectorAll('.prodcode-input').forEach(input => {
             const td = input.closest('td');
             const viewEl = td.querySelector('.prodcode-view');
             const code = input.value.trim();
-            const itemId = input.closest('tr').dataset.itemId;
             const itemName = input.closest('tr').dataset.itemName;
             if (code) {
                 viewEl.innerHTML = `<span class="badge" style="background:#ede9fe;color:#5b21b6;font-size:0.8rem;padding:4px 10px;border-radius:8px;font-weight:700;cursor:pointer;"
                     onclick="openTagModal('${itemName.replace(/'/g, "\\'")}')">${code}</span>`;
             } else {
                 viewEl.innerHTML = `<span class="text-muted" style="font-size:0.8rem;">—</span>`;
-            }
-        });
-
-        document.querySelectorAll('.editable-input').forEach(input => {
-            const td = input.closest('td');
-            const col = td.getAttribute('data-col');
-            const val = input.value.trim();
-            if (col === 'stock') {
-                syncStockDisplay(td, val);
-            } else if (col === 'cost') {
-                syncCostDisplay(td, val);
-            } else {
-                const viewEl = input.previousElementSibling;
-                if (viewEl) {
-                    viewEl.textContent = val || '—';
-                }
             }
         });
 
@@ -1402,9 +1451,87 @@ function saveProductCode(input, itemId, itemName) {
 }
 
 function saveItemField(input, itemId, field) {
-    const val = input.value.trim();
+    const td = input.closest('td');
+    const col = td ? td.getAttribute('data-col') : null;
+    let val = input.value.trim();
     const payload = { item_id: itemId };
-    payload[field] = val;
+
+    if (col === 'stock') {
+        const assigned = parseInt(td.getAttribute('data-assigned') || '0', 10);
+        const available = parseInt(td.getAttribute('data-available') || '0', 10);
+        const total = available + assigned;
+        const inputVal = parseInt(val || '0', 10);
+
+        let finalAvailable = available;
+        if (stockState === 0) { // Available Stock
+            finalAvailable = inputVal;
+            if (isNaN(finalAvailable) || finalAvailable < 0) {
+                alert('Error: Available stock cannot be negative.');
+                syncStockDisplay(td);
+                return;
+            }
+        } else if (stockState === 1) { // Assigned to Rooms
+            const finalAssigned = inputVal;
+            if (isNaN(finalAssigned) || finalAssigned < 0) {
+                alert('Error: Assigned quantity cannot be negative.');
+                syncStockDisplay(td);
+                return;
+            }
+            finalAvailable = total - finalAssigned;
+            if (finalAvailable < 0) {
+                alert('Error: Assigned quantity cannot exceed total items. (Available stock cannot be negative).');
+                syncStockDisplay(td);
+                return;
+            }
+        } else if (stockState === 2) { // Total Items
+            const finalTotal = inputVal;
+            if (isNaN(finalTotal) || finalTotal < 0) {
+                alert('Error: Total items cannot be negative.');
+                syncStockDisplay(td);
+                return;
+            }
+            finalAvailable = finalTotal - assigned;
+            if (finalAvailable < 0) {
+                alert('Error: Total items cannot be less than assigned items.');
+                syncStockDisplay(td);
+                return;
+            }
+        }
+        payload['total_count'] = finalAvailable;
+        val = finalAvailable; // for syncStockDisplay(td, val)
+    } else if (col === 'cost') {
+        const stockTd = td.closest('tr').querySelector('td[data-col="stock"]');
+        const totalItems = stockTd ? parseInt(stockTd.getAttribute('data-total') || '0', 10) : 0;
+        const cpu = parseFloat(td.getAttribute('data-cpu') || '0');
+        const tc = parseFloat(td.getAttribute('data-total-cost') || '0');
+        const inputVal = parseFloat(val || '0');
+
+        let finalCpu = cpu;
+        if (costState === 0) { // Cost / Unit
+            finalCpu = inputVal;
+            if (isNaN(finalCpu) || finalCpu < 0) {
+                alert('Error: Cost per unit cannot be negative.');
+                syncCostDisplay(td);
+                return;
+            }
+        } else if (costState === 1) { // Total Cost
+            const finalTotalCost = inputVal;
+            if (isNaN(finalTotalCost) || finalTotalCost < 0) {
+                alert('Error: Total cost cannot be negative.');
+                syncCostDisplay(td);
+                return;
+            }
+            if (totalItems > 0) {
+                finalCpu = finalTotalCost / totalItems;
+            } else {
+                finalCpu = finalTotalCost; // fallback or total_cost itself if totalItems is 0
+            }
+        }
+        payload['cost'] = finalCpu;
+        val = finalCpu; // for syncCostDisplay(td, val)
+    } else {
+        payload[field] = val;
+    }
 
     fetch('{% url "central_admin:save_item_edit" %}', {
         method: 'POST',
@@ -1414,21 +1541,54 @@ function saveItemField(input, itemId, field) {
     .then(r => r.json())
     .then(data => {
         if (data.success) {
-            const td = input.closest('td');
-            const col = td.getAttribute('data-col');
             if (col === 'stock') {
                 syncStockDisplay(td, val);
             } else if (col === 'cost') {
                 syncCostDisplay(td, val);
             } else {
-                const viewEl = input.previousElementSibling;
+                const viewEl = input.previousElementSibling || input.closest('td').querySelector('.editable-view');
                 if (viewEl) {
                     viewEl.textContent = val || '—';
                 }
             }
             input.style.borderColor = '#059669';
             setTimeout(() => { input.style.borderColor = ''; }, 1500);
+        } else {
+            alert(data.error || 'Save failed');
+            if (col === 'stock') {
+                syncStockDisplay(td);
+            } else if (col === 'cost') {
+                syncCostDisplay(td);
+            }
         }
+    })
+    .catch(() => {
+        alert('Network error');
+        if (col === 'stock') {
+            syncStockDisplay(td);
+        } else if (col === 'cost') {
+            syncCostDisplay(td);
+        }
+    });
+}
+
+function saveItemListed(chk, itemId) {
+    const isListed = chk.checked;
+    fetch('{% url "central_admin:save_item_edit" %}', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCsrf() },
+        body: JSON.stringify({ item_id: itemId, is_listed: isListed }),
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (!data.success) {
+            chk.checked = !isListed;
+            alert(data.error || 'Failed to update listing status');
+        }
+    })
+    .catch(() => {
+        chk.checked = !isListed;
+        alert('Network error');
     });
 }
 
@@ -1874,8 +2034,19 @@ function loadAccessManagement() {
                                             white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${person.email}</div>
                             </div>
                         </div>
-                        <div style="font-size:0.75rem;color:#64748b;">
-                            <i class="bi bi-door-open me-1"></i>${person.rooms}
+                        <div style="font-size:0.75rem;color:#64748b;display:flex;flex-direction:column;gap:5px;background:#f8fafc;padding:10px;border-radius:8px;border:1px dashed #e2e8f0;">
+                            <div class="d-flex justify-content-between">
+                                <span><i class="bi bi-door-open me-1"></i> Rooms:</span>
+                                <span class="fw-bold text-dark">${person.rooms_count}</span>
+                            </div>
+                            <div class="d-flex justify-content-between align-items-center">
+                                <span><i class="bi bi-tags me-1"></i> Categories:</span>
+                                <span class="fw-semibold text-dark text-truncate ms-2" style="max-width:140px;" title="${(person.categories_summary || '').replace(/"/g, '&quot;')}">${person.categories_summary}</span>
+                            </div>
+                            <div class="d-flex justify-content-between">
+                                <span><i class="bi bi-exclamation-triangle me-1"></i> Open Issues:</span>
+                                <span class="fw-bold ${person.issue_count > 0 ? 'text-danger' : 'text-success'}">${person.issue_count}</span>
+                            </div>
                         </div>
                         <div>${statusBadge}</div>
                         <div style="display:flex;gap:7px;flex-wrap:wrap;">${btns}</div>

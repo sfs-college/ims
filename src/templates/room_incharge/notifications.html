@@ -255,7 +255,11 @@
                 </div>
                  <p class="notif-sub">
                     {% if req.status == "approved" %}
-                        +{{ req.requested_count }} unit{{ req.requested_count|pluralize }} approved and added to stock.
+                        {% if req.approved_count is not None and req.approved_count != req.requested_count %}
+                            +{{ req.approved_count }} unit{{ req.approved_count|pluralize }} approved and added to stock (Requested: +{{ req.requested_count }}).
+                        {% else %}
+                            +{{ req.requested_count }} unit{{ req.requested_count|pluralize }} approved and added to stock.
+                        {% endif %}
                     {% else %}
                         Request for +{{ req.requested_count }} unit{{ req.requested_count|pluralize }} was rejected.
                     {% endif %}

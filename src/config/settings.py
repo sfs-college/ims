@@ -5,19 +5,13 @@ from environ import Env
 import firebase_admin
 from firebase_admin import auth, credentials
 
-env = Env()
-Env.read_env()
-
-ENVIRONMENT = env('ENVIRONMENT', default="development")
-
-# Set the timezone to IST
-TIME_ZONE = 'Asia/Kolkata'
-
-# Ensure that Django uses timezone-aware datetimes
-USE_TZ = True
-
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
+
+env = Env()
+env.read_env(os.path.join(BASE_DIR, '.env'))
+
+ENVIRONMENT = env('ENVIRONMENT', default="development")
 
 LOGIN_URL = '/core/login'
 
