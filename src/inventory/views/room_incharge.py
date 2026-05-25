@@ -475,19 +475,50 @@ class SystemListView(LoginRequiredMixin, ListView):
         context['room'] = room
         context['room_settings'] = RoomSettings.objects.get_or_create(room=room)[0]
 
-        # Build active/inactive entries from item fields
-        active_items = [
-            {'item': item, 'count': item.active_count}
-            for item in items if item.active_count > 0
-        ]
-        inactive_items = [
-            {'item': item, 'count': item.inactive_count}
-            for item in items if item.inactive_count > 0
-        ]
-        archived_items = [
-            {'item': item, 'count': item.archived_count}
-            for item in items if item.archived_count > 0
-        ]
+        # Build active/inactive entries from item fields minus counts already assigned to systems
+        from django.db.models import Count
+        assigned_counts = (
+            SystemComponent.objects
+            .filter(component_item__room=room)
+            .values('component_item_id', 'status')
+            .annotate(count=Count('id'))
+        )
+        
+        assigned_map = {}
+        for entry in assigned_counts:
+            item_id = entry['component_item_id']
+            status = entry['status']
+            count = entry['count']
+            if item_id not in assigned_map:
+                assigned_map[item_id] = {'active': 0, 'inactive': 0, 'under_maintenance': 0}
+            
+            key = 'under_maintenance' if status in ('under_maintenance', 'disposed') else status
+            if key in assigned_map[item_id]:
+                assigned_map[item_id][key] += count
+
+        active_items = []
+        inactive_items = []
+        archived_items = []
+
+        for item in items:
+            assigned = assigned_map.get(item.id, {'active': 0, 'inactive': 0, 'under_maintenance': 0})
+            is_assigned_to_system = (assigned['active'] > 0 or assigned['inactive'] > 0 or assigned['under_maintenance'] > 0)
+            
+            if is_assigned_to_system:
+                loose_active = 0
+                loose_inactive = 0
+                loose_archived = 0
+            else:
+                loose_active = max(0, item.active_count)
+                loose_inactive = max(0, item.inactive_count)
+                loose_archived = max(0, item.archived_count)
+            
+            if loose_active > 0:
+                active_items.append({'item': item, 'count': loose_active})
+            if loose_inactive > 0:
+                inactive_items.append({'item': item, 'count': loose_inactive})
+            if loose_archived > 0:
+                archived_items.append({'item': item, 'count': loose_archived})
 
         systems = (
             System.objects
@@ -1577,12 +1608,32 @@ class RoomReportView(LoginRequiredMixin, View):
                 if rows:
                     system_configs_list.append({'name': s.system_name, 'rows': rows})
 
+        class ExistsList(list):
+            def exists(self):
+                return len(self) > 0
+
+        items_qs = Item.objects.filter(room=room).select_related(
+            'category', 'brand', 'created_by__user', 'updated_by__user'
+        ) if room_settings.items_tab else None
+
+        items_list = ExistsList()
+        if items_qs is not None:
+            for item in items_qs:
+                item.created_by_email = item.created_by.user.email if (item.created_by and hasattr(item.created_by, 'user')) else '—'
+                item.created_on_str = timezone.localtime(item.created_on).strftime('%d %b %Y, %I:%M %p') if item.created_on else '—'
+                item.updated_by_email = '—'
+                item.updated_on_str = '—'
+                if item.updated_on and (item.updated_on - item.created_on).total_seconds() > 2:
+                    item.updated_by_email = item.updated_by_emails or (item.updated_by.user.email if (item.updated_by and hasattr(item.updated_by, 'user')) else '—')
+                    item.updated_on_str = timezone.localtime(item.updated_on).strftime('%d %b %Y, %I:%M %p')
+                items_list.append(item)
+
         context = {
             'room': room,
             'room_settings': room_settings,
             'categories': Category.objects.filter(room=room) if room_settings.categories_tab else None,
             'brands': Brand.objects.filter(room=room) if room_settings.brands_tab else None,
-            'items': Item.objects.filter(room=room) if room_settings.items_tab else None,
+            'items': items_list if room_settings.items_tab else None,
             'systems': systems_qs,
             'system_configs': system_configs_list,   # list of {name, rows}
             'item_groups': ItemGroup.objects.filter(room=room) if room_settings.item_groups_tab else None,
@@ -1641,6 +1692,13 @@ class RoomReportView(LoginRequiredMixin, View):
                             'Closing / Balance Qty': closing,
                             'Unit of Measure': getattr(item, 'unit_of_measure', 'Units'),
                             'Remarks': getattr(item, 'remarks', ''),
+                            'Active': item.active_count,
+                            'Inactive': item.inactive_count,
+                            'Under Maintenance': item.serviceable_count,
+                            'Not Serviceable': item.unserviceable_count,
+                            'Created By': item.created_by_email,
+                            'Updated By': item.updated_by_email,
+                            'Updated On': item.updated_on_str,
                         })
                     pd.DataFrame(item_rows).to_excel(writer, sheet_name='Items', index=False)
 
@@ -2038,16 +2096,16 @@ class SystemsAssignView(LoginRequiredMixin, View):
             return JsonResponse({'error': 'Invalid JSON'}, status=400)
 
         item_id = data.get('item_id')
-        target  = data.get('target')   # 'active' or 'inactive'
-        from_   = data.get('from')     # 'available', 'active', 'inactive'
+        target  = data.get('target')   # 'active', 'inactive', 'available'
+        from_   = data.get('from')     # 'available', 'active', 'inactive', 'archive'
         try:
             count = int(data.get('count', 0))
         except (TypeError, ValueError):
             return JsonResponse({'error': 'Count must be at least 1.'}, status=400)
 
-        if target not in ('active', 'inactive'):
+        if target not in ('active', 'inactive', 'available'):
             return JsonResponse({'error': 'Invalid target.'}, status=400)
-        if from_ not in ('available', 'active', 'inactive'):
+        if from_ not in ('available', 'active', 'inactive', 'archive'):
             return JsonResponse({'error': 'Invalid source.'}, status=400)
         if count < 1:
             return JsonResponse({'error': 'Count must be at least 1.'}, status=400)
@@ -2060,31 +2118,43 @@ class SystemsAssignView(LoginRequiredMixin, View):
                 source_count = item.available_count
             elif from_ == 'active':
                 source_count = item.active_count
-            else:
+            elif from_ == 'inactive':
                 source_count = item.inactive_count
+            elif from_ == 'archive':
+                source_count = item.archived_count
 
             if count > source_count:
-                return JsonResponse({'error': 'Insufficient available count'}, status=400)
+                return JsonResponse({'error': f'Insufficient count in source {from_}. Available: {source_count}'}, status=400)
 
             # Deduct from source
             if from_ == 'available':
                 item.available_count = max(0, item.available_count - count)
             elif from_ == 'active':
                 item.active_count = max(0, item.active_count - count)
-            else:
+            elif from_ == 'inactive':
                 item.inactive_count = max(0, item.inactive_count - count)
+            elif from_ == 'archive':
+                item.archived_count = max(0, item.archived_count - count)
+                if item.serviceable_count >= count:
+                    item.serviceable_count -= count
+                else:
+                    item.unserviceable_count = max(0, item.unserviceable_count - (count - item.serviceable_count))
+                    item.serviceable_count = 0
 
             # Add to target
             if target == 'active':
                 item.active_count += count
-            else:
+            elif target == 'inactive':
                 item.inactive_count += count
+            elif target == 'available':
+                # Will be recalculated correctly at the end
+                pass
 
             # Recalculate available_count
             item.available_count = max(0, item.total_count - item.active_count - item.inactive_count - item.archived_count)
             item.in_use = item.active_count
             try:
-                item.save(update_fields=['active_count', 'inactive_count', 'available_count', 'in_use', 'updated_on'])
+                item.save(update_fields=['active_count', 'inactive_count', 'available_count', 'in_use', 'archived_count', 'serviceable_count', 'unserviceable_count', 'updated_on'])
             except ValidationError as exc:
                 return JsonResponse({'error': exc.messages[0] if hasattr(exc, 'messages') else str(exc)}, status=400)
 
@@ -2183,6 +2253,256 @@ class SystemsArchiveView(LoginRequiredMixin, View):
         return JsonResponse({
             'success': True,
             'message': f'Archived {count} unit(s) of "{item.item_name}" as {category}.',
+        })
+
+
+class SystemAutomatedCreateView(LoginRequiredMixin, View):
+    """
+    POST /rooms/<room_slug>/api/systems/create-automated/
+    Body: {
+        mode: 'general'|'labs',
+        system_type: 'single'|'multi',
+        system_count: N,
+        system_name_format: 'LAB 1 System - 1',
+        target_lane: 'active'|'inactive'|'archive',
+        source_lane: 'available'|'active'|'inactive',
+        items: [{item_id, qty}, ...]
+    }
+    """
+    def post(self, request, room_slug):
+        import json as _json
+        from django.utils.text import slugify
+        from django.db import transaction as _tx
+        from django.db.models import F
+
+        profile = request.user.profile
+        if profile.is_central_admin or profile.is_sub_admin:
+            room = get_object_or_404(Room, slug=room_slug, organisation=profile.org)
+        else:
+            room = get_object_or_404(Room, slug=room_slug, incharge=profile)
+
+        try:
+            data = _json.loads(request.body)
+        except Exception:
+            return JsonResponse({'error': 'Invalid JSON'}, status=400)
+
+        mode = data.get('mode', 'general')
+        system_type = data.get('system_type', 'single')
+        system_count = data.get('system_count', 1)
+        system_name_format = data.get('system_name_format', '').strip()
+        target_lane = data.get('target_lane', 'active')
+        source_lane = data.get('source_lane', 'available')
+        items_data = data.get('items', [])
+
+        if not system_name_format:
+            return JsonResponse({'error': 'System Name / Label is required.'}, status=400)
+        if not items_data:
+            return JsonResponse({'error': 'No items selected.'}, status=400)
+
+        try:
+            system_count = int(system_count)
+            if system_count < 1:
+                system_count = 1
+        except (TypeError, ValueError):
+            system_count = 1
+
+        with _tx.atomic():
+            # Generate prefix and starting index for labels
+            systems_to_create = []
+            if mode == 'labs' and system_type == 'multi':
+                # e.g., "LAB 1 System - 1" -> prefix="LAB 1 System - ", start_num=1
+                parts = system_name_format.rsplit('-', 1)
+                if len(parts) == 2 and parts[1].strip().isdigit():
+                    prefix = parts[0] + '-'
+                    try:
+                        start_num = int(parts[1].strip())
+                    except ValueError:
+                        start_num = 1
+                else:
+                    prefix = system_name_format + ' - '
+                    start_num = 1
+
+                for i in range(system_count):
+                    systems_to_create.append(f"{prefix}{start_num + i}".strip())
+            else:
+                systems_to_create.append(system_name_format)
+
+            # Fetch or create System objects
+            created_systems = []
+            for sname in systems_to_create:
+                sys_obj, _ = System.objects.get_or_create(
+                    organisation=room.organisation,
+                    room=room,
+                    system_name=sname,
+                    defaults={'department': room.department}
+                )
+                created_systems.append(sys_obj)
+
+            # Map target lane to component status
+            if target_lane == 'active':
+                comp_status = 'active'
+            elif target_lane == 'inactive':
+                comp_status = 'inactive'
+            else:
+                comp_status = 'under_maintenance'
+
+            # Allocate items and create components
+            for item_info in items_data:
+                item_id = item_info.get('item_id')
+                qty = int(item_info.get('qty', 0))
+                if qty < 1:
+                    continue
+
+                item = get_object_or_404(Item.objects.select_for_update(), id=item_id, room=room)
+
+                # Validate source count
+                if source_lane == 'available':
+                    source_count = item.available_count
+                elif source_lane == 'active':
+                    source_count = item.active_count
+                else:
+                    source_count = item.inactive_count
+
+                if qty > source_count:
+                    return JsonResponse({
+                        'error': f'Insufficient count for "{item.item_name}". Requested: {qty}, Available: {source_count}'
+                    }, status=400)
+
+                # Deduct from source bucket
+                if source_lane == 'available':
+                    item.available_count = max(0, item.available_count - qty)
+                elif source_lane == 'active':
+                    item.active_count = max(0, item.active_count - qty)
+                    item.in_use = item.active_count
+                else:
+                    item.inactive_count = max(0, item.inactive_count - qty)
+
+                # Add to target bucket
+                if target_lane == 'active':
+                    item.active_count += qty
+                    item.in_use = item.active_count
+                elif target_lane == 'inactive':
+                    item.inactive_count += qty
+                else:
+                    # Archive target
+                    item.archived_count += qty
+                    item.serviceable_count += qty
+                    Archive.objects.create(
+                        organisation=item.organisation,
+                        department=item.department,
+                        room=room,
+                        item=item,
+                        count=qty,
+                        archive_category='serviceable',
+                        archive_status='archived',
+                        remark=f"Automated System Creation ({system_name_format})"
+                    )
+
+                item.available_count = max(0, item.total_count - item.active_count - item.inactive_count - item.archived_count)
+                try:
+                    item.save()
+                except ValidationError as exc:
+                    return JsonResponse({'error': exc.messages[0] if hasattr(exc, 'messages') else str(exc)}, status=400)
+
+                # Distribute components across created systems
+                num_sys = len(created_systems)
+                qty_per_sys = qty // num_sys
+                if qty_per_sys < 1 and num_sys > 1:
+                    qty_per_sys = 1
+
+                assigned_qty = 0
+                for sys_index, sys_obj in enumerate(created_systems):
+                    if assigned_qty >= qty:
+                        break
+
+                    sys_qty = qty_per_sys
+                    if num_sys == 1:
+                        sys_qty = qty
+                    elif qty_per_sys == 1:
+                        sys_qty = 1
+
+                    if assigned_qty + sys_qty > qty:
+                        sys_qty = qty - assigned_qty
+
+                    for u in range(sys_qty):
+                        # Infer component type from category or item name
+                        category_name = item.category.category_name.lower()
+                        comp_type = 'other'
+                        for c_type, _ in SystemComponent.COMPONENT_TYPES:
+                            if c_type in category_name or category_name in c_type:
+                                comp_type = c_type
+                                break
+
+                        # Unique serial number sequence
+                        base_sn = item.serial_number or f"{item.item_name[:10].upper()}-SN"
+                        serial_number = f"{base_sn}-{sys_obj.system_name}-{assigned_qty + u + 1}".replace(' ', '')
+
+                        # Create the component directly
+                        SystemComponent.objects.create(
+                            system=sys_obj,
+                            component_item=item,
+                            component_type=comp_type,
+                            serial_number=serial_number,
+                            status=comp_status
+                        )
+
+                    assigned_qty += sys_qty
+
+        return JsonResponse({
+            'success': True,
+            'message': f'Successfully allocated items and configured systems.'
+        })
+
+
+class SystemDeleteView(LoginRequiredMixin, View):
+    """
+    POST /rooms/<room_slug>/api/systems/<int:pk>/delete/
+    Deletes the System, cascading to components.
+    """
+    def post(self, request, room_slug, pk):
+        from django.db import transaction as _tx
+        profile = request.user.profile
+        if profile.is_central_admin or profile.is_sub_admin:
+            room = get_object_or_404(Room, slug=room_slug, organisation=profile.org)
+        else:
+            room = get_object_or_404(Room, slug=room_slug, incharge=profile)
+
+        system = get_object_or_404(System, pk=pk, room=room)
+        system_name = system.system_name
+
+        with _tx.atomic():
+            # Simply delete the system. Cascade deletes related SystemComponents,
+            # which fires their post_delete signal in models.py, restoring counts!
+            system.delete()
+
+        return JsonResponse({
+            'success': True,
+            'message': f'System "{system_name}" has been successfully deleted.'
+        })
+
+
+class SystemComponentRevertView(LoginRequiredMixin, View):
+    """
+    POST /rooms/<room_slug>/api/systems/components/<int:pk>/revert/
+    Deletes the specific SystemComponent, returning its count back to loose available stock.
+    """
+    def post(self, request, room_slug, pk):
+        from django.db import transaction as _tx
+        profile = request.user.profile
+        if profile.is_central_admin or profile.is_sub_admin:
+            room = get_object_or_404(Room, slug=room_slug, organisation=profile.org)
+        else:
+            room = get_object_or_404(Room, slug=room_slug, incharge=profile)
+
+        component = get_object_or_404(SystemComponent, pk=pk, system__room=room)
+        item_name = component.component_item.item_name
+
+        with _tx.atomic():
+            component.delete()
+
+        return JsonResponse({
+            'success': True,
+            'message': f'Component "{item_name}" has been successfully reverted to loose stock.'
         })
 
 
@@ -2362,6 +2682,10 @@ class ConfigurationsListView(LoginRequiredMixin, ListView):
         context['room_slug'] = self.kwargs['room_slug']
         context['room_settings'] = RoomSettings.objects.get_or_create(room=room)[0]
         context['items'] = Item.objects.filter(room=room).order_by('item_name')
+        
+        # Prefetch systems in this room
+        context['systems'] = System.objects.filter(room=room).prefetch_related('systemcomponent_set__component_item').order_by('system_name')
+        
         return context
 
 
@@ -2398,6 +2722,13 @@ class SaveConfigurationView(LoginRequiredMixin, View):
             rows = _json.loads(cfg_data)
             if not isinstance(rows, list) or not rows:
                 return JsonResponse({'error': 'Add at least one specification row.'}, status=400)
+            
+            # Validate non-empty specification keys and values
+            for row in rows:
+                key = str(row.get('spec') or row.get('key', '')).strip()
+                val = str(row.get('value', '')).strip()
+                if not key or not val:
+                    return JsonResponse({'error': 'Specification key and value cannot be empty.'}, status=400)
         except Exception:
             return JsonResponse({'error': 'Invalid specification data.'}, status=400)
 

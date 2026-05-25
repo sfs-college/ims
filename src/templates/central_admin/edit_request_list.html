@@ -283,21 +283,31 @@
                     <div class="change-item"><span class="text-muted">Current Total Stock</span><span class="fw-bold">{{ r.item.total_count }}</span></div>
                     <div class="change-item"><span class="text-muted">Available Now</span><span class="fw-bold">{{ r.item.available_count }}</span></div>
                     <div class="change-item"><span class="text-muted">Currently In Use</span><span class="fw-bold">{{ r.item.in_use }}</span></div>
-                    <div class="change-item" style="border-bottom:none;"><span class="text-muted">Stock After Approval</span><span class="fw-bold text-success">{{ r.item.total_count|add:r.requested_count }}</span></div>
+                    <div class="change-item" style="border-bottom:none;"><span class="text-muted">Stock After Approval</span><span class="fw-bold text-success" id="preview-stock-{{ r.pk }}">{{ r.item.total_count|add:r.requested_count }}</span></div>
                 </div>
                 <div class="detail-zone border-start border-primary border-3">
                     <h6 class="fw-bold small mb-1">Reason</h6>
                     <p class="mb-0">{{ r.reason|default:"No justification provided." }}</p>
                 </div>
-                <div style="padding: 12px 20px; background: #fafafa; border-top: 1px solid #f1f5f9;">
-                    <label class="form-label small fw-bold text-muted text-uppercase mb-1" style="font-size:0.7rem; display:block;"><i class="bi bi-chat-left-dots me-1"></i>Admin Remark</label>
-                    <input type="text" placeholder="Add approval/rejection remark (optional)..." class="form-control form-control-sm" style="border-radius:8px; border:1px solid #cbd5e1; font-size:0.8rem; font-family:'DM Sans', sans-serif;" oninput="syncRemark({{ r.pk }}, this.value)">
+                <div style="padding: 14px 20px; background: #fafafa; border-top: 1px solid #f1f5f9; display: flex; flex-direction: column; gap: 10px;">
+                    <div>
+                        <label class="form-label small fw-bold text-muted text-uppercase mb-1" style="font-size:0.7rem; display:block;"><i class="bi bi-chat-left-dots me-1"></i>Admin Remark</label>
+                        <input type="text" placeholder="Add approval/rejection remark (optional)..." class="form-control form-control-sm" style="border-radius:8px; border:1px solid #cbd5e1; font-size:0.8rem; font-family:'DM Sans', sans-serif;" oninput="syncRemark({{ r.pk }}, this.value)">
+                    </div>
+                    <div>
+                        <div class="d-flex justify-content-between align-items-center mb-1">
+                            <label class="form-label small fw-bold text-muted text-uppercase mb-0" style="font-size:0.7rem;"><i class="bi bi-check-circle me-1"></i>Approved Count</label>
+                            <span class="text-muted" style="font-size:0.7rem;">Max: {{ r.requested_count }}</span>
+                        </div>
+                        <input type="number" value="{{ r.requested_count }}" min="1" max="{{ r.requested_count }}" class="form-control form-control-sm" style="border-radius:8px; border:1px solid #cbd5e1; font-size:0.8rem; font-family:'DM Sans', sans-serif;" oninput="syncApprovedCount({{ r.pk }}, this.value, {{ r.requested_count }}, {{ r.item.total_count }})" onblur="handleApprovedCountBlur(this, {{ r.pk }}, {{ r.requested_count }}, {{ r.item.total_count }})">
+                    </div>
                 </div>
                 <div class="action-group">
                     <form method="post" action="{% url 'central_admin:approve_stock_request' r.pk %}" class="flex-grow-1">
                         {% csrf_token %}<input type="hidden" name="next_type" value="item_edit">
                         <input type="hidden" name="remark" id="approve-remark-{{ r.pk }}" value="">
-                        <button type="submit" class="btn-approve-grad w-100"><i class="bi bi-check-lg me-1"></i> Approve +{{ r.requested_count }}</button>
+                        <input type="hidden" name="approved_count" id="approve-count-{{ r.pk }}" value="{{ r.requested_count }}">
+                        <button type="submit" class="btn-approve-grad w-100" id="btn-approve-{{ r.pk }}"><i class="bi bi-check-lg me-1"></i> Approve +{{ r.requested_count }}</button>
                     </form>
                     <form method="post" action="{% url 'central_admin:reject_stock_request' r.pk %}" class="flex-grow-1">
                         {% csrf_token %}<input type="hidden" name="next_type" value="item_edit">
@@ -638,7 +648,15 @@
                         </div>
                         <div style="font-size:0.78rem;color:#64748b;">
                             <i class="bi bi-geo-alt me-1"></i>{% if r.room.label %}{{ r.room.label }} — {% endif %}{{ r.room.room_name }} &nbsp;·&nbsp;
-                            +{{ r.requested_count }} units
+                            {% if r.status == 'approved' and r.approved_count is not None %}
+                                {% if r.approved_count == r.requested_count %}
+                                    +{{ r.approved_count }} units approved
+                                {% else %}
+                                    +{{ r.approved_count }} approved (Requested: +{{ r.requested_count }})
+                                {% endif %}
+                            {% else %}
+                                +{{ r.requested_count }} units
+                            {% endif %}
                             {% if r.requested_by %} &nbsp;·&nbsp; <i class="bi bi-person me-1"></i>{{ r.requested_by }}{% endif %}
                         </div>
                         {% if r.reviewed_by %}
@@ -893,6 +911,49 @@ document.addEventListener('DOMContentLoaded', function() {
         const rejectInput = document.getElementById('reject-remark-' + pk);
         if (approveInput) approveInput.value = val;
         if (rejectInput) rejectInput.value = val;
+    };
+
+    window.syncApprovedCount = function(pk, val, maxVal, totalCount) {
+        let count = parseInt(val);
+        if (isNaN(count)) return; // Allow typing
+        if (count < 1) count = 1;
+        if (count > maxVal) count = maxVal;
+        
+        const countInput = document.getElementById('approve-count-' + pk);
+        if (countInput) countInput.value = count;
+        
+        const approveBtn = document.getElementById('btn-approve-' + pk);
+        if (approveBtn) {
+            approveBtn.innerHTML = `<i class="bi bi-check-lg me-1"></i> Approve +${count}`;
+        }
+        
+        const previewEl = document.getElementById('preview-stock-' + pk);
+        if (previewEl) {
+            previewEl.textContent = totalCount + count;
+        }
+    };
+
+    window.handleApprovedCountBlur = function(inputEl, pk, maxVal, totalCount) {
+        let count = parseInt(inputEl.value);
+        if (isNaN(count) || count < 1) {
+            count = maxVal;
+        } else if (count > maxVal) {
+            count = maxVal;
+        }
+        inputEl.value = count;
+        
+        const countInput = document.getElementById('approve-count-' + pk);
+        if (countInput) countInput.value = count;
+        
+        const approveBtn = document.getElementById('btn-approve-' + pk);
+        if (approveBtn) {
+            approveBtn.innerHTML = `<i class="bi bi-check-lg me-1"></i> Approve +${count}`;
+        }
+        
+        const previewEl = document.getElementById('preview-stock-' + pk);
+        if (previewEl) {
+            previewEl.textContent = totalCount + count;
+        }
     };
 
     function moveSlider(tabEl) {

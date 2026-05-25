@@ -56,6 +56,9 @@ urlpatterns = [
     # Systems Kanban APIs
     path('rooms/<slug:room_slug>/api/systems/assign/', room_incharge.SystemsAssignView.as_view(), name='systems_assign'),
     path('rooms/<slug:room_slug>/api/systems/archive/', room_incharge.SystemsArchiveView.as_view(), name='systems_archive'),
+    path('rooms/<slug:room_slug>/api/systems/create-automated/', room_incharge.SystemAutomatedCreateView.as_view(), name='systems_create_automated'),
+    path('rooms/<slug:room_slug>/api/systems/<int:pk>/delete/', room_incharge.SystemDeleteView.as_view(), name='systems_delete'),
+    path('rooms/<slug:room_slug>/api/systems/components/<int:pk>/revert/', room_incharge.SystemComponentRevertView.as_view(), name='systems_revert_component'),
 
     # Configurations
     path('rooms/<slug:room_slug>/configurations/', room_incharge.ConfigurationsListView.as_view(), name='configurations_list'),

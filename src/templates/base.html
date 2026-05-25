@@ -59,6 +59,52 @@
     @media (max-width: 768px) {
       body { padding-bottom: calc(90px + var(--sab)) !important; }
     }
+
+    /* ── Custom Global Horizontal Scrollbars ── */
+    .table-responsive, 
+    [style*="overflow-x: auto"], 
+    [style*="overflow-x:scroll"],
+    .overflow-x-auto, 
+    .overflow-x-scroll {
+        scrollbar-width: thin; /* Firefox */
+        scrollbar-color: #cbd5e1 #f1f5f9; /* Firefox */
+    }
+
+    .table-responsive::-webkit-scrollbar,
+    [style*="overflow-x: auto"]::-webkit-scrollbar,
+    [style*="overflow-x:scroll"]::-webkit-scrollbar,
+    .overflow-x-auto::-webkit-scrollbar,
+    .overflow-x-scroll::-webkit-scrollbar {
+        height: 8px; /* slim and premium scrollbar height */
+        width: 8px;
+    }
+
+    .table-responsive::-webkit-scrollbar-track,
+    [style*="overflow-x: auto"]::-webkit-scrollbar-track,
+    [style*="overflow-x:scroll"]::-webkit-scrollbar-track,
+    .overflow-x-auto::-webkit-scrollbar-track,
+    .overflow-x-scroll::-webkit-scrollbar-track {
+        background: #f1f5f9;
+        border-radius: 4px;
+    }
+
+    .table-responsive::-webkit-scrollbar-thumb,
+    [style*="overflow-x: auto"]::-webkit-scrollbar-thumb,
+    [style*="overflow-x:scroll"]::-webkit-scrollbar-thumb,
+    .overflow-x-auto::-webkit-scrollbar-thumb,
+    .overflow-x-scroll::-webkit-scrollbar-thumb {
+        background: #cbd5e1;
+        border-radius: 4px;
+        border: 1px solid #f1f5f9;
+    }
+
+    .table-responsive::-webkit-scrollbar-thumb:hover,
+    [style*="overflow-x: auto"]::-webkit-scrollbar-thumb:hover,
+    [style*="overflow-x:scroll"]::-webkit-scrollbar-thumb:hover,
+    .overflow-x-auto::-webkit-scrollbar-thumb:hover,
+    .overflow-x-scroll::-webkit-scrollbar-thumb:hover {
+        background: #94a3b8;
+    }
     </style>
     {% block style %}{% endblock style %}
 </head>

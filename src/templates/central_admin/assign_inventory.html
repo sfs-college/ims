@@ -1058,38 +1058,72 @@
                     <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body">
-                    <p class="text-muted small mb-4">Select a room, choose an assigned item, and return a safe quantity back to Master Inventory.</p>
-                    <div class="row g-3 mb-4">
-                        <div class="col-md-4">
-                            <label class="form-label fw-bold small text-muted text-uppercase">Room Category</label>
-                            <select class="form-select" id="revertCategory" onchange="loadRoomsForRevert()">
-                                <option value="">-- Select Category --</option>
-                                <option value="classrooms">Classrooms</option>
-                                <option value="labs">Labs</option>
-                                <option value="staffrooms">Staffrooms</option>
-                                <option value="halls">Halls</option>
-                                <option value="outdoors">Outdoors</option>
-                                <option value="washrooms">Washrooms</option>
-                                <option value="officerooms">Officerooms</option>
-                            </select>
+                    <div class="d-flex justify-content-between align-items-center mb-3 gap-3 flex-wrap">
+                        <p class="text-muted small mb-0">Return assigned room stock back to Master Inventory.</p>
+                        <button type="button" class="btn btn-sm btn-outline-secondary" onclick="loadRevertItems(); loadRevertHistoryOnly();">
+                            <i class="bi bi-arrow-clockwise me-1"></i> Refresh
+                        </button>
+                    </div>
+
+                    <!-- Filters & Batch Actions Panel -->
+                    <div class="p-3 mb-4 rounded-3 shadow-sm border bg-light d-flex flex-column gap-3">
+                        <div class="row g-2 align-items-center">
+                            <!-- Room Filter -->
+                            <div class="col-md-3">
+                                <label class="small fw-bold text-muted mb-1 d-block">Filter Room</label>
+                                <select id="revertRoomFilter" class="form-select form-select-sm" onchange="applyRevertFilters()">
+                                    <option value="">All Rooms</option>
+                                </select>
+                            </div>
+                            <!-- Category Filter -->
+                            <div class="col-md-3">
+                                <label class="small fw-bold text-muted mb-1 d-block">Filter Category</label>
+                                <select id="revertCategoryFilter" class="form-select form-select-sm" onchange="applyRevertFilters()">
+                                    <option value="">All Categories</option>
+                                </select>
+                            </div>
+                            <!-- Search -->
+                            <div class="col-md-3">
+                                <label class="small fw-bold text-muted mb-1 d-block">Search Text</label>
+                                <div style="position:relative;">
+                                    <input type="text" id="revertSearchInput" placeholder="Search assigned items..." 
+                                           onkeyup="applyRevertFilters()"
+                                           class="form-control form-control-sm" style="padding-left: 30px;">
+                                    <i class="bi bi-search" style="position:absolute; left:10px; top:50%; transform:translateY(-50%); font-size:0.75rem; color:var(--text-muted);"></i>
+                                </div>
+                            </div>
+                            <!-- Selection Info & Notes -->
+                            <div class="col-md-3">
+                                <label class="small fw-bold text-muted mb-1 d-block">Batch Revert Note</label>
+                                <input type="text" id="batchRevertNote" class="form-control form-control-sm" placeholder="Optional batch note...">
+                            </div>
                         </div>
-                        <div class="col-md-4">
-                            <label class="form-label fw-bold small text-muted text-uppercase">Room</label>
-                            <select class="form-select" id="revertRoom" onchange="loadRevertItems()">
-                                <option value="">-- Select Room --</option>
-                            </select>
-                        </div>
-                        <div class="col-md-4">
-                            <label class="form-label fw-bold small text-muted text-uppercase">History</label>
-                            <button type="button" class="btn btn-outline-secondary w-100" onclick="loadRevertHistoryOnly()">
-                                <i class="bi bi-clock-history me-1"></i> Refresh History
-                            </button>
+
+                        <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 pt-2 border-top">
+                            <div class="d-flex align-items-center gap-3">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="selectAllRevertChk" onchange="toggleSelectAllRevert(this.checked)" style="cursor:pointer;">
+                                    <label class="form-check-label small fw-bold text-dark" for="selectAllRevertChk" style="cursor:pointer; user-select:none;">
+                                        Select All (Currently Filtered)
+                                    </label>
+                                </div>
+                                <span id="revertSelectedCount" class="badge bg-primary px-2.5 py-1.5" style="display:none; font-size:0.8rem; font-weight:600;">0 Selected</span>
+                            </div>
+                            <div class="d-flex gap-2">
+                                <button type="button" class="btn btn-sm btn-success" id="batchRevertBtn" onclick="submitBatchRevert()" disabled>
+                                    <i class="bi bi-arrow-counterclockwise me-1"></i> Revert Selected
+                                </button>
+                                <button type="button" class="btn btn-sm btn-danger" onclick="submitRevertAllAll()">
+                                    <i class="bi bi-arrow-return-left me-1"></i> Revert All (All Rooms)
+                                </button>
+                            </div>
                         </div>
                     </div>
+
                     <div id="revertItemsGrid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:14px;">
                         <div class="text-center text-muted py-5" style="grid-column:1/-1;">
-                            <i class="bi bi-box-arrow-left fs-1 d-block mb-3 opacity-25"></i>
-                            Select a room to view assigned items.
+                            <div class="spinner-border text-primary" role="status"></div>
+                            <p class="text-muted mt-3">Loading assigned items...</p>
                         </div>
                     </div>
                     <hr class="my-4">
@@ -1110,33 +1144,20 @@
                     </h5>
                     <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
                 </div>
-                <div class="modal-body">
-                    <p class="text-muted small mb-4">Select a room category and room to see all inventory items assigned to it.</p>
-                    <div class="row g-3 mb-4">
-                        <div class="col-md-6">
-                            <label class="form-label fw-bold small text-muted text-uppercase">Room Category</label>
-                            <select class="form-select" id="roomViewCategory" onchange="loadRoomsForViewer()">
-                                <option value="">-- Select Category --</option>
-                                <option value="classrooms">Classrooms</option>
-                                <option value="labs">Labs</option>
-                                <option value="staffrooms">Staffrooms</option>
-                                <option value="halls">Halls</option>
-                                <option value="outdoors">Outdoors</option>
-                                <option value="washrooms">Washrooms</option>
-                                <option value="officerooms">Officerooms</option>
-                            </select>
-                        </div>
-                        <div class="col-md-6">
-                            <label class="form-label fw-bold small text-muted text-uppercase">Room</label>
-                            <select class="form-select" id="roomViewRoom" onchange="loadRoomInventory()">
-                                <option value="">-- Select Room --</option>
-                            </select>
+                <div class="modal-body" style="background: #f8fafc;">
+                    <div class="d-flex justify-content-between align-items-center mb-4 gap-3 flex-wrap">
+                        <p class="text-muted small mb-0">General overview of assigned inventories, open issues, and incharges across all rooms.</p>
+                        <div style="position:relative; width: 320px;">
+                            <input type="text" id="roomViewerSearchInput" placeholder="Search rooms, labels, or items..." 
+                                   onkeyup="filterRoomViewerCards(this.value)"
+                                   class="form-control form-control-sm" style="padding-left: 30px; border-radius: 8px;">
+                            <i class="bi bi-search" style="position:absolute; left:10px; top:50%; transform:translateY(-50%); font-size:0.75rem; color:var(--text-muted);"></i>
                         </div>
                     </div>
-                    <div id="roomInventoryResults">
-                        <div class="text-center text-muted py-5">
-                            <i class="bi bi-search fs-1 d-block mb-3 opacity-25"></i>
-                            <p>Select a category and room above to view its assigned inventory.</p>
+                    <div id="roomInventoryResults" style="min-height:300px; max-height: 64vh; overflow-y: auto; padding-right: 4px;">
+                        <div class="text-center py-5">
+                            <div class="spinner-border text-primary" role="status"></div>
+                            <p class="text-muted mt-3">Loading room inventories...</p>
                         </div>
                     </div>
                 </div>
@@ -1307,7 +1328,7 @@
 </div>
 
 <!-- Quantity Modal -->
-<div id="modalBg" class="modal-bg" style="display:none; pointer-events:none;">
+<div id="modalBg" class="modal-bg" style="display:none;">
     <div class="modal-box">
         <div class="modal-title">Set Quantity</div>
         <div class="modal-sub">
@@ -1532,9 +1553,12 @@ function closeModal() {
 
 function stepQty(d) {
     const f = document.getElementById('qtyField');
-    const max = parseInt(f.dataset.itemStock) || 1;
+    const stock = parseInt(f.dataset.itemStock) || 0;
+    const roomCount = selectedRooms.length || 1;
+    const maxVal = Math.floor(stock / roomCount);
+
     let v = (parseInt(f.value) || 0) + d;
-    v = Math.max(1, Math.min(v, max * 10));
+    v = Math.max(1, Math.min(v, maxVal));
     f.value = v;
     syncAfter();
 }
@@ -1542,20 +1566,35 @@ function stepQty(d) {
 function syncAfter() {
     const f = document.getElementById('qtyField');
     const stock = parseInt(f.dataset.itemStock) || 0;
-    const qty = parseInt(f.value) || 0;
-    const roomCount = selectedRooms.length;
+    const roomCount = selectedRooms.length || 1;
+    const maxVal = Math.floor(stock / roomCount);
+
+    let qty = parseInt(f.value) || 0;
+    if (qty > maxVal) {
+        qty = maxVal;
+        f.value = qty;
+    }
+    if (qty < 1 && f.value !== '') {
+        qty = 1;
+        f.value = qty;
+    }
+
     const totalNeeded = qty * roomCount;
     const remaining = stock - totalNeeded;
     const afterEl = document.getElementById('mAfter');
-    afterEl.textContent = remaining;
+    afterEl.textContent = remaining >= 0 ? remaining : '—';
+    
+    const warn = document.getElementById('stockWarning');
+    const btn  = document.getElementById('confirmBtn');
+    
     if (remaining < 0) {
         afterEl.style.color = '#dc2626';
-        document.getElementById('stockWarning').style.display = 'block';
-        document.getElementById('confirmBtn').disabled = true;
+        warn.style.display = 'block';
+        btn.disabled = true;
     } else {
         afterEl.style.color = 'var(--text-dark)';
-        document.getElementById('stockWarning').style.display = 'none';
-        document.getElementById('confirmBtn').disabled = (qty <= 0);
+        warn.style.display = 'none';
+        btn.disabled = (qty <= 0);
     }
 }
 
@@ -1706,132 +1745,284 @@ document.addEventListener('keydown', function(e) {
 });
 
 function openViewRoomInventory() {
-    document.getElementById('roomViewCategory').value = '';
-    document.getElementById('roomViewRoom').innerHTML = '<option value="">-- Select Room --</option>';
-    document.getElementById('roomInventoryResults').innerHTML = `
-        <div class="text-center text-muted py-5">
-            <i class="bi bi-search fs-1 d-block mb-3 opacity-25"></i>
-            <p>Select a category and room above to view its assigned inventory.</p>
-        </div>
-    `;
+    const searchInput = document.getElementById('roomViewerSearchInput');
+    if (searchInput) searchInput.value = '';
+    const resultsDiv = document.getElementById('roomInventoryResults');
+    resultsDiv.innerHTML = `
+        <div class="text-center py-5">
+            <div class="spinner-border text-primary" role="status"></div>
+            <p class="text-muted mt-3">Loading room inventories...</p>
+        </div>`;
+    
     const modal = new bootstrap.Modal(document.getElementById('viewRoomInventoryModal'));
     modal.show();
-}
-
-function loadRoomsForViewer() {
-    const cat = document.getElementById('roomViewCategory').value;
-    const roomSel = document.getElementById('roomViewRoom');
-    document.getElementById('roomInventoryResults').innerHTML = `
-        <div class="text-center text-muted py-5">
-            <i class="bi bi-search fs-1 d-block mb-3 opacity-25"></i>
-            <p>Now select a room to view its inventory.</p>
-        </div>
-    `;
-    if (!cat) { roomSel.innerHTML = '<option value="">-- Select Room --</option>'; return; }
-    roomSel.innerHTML = '<option value="">Loading rooms...</option>';
-    fetch(`{% url 'central_admin:get_rooms_by_category' %}?category=${encodeURIComponent(cat)}`)
+    
+    fetch(`{% url 'central_admin:get_room_inventory' %}`)
         .then(res => { if (!res.ok) throw new Error('HTTP ' + res.status); return res.json(); })
         .then(data => {
-            roomSel.innerHTML = '<option value="">-- Select Room --</option>';
-            (data.rooms || []).forEach(room => {
-                roomSel.innerHTML += `<option value="${room.id}">${room.name}</option>`;
-            });
-        })
-        .catch(() => { roomSel.innerHTML = '<option value="">Error loading rooms</option>'; });
-}
-
-function loadRoomInventory() {
-    const roomId = document.getElementById('roomViewRoom').value;
-    const resultsDiv = document.getElementById('roomInventoryResults');
-    if (!roomId) {
-        resultsDiv.innerHTML = `<div class="text-center text-muted py-5"><i class="bi bi-search fs-1 d-block mb-3 opacity-25"></i><p>Select a room to view its assigned inventory.</p></div>`;
-        return;
-    }
-    resultsDiv.innerHTML = `<div class="text-center py-5"><div class="spinner-border text-primary" role="status"></div><p class="text-muted mt-3">Loading room inventory...</p></div>`;
-    fetch(`{% url 'central_admin:get_room_inventory' %}?room_id=${roomId}`)
-        .then(res => { if (!res.ok) throw new Error('HTTP ' + res.status); return res.json(); })
-        .then(data => {
-            if (data.error) throw new Error(data.error);
-            const items = data.items || [];
-            const roomName = data.room_name || 'Selected Room';
-            if (items.length === 0) {
-                resultsDiv.innerHTML = `<div class="text-center py-5 text-muted"><i class="bi bi-inbox fs-1 d-block mb-3 opacity-25"></i><h6>No inventory assigned to <strong>${roomName}</strong></h6><p class="small">Use the Assign Inventory tool to add items to this room.</p></div>`;
+            const rooms = data.rooms_data || [];
+            if (rooms.length === 0) {
+                resultsDiv.innerHTML = `
+                    <div class="text-center py-5 text-muted">
+                        <i class="bi bi-inbox fs-1 d-block mb-3 opacity-25"></i>
+                        <h6>No room inventories found.</h6>
+                    </div>`;
                 return;
             }
+            
             resultsDiv.innerHTML = `
-                <div class="mb-3 d-flex justify-content-between align-items-center">
-                    <div><h6 class="fw-bold mb-0">${roomName}</h6><small class="text-muted">${items.length} item type${items.length !== 1 ? 's' : ''} assigned</small></div>
-                    <span class="badge bg-primary px-3 py-2">${items.reduce((s,i) => s + (i.total_qty||0), 0)} total units</span>
-                </div>
-                <div class="table-responsive">
-                    <table class="table table-hover align-middle">
-                        <thead class="table-light"><tr><th>Item Name</th><th>Category</th><th>Brand</th><th class="text-center">Total Qty</th><th class="text-center">Available</th><th class="text-center">In Use</th></tr></thead>
-                        <tbody>${items.map(item => `<tr><td class="fw-semibold">${item.item_name}</td><td><span class="badge bg-light text-dark border">${item.category || '—'}</span></td><td><span class="badge bg-light text-dark border">${item.brand || '—'}</span></td><td class="text-center"><span class="badge bg-secondary">${item.total_qty}</span></td><td class="text-center"><span class="badge bg-success">${item.available}</span></td><td class="text-center"><span class="badge bg-warning text-dark">${item.in_use}</span></td></tr>`).join('')}</tbody>
-                    </table>
+                <div style="display:grid; grid-template-columns:repeat(auto-fill, minmax(320px, 1fr)); gap:16px;" id="roomViewerGrid">
+                    ${rooms.map(r => {
+                        const itemsListHtml = r.exact_items.length === 0 
+                            ? `<div style="font-size:0.75rem; color:#94a3b8; padding:8px 0; text-align:center;"><i class="bi bi-inbox me-1"></i>No items assigned</div>`
+                            : r.exact_items.map(item => `
+                                <div style="display:flex; justify-content:space-between; align-items:center; font-size:0.78rem; padding: 4px 0; border-bottom: 1px dashed #f1f5f9;">
+                                    <span style="font-weight:600; color:#334155; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:140px;" title="${escapeHtml(item.item_name)}">${escapeHtml(item.item_name)}</span>
+                                    <span class="badge bg-light text-dark border" style="font-size:0.65rem; font-weight:700;">Active: ${item.active} · Avail: ${item.available} · Total: ${item.count}</span>
+                                </div>
+                            `).join('');
+                            
+                        const issueBadge = r.issues_count > 0 
+                            ? `<span class="badge bg-danger rounded-pill" style="font-size:0.68rem; font-weight:800; display:inline-flex; align-items:center; gap:3px;"><i class="bi bi-exclamation-triangle-fill"></i> ${r.issues_count} Issue${r.issues_count > 1 ? 's' : ''}</span>`
+                            : `<span class="badge bg-success rounded-pill" style="font-size:0.68rem; font-weight:800; display:inline-flex; align-items:center; gap:3px;"><i class="bi bi-check-circle-fill"></i> Normal</span>`;
+
+                        return `
+                            <div class="room-viewer-card p-3 bg-white rounded-3 border" style="box-shadow: 0 2px 8px rgba(0,0,0,0.04); display:flex; flex-direction:column; justify-content:space-between; min-height:220px; transition:all 0.15s;" onmouseover="this.style.borderColor='var(--purple)';" onmouseout="this.style.borderColor='#e2e8f0';">
+                                <div>
+                                    <div class="d-flex justify-content-between align-items-start gap-2 mb-2">
+                                        <div style="min-width:0;">
+                                            <h6 class="fw-bold mb-0 text-dark" style="font-size:0.92rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:180px;" title="${escapeHtml(r.room_name)}">${escapeHtml(r.room_name)}</h6>
+                                            <small class="text-muted" style="font-size:0.75rem;">Label: ${escapeHtml(r.room_label)}</small>
+                                        </div>
+                                        ${issueBadge}
+                                    </div>
+                                    <div style="font-size:0.76rem; color:#475569; margin-bottom:12px; padding:6px 10px; background:#f8fafc; border-radius:6px; display:flex; flex-direction:column; gap:2px;">
+                                        <div><span class="text-muted">Incharge:</span> <strong>${escapeHtml(r.incharge)}</strong></div>
+                                        <div><span class="text-muted">Loose Stock:</span> <strong>${r.available} available</strong> · <strong>${r.active} active</strong></div>
+                                    </div>
+                                    <div style="max-height:120px; overflow-y:auto; padding-right:2px;">
+                                        ${itemsListHtml}
+                                    </div>
+                                </div>
+                            </div>
+                        `;
+                    }).join('')}
                 </div>`;
         })
         .catch(() => {
-            resultsDiv.innerHTML = `<div class="text-center py-5 text-danger"><i class="bi bi-exclamation-triangle-fill fs-1 d-block mb-3"></i><p>Failed to load room inventory.</p><button class="btn btn-outline-danger btn-sm" onclick="loadRoomInventory()"><i class="bi bi-arrow-clockwise me-1"></i>Retry</button></div>`;
+            resultsDiv.innerHTML = `
+                <div class="text-center py-5 text-danger">
+                    <i class="bi bi-exclamation-triangle-fill fs-2"></i>
+                    <p class="mt-2">Failed to load room inventories.</p>
+                </div>`;
         });
 }
 
+function filterRoomViewerCards(q) {
+    q = q.toLowerCase();
+    document.querySelectorAll('#roomViewerGrid > .room-viewer-card').forEach(card => {
+        const text = card.textContent.toLowerCase();
+        card.style.display = text.includes(q) ? '' : 'none';
+    });
+}
+
 function openRevertInventory() {
-    document.getElementById('revertCategory').value = '';
-    document.getElementById('revertRoom').innerHTML = '<option value="">-- Select Room --</option>';
-    document.getElementById('revertItemsGrid').innerHTML = `
-        <div class="text-center text-muted py-5" style="grid-column:1/-1;">
-            <i class="bi bi-box-arrow-left fs-1 d-block mb-3 opacity-25"></i>
-            Select a room to view assigned items.
-        </div>`;
+    loadRevertItems();
     loadRevertHistoryOnly();
     new bootstrap.Modal(document.getElementById('revertInventoryModal')).show();
 }
 
-function loadRoomsForRevert() {
-    const cat = document.getElementById('revertCategory').value;
-    const roomSel = document.getElementById('revertRoom');
-    document.getElementById('revertItemsGrid').innerHTML = `
-        <div class="text-center text-muted py-5" style="grid-column:1/-1;">Select a room to continue.</div>`;
-    if (!cat) { roomSel.innerHTML = '<option value="">-- Select Room --</option>'; return; }
-    roomSel.innerHTML = '<option value="">Loading rooms...</option>';
-    fetch(`{% url 'central_admin:get_rooms_by_category' %}?category=${encodeURIComponent(cat)}`)
-        .then(res => res.json())
-        .then(data => {
-            roomSel.innerHTML = '<option value="">-- Select Room --</option>';
-            (data.rooms || []).forEach(room => {
-                roomSel.innerHTML += `<option value="${room.id}">${room.name}</option>`;
-            });
-        })
-        .catch(() => { roomSel.innerHTML = '<option value="">Error loading rooms</option>'; });
-}
+let allRevertedItemsCached = [];
 
 function loadRevertItems() {
-    const roomId = document.getElementById('revertRoom').value;
     const grid = document.getElementById('revertItemsGrid');
-    if (!roomId) {
-        grid.innerHTML = `<div class="text-center text-muted py-5" style="grid-column:1/-1;">Select a room to view assigned items.</div>`;
-        loadRevertHistoryOnly();
-        return;
-    }
     grid.innerHTML = `<div class="text-center py-5" style="grid-column:1/-1;"><div class="spinner-border text-primary"></div></div>`;
-    fetch(`{% url 'central_admin:revert_inventory_data' %}?room_id=${encodeURIComponent(roomId)}`)
+    fetch(`{% url 'central_admin:revert_inventory_data' %}`)
         .then(res => res.json().then(data => ({ ok: res.ok, data })))
         .then(({ ok, data }) => {
             if (!ok || data.error) throw new Error(data.error || 'Failed');
-            renderRevertItems(data.items || []);
+            allRevertedItemsCached = data.items || [];
+            
+            // Populate room filter dropdown
+            const roomFilter = document.getElementById('revertRoomFilter');
+            if (roomFilter) {
+                roomFilter.innerHTML = '<option value="">All Rooms</option>';
+                (data.rooms || []).forEach(r => {
+                    const option = document.createElement('option');
+                    option.value = r.id;
+                    option.textContent = r.name;
+                    roomFilter.appendChild(option);
+                });
+            }
+
+            // Populate category filter dropdown
+            const categoryFilter = document.getElementById('revertCategoryFilter');
+            if (categoryFilter) {
+                categoryFilter.innerHTML = '<option value="">All Categories</option>';
+                const uniqueCategories = [...new Set(allRevertedItemsCached.map(item => item.category).filter(Boolean))];
+                uniqueCategories.sort().forEach(cat => {
+                    const option = document.createElement('option');
+                    option.value = cat;
+                    option.textContent = cat;
+                    categoryFilter.appendChild(option);
+                });
+            }
+
+            renderRevertItems(allRevertedItemsCached);
             renderRevertHistory(data.history || []);
+
+            // Reset selection checkboxes
+            const selectAll = document.getElementById('selectAllRevertChk');
+            if (selectAll) selectAll.checked = false;
+            updateRevertSelectionCount();
         })
         .catch(() => {
             grid.innerHTML = `<div class="alert alert-danger" style="grid-column:1/-1;">Failed to load assigned items.</div>`;
         });
 }
 
+function applyRevertFilters() {
+    const roomVal = document.getElementById('revertRoomFilter').value;
+    const catVal = document.getElementById('revertCategoryFilter').value;
+    const query = document.getElementById('revertSearchInput').value.toLowerCase().trim();
+
+    document.querySelectorAll('#revertItemsGrid > .revert-item-card').forEach(card => {
+        const cardRoomId = card.getAttribute('data-room-id') || '';
+        const cardCat = (card.getAttribute('data-category') || '').toLowerCase();
+        const cardName = (card.getAttribute('data-item-name') || '').toLowerCase();
+        const cardBrand = (card.getAttribute('data-brand') || '').toLowerCase();
+        const cardRoomName = (card.getAttribute('data-room-name') || '').toLowerCase();
+        const cardRoomLabel = (card.getAttribute('data-room-label') || '').toLowerCase();
+        const cardIncharge = (card.getAttribute('data-incharge') || '').toLowerCase();
+
+        const matchesRoom = !roomVal || cardRoomId === roomVal;
+        const matchesCat = !catVal || card.getAttribute('data-category') === catVal;
+        const matchesQuery = !query || 
+                             cardName.includes(query) || 
+                             cardCat.includes(query) || 
+                             cardBrand.includes(query) || 
+                             cardRoomName.includes(query) || 
+                             cardRoomLabel.includes(query) || 
+                             cardIncharge.includes(query);
+
+        if (matchesRoom && matchesCat && matchesQuery) {
+            card.style.display = 'flex';
+        } else {
+            card.style.display = 'none';
+            const chk = card.querySelector('.revert-select-chk');
+            if (chk) chk.checked = false;
+        }
+    });
+
+    updateRevertSelectionCount();
+}
+
+function toggleSelectAllRevert(checked) {
+    document.querySelectorAll('#revertItemsGrid > .revert-item-card').forEach(card => {
+        if (card.style.display !== 'none') {
+            const chk = card.querySelector('.revert-select-chk');
+            if (chk) chk.checked = checked;
+        }
+    });
+    updateRevertSelectionCount();
+}
+
+function updateRevertSelectionCount() {
+    const checkedBoxes = document.querySelectorAll('.revert-select-chk:checked');
+    const count = checkedBoxes.length;
+    const badge = document.getElementById('revertSelectedCount');
+    const btn = document.getElementById('batchRevertBtn');
+
+    if (badge) {
+        badge.textContent = `${count} Selected`;
+        badge.style.display = count > 0 ? 'inline-block' : 'none';
+    }
+    if (btn) {
+        btn.disabled = count === 0;
+    }
+}
+
+function submitBatchRevert() {
+    const checkedBoxes = document.querySelectorAll('.revert-select-chk:checked');
+    const items = [];
+    checkedBoxes.forEach(chk => {
+        const id = chk.getAttribute('data-id');
+        const qtyInput = document.getElementById(`revert-qty-${id}`);
+        const qty = parseInt(qtyInput ? qtyInput.value : '0', 10);
+        items.push({ room_item_id: parseInt(id, 10), quantity: qty });
+    });
+
+    if (!items.length) {
+        showToast('No items selected.', 'error');
+        return;
+    }
+
+    const batchNote = (document.getElementById('batchRevertNote').value || '').trim();
+
+    if (!confirm(`Are you sure you want to revert the selected ${items.length} item(s) back to Master Inventory?`)) {
+        return;
+    }
+
+    const btn = document.getElementById('batchRevertBtn');
+    const originalText = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Reverting...';
+
+    fetch(`{% url 'central_admin:revert_inventory_api' %}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCsrf() },
+        body: JSON.stringify({ items, note: batchNote }),
+    })
+    .then(res => res.json().then(data => ({ ok: res.ok, data })))
+    .then(({ ok, data }) => {
+        btn.disabled = false;
+        btn.innerHTML = originalText;
+        if (!ok || !data.success) {
+            showToast(data.error || 'Revert failed.', 'error');
+            return;
+        }
+        showToast(data.message || 'Successfully reverted selected items.', 'success');
+        document.getElementById('batchRevertNote').value = '';
+        loadRevertItems();
+    })
+    .catch(() => {
+        btn.disabled = false;
+        btn.innerHTML = originalText;
+        showToast('Network error. Please try again.', 'error');
+    });
+}
+
+function submitRevertAllAll() {
+    const batchNote = (document.getElementById('batchRevertNote').value || '').trim();
+
+    if (!confirm('WARNING: Are you sure you want to revert ALL assigned items from ALL rooms back to Master Inventory? This action will reset assigned inventories across the entire institution.')) {
+        return;
+    }
+
+    showToast('Reverting all assigned items... please wait', 'info');
+
+    fetch(`{% url 'central_admin:revert_inventory_api' %}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCsrf() },
+        body: JSON.stringify({ revert_all: true, note: batchNote }),
+    })
+    .then(res => res.json().then(data => ({ ok: res.ok, data })))
+    .then(({ ok, data }) => {
+        if (!ok || !data.success) {
+            showToast(data.error || 'Revert failed.', 'error');
+            return;
+        }
+        showToast(data.message || 'Successfully reverted all items.', 'success');
+        document.getElementById('batchRevertNote').value = '';
+        loadRevertItems();
+    })
+    .catch(() => {
+        showToast('Network error. Please try again.', 'error');
+    });
+}
+
 function loadRevertHistoryOnly() {
-    const roomId = document.getElementById('revertRoom')?.value || '';
-    const url = roomId
-        ? `{% url 'central_admin:revert_inventory_data' %}?room_id=${encodeURIComponent(roomId)}`
-        : `{% url 'central_admin:revert_inventory_data' %}`;
-    fetch(url)
+    fetch(`{% url 'central_admin:revert_inventory_data' %}`)
         .then(res => res.json())
         .then(data => renderRevertHistory(data.history || []))
         .catch(() => renderRevertHistory([]));
@@ -1841,28 +2032,63 @@ function renderRevertItems(items) {
     const grid = document.getElementById('revertItemsGrid');
     if (!items.length) {
         grid.innerHTML = `<div class="text-center text-muted py-5" style="grid-column:1/-1;">
-            <i class="bi bi-inbox fs-1 d-block mb-3 opacity-25"></i>No assigned items found for this room.
+            <i class="bi bi-inbox fs-1 d-block mb-3 opacity-25"></i>No assigned items found.
         </div>`;
         return;
     }
     grid.innerHTML = items.map(item => `
-        <div class="border rounded-3 p-3 bg-white shadow-sm" id="revert-card-${item.id}">
-            <div class="d-flex justify-content-between gap-2 mb-2">
-                <div style="min-width:0;">
-                    <div class="fw-bold text-truncate">${escapeHtml(item.item_name)}</div>
-                    <div class="small text-muted text-truncate">${escapeHtml(item.category || '-')} · ${escapeHtml(item.brand || '-')}</div>
+        <div class="border rounded-3 p-3 bg-white shadow-sm d-flex flex-column justify-content-between gap-2 revert-item-card" 
+             id="revert-card-${item.id}"
+             data-id="${item.id}"
+             data-room-id="${item.room_id || ''}"
+             data-category="${escapeHtml(item.category || '')}"
+             data-brand="${escapeHtml(item.brand || '')}"
+             data-room-name="${escapeHtml(item.room_name || '')}"
+             data-room-label="${escapeHtml(item.room_label || '')}"
+             data-incharge="${escapeHtml(item.assigned_to || '')}"
+             data-item-name="${escapeHtml(item.item_name.toLowerCase())}">
+            <div>
+                <div class="d-flex justify-content-between gap-2 mb-2">
+                    <div class="d-flex gap-2" style="min-width:0; flex:1;">
+                        <div class="form-check me-1 align-self-start" style="padding-top: 3px;">
+                            <input class="form-check-input revert-select-chk" type="checkbox" data-id="${item.id}" onchange="updateRevertSelectionCount()" style="cursor:pointer;">
+                        </div>
+                        <div style="min-width:0; flex:1;">
+                            <div class="fw-bold text-truncate" title="${escapeHtml(item.item_name)}">${escapeHtml(item.item_name)}</div>
+                            <div class="small text-muted text-truncate" style="margin-top:2px;">${escapeHtml(item.category || '-')} · ${escapeHtml(item.brand || '-')}</div>
+                        </div>
+                    </div>
+                    <span class="badge bg-success align-self-start fs-7" style="padding:4px 8px;">${item.assigned_count}</span>
                 </div>
-                <span class="badge bg-primary align-self-start">${item.assigned_count}</span>
+                
+                <!-- Room Details -->
+                <div class="p-2 border rounded bg-light" style="font-size:0.78rem; margin-top:10px;">
+                    <div class="d-flex justify-content-between mb-1">
+                        <span class="text-muted fw-semibold">Room:</span>
+                        <span class="text-dark fw-bold text-end">${escapeHtml(item.room_label ? item.room_label + ' - ' + item.room_name : item.room_name)}</span>
+                    </div>
+                    <div class="d-flex justify-content-between mb-1">
+                        <span class="text-muted fw-semibold">Category:</span>
+                        <span class="text-dark fw-semibold text-end">${escapeHtml(item.room_category || '-')}</span>
+                    </div>
+                    <div class="d-flex justify-content-between">
+                        <span class="text-muted fw-semibold">Assigned To:</span>
+                        <span class="text-primary fw-bold text-end">${escapeHtml(item.assigned_to)}</span>
+                    </div>
+                </div>
             </div>
-            <label class="form-label small fw-bold text-muted mb-1">Return Quantity</label>
-            <div class="input-group input-group-sm mb-2">
-                <input type="number" min="1" max="${item.assigned_count}" value="${item.assigned_count}" class="form-control" id="revert-qty-${item.id}">
-                <button class="btn btn-outline-secondary" type="button" onclick="document.getElementById('revert-qty-${item.id}').value=${item.assigned_count}">All</button>
+
+            <div style="margin-top:8px;">
+                <label class="form-label small fw-bold text-muted mb-1">Return Quantity</label>
+                <div class="input-group input-group-sm mb-2">
+                    <input type="number" min="1" max="${item.assigned_count}" value="${item.assigned_count}" class="form-control" id="revert-qty-${item.id}">
+                    <button class="btn btn-outline-secondary" type="button" onclick="document.getElementById('revert-qty-${item.id}').value=${item.assigned_count}">All</button>
+                </div>
+                <input type="text" class="form-control form-control-sm mb-2" id="revert-note-${item.id}" placeholder="Optional note">
+                <button class="btn btn-sm btn-success w-100" onclick="submitRevert(${item.id}, ${item.assigned_count}, this)">
+                    <i class="bi bi-arrow-counterclockwise me-1"></i> Revert to Master
+                </button>
             </div>
-            <input type="text" class="form-control form-control-sm mb-2" id="revert-note-${item.id}" placeholder="Optional note">
-            <button class="btn btn-sm btn-success w-100" onclick="submitRevert(${item.id}, ${item.assigned_count}, this)">
-                <i class="bi bi-arrow-counterclockwise me-1"></i> Revert to Master
-            </button>
         </div>`).join('');
 }
 

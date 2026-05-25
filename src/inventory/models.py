@@ -490,6 +490,13 @@ class Item(models.Model):
         on_delete=models.SET_NULL,
         related_name='items_created'
     )
+    updated_by = models.ForeignKey(
+        UserProfile,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name='items_updated'
+    )
 
     item_description = models.TextField(blank=True, default='')
     serial_number = models.CharField(max_length=100, blank=True, default='')
@@ -519,6 +526,7 @@ class Item(models.Model):
     created_on = models.DateTimeField(auto_now_add=True)
     updated_on = models.DateTimeField(auto_now=True)
     slug = models.SlugField(unique=True, max_length=255)
+    updated_by_emails = models.TextField(blank=True, default='')
 
 
     def save(self, *args, **kwargs):
@@ -540,11 +548,24 @@ class Item(models.Model):
         # Keep in_use in sync with active for backward compatibility
         self.in_use = self.active_count
 
+        # Track all user emails who edited/updated this item
+        if self.updated_by and hasattr(self.updated_by, 'user') and self.updated_by.user.email:
+            email = self.updated_by.user.email.strip()
+            if email:
+                if self.updated_by_emails:
+                    emails = [e.strip() for e in self.updated_by_emails.split(',') if e.strip()]
+                    if email not in emails:
+                        emails.append(email)
+                    self.updated_by_emails = ', '.join(emails)
+                else:
+                    self.updated_by_emails = email
+
         update_fields = kwargs.get("update_fields")
         if update_fields is not None:
             update_fields = set(update_fields)
             if update_fields & {"total_count", "active_count", "inactive_count", "archived_count"}:
                 update_fields.update({"available_count", "in_use"})
+            update_fields.add("updated_by_emails")
             kwargs["update_fields"] = list(update_fields)
 
         super().save(*args, **kwargs)
@@ -772,13 +793,18 @@ def restore_item_count_on_component_delete(sender, instance, **kwargs):
     (not via SystemComponentArchiveView which handles counts manually).
     Only fires for direct deletes not going through the archive flow.
     """
-    # The archive view handles count restoration manually before delete.
-    # For direct deletes (e.g. cascade), restore active_count → available_count.
     item = instance.component_item
-    item.active_count = max(0, item.active_count - 1)
+    if instance.status == 'active':
+        item.active_count = max(0, item.active_count - 1)
+    elif instance.status == 'inactive':
+        item.inactive_count = max(0, item.inactive_count - 1)
+    elif instance.status == 'under_maintenance':
+        item.archived_count = max(0, item.archived_count - 1)
+        item.serviceable_count = max(0, item.serviceable_count - 1)
+
     item.in_use = item.active_count
     item.available_count = max(0, item.total_count - item.active_count - item.inactive_count - item.archived_count)
-    item.save(update_fields=["active_count", "in_use", "available_count", "updated_on"])
+    item.save(update_fields=["active_count", "inactive_count", "archived_count", "serviceable_count", "in_use", "available_count", "updated_on"])
 
 
 @receiver(post_delete, sender=System)
@@ -886,6 +912,7 @@ class StockRequest(models.Model):
                       )
     created_on      = models.DateTimeField(auto_now_add=True)
     remark          = models.TextField(blank=True, default="")
+    approved_count  = models.PositiveIntegerField(null=True, blank=True)
 
     def __str__(self):
         return f"StockReq: {self.item.item_name} +{self.requested_count} ({self.status})"

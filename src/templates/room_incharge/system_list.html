@@ -19,50 +19,98 @@
   .board { display:grid; grid-template-columns:repeat(4,minmax(180px,1fr)); gap:14px; margin-bottom:24px; }
   .lane { background:var(--surface); border:1px solid var(--border); border-radius:14px; min-height:220px; box-shadow:0 1px 8px rgba(15,23,42,.04); overflow:hidden; }
   .lane-head { display:flex; justify-content:space-between; align-items:center; padding:12px 14px; background:var(--surface-2); border-bottom:1px solid var(--border); font-size:.78rem; font-weight:800; text-transform:uppercase; letter-spacing:.05em; color:var(--muted); }
-  .lane-body { padding:12px; min-height:166px; }
+  .lane-body { padding:12px; max-height:220px; overflow-y:auto; min-height:120px; }
   .lane.drop-over { outline:2px solid #a5b4fc; outline-offset:-4px; }
-  .item-card { background:#fff; border:1px solid var(--border); border-radius:10px; padding:10px 11px; margin-bottom:9px; cursor:grab; box-shadow:0 1px 4px rgba(15,23,42,.04); }
+  .item-card { background:#fff; border:1px solid var(--border); border-radius:10px; padding:10px 11px; margin-bottom:9px; cursor:grab; box-shadow:0 1px 4px rgba(15,23,42,.04); transition: all 0.2s ease; }
   .item-card:active { cursor:grabbing; }
+  .item-card.selected-card { border-color: var(--accent); background: #fdfdff; }
+  .item-card-header { display: flex; align-items: flex-start; gap: 8px; }
+  .item-chk-wrap { display: inline-flex; align-items: center; justify-content: center; margin-top: 3px; }
+  .item-select-chk { width: 16px; height: 16px; border-radius: 4px; border: 1.5px solid #cbd5e1; accent-color: var(--accent); cursor: pointer; transition: all 0.2s ease; }
+  .item-select-chk:hover { border-color: var(--accent); }
   .item-name { color:var(--text); font-weight:800; font-size:.9rem; }
   .item-meta { display:flex; gap:6px; flex-wrap:wrap; margin-top:7px; color:var(--muted); font-size:.74rem; font-weight:700; }
   .count-pill { display:inline-flex; align-items:center; gap:4px; border-radius:999px; padding:2px 8px; background:#eef2ff; color:#4f46e5; border:1px solid #c7d2fe; }
   .empty { color:#94a3b8; font-size:.85rem; text-align:center; padding:28px 12px; }
-  .systems-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(230px,1fr)); gap:14px; }
-  .system-card { background:#fff; border:1px solid var(--border); border-radius:12px; padding:14px; box-shadow:0 1px 8px rgba(15,23,42,.04); }
+  .systems-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(250px,1fr)); gap:14px; }
+  .system-card { background:#fff; border:1px solid var(--border); border-radius:12px; padding:14px; box-shadow:0 1px 8px rgba(15,23,42,.04); transition: all 0.22s cubic-bezier(0.4, 0, 0.2, 1); cursor: pointer; border-left: 4px solid var(--accent); }
+  .system-card:hover { transform: translateY(-2px); box-shadow: 0 6px 16px rgba(15,23,42,0.06); border-color: #8b7cf8; }
   .system-card h5 { margin:0 0 10px; font-size:1rem; color:var(--text); font-weight:800; }
   .system-stats { display:flex; gap:6px; flex-wrap:wrap; margin-bottom:10px; }
   .status-badge { display:inline-flex; align-items:center; gap:4px; border-radius:999px; padding:3px 9px; font-size:.72rem; font-weight:800; }
-  .active { background:#ecfdf5; color:#047857; border:1px solid #a7f3d0; }
-  .inactive { background:#fef2f2; color:#991b1b; border:1px solid #fecaca; }
-  .archived { background:#fffbeb; color:#92400e; border:1px solid #fde68a; }
+  .status-badge.active { background:#ecfdf5; color:#047857; border:1px solid #a7f3d0; }
+  .status-badge.inactive { background:#fef2f2; color:#991b1b; border:1px solid #fecaca; }
+  .status-badge.archived { background:#fffbeb; color:#92400e; border:1px solid #fde68a; }
   .system-link { color:var(--accent); font-size:.78rem; font-weight:800; text-decoration:none; }
+  
+  .mode-switch-container { display: inline-flex; background: #e2e8f0; padding: 4px; border-radius: 99px; gap: 4px; box-shadow: inset 0 2px 4px rgba(0,0,0,0.06); margin-top: 8px; position: relative; border: 1px solid rgba(0,0,0,0.04); }
+  .mode-switch-btn { border: none; background: transparent; border-radius: 99px; padding: 6px 18px; font-size: 0.8rem; font-weight: 700; color: #64748b; cursor: pointer; transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1); display: inline-flex; align-items: center; gap: 6px; }
+  .mode-switch-btn.active.general { background: #fff; color: var(--accent); box-shadow: 0 3px 8px rgba(15,23,42,0.08); }
+  .mode-switch-btn.active.labs { background: linear-gradient(135deg, #6c63ff, #8b7cf8); color: #fff; box-shadow: 0 4px 12px rgba(108,99,255,0.25); }
+
+  .floating-action-drawer { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(120px); z-index: 1060; background: rgba(15, 23, 42, 0.9); backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.1); box-shadow: 0 10px 30px rgba(15, 23, 42, 0.3); border-radius: 99px; padding: 10px 24px; display: flex; align-items: center; gap: 20px; transition: transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1); }
+  .floating-action-drawer.show { transform: translateX(-50%) translateY(0); }
+  .drawer-text { color: #fff; font-size: 0.85rem; font-weight: 700; }
+  .drawer-btn { background: linear-gradient(135deg, #6c63ff, #8b7cf8); color: #fff; border: none; border-radius: 99px; padding: 8px 18px; font-size: 0.8rem; font-weight: 700; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; transition: all 0.2s ease; box-shadow: 0 3px 8px rgba(108,99,255,0.25); }
+  .drawer-btn:hover { transform: translateY(-1px); box-shadow: 0 5px 12px rgba(108,99,255,0.35); }
+
   .toast-lite { position:fixed; right:18px; bottom:18px; z-index:1080; display:none; padding:10px 14px; border-radius:10px; color:#fff; font-size:.85rem; font-weight:800; box-shadow:0 10px 24px rgba(15,23,42,.24); }
   .toast-lite.ok { background:#059669; }
   .toast-lite.err { background:#dc2626; }
-  .qty-modal-bg { position:fixed; inset:0; z-index:1070; display:none; align-items:center; justify-content:center; padding:18px; background:rgba(15,23,42,.46); backdrop-filter:blur(2px); opacity:0; transition:opacity .18s ease; }
-  .qty-modal-bg.show { opacity:1; }
-  .qty-modal { width:min(440px,100%); background:#fff; border-radius:16px; border:1px solid var(--border); box-shadow:0 18px 50px rgba(15,23,42,.22); padding:22px; transform:translateY(10px) scale(.98); transition:transform .2s ease; }
-  .qty-modal-bg.show .qty-modal { transform:translateY(0) scale(1); }
-  .qty-modal-head { display:flex; justify-content:space-between; align-items:flex-start; gap:12px; margin-bottom:16px; }
-  .qty-modal-title { margin:0; color:var(--text); font-size:1.05rem; font-weight:800; }
+  .qty-modal-bg, .sys-modal-bg { position:fixed; inset:0; z-index:1070; display:none; align-items:center; justify-content:center; padding:18px; background:rgba(15,23,42,.46); backdrop-filter:blur(2px); opacity:0; transition:opacity .18s ease; }
+  .qty-modal-bg.show, .sys-modal-bg.show { opacity:1; }
+  .qty-modal, .sys-modal { width:min(500px,100%); background:#fff; border-radius:16px; border:1px solid var(--border); box-shadow:0 18px 50px rgba(15,23,42,.22); padding:22px; transform:translateY(10px) scale(.98); transition:transform .2s ease; max-height: 90vh; overflow-y: auto; }
+  .qty-modal-bg.show .qty-modal, .sys-modal-bg.show .sys-modal { transform:translateY(0) scale(1); }
+  .qty-modal-head, .sys-modal-head { display:flex; justify-content:space-between; align-items:flex-start; gap:12px; margin-bottom:16px; }
+  .qty-modal-title, .sys-modal-title { margin:0; color:var(--text); font-size:1.05rem; font-weight:800; }
   .qty-modal-sub { margin:4px 0 0; color:var(--muted); font-size:.8rem; line-height:1.35; }
-  .qty-close { width:34px; height:34px; border-radius:9px; border:1px solid var(--border); background:#fff; color:var(--muted); display:inline-flex; align-items:center; justify-content:center; cursor:pointer; flex:0 0 auto; }
+  .qty-close, .sys-close { width:34px; height:34px; border-radius:9px; border:1px solid var(--border); background:#fff; color:var(--muted); display:inline-flex; align-items:center; justify-content:center; cursor:pointer; flex:0 0 auto; }
   .qty-stats { display:grid; grid-template-columns:repeat(3,1fr); gap:9px; margin-bottom:16px; }
   .qty-stat { border:1px solid var(--border); background:var(--surface-2); border-radius:11px; padding:11px 8px; text-align:center; min-width:0; }
   .qty-stat strong { display:block; color:var(--text); font-size:1.35rem; line-height:1; }
   .qty-stat span { display:block; color:var(--muted); font-size:.66rem; font-weight:800; letter-spacing:.04em; text-transform:uppercase; margin-top:5px; }
-  .qty-field-label { display:block; color:var(--muted); font-size:.72rem; font-weight:800; letter-spacing:.04em; text-transform:uppercase; margin-bottom:7px; }
+  .qty-field-label, .sys-modal-section-title { display:block; color:var(--muted); font-size:.72rem; font-weight:800; letter-spacing:.04em; text-transform:uppercase; margin-bottom:7px; }
   .qty-row { display:flex; gap:9px; align-items:center; margin-bottom:14px; }
-  .qty-step { width:42px; height:42px; border-radius:10px; border:1px solid var(--border); background:#fff; color:var(--text); font-weight:900; cursor:pointer; }
-  .qty-input { flex:1; min-width:0; height:42px; border-radius:10px; border:1.5px solid var(--border); text-align:center; font-size:1.15rem; font-weight:800; color:var(--text); outline:none; }
-  .qty-input:focus { border-color:var(--accent); box-shadow:0 0 0 3px rgba(108,99,255,.12); }
+  .qty-step, .sys-qty-btn { width:34px; height:34px; border-radius:8px; border:1px solid var(--border); background:#fff; color:var(--text); font-weight:900; cursor:pointer; }
+  .qty-input, .sys-qty-input { flex:1; min-width:0; height:34px; border-radius:8px; border:1.5px solid var(--border); text-align:center; font-size:1.05rem; font-weight:800; color:var(--text); outline:none; }
+  .sys-qty-input { width: 44px; flex: none; }
+  .qty-input:focus, .sys-qty-input:focus { border-color:var(--accent); box-shadow:0 0 0 3px rgba(108,99,255,.12); }
   .qty-warning { display:none; background:#fef2f2; color:#b91c1c; border:1px solid #fecaca; border-radius:10px; padding:9px 11px; font-size:.78rem; font-weight:700; margin-bottom:14px; }
-  .qty-actions { display:flex; gap:9px; }
-  .qty-action { flex:1; border-radius:10px; border:1px solid var(--border); background:#fff; color:#334155; padding:10px 12px; font-size:.84rem; font-weight:800; cursor:pointer; }
-  .qty-action.primary { flex:1.6; border-color:var(--accent); background:linear-gradient(135deg,#6c63ff,#8b7cf8); color:#fff; }
-  .qty-action:disabled { opacity:.55; cursor:not-allowed; }
+  .qty-actions, .sys-modal-actions { display:flex; gap:9px; }
+  .qty-action, .sys-modal-action { flex:1; border-radius:10px; border:1px solid var(--border); background:#fff; color:#334155; padding:10px 12px; font-size:.84rem; font-weight:800; cursor:pointer; }
+  .qty-action.primary, .sys-modal-action.primary { flex:1.6; border-color:var(--accent); background:linear-gradient(135deg,#6c63ff,#8b7cf8); color:#fff; }
+  .qty-action:disabled, .sys-modal-action:disabled { opacity:.55; cursor:not-allowed; }
+  
+  .sys-modal-section { margin-bottom: 16px; }
+  .sys-item-row { display: flex; justify-content: space-between; align-items: center; padding: 8px 12px; background: var(--surface-2); border-radius: 8px; border: 1px solid var(--border); margin-bottom: 6px; }
+  .sys-item-name { font-weight: 700; font-size: 0.85rem; color: var(--text); }
+  .sys-item-qty-selector { display: flex; align-items: center; gap: 6px; }
+  
+  .sys-radio-group { display: flex; gap: 12px; margin-bottom: 12px; }
+  .sys-radio-label { flex: 1; display: flex; align-items: center; gap: 8px; padding: 10px 14px; border: 1.5px solid var(--border); border-radius: 10px; cursor: pointer; font-size: 0.85rem; font-weight: 700; transition: all 0.2s ease; }
+  .sys-radio-label:hover { border-color: var(--accent); }
+  .sys-radio-input { accent-color: var(--accent); }
+  .sys-radio-label.selected { border-color: var(--accent); background: #f5f3ff; color: var(--accent); }
+  
+  .sys-form-control { width: 100%; padding: 9px 12px; border-radius: 10px; border: 1.5px solid var(--border); font-size: 0.85rem; font-weight: 500; outline: none; box-sizing: border-box; }
+  .sys-form-control:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(108,99,255,.12); }
+  
+  .sys-preview-box { background: #f8fafc; border: 1px dashed #cbd5e1; border-radius: 10px; padding: 12px; font-size: 0.8rem; color: #475569; line-height: 1.45; }
+  .sys-preview-box i { color: var(--accent); }
+  
+  .systems-section-header { display: flex; justify-content: space-between; align-items: center; margin-top: 36px; margin-bottom: 16px; border-bottom: 1.5px solid var(--border); padding-bottom: 10px; }
+  .created-systems-title { margin: 0; color: var(--text); font-size: 1.2rem; font-weight: 800; display: flex; align-items: center; gap: 8px; }
+  
+  .comp-list-table { width: 100%; border-collapse: collapse; margin-top: 8px; }
+  .comp-list-table th, .comp-list-table td { padding: 10px 12px; text-align: left; border-bottom: 1px solid var(--border); font-size: 0.8rem; }
+  .comp-list-table th { background: var(--surface-2); font-weight: 800; color: var(--muted); text-transform: uppercase; font-size: 0.68rem; letter-spacing: 0.05em; }
+  .comp-list-table td { font-weight: 500; color: var(--text); }
+
+  .sys-card-delete-btn { position: absolute; top: 12px; right: 12px; border: none; background: transparent; color: #94a3b8; cursor: pointer; padding: 5px; border-radius: 6px; transition: all 0.2s ease; display: inline-flex; align-items: center; justify-content: center; z-index: 10; }
+  .sys-card-delete-btn:hover { background: #fee2e2; color: #ef4444; }
+
   @media (max-width:1000px) { .board { grid-template-columns:repeat(2,minmax(180px,1fr)); } }
-  @media (max-width:620px) { .systems-wrap { padding:14px 0 36px; } .board { grid-template-columns:1fr; } .qty-stats { grid-template-columns:1fr; } .qty-actions { flex-direction:column; } }
+  @media (max-width:620px) { .systems-wrap { padding:14px 0 36px; } .board { grid-template-columns:1fr; } .qty-stats { grid-template-columns:1fr; } .qty-actions, .sys-modal-actions { flex-direction:column; } }
 </style>
 {% endblock style %}
 
@@ -77,11 +125,30 @@
       <h1 class="systems-title">Systems</h1>
       <div class="text-muted small">{{ room.room_name }} item allocation</div>
     </div>
+    <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+      <button type="button" class="sys-btn" onclick="scrollToCreatedSystems()" style="border-color: var(--accent); color: var(--accent); background: rgba(108,99,255,0.06); font-size: 0.8rem; height: 38px; border-radius: 99px;">
+        <i class="bi bi-arrow-down-circle"></i> View Created Systems
+      </button>
+      <div class="mode-switch-container" style="margin-top:0;">
+        <button type="button" class="mode-switch-btn active general" id="btnModeGeneral" onclick="switchSystemMode('general')">
+          <i class="bi bi-grid-fill"></i>General Mode
+        </button>
+        <button type="button" class="mode-switch-btn" id="btnModeLabs" onclick="switchSystemMode('labs')">
+          <i class="bi bi-laptop"></i>Labs Mode
+        </button>
+      </div>
+    </div>
   </div>
 
   <div class="board">
-    <section class="lane" data-lane="available">
+    <section class="lane drop-lane" data-lane="available">
       <div class="lane-head"><span>Available Items</span><span>{{ items|length }}</span></div>
+      <div class="p-2 border-bottom">
+        <div class="input-group input-group-sm">
+          <span class="input-group-text bg-white border-end-0"><i class="bi bi-search text-muted"></i></span>
+          <input type="text" id="searchAvailableItems" class="form-control border-start-0" placeholder="Search available..." oninput="filterAvailableItems(this.value)">
+        </div>
+      </div>
       <div class="lane-body">
         {% for item in items %}
           {% if item.available_count > 0 %}
@@ -89,12 +156,27 @@
                data-item-id="{{ item.id }}"
                data-item-name="{{ item.item_name|escape }}"
                data-available-count="{{ item.available_count }}"
-               data-source="available">
-            <div class="item-name">{{ item.item_name }}</div>
-            <div class="item-meta">
-              <span class="count-pill"><i class="bi bi-box-seam"></i>{{ item.available_count }} available</span>
-              <span>Total {{ item.total_count }}</span>
-            </div>
+               data-source="available"
+               id="card-item-{{ item.id }}">
+             <div class="item-card-header">
+               <div class="item-chk-wrap">
+                 <input type="checkbox" class="item-select-chk" 
+                        data-item-id="{{ item.id }}" 
+                        data-item-name="{{ item.item_name|escape }}" 
+                        data-available-count="{{ item.available_count }}" 
+                        data-source="available" 
+                        onclick="toggleSelectCard(event, this)">
+               </div>
+               <div style="flex:1; min-width:0; display:flex; align-items:flex-start; justify-content:space-between; gap:6px;">
+                 <div>
+                   <div class="item-name">{{ item.item_name }}</div>
+                   <div class="item-meta">
+                     <span class="count-pill"><i class="bi bi-box-seam"></i>{{ item.available_count }} available</span>
+                     <span>Total {{ item.total_count }}</span>
+                   </div>
+                 </div>
+               </div>
+             </div>
           </div>
           {% endif %}
         {% empty %}
@@ -107,9 +189,21 @@
       <div class="lane-head"><span>Active</span><span>{{ active_items|length }}</span></div>
       <div class="lane-body">
         {% for entry in active_items %}
-        <div class="item-card" draggable="true" data-item-id="{{ entry.item.id }}" data-item-name="{{ entry.item.item_name|escape }}" data-available-count="{{ entry.count }}" data-source="active">
-          <div class="item-name">{{ entry.item.item_name }}</div>
-          <div class="item-meta"><span class="count-pill">{{ entry.count }} active</span></div>
+        <div class="item-card" draggable="true" data-item-id="{{ entry.item.id }}" data-item-name="{{ entry.item.item_name|escape }}" data-available-count="{{ entry.count }}" data-source="active" id="card-item-{{ entry.item.id }}">
+          <div class="item-card-header">
+            <div class="item-chk-wrap">
+              <input type="checkbox" class="item-select-chk" data-item-id="{{ entry.item.id }}" data-item-name="{{ entry.item.item_name|escape }}" data-available-count="{{ entry.count }}" data-source="active" onclick="toggleSelectCard(event, this)">
+            </div>
+            <div style="flex:1; min-width:0; display:flex; align-items:center; justify-content:space-between; gap:6px;">
+              <div>
+                <div class="item-name">{{ entry.item.item_name }}</div>
+                <div class="item-meta"><span class="count-pill">{{ entry.count }} active</span></div>
+              </div>
+              <button class="btn btn-link p-0 text-muted" onclick="quickRevertLooseItem({{ entry.item.id }}, 'active', {{ entry.count }}, event)" title="Revert to Available" style="font-size: 1rem; border: none; background: transparent;">
+                <i class="bi bi-arrow-counterclockwise"></i>
+              </button>
+            </div>
+          </div>
         </div>
         {% empty %}<div class="empty">Drop items here to mark active.</div>{% endfor %}
       </div>
@@ -119,9 +213,21 @@
       <div class="lane-head"><span>Inactive</span><span>{{ inactive_items|length }}</span></div>
       <div class="lane-body">
         {% for entry in inactive_items %}
-        <div class="item-card" draggable="true" data-item-id="{{ entry.item.id }}" data-item-name="{{ entry.item.item_name|escape }}" data-available-count="{{ entry.count }}" data-source="inactive">
-          <div class="item-name">{{ entry.item.item_name }}</div>
-          <div class="item-meta"><span class="count-pill">{{ entry.count }} inactive</span></div>
+        <div class="item-card" draggable="true" data-item-id="{{ entry.item.id }}" data-item-name="{{ entry.item.item_name|escape }}" data-available-count="{{ entry.count }}" data-source="inactive" id="card-item-{{ entry.item.id }}">
+          <div class="item-card-header">
+            <div class="item-chk-wrap">
+              <input type="checkbox" class="item-select-chk" data-item-id="{{ entry.item.id }}" data-item-name="{{ entry.item.item_name|escape }}" data-available-count="{{ entry.count }}" data-source="inactive" onclick="toggleSelectCard(event, this)">
+            </div>
+            <div style="flex:1; min-width:0; display:flex; align-items:center; justify-content:space-between; gap:6px;">
+              <div>
+                <div class="item-name">{{ entry.item.item_name }}</div>
+                <div class="item-meta"><span class="count-pill">{{ entry.count }} inactive</span></div>
+              </div>
+              <button class="btn btn-link p-0 text-muted" onclick="quickRevertLooseItem({{ entry.item.id }}, 'inactive', {{ entry.count }}, event)" title="Revert to Available" style="font-size: 1rem; border: none; background: transparent;">
+                <i class="bi bi-arrow-counterclockwise"></i>
+              </button>
+            </div>
+          </div>
         </div>
         {% empty %}<div class="empty">Drop items here to mark inactive.</div>{% endfor %}
       </div>
@@ -131,14 +237,84 @@
       <div class="lane-head"><span>Archive</span><span>{{ archived_items|length }}</span></div>
       <div class="lane-body">
         {% for entry in archived_items %}
-        <div class="item-card" data-item-id="{{ entry.item.id }}" data-item-name="{{ entry.item.item_name|escape }}" data-available-count="{{ entry.count }}">
-          <div class="item-name">{{ entry.item.item_name }}</div>
-          <div class="item-meta"><span class="count-pill">{{ entry.count }} archived</span></div>
+        <div class="item-card" data-item-id="{{ entry.item.id }}" data-item-name="{{ entry.item.item_name|escape }}" data-available-count="{{ entry.count }}" id="card-item-{{ entry.item.id }}">
+          <div class="item-card-header">
+            <div class="item-chk-wrap">
+              <input type="checkbox" class="item-select-chk" data-item-id="{{ entry.item.id }}" data-item-name="{{ entry.item.item_name|escape }}" data-available-count="{{ entry.count }}" data-source="archive" onclick="toggleSelectCard(event, this)">
+            </div>
+            <div style="flex:1; min-width:0; display:flex; align-items:center; justify-content:space-between; gap:6px;">
+              <div>
+                <div class="item-name">{{ entry.item.item_name }}</div>
+                <div class="item-meta"><span class="count-pill">{{ entry.count }} archived</span></div>
+              </div>
+              <button class="btn btn-link p-0 text-muted" onclick="quickRevertLooseItem({{ entry.item.id }}, 'archive', {{ entry.count }}, event)" title="Revert to Available" style="font-size: 1rem; border: none; background: transparent;">
+                <i class="bi bi-arrow-counterclockwise"></i>
+              </button>
+            </div>
+          </div>
         </div>
         {% empty %}<div class="empty">Drop items here to archive.</div>{% endfor %}
       </div>
     </section>
   </div>
+
+  <!-- ═══ CREATED SYSTEMS DASHBOARD SECTION ═══ -->
+  <div class="systems-section-header flex-wrap gap-3">
+    <div class="d-flex align-items-center gap-3 flex-wrap">
+      <h2 class="created-systems-title">
+        <i class="bi bi-pc-display text-primary"></i> Created Systems
+      </h2>
+      <span class="badge bg-secondary px-3 py-2 rounded-pill" style="font-size:0.75rem; font-weight:800; background:#eef2ff !important; color:#4f46e5 !important; border:1px solid #c7d2fe;">{{ systems|length }} Systems</span>
+    </div>
+    <div style="width: 250px;">
+      <div class="input-group input-group-sm">
+        <span class="input-group-text bg-white border-end-0"><i class="bi bi-search text-muted"></i></span>
+        <input type="text" id="searchCreatedSystems" class="form-control border-start-0" placeholder="Search systems..." oninput="filterCreatedSystems(this.value)">
+      </div>
+    </div>
+  </div>
+
+  <div class="systems-grid">
+    {% for s in systems %}
+    <div class="system-card" onclick="openSystemDetailModal({{ s.pk }}, '{{ s.system_name|escapejs }}')">
+      <h5 class="fw-bold d-flex justify-content-between align-items-center mb-2" style="font-size: 0.95rem; padding-right: 28px;">
+        <span><i class="bi bi-laptop me-1 text-primary"></i> {{ s.system_name }}</span>
+        <button type="button" class="sys-card-delete-btn" onclick="event.stopPropagation(); deleteCreatedSystem({{ s.pk }}, '{{ s.system_name|escapejs }}')" title="Delete System">
+          <i class="bi bi-trash3-fill"></i>
+        </button>
+      </h5>
+      <div class="system-stats">
+        <span class="status-badge active"><i class="bi bi-check-circle-fill"></i>{{ s.active_component_count }} Active</span>
+        <span class="status-badge inactive"><i class="bi bi-dash-circle-fill"></i>{{ s.inactive_component_count }} Inactive</span>
+        <span class="status-badge archived"><i class="bi bi-archive-fill"></i>{{ s.archived_component_count }} Archived</span>
+      </div>
+      <div class="d-flex justify-content-between align-items-center mt-3 pt-2" style="border-top:1px solid #f1f5f9;">
+        <span class="text-muted" style="font-size:0.7rem; font-weight:700;">Items present: {{ s.systemcomponent_set.count }}</span>
+        <span class="system-link"><i class="bi bi-eye-fill me-1"></i>View details</span>
+      </div>
+      <!-- Hidden components JSON -->
+      <script type="application/json" id="system-components-{{ s.pk }}">
+        [
+          {% for comp in s.systemcomponent_set.all %}
+            {
+              "id": {{ comp.id }},
+              "item_name": "{{ comp.component_item.item_name|escapejs }}",
+              "serial_number": "{{ comp.serial_number|escapejs }}",
+              "status": "{{ comp.get_status_display|escapejs }}"
+            }{% if not forloop.last %},{% endif %}
+          {% endfor %}
+        ]
+      </script>
+    </div>
+    {% empty %}
+    <div class="empty-state w-100 text-center py-5" style="grid-column: 1 / -1; background:#fff; border-radius:14px; border:1px dashed var(--border);">
+      <i class="bi bi-pc-display" style="font-size: 2.2rem; color: #cbd5e1; display:block; margin-bottom:10px;"></i>
+      <h5 class="fw-bold text-dark mb-1">No Systems Configured</h5>
+      <p class="text-muted small mb-0">Use General or Labs Mode above to drag-and-allocate items into systems.</p>
+    </div>
+    {% endfor %}
+  </div>
+</div>
 
 
 </div>
@@ -172,34 +348,223 @@
   </div>
 </div>
 
+<!-- Floating Action Drawer -->
+<div id="floatingDrawer" class="floating-action-drawer">
+  <span class="drawer-text" id="drawerText">Selected 0 items</span>
+  <button type="button" class="drawer-btn" onclick="openSystemCreationFromDrawer()">
+    <i class="bi bi-pc-display-horizontal"></i> Create System
+  </button>
+</div>
+
+<!-- Automated System Creation Modal -->
+<div id="sysCreateModalBg" class="sys-modal-bg" role="dialog" aria-modal="true" aria-labelledby="sysCreateModalTitle">
+  <div class="sys-modal">
+    <div class="sys-modal-head">
+      <div>
+        <h3 class="sys-modal-title" id="sysCreateModalTitle">Configure Automated System</h3>
+        <p class="qty-modal-sub">Create and allocate selected items to systems</p>
+      </div>
+      <button type="button" class="sys-close" onclick="closeSysCreateModal()" aria-label="Close"><i class="bi bi-x-lg"></i></button>
+    </div>
+    
+    <!-- Selected Items List -->
+    <div class="sys-modal-section">
+      <span class="sys-modal-section-title">Selected Items & Quantities</span>
+      <div id="sysSelectedItemsList">
+        <!-- Populated dynamically -->
+      </div>
+    </div>
+
+    <!-- Labs Switcher Options -->
+    <div class="sys-modal-section" id="sysLabsOptions" style="display:none;">
+      <span class="sys-modal-section-title">System Allocation Mode</span>
+      <div class="sys-radio-group">
+        <label class="sys-radio-label selected" id="lblSysTypeSingle">
+          <input type="radio" name="system_type" value="single" class="sys-radio-input" checked onclick="toggleSysType('single')">
+          Single System
+        </label>
+        <label class="sys-radio-label" id="lblSysTypeMulti">
+          <input type="radio" name="system_type" value="multi" class="sys-radio-input" onclick="toggleSysType('multi')">
+          Multi System
+        </label>
+      </div>
+
+      <div id="sysMultiCountRow" style="display:none; margin-bottom:12px;">
+        <label class="qty-field-label" for="sysCountInput">Number of Systems to Create</label>
+        <div class="qty-row">
+          <button type="button" class="qty-step" onclick="stepSysCount(-1)">-</button>
+          <input type="number" id="sysCountInput" class="qty-input" min="1" value="1" oninput="syncSysConfigPreview()">
+          <button type="button" class="qty-step" onclick="stepSysCount(1)">+</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- System Label Format -->
+    <div class="sys-modal-section">
+      <label class="sys-modal-section-title" id="sysLabelFieldTitle" for="sysNameInput">System Name / Label</label>
+      <input type="text" id="sysNameInput" class="sys-form-control" placeholder="e.g. LAB 1 System - 1" oninput="syncSysConfigPreview()">
+      <span class="text-muted small mt-1" style="font-size:0.7rem; display:block;" id="sysLabelHelpText">Type system name. In Labs Multi-System mode, the ending index will auto-increment.</span>
+    </div>
+
+    <!-- Target Lane -->
+    <div class="sys-modal-section">
+      <label class="sys-modal-section-title" for="sysTargetLaneSelect">Target Lane Status</label>
+      <select id="sysTargetLaneSelect" class="sys-form-control" style="background:#fff;" onchange="syncSysConfigPreview()">
+        <option value="active" selected>Active</option>
+        <option value="inactive">Inactive</option>
+        <option value="archive">Archive</option>
+      </select>
+    </div>
+
+    <!-- Dynamic Preview Box -->
+    <div class="sys-modal-section">
+      <span class="sys-modal-section-title">Automated Allocation Preview</span>
+      <div class="sys-preview-box" id="sysPreviewBox">
+        <i class="bi bi-info-circle-fill me-1"></i> Enter a system name and quantities to see live preview.
+      </div>
+    </div>
+
+    <div class="sys-modal-actions">
+      <button type="button" class="sys-modal-action" onclick="closeSysCreateModal()">Cancel</button>
+      <button type="button" class="sys-modal-action primary" id="sysConfirmBtn" onclick="confirmCreateAutomatedSystem()">
+        <i class="bi bi-cpu me-1"></i>Configure Systems
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- System Details / Components Modal -->
+<div id="sysDetailModalBg" class="sys-modal-bg" role="dialog" aria-modal="true" aria-labelledby="sysDetailModalTitle">
+  <div class="sys-modal">
+    <div class="sys-modal-head">
+      <div>
+        <h3 class="sys-modal-title" id="sysDetailModalTitle"><i class="bi bi-laptop me-1"></i> System Components</h3>
+        <p class="qty-modal-sub" id="sysDetailModalSub">List of items allocated in this system</p>
+      </div>
+      <button type="button" class="sys-close" onclick="closeSysDetailModal()" aria-label="Close"><i class="bi bi-x-lg"></i></button>
+    </div>
+
+    <div class="sys-modal-section" style="max-height: 380px; overflow-y: auto;">
+      <table class="comp-list-table">
+        <thead>
+          <tr>
+            <th>Item Name</th>
+            <th>Serial Number</th>
+            <th>Status</th>
+            <th>Action</th>
+          </tr>
+        </thead>
+        <tbody id="sysDetailComponentsBody">
+          <!-- Populated dynamically -->
+        </tbody>
+      </table>
+    </div>
+
+    <div class="sys-modal-actions" style="margin-top: 14px;">
+      <button type="button" class="sys-modal-action" onclick="closeSysDetailModal()" style="flex:1;">Close</button>
+    </div>
+  </div>
+</div>
+
 <script>
-const systemItems = Array.from(document.querySelectorAll('.item-card[draggable="true"]')).map(card => ({
-  id: card.dataset.itemId,
-  name: card.dataset.itemName,
-  available_count: Number(card.dataset.availableCount || 0),
-  source: card.dataset.source || 'available'
-}));
-console.log('Systems items array:', systemItems);
+let activeSystemMode = localStorage.getItem('activeSystemMode') || 'general';
+let selectedItems = {}; // Maps item_id -> { id, name, maxCount, source, qty }
+
+// Initialize Mode Switcher on page load
+document.addEventListener('DOMContentLoaded', () => {
+  initSystemMode();
+  clearAllSelections();
+});
 
 function getCsrf() {
   const c = document.cookie.split(';').find(x => x.trim().startsWith('csrftoken='));
   return c ? decodeURIComponent(c.trim().split('=')[1]) : '';
 }
+
 function showSysToast(message, ok=true) {
   const el = document.getElementById('sysToast');
   el.textContent = message;
   el.className = 'toast-lite ' + (ok ? 'ok' : 'err');
   el.style.display = 'block';
-  setTimeout(() => { el.style.display = 'none'; }, 2200);
+  setTimeout(() => { el.style.display = 'none'; }, 2250);
 }
+
+// Switch between General and Labs systems allocation mode
+function initSystemMode() {
+  const btnGeneral = document.getElementById('btnModeGeneral');
+  const btnLabs = document.getElementById('btnModeLabs');
+  
+  if (activeSystemMode === 'labs') {
+    btnGeneral.className = 'mode-switch-btn';
+    btnLabs.className = 'mode-switch-btn active labs';
+  } else {
+    btnGeneral.className = 'mode-switch-btn active general';
+    btnLabs.className = 'mode-switch-btn';
+  }
+}
+
+function switchSystemMode(mode) {
+  if (activeSystemMode === mode) return;
+  activeSystemMode = mode;
+  localStorage.setItem('activeSystemMode', mode);
+  initSystemMode();
+  clearAllSelections();
+  showSysToast(`Switched to ${mode === 'labs' ? 'Labs' : 'General'} Mode.`);
+}
+
+// Multi-select Checkbox logic
+function toggleSelectCard(event, chk) {
+  event.stopPropagation();
+  const card = document.getElementById(`card-item-${chk.dataset.itemId}`);
+  const itemId = chk.dataset.itemId;
+  
+  if (chk.checked) {
+    card.classList.add('selected-card');
+    selectedItems[itemId] = {
+      id: itemId,
+      name: chk.dataset.itemName,
+      maxCount: Number(chk.dataset.availableCount || 1),
+      source: chk.dataset.source || 'available',
+      qty: Number(chk.dataset.availableCount || 1) // default to allocate all
+    };
+  } else {
+    card.classList.remove('selected-card');
+    delete selectedItems[itemId];
+  }
+  syncMultiSelectState();
+}
+
+function syncMultiSelectState() {
+  const drawer = document.getElementById('floatingDrawer');
+  const keys = Object.keys(selectedItems);
+  const totalItems = keys.length;
+  
+  if (totalItems > 0) {
+    let totalUnits = 0;
+    keys.forEach(k => { totalUnits += selectedItems[k].qty; });
+    document.getElementById('drawerText').textContent = `Selected ${totalItems} item${totalItems > 1 ? 's' : ''} (${totalUnits} unit${totalUnits > 1 ? 's' : ''})`;
+    drawer.classList.add('show');
+  } else {
+    drawer.classList.remove('show');
+  }
+}
+
+function clearAllSelections() {
+  selectedItems = {};
+  document.querySelectorAll('.item-select-chk').forEach(chk => chk.checked = false);
+  document.querySelectorAll('.item-card').forEach(card => card.classList.remove('selected-card'));
+  syncMultiSelectState();
+}
+
+// Drag & Drop event interceptors
 let dragged = null;
-let pendingMove = null;
 document.querySelectorAll('.item-card[draggable="true"]').forEach(card => {
   card.addEventListener('dragstart', event => {
     dragged = card;
     event.dataTransfer.setData('text/plain', card.dataset.itemId);
   });
 });
+
 document.querySelectorAll('.drop-lane').forEach(lane => {
   lane.addEventListener('dragover', event => {
     event.preventDefault();
@@ -210,9 +575,406 @@ document.querySelectorAll('.drop-lane').forEach(lane => {
     event.preventDefault();
     lane.classList.remove('drop-over');
     if (!dragged) return;
-    moveItem(dragged, lane.dataset.lane);
+    
+    const targetLane = lane.dataset.lane;
+    handleItemDropAction(dragged, targetLane);
   });
 });
+
+function handleItemDropAction(card, targetLane) {
+  const itemId = card.dataset.itemId;
+  
+  // If the dropped card is not in current checkbox selection, clear others and select this one only
+  if (!selectedItems[itemId]) {
+    clearAllSelections();
+    const chk = card.querySelector('.item-select-chk');
+    if (chk) {
+      chk.checked = true;
+      toggleSelectCard({ stopPropagation: () => {} }, chk);
+    }
+  }
+  
+  openSystemCreationModal(card.dataset.source || 'available', targetLane);
+}
+
+function openSystemCreationFromDrawer() {
+  // Infer lanes
+  const firstItem = Object.values(selectedItems)[0];
+  if (!firstItem) return;
+  openSystemCreationModal(firstItem.source, 'active');
+}
+
+// Automated System Modal Controllers
+let sysModalData = {
+  sourceLane: 'available',
+  targetLane: 'active',
+  itemsList: []
+};
+
+function openSystemCreationModal(sourceLane, targetLane) {
+  sysModalData.sourceLane = sourceLane;
+  sysModalData.targetLane = targetLane;
+  sysModalData.itemsList = Object.values(selectedItems);
+  
+  const listEl = document.getElementById('sysSelectedItemsList');
+  listEl.innerHTML = '';
+  
+  sysModalData.itemsList.forEach(item => {
+    const row = document.createElement('div');
+    row.className = 'sys-item-row';
+    row.innerHTML = `
+      <span class="sys-item-name">${item.name}</span>
+      <div class="sys-item-qty-selector">
+        <button type="button" class="sys-qty-btn" onclick="adjustSysItemQty('${item.id}', -1)">-</button>
+        <input type="number" id="sys-qty-input-${item.id}" class="sys-qty-input" min="1" max="${item.maxCount}" value="${item.qty}" oninput="syncSysItemQtyInput('${item.id}', this.value)">
+        <button type="button" class="sys-qty-btn" onclick="adjustSysItemQty('${item.id}', 1)">+</button>
+      </div>
+    `;
+    listEl.appendChild(row);
+  });
+
+  const labsOptions = document.getElementById('sysLabsOptions');
+  const labelInput = document.getElementById('sysNameInput');
+  const targetSelect = document.getElementById('sysTargetLaneSelect');
+  
+  targetSelect.value = targetLane;
+  
+  if (activeSystemMode === 'labs') {
+    labsOptions.style.display = 'block';
+    // Auto-fill suggested Labs label name
+    const labNumber = document.querySelectorAll('.system-card').length + 1;
+    labelInput.value = `LAB 1 System - ${labNumber}`;
+    document.getElementById('sysLabelFieldTitle').textContent = "System Label Format";
+    document.getElementById('sysLabelHelpText').textContent = "In Labs Multi-System mode, the ending index will auto-increment.";
+  } else {
+    labsOptions.style.display = 'none';
+    const genNumber = document.querySelectorAll('.system-card').length + 1;
+    labelInput.value = `System - ${genNumber}`;
+    document.getElementById('sysLabelFieldTitle').textContent = "System Name / Label";
+    document.getElementById('sysLabelHelpText').textContent = "Enter a name/label to group the assigned components.";
+  }
+
+  // Set default state for type selector
+  document.getElementById('lblSysTypeSingle').className = 'sys-radio-label selected';
+  document.getElementById('lblSysTypeMulti').className = 'sys-radio-label';
+  document.querySelector('input[name="system_type"][value="single"]').checked = true;
+  document.getElementById('sysMultiCountRow').style.display = 'none';
+  document.getElementById('sysCountInput').value = 1;
+  
+  syncSysConfigPreview();
+  
+  const bg = document.getElementById('sysCreateModalBg');
+  bg.style.display = 'flex';
+  requestAnimationFrame(() => bg.classList.add('show'));
+  setTimeout(() => labelInput.focus(), 80);
+}
+
+function closeSysCreateModal() {
+  const bg = document.getElementById('sysCreateModalBg');
+  bg.classList.remove('show');
+  setTimeout(() => { bg.style.display = 'none'; }, 180);
+}
+
+function adjustSysItemQty(itemId, delta) {
+  const item = selectedItems[itemId];
+  if (!item) return;
+  
+  item.qty = Math.max(1, Math.min(item.maxCount, item.qty + delta));
+  const input = document.getElementById(`sys-qty-input-${itemId}`);
+  if (input) input.value = item.qty;
+  
+  syncMultiSelectState();
+  syncSysConfigPreview();
+}
+
+function syncSysItemQtyInput(itemId, value) {
+  const item = selectedItems[itemId];
+  if (!item) return;
+  
+  let val = parseInt(value) || 1;
+  val = Math.max(1, Math.min(item.maxCount, val));
+  item.qty = val;
+  
+  syncMultiSelectState();
+  syncSysConfigPreview();
+}
+
+function toggleSysType(type) {
+  const lblSingle = document.getElementById('lblSysTypeSingle');
+  const lblMulti = document.getElementById('lblSysTypeMulti');
+  const multiRow = document.getElementById('sysMultiCountRow');
+  
+  if (type === 'multi') {
+    lblSingle.className = 'sys-radio-label';
+    lblMulti.className = 'sys-radio-label selected';
+    multiRow.style.display = 'block';
+  } else {
+    lblSingle.className = 'sys-radio-label selected';
+    lblMulti.className = 'sys-radio-label';
+    multiRow.style.display = 'none';
+    document.getElementById('sysCountInput').value = 1;
+  }
+  syncSysConfigPreview();
+}
+
+function stepSysCount(delta) {
+  const input = document.getElementById('sysCountInput');
+  input.value = Math.max(1, parseInt(input.value || '1', 10) + delta);
+  syncSysConfigPreview();
+}
+
+function syncSysConfigPreview() {
+  const labelFormat = document.getElementById('sysNameInput').value.trim();
+  const sysType = document.querySelector('input[name="system_type"]:checked').value;
+  const sysCount = parseInt(document.getElementById('sysCountInput').value) || 1;
+  const targetLane = document.getElementById('sysTargetLaneSelect').value;
+  const previewBox = document.getElementById('sysPreviewBox');
+  
+  if (!labelFormat) {
+    previewBox.innerHTML = `<span class="text-danger"><i class="bi bi-x-circle-fill me-1"></i> Please specify a label/name.</span>`;
+    document.getElementById('sysConfirmBtn').disabled = true;
+    return;
+  }
+  
+  document.getElementById('sysConfirmBtn').disabled = false;
+  let previewText = "";
+  
+  if (activeSystemMode === 'labs' && sysType === 'multi' && sysCount > 1) {
+    // Sequential prefix parsing
+    let prefix = labelFormat;
+    let startNum = 1;
+    const parts = labelFormat.rsplit ? labelFormat.rsplit('-', 1) : labelFormat.split('-');
+    const lastPart = parts[parts.length - 1];
+    
+    if (parts.length > 1 && !isNaN(parseInt(lastPart.trim()))) {
+      prefix = labelFormat.substring(0, labelFormat.lastIndexOf('-') + 1);
+      startNum = parseInt(lastPart.trim());
+    } else {
+      prefix = labelFormat + ' - ';
+    }
+    
+    let createdNames = [];
+    for (let i = 0; i < sysCount; i++) {
+      createdNames.push(`"${prefix}${startNum + i}"`);
+    }
+    
+    previewText = `<h6><i class="bi bi-info-circle-fill me-1 text-primary"></i> Multi-System Setup Preview</h6>`;
+    previewText += `<p class="mb-2">Creating <strong>${sysCount} Systems</strong> sequentially: <span class="text-success">${createdNames.join(', ')}</span></p>`;
+    
+    previewText += `<ul class="ps-3 mb-0">`;
+    sysModalData.itemsList.forEach(item => {
+      const perSystem = Math.floor(item.qty / sysCount);
+      const leftover = item.qty % sysCount;
+      previewText += `<li class="mb-1"><strong>${item.name}</strong>: allocating <strong>${perSystem} unit${perSystem > 1 ? 's' : ''}</strong> per system.`;
+      if (leftover > 0) {
+        previewText += ` <span class="text-warning font-monospace" style="font-size:0.75rem;">(${leftover} leftover unit${leftover > 1 ? 's' : ''} remain in ${sysModalData.sourceLane})</span>`;
+      }
+      previewText += `</li>`;
+    });
+    previewText += `</ul>`;
+    
+  } else {
+    // Single system logic
+    previewText = `<h6><i class="bi bi-info-circle-fill me-1 text-primary"></i> Single-System Setup Preview</h6>`;
+    previewText += `<p class="mb-2">Creating / allocating to System: <strong class="text-success">"${labelFormat}"</strong></p>`;
+    previewText += `<ul class="ps-3 mb-0">`;
+    sysModalData.itemsList.forEach(item => {
+      previewText += `<li class="mb-1"><strong>${item.name}</strong>: assigning all <strong>${item.qty} unit${item.qty > 1 ? 's' : ''}</strong> to this system.</li>`;
+    });
+    previewText += `</ul>`;
+  }
+  
+  previewText += `<div class="mt-2 text-muted small" style="border-top:1px dashed #cbd5e1; padding-top:6px;">Target status lane: <span class="badge bg-secondary px-2 text-uppercase" style="font-size:0.6rem;">${targetLane}</span></div>`;
+  previewBox.innerHTML = previewText;
+}
+
+// Submit automated system creation payload to backend
+function confirmCreateAutomatedSystem() {
+  const nameFormat = document.getElementById('sysNameInput').value.trim();
+  const sysType = document.querySelector('input[name="system_type"]:checked').value;
+  const sysCount = parseInt(document.getElementById('sysCountInput').value) || 1;
+  const targetLane = document.getElementById('sysTargetLaneSelect').value;
+  
+  if (!nameFormat) {
+    showSysToast("Label/Name format is required.", false);
+    return;
+  }
+  
+  const payload = {
+    mode: activeSystemMode,
+    system_type: sysType,
+    system_count: sysCount,
+    system_name_format: nameFormat,
+    target_lane: targetLane,
+    source_lane: sysModalData.sourceLane,
+    items: sysModalData.itemsList.map(item => ({
+      item_id: item.id,
+      qty: item.qty
+    }))
+  };
+
+  const url = '{% url "room_incharge:systems_create_automated" room_slug=room_slug %}';
+  
+  fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCsrf(), 'X-Requested-With': 'XMLHttpRequest' },
+    body: JSON.stringify(payload)
+  })
+  .then(res => res.json().then(data => ({ ok: res.ok, data })))
+  .then(({ ok, data }) => {
+    if (!ok || !data.success) {
+      showSysToast(data.error || "System allocation failed.", false);
+      return;
+    }
+    closeSysCreateModal();
+    clearAllSelections();
+    showSysToast("Systems successfully created & allocated!");
+    setTimeout(() => window.location.reload(), 450);
+  })
+  .catch(() => showSysToast("Network error. Please try again.", false));
+}
+
+// System Detail Loader Modal
+function openSystemDetailModal(systemId, systemName) {
+  const dataEl = document.getElementById(`system-components-${systemId}`);
+  if (!dataEl) return;
+  
+  try {
+    const components = JSON.parse(dataEl.textContent);
+    const body = document.getElementById('sysDetailComponentsBody');
+    body.innerHTML = '';
+    
+    document.getElementById('sysDetailModalTitle').innerHTML = `<i class="bi bi-pc-display me-2 text-primary"></i> ${systemName}`;
+    
+    if (components.length === 0) {
+      body.innerHTML = `<tr><td colspan="4" class="text-center text-muted py-3">No components inside this system.</td></tr>`;
+    } else {
+      components.forEach(comp => {
+        const tr = document.createElement('tr');
+        
+        let statusBadgeClass = "secondary";
+        if (comp.status.toLowerCase().includes("active")) statusBadgeClass = "success";
+        else if (comp.status.toLowerCase().includes("inactive")) statusBadgeClass = "danger";
+        else statusBadgeClass = "warning";
+        
+        tr.innerHTML = `
+          <td><strong>${comp.item_name}</strong></td>
+          <td class="font-monospace text-muted" style="font-size:0.75rem;">${comp.serial_number}</td>
+          <td><span class="badge bg-${statusBadgeClass} text-uppercase" style="font-size:0.65rem;">${comp.status}</span></td>
+          <td>
+            <button class="btn btn-sm btn-outline-danger py-0 px-2" onclick="revertSystemComponent(${comp.id}, '${comp.item_name.replace(/'/g, "\\'")}', this)" style="font-size:0.68rem; font-weight:700;">
+              <i class="bi bi-arrow-counterclockwise"></i> Revert
+            </button>
+          </td>
+        `;
+        body.appendChild(tr);
+      });
+    }
+    
+    const bg = document.getElementById('sysDetailModalBg');
+    bg.style.display = 'flex';
+    requestAnimationFrame(() => bg.classList.add('show'));
+  } catch (e) {
+    showSysToast("Failed to load components details.", false);
+  }
+}
+
+function revertSystemComponent(componentId, itemName, btn) {
+  if (!confirm(`Are you sure you want to revert component "${itemName}" to loose stock?`)) return;
+  
+  btn.disabled = true;
+  let url = "{% url 'room_incharge:systems_revert_component' room_slug=room_slug pk=999999 %}";
+  url = url.replace('999999', componentId);
+  
+  fetch(url, {
+    method: 'POST',
+    headers: { 'X-CSRFToken': getCsrf(), 'X-Requested-With': 'XMLHttpRequest' }
+  })
+  .then(res => res.json().then(data => ({ ok: res.ok, data })))
+  .then(({ ok, data }) => {
+    if (!ok || !data.success) {
+      showSysToast(data.error || "Failed to revert component.", false);
+      btn.disabled = false;
+      return;
+    }
+    showSysToast(`Successfully reverted "${itemName}"!`);
+    setTimeout(() => window.location.reload(), 450);
+  })
+  .catch(() => {
+    showSysToast("Network error. Please try again.", false);
+    btn.disabled = false;
+  });
+}
+
+function quickRevertLooseItem(itemId, sourceLane, count, event) {
+  if (event) event.stopPropagation();
+  if (!confirm(`Revert all ${count} loose unit(s) of this item back to Available stock?`)) return;
+  
+  const url = '{% url "room_incharge:systems_assign" room_slug=room_slug %}';
+  const payload = {
+    item_id: itemId,
+    from: sourceLane,
+    target: 'available',
+    count: count
+  };
+  
+  fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCsrf(), 'X-Requested-With': 'XMLHttpRequest' },
+    body: JSON.stringify(payload)
+  })
+  .then(res => res.json().then(data => ({ ok: res.ok, data })))
+  .then(({ ok, data }) => {
+    if (!ok || !data.success) {
+      showSysToast(data.error || "Failed to revert item.", false);
+      return;
+    }
+    showSysToast("Successfully reverted items!");
+    setTimeout(() => window.location.reload(), 450);
+  })
+  .catch(() => showSysToast("Network error. Please try again.", false));
+}
+
+function closeSysDetailModal() {
+  const bg = document.getElementById('sysDetailModalBg');
+  bg.classList.remove('show');
+  setTimeout(() => { bg.style.display = 'none'; }, 180);
+}
+
+function scrollToCreatedSystems() {
+  const section = document.querySelector('.systems-section-header');
+  if (section) {
+    section.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+}
+
+function deleteCreatedSystem(systemId, systemName) {
+  if (!confirm(`Are you sure you want to delete system "${systemName}"? This will return all allocated components back to loose stock.`)) {
+    return;
+  }
+  
+  let url = "{% url 'room_incharge:systems_delete' room_slug=room_slug pk=999999 %}";
+  url = url.replace('999999', systemId);
+  
+  fetch(url, {
+    method: 'POST',
+    headers: { 'X-CSRFToken': getCsrf(), 'X-Requested-With': 'XMLHttpRequest' }
+  })
+  .then(res => res.json().then(data => ({ ok: res.ok, data })))
+  .then(({ ok, data }) => {
+    if (!ok || !data.success) {
+      showSysToast(data.error || "Failed to delete system.", false);
+      return;
+    }
+    showSysToast(`Successfully deleted system "${systemName}"!`);
+    setTimeout(() => window.location.reload(), 450);
+  })
+  .catch(() => showSysToast("Network error. Please try again.", false));
+}
+
+// Keep standard single move overlay fallback active
+let pendingMove = null;
+
 function moveItem(card, target) {
   const source = card.dataset.source || 'available';
   const itemName = card.dataset.itemName || 'item';
@@ -231,17 +993,20 @@ function moveItem(card, target) {
   requestAnimationFrame(() => bg.classList.add('show'));
   setTimeout(() => input.focus(), 80);
 }
+
 function closeQtyModal() {
   const bg = document.getElementById('qtyModalBg');
   bg.classList.remove('show');
   setTimeout(() => { bg.style.display = 'none'; }, 180);
 }
+
 function stepMoveQty(delta) {
   const input = document.getElementById('qtyCountInput');
   const max = pendingMove ? pendingMove.maxCount : 1;
   input.value = Math.max(1, Math.min(max, Number.parseInt(input.value || '1', 10) + delta));
   syncMoveQty();
 }
+
 function syncMoveQty() {
   const input = document.getElementById('qtyCountInput');
   const max = pendingMove ? pendingMove.maxCount : 0;
@@ -252,6 +1017,7 @@ function syncMoveQty() {
   document.getElementById('qtyWarning').style.display = valid ? 'none' : 'block';
   document.getElementById('qtyConfirmBtn').disabled = !valid;
 }
+
 function confirmMoveItem() {
   if (!pendingMove) return;
   const { card, target, source, itemName, maxCount } = pendingMove;
@@ -282,9 +1048,38 @@ function confirmMoveItem() {
     setTimeout(() => window.location.reload(), 450);
   }).catch(() => showSysToast('Failed to update item.', false));
 }
+
+function filterAvailableItems(q) {
+  q = q.toLowerCase();
+  document.querySelectorAll('section[data-lane="available"] .item-card').forEach(card => {
+    const text = card.dataset.itemName.toLowerCase();
+    card.style.display = text.includes(q) ? '' : 'none';
+  });
+}
+
+function filterCreatedSystems(q) {
+  q = q.toLowerCase();
+  document.querySelectorAll('.systems-grid .system-card').forEach(card => {
+    const name = card.querySelector('h5').textContent.toLowerCase();
+    const compsEl = card.querySelector('script[type="application/json"]');
+    let compsText = "";
+    if (compsEl) {
+      try {
+        const comps = JSON.parse(compsEl.textContent);
+        compsText = comps.map(c => c.item_name).join(" ").toLowerCase();
+      } catch (e) {}
+    }
+    card.style.display = (name.includes(q) || compsText.includes(q)) ? '' : 'none';
+  });
+}
+
+// Global key handlers
 document.addEventListener('keydown', event => {
-  if (event.key === 'Escape' && document.getElementById('qtyModalBg').style.display === 'flex') closeQtyModal();
-  if (event.key === 'Enter' && document.activeElement?.id === 'qtyCountInput') confirmMoveItem();
+  if (event.key === 'Escape') {
+    if (document.getElementById('qtyModalBg').style.display === 'flex') closeQtyModal();
+    if (document.getElementById('sysCreateModalBg').style.display === 'flex') closeSysCreateModal();
+    if (document.getElementById('sysDetailModalBg').style.display === 'flex') closeSysDetailModal();
+  }
 });
 </script>
 {% endblock content %}

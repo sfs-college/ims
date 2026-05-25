@@ -292,9 +292,10 @@
       <thead>
         <tr>
           <th data-label="Vendor Name">Vendor Name</th>
-          <th data-label="Contact Person">Contact Person</th>
           <th data-label="Email">Email</th>
-          <th data-label="Phone">Phone</th>
+          <th data-label="Contact Number">Contact Number</th>
+          <th data-label="Alternate Number">Alternate Number</th>
+          <th data-label="Address">Address</th>
           <th data-label="Action">Action</th>
         </tr>
       </thead>
@@ -309,9 +310,11 @@
               {{ vendor.vendor_name }}
             </span>
           </td>
-          <td class="contact-cell">{{ vendor.email }}</td>
-          <td class="contact-cell">{{ vendor.contact_number }}</td>
-          <td>
+          <td data-label="Email" class="contact-cell">{{ vendor.email }}</td>
+          <td data-label="Contact Number" class="contact-cell">{{ vendor.contact_number }}</td>
+          <td data-label="Alternate Number" class="contact-cell">{{ vendor.alternate_number|default:"—" }}</td>
+          <td data-label="Address" class="contact-cell">{{ vendor.address }}</td>
+          <td data-label="Action">
             <div class="actions-cell">
               <a href="{% url 'central_admin:vendor_update' vendor_slug=vendor.slug %}" class="btn-action-edit">
                 <span class="material-symbols-outlined" style="font-size:14px">edit</span>

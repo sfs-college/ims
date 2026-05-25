@@ -7,139 +7,113 @@
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
 <style>
   @import url('https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700;9..40,800&display=swap');
-
+  
   :root {
-    --accent:       #6c63ff;
-    --accent-lt:    #a89dff;
-    --purple:       #9333ea;
-    --purple-dark:  #7c3aed;
+    --purple: #9333ea;
+    --purple-dark: #7c3aed;
     --purple-light: #f3e8ff;
-    --blue:         #3b82f6;
-    --blue-light:   #eff6ff;
-    --surface:      #f8fafc;
-    --white:        #ffffff;
-    --border:       #e2e8f0;
-    --text-dark:    #1e293b;
-    --text-mid:     #475569;
-    --text-muted:   #94a3b8;
-    --success:      #059669;
-    --success-light:#d1fae5;
-    --danger:       #dc2626;
-    --danger-light: #fee2e2;
-    --shadow:       0 2px 8px rgba(0,0,0,0.06);
-    --shadow-md:    0 4px 16px rgba(0,0,0,0.10);
-    --shadow-lg:    0 8px 32px rgba(0,0,0,0.14);
+    --blue: #2563eb;
+    --blue-light: #eff6ff;
+    --border: #e2e8f0;
+    --text-dark: #1e293b;
+    --text-mid: #475569;
+    --text-muted: #94a3b8;
+    --surface: #f8fafc;
+    --success: #16a34a;
+    --success-light: #f0fdf4;
+    --danger: #dc2626;
+    --danger-light: #fef2f2;
+    --shadow: 0 4px 20px rgba(0,0,0,0.03);
+    --shadow-md: 0 8px 30px rgba(0,0,0,0.06);
+    --shadow-lg: 0 20px 50px rgba(0,0,0,0.12);
   }
 
-  body { background: var(--surface); font-family: 'DM Sans', sans-serif; }
+  body { font-family: 'DM Sans', sans-serif; background: var(--surface); color: var(--text-dark); }
 
-  .assign-page { padding: 28px 0 48px; }
+  .assign-page { padding: 24px 30px 40px; }
 
-  /* ── Page header ── */
+  /* ── Header ── */
   .page-header {
-    background: white;
-    padding: 22px 28px;
-    border-radius: 16px;
-    box-shadow: var(--shadow);
-    margin-bottom: 22px;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    flex-wrap: wrap;
-    gap: 12px;
+    background: white; padding: 24px 30px; border-radius: 16px;
+    box-shadow: var(--shadow); margin-bottom: 24px;
+    display: flex; justify-content: space-between; align-items: center;
+    gap: 16px; flex-wrap: wrap; border: 1.5px solid var(--border);
   }
   .page-title {
     background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    font-weight: 800;
-    font-size: 1.8rem;
-    margin: 0;
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    font-weight: 800; font-size: 1.8rem; margin: 0 0 4px;
   }
-  .page-subtitle { color: var(--text-muted); font-size: 0.88rem; margin-top: 3px; margin-bottom: 0; }
-
+  .page-subtitle { font-size: 0.88rem; color: var(--text-muted); margin: 0; }
   .access-badge {
-    display: inline-flex; align-items: center; gap: 5px;
-    background: var(--success-light); color: var(--success);
-    border: 1px solid #a7f3d0; border-radius: 20px;
-    font-size: 0.72rem; font-weight: 700; padding: 4px 12px;
+    background: #f0fdf4; color: #16a34a; border: 1.5px solid #bbf7d0;
+    border-radius: 20px; padding: 5px 12px; font-size: 0.75rem; font-weight: 700;
   }
 
   /* ── Steps ── */
   .steps-row {
-    display: flex; align-items: center; gap: 0;
-    background: white; border-radius: 12px; padding: 6px;
-    box-shadow: var(--shadow); margin-bottom: 22px; width: fit-content;
+    display: flex; align-items: center; justify-content: center;
+    background: white; border: 1.5px solid var(--border); border-radius: 12px;
+    padding: 12px 24px; margin-bottom: 24px; box-shadow: var(--shadow);
+    gap: 16px; flex-wrap: wrap;
   }
   .step-item {
     display: flex; align-items: center; gap: 8px;
-    padding: 9px 20px; border-radius: 9px;
-    font-size: 0.83rem; font-weight: 600; color: var(--text-muted); transition: all 0.2s;
+    font-size: 0.85rem; font-weight: 700; color: var(--text-muted);
+    transition: color 0.3s;
   }
-  .step-item.active { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; }
+  .step-item.active { color: var(--purple); }
   .step-item .num {
     width: 22px; height: 22px; border-radius: 50%;
-    background: rgba(255,255,255,0.25);
+    background: var(--surface); border: 1.5px solid var(--border);
     display: flex; align-items: center; justify-content: center;
-    font-size: 0.72rem; font-weight: 800;
+    font-size: 0.75rem; font-weight: 800; transition: all 0.3s;
   }
-  .step-item:not(.active) .num { background: #e2e8f0; color: var(--text-muted); }
-  .step-sep { width: 28px; height: 1px; background: var(--border); }
+  .step-item.active .num { background: var(--purple); color: white; border-color: var(--purple); }
+  .step-sep { width: 30px; height: 1.5px; background: var(--border); }
 
-  /* ── Main grid ── */
-  .main-grid {
-    display: grid;
-    grid-template-columns: 340px 1fr;
-    gap: 20px;
-    align-items: start;
-  }
+  /* ── Main Grid ── */
+  .main-grid { display: grid; grid-template-columns: 360px 1fr; gap: 24px; align-items: start; }
 
-  /* ── Cards ── */
+  /* ── Card ── */
   .card {
-    background: white; border-radius: 15px;
-    box-shadow: var(--shadow); overflow: visible; margin-bottom: 18px;
+    background: white; border: 1.5px solid var(--border); border-radius: 16px;
+    box-shadow: var(--shadow); margin-bottom: 20px; overflow: hidden;
   }
-  .card:last-child { margin-bottom: 0; }
   .card-header {
-    padding: 16px 20px; border-bottom: 1px solid var(--border);
+    padding: 18px 20px; border-bottom: 1.5px solid var(--border);
     display: flex; align-items: center; justify-content: space-between;
   }
   .card-title {
-    font-weight: 700; font-size: 0.92rem; color: var(--text-dark);
-    display: flex; align-items: center; gap: 9px; margin: 0;
+    margin: 0; font-size: 0.95rem; font-weight: 800; color: var(--text-dark);
+    display: flex; align-items: center; gap: 8px;
   }
-  .card-title-icon {
-    width: 28px; height: 28px; border-radius: 8px;
-    display: flex; align-items: center; justify-content: center; font-size: 0.82rem;
-  }
-  .icon-purple { background: var(--purple-light); color: var(--purple); }
-  .icon-blue   { background: var(--blue-light);   color: var(--blue); }
-  .card-body { padding: 16px 20px; }
+  .card-title-icon { width: 28px; height: 28px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 0.82rem; }
+  .card-title-icon.icon-purple { background: var(--purple-light); color: var(--purple); }
+  .card-title-icon.icon-blue { background: var(--blue-light); color: var(--blue); }
+  .card-body { padding: 20px; }
 
-  /* ── Search ── */
-  .search-wrap { position: relative; margin-bottom: 12px; }
+  /* ── Search & Drag Cards ── */
+  .search-wrap {
+    position: relative; margin-bottom: 16px;
+  }
+  .search-wrap i { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: var(--text-muted); font-size: 0.85rem; }
   .search-wrap input {
-    width: 100%; padding: 9px 14px 9px 34px;
-    border: 1.5px solid var(--border); border-radius: 10px;
-    font-size: 0.875rem; color: var(--text-dark);
-    background: var(--surface); outline: none; transition: all 0.2s;
+    width: 100%; padding: 10px 14px 10px 36px; border: 1.5px solid var(--border);
+    border-radius: 10px; font-size: 0.875rem; color: var(--text-dark);
+    outline: none; transition: border-color 0.2s; box-sizing: border-box;
   }
-  .search-wrap input:focus { border-color: var(--purple); background: white; box-shadow: 0 0 0 3px rgba(147,51,234,0.08); }
-  .search-wrap i { position: absolute; left: 10px; top: 50%; transform: translateY(-50%); color: var(--text-muted); font-size: 0.78rem; }
+  .search-wrap input:focus { border-color: var(--purple); }
 
-  /* ── Item drag cards ── */
-  .items-scroll {
-    max-height: 440px; overflow-y: auto;
-    display: flex; flex-direction: column; gap: 7px; padding-right: 2px;
-  }
+  .items-scroll { max-height: 460px; overflow-y: auto; padding-right: 2px; }
   .items-scroll::-webkit-scrollbar { width: 4px; }
   .items-scroll::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
 
   .item-drag-card {
-    display: flex; align-items: center; gap: 10px;
-    padding: 10px 12px; border: 1.5px solid var(--border);
-    border-radius: 11px; cursor: grab; transition: all 0.18s;
-    background: white; user-select: none;
+    display: flex; align-items: center; gap: 12px;
+    padding: 12px 14px; border: 1.5px solid var(--border); border-radius: 12px;
+    background: white; margin-bottom: 10px; cursor: grab;
+    transition: all 0.2s; user-select: none;
   }
   .item-drag-card:hover { border-color: var(--purple); box-shadow: 0 2px 10px rgba(147,51,234,0.12); transform: translateX(2px); }
   .item-drag-card.is-dragging { opacity: 0.45; cursor: grabbing; transform: scale(0.97); }
@@ -164,7 +138,8 @@
   .grip-icon { color: var(--border); font-size: 0.78rem; flex-shrink: 0; transition: color 0.15s; }
   .item-drag-card:hover .grip-icon { color: var(--purple); }
 
-  /* ── Room selector ── */
+  /* ── Form Inputs & Switchers ── */
+  .selectors-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
   .form-group label {
     display: block; font-size: 0.7rem; font-weight: 700;
     letter-spacing: 0.05em; text-transform: uppercase;
@@ -181,10 +156,53 @@
   }
   .form-group select:focus { border-color: var(--purple); box-shadow: 0 0 0 3px rgba(147,51,234,0.08); }
 
-  /* ── Drop zone ── */
-  .dropzone-wrap { background: white; border-radius: 15px; box-shadow: var(--shadow); overflow: hidden; margin-bottom: 18px; }
+  /* ── Multi Room Checklist Trigger ── */
+  .multi-room-wrap { position: relative; }
+  .multi-room-trigger {
+    width: 100%; padding: 9px 12px; border: 1.5px solid var(--border);
+    border-radius: 10px; font-size: 0.875rem; color: var(--text-dark);
+    background: white; cursor: pointer; display: flex; align-items: center;
+    justify-content: space-between; transition: all 0.2s; user-select: none;
+  }
+  .multi-room-trigger:hover { border-color: var(--purple); }
+  .multi-room-trigger.open { border-color: var(--purple); box-shadow: 0 0 0 3px rgba(147,51,234,0.08); }
+  #multiRoomChevron { transition: transform 0.2s; font-size: 0.75rem; color: var(--text-muted); }
+  .multi-room-trigger.open #multiRoomChevron { transform: rotate(180deg); }
+
+  .multi-room-dropdown {
+    position: absolute; top: calc(100% + 6px); left: 0; right: 0;
+    background: white; border: 1.5px solid var(--border); border-radius: 10px;
+    box-shadow: var(--shadow-md); z-index: 1000; max-height: 200px; overflow-y: auto;
+  }
+  .multi-room-dropdown::-webkit-scrollbar { width: 4px; }
+  .multi-room-dropdown::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+
+  .room-checkbox-item {
+    display: flex; align-items: center; gap: 10px; padding: 10px 14px;
+    cursor: pointer; transition: background 0.15s; font-size: 0.875rem;
+    color: var(--text-dark); border-bottom: 1px solid #f8fafc;
+  }
+  .room-checkbox-item:last-child { border-bottom: none; }
+  .room-checkbox-item:hover { background: var(--purple-light); }
+  .room-checkbox-item input[type="checkbox"] { width: 15px; height: 15px; accent-color: var(--purple); cursor: pointer; flex-shrink: 0; }
+  .room-checkbox-item.checked { background: var(--purple-light); font-weight: 600; }
+
+  .selected-rooms-tags { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; min-height: 0; }
+  .room-tag-pill {
+    display: inline-flex; align-items: center; gap: 5px;
+    background: var(--purple-light); color: var(--purple);
+    padding: 4px 10px; border-radius: 20px; font-size: 0.75rem; font-weight: 600;
+  }
+  .room-tag-pill button {
+    background: none; border: none; color: var(--purple);
+    cursor: pointer; font-size: 0.8rem; padding: 0; line-height: 1;
+    display: flex; align-items: center;
+  }
+
+  /* ── Drop Zone ── */
+  .dropzone-wrap { background: white; border-radius: 15px; box-shadow: var(--shadow); overflow: hidden; margin-bottom: 20px; border: 1.5px solid var(--border); }
   .dropzone-head {
-    padding: 14px 20px; border-bottom: 1px solid var(--border);
+    padding: 14px 20px; border-bottom: 1.5px solid var(--border);
     display: flex; align-items: center; justify-content: space-between;
   }
   .room-tag { display: flex; align-items: center; gap: 8px; font-weight: 700; font-size: 0.88rem; color: var(--text-dark); }
@@ -253,7 +271,7 @@
   @keyframes toastIn  { from { opacity:0; transform:translateX(30px); } to { opacity:1; transform:translateX(0); } }
   @keyframes toastOut { to   { opacity:0; transform:translateX(30px); } }
 
-  /* ── Quantity modal ── */
+  /* ── Quantity Modal & Clamping UI ── */
   .modal-bg {
     position: fixed; inset: 0; background: rgba(15,23,42,0.45);
     z-index: 10000; display: flex; align-items: center; justify-content: center;
@@ -273,7 +291,7 @@
 
   .info-cards { display: flex; gap: 10px; margin-bottom: 20px; }
   .info-card  { flex: 1; border: 1.5px solid var(--border); border-radius: 12px; padding: 12px; text-align: center; }
-  .info-card .val { font-size: 1.5rem; font-weight: 800; color: var(--text-dark); line-height: 1; }
+  .info-card .val { font-size: 1.4rem; font-weight: 800; color: var(--text-dark); line-height: 1; }
   .info-card .lbl { font-size: 0.68rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-muted); margin-top: 4px; }
 
   .qty-label { font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-mid); margin-bottom: 7px; }
@@ -305,6 +323,7 @@
   }
   .btn-primary-modal:hover { opacity: 0.92; transform: translateY(-1px); box-shadow: 0 4px 12px rgba(118,75,162,0.3); }
   .btn-primary-modal:disabled { opacity: 0.55; cursor: not-allowed; transform: none; box-shadow: none; }
+  
   .spin { width: 14px; height: 14px; border: 2px solid rgba(255,255,255,0.35); border-top-color: white; border-radius: 50%; animation: spin 0.7s linear infinite; display: none; }
   .btn-primary-modal.loading .spin { display: block; }
   .btn-primary-modal.loading .btn-label { display: none; }
@@ -314,6 +333,7 @@
   @media (max-width: 900px) {
     .main-grid { grid-template-columns: 1fr; }
     .assign-page { padding: 16px 0 32px; }
+    .selectors-grid { grid-template-columns: 1fr; }
   }
   @media (max-width: 600px) {
     .steps-row { width: 100%; justify-content: center; }
@@ -347,15 +367,22 @@
   <div class="page-header">
     <div>
       <h1 class="page-title">Assign Inventory</h1>
-      <p class="page-subtitle">Drag items from master stock and drop into your room to assign</p>
+      <p class="page-subtitle">Drag items from master stock and drop into rooms to assign</p>
     </div>
     <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
       <span class="access-badge"><i class="bi bi-check-circle-fill me-1"></i>Assign Access</span>
       <button type="button"
+         onclick="openViewRoomInventory()"
+         style="display:inline-flex;align-items:center;gap:6px;padding:8px 16px;
+                background:white;color:var(--purple);border:1.5px solid var(--purple-light);
+                border-radius:9px;font-size:0.82rem;font-weight:700;transition:all 0.15s;cursor:pointer; margin-right:4px;">
+        <i class="bi bi-search"></i> View Room
+      </button>
+      <button type="button"
          onclick="openRevertInventory()"
          style="display:inline-flex;align-items:center;gap:6px;padding:8px 16px;
                 background:white;color:#0f766e;border:1.5px solid #99f6e4;
-                border-radius:9px;font-size:0.82rem;font-weight:700;transition:all 0.15s;">
+                border-radius:9px;font-size:0.82rem;font-weight:700;transition:all 0.15s;cursor:pointer;">
         <i class="bi bi-arrow-counterclockwise"></i> Revert Items
       </button>
       <a href="{% url 'room_incharge:room_dashboard' room_slug=room_slug %}"
@@ -431,25 +458,41 @@
     <!-- RIGHT -->
     <div style="display:flex;flex-direction:column;gap:0;">
 
-      <!-- Room selector (incharge's own rooms only) -->
+      <!-- Upgraded Room Selectors (Category Filter & Checklist) -->
       <div class="card">
         <div class="card-header">
           <h6 class="card-title">
             <span class="card-title-icon icon-blue"><i class="bi bi-building"></i></span>
-            Select Your Room
+            Select Rooms
           </h6>
         </div>
         <div class="card-body">
-          <div class="form-group">
-            <label>Room</label>
-            <select id="roomSelect" onchange="onRoomSelect()">
-              <option value="">— Choose a Room —</option>
-              {% for r in incharge_rooms %}
-              <option value="{{ r.id }}" data-name="{% if r.label %}{{ r.label }} — {% endif %}{{ r.room_name }}">
-                {% if r.label %}{{ r.label }} — {% endif %}{{ r.room_name }}
-              </option>
-              {% endfor %}
-            </select>
+          <div class="selectors-grid">
+            <div class="form-group">
+              <label>Room Category</label>
+              <select id="catSelect" onchange="loadRooms()">
+                <option value="">— Choose Category —</option>
+                {% for val, label in room_categories %}
+                <option value="{{ val }}">{{ label }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Rooms <span id="roomSelectedCount" style="color:var(--purple);font-weight:700;"></span></label>
+              <div class="multi-room-wrap" id="multiRoomWrap">
+                <div class="multi-room-trigger" id="multiRoomTrigger" onclick="toggleRoomDropdown()">
+                  <span id="multiRoomLabel">— Choose Rooms —</span>
+                  <i class="bi bi-chevron-down" id="multiRoomChevron"></i>
+                </div>
+                <div class="multi-room-dropdown" id="multiRoomDropdown" style="display:none;">
+                  <div id="roomCheckboxList">
+                    <div style="padding:12px;color:var(--text-muted);font-size:0.85rem;">
+                      Select a category first
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -463,6 +506,7 @@
           </div>
           <span id="assignedCount" style="font-size:0.76rem;color:var(--text-muted);"></span>
         </div>
+        <div id="selectedRoomTags" class="selected-rooms-tags" style="padding: 0 18px 12px; display:none;"></div>
         <div class="drop-area" id="dropArea"
              ondragover="onDragOver(event)"
              ondragleave="onDragLeave(event)"
@@ -470,12 +514,12 @@
           <div class="drop-placeholder" id="noRoomMsg">
             <i class="bi bi-building-slash"></i>
             <p>No room selected</p>
-            <small>Select your room above first</small>
+            <small>Select category and rooms above first</small>
           </div>
           <div class="drop-placeholder" id="dropMsg" style="display:none;">
             <i class="bi bi-box-arrow-in-down"></i>
             <p>Drop items here</p>
-            <small>Drag items from the left panel into this room</small>
+            <small>Drag items from the left panel into these rooms</small>
           </div>
           <div class="staged-list" id="stagedList" style="display:none;"></div>
         </div>
@@ -505,38 +549,109 @@
 </div>
 
 <!-- Revert Modal -->
-<div id="revertModalBg" class="modal-bg" style="display:none;pointer-events:none;">
+<div id="revertModalBg" class="modal-bg" style="display:none;">
   <div class="modal-box" style="width:900px;max-width:96vw;max-height:88vh;overflow-y:auto;">
-    <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:14px;">
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:14px;flex-wrap:wrap;">
       <div>
         <div class="modal-title">Revert Assigned Items</div>
         <div class="modal-sub">Return assigned room stock back to Master Inventory.</div>
       </div>
-      <button class="btn-sec" style="flex:0 0 auto;width:42px;padding:9px;" onclick="closeRevertInventory()"><i class="bi bi-x-lg"></i></button>
+      <div style="display:flex;gap:8px;">
+        <button class="btn-sec" style="flex:0 0 auto;padding:7px 14px;font-size:0.8rem;" onclick="loadRevertItems(); loadRevertHistoryOnly();"><i class="bi bi-arrow-clockwise me-1"></i>Refresh</button>
+        <button class="btn-sec" style="flex:0 0 auto;width:42px;padding:9px;" onclick="closeRevertInventory()"><i class="bi bi-x-lg"></i></button>
+      </div>
     </div>
-    <div class="form-group" style="margin-bottom:16px;">
-      <label>Room</label>
-      <select id="revertRoomSelect" onchange="loadRevertItems()">
-        <option value="">-- Select Room --</option>
-        {% for r in incharge_rooms %}
-        <option value="{{ r.id }}">{% if r.label %}{{ r.label }} - {% endif %}{{ r.room_name }}</option>
-        {% endfor %}
-      </select>
+
+    <!-- Filters & Batch Actions Panel -->
+    <div style="padding: 16px; margin-bottom: 20px; border-radius: 12px; border: 1.5px solid var(--border); background: #f8fafc; display: flex; flex-direction: column; gap: 14px; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; align-items: center;">
+        <!-- Room Filter -->
+        <div>
+          <label style="font-size: 0.75rem; font-weight: bold; color: var(--text-muted); margin-bottom: 4px; display: block;">Filter Room</label>
+          <select id="revertRoomFilter" onchange="applyRevertFilters()" style="width:100%; padding:6px; border:1.5px solid var(--border); border-radius:8px; outline:none; font-size:0.8rem; height:34px; background:#fff;">
+            <option value="">All Rooms</option>
+          </select>
+        </div>
+        <!-- Category Filter -->
+        <div>
+          <label style="font-size: 0.75rem; font-weight: bold; color: var(--text-muted); margin-bottom: 4px; display: block;">Filter Category</label>
+          <select id="revertCategoryFilter" onchange="applyRevertFilters()" style="width:100%; padding:6px; border:1.5px solid var(--border); border-radius:8px; outline:none; font-size:0.8rem; height:34px; background:#fff;">
+            <option value="">All Categories</option>
+          </select>
+        </div>
+        <!-- Search -->
+        <div>
+          <label style="font-size: 0.75rem; font-weight: bold; color: var(--text-muted); margin-bottom: 4px; display: block;">Search Text</label>
+          <div style="position:relative;">
+            <input type="text" id="revertSearchInput" placeholder="Search assigned items..." 
+                   onkeyup="applyRevertFilters()"
+                   style="width:100%; padding: 6px 10px 6px 30px; font-size:0.8rem; border:1.5px solid var(--border); border-radius:8px; outline:none; height:34px;">
+            <i class="bi bi-search" style="position:absolute; left:10px; top:50%; transform:translateY(-50%); font-size:0.75rem; color:var(--text-muted);"></i>
+          </div>
+        </div>
+        <!-- Batch Note -->
+        <div>
+          <label style="font-size: 0.75rem; font-weight: bold; color: var(--text-muted); margin-bottom: 4px; display: block;">Batch Revert Note</label>
+          <input type="text" id="batchRevertNote" placeholder="Optional batch note..." style="width:100%; padding:6px 10px; font-size:0.8rem; border:1.5px solid var(--border); border-radius:8px; outline:none; height:34px; background:#fff;">
+        </div>
+      </div>
+
+      <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; padding-top: 12px; border-top: 1px solid var(--border);">
+        <div style="display: flex; align-items: center; gap: 12px;">
+          <div class="form-check" style="display:flex; align-items:center; gap:6px;">
+            <input class="form-check-input" type="checkbox" id="selectAllRevertChk" onchange="toggleSelectAllRevert(this.checked)" style="width: 16px; height: 16px; margin: 0; cursor: pointer;">
+            <label class="form-check-label" for="selectAllRevertChk" style="font-size: 0.8rem; font-weight: bold; color: var(--text-dark); cursor: pointer; user-select: none;">
+              Select All (Currently Filtered)
+            </label>
+          </div>
+          <span id="revertSelectedCount" class="badge" style="display:none; background: var(--accent); color: white; padding: 4px 8px; border-radius: 6px; font-size: 0.75rem; font-weight: bold;">0 Selected</span>
+        </div>
+        <div style="display: flex; gap: 8px; align-items: center;">
+          <button type="button" class="btn-primary-modal" id="batchRevertBtn" onclick="submitBatchRevert()" disabled style="padding: 6px 14px; font-size: 0.8rem; border-radius:8px; display:inline-flex; align-items:center; justify-content:center; gap:4px; height: 36px;">
+            <i class="bi bi-arrow-counterclockwise"></i> Revert Selected
+          </button>
+          <button type="button" class="btn-sec" onclick="submitRevertAllAll()" style="background:#ef4444; color:white; border-color:#ef4444; padding: 6px 14px; font-size: 0.8rem; border-radius:8px; display:inline-flex; align-items:center; justify-content:center; gap:4px; height: 36px;">
+            <i class="bi bi-arrow-return-left"></i> Revert All Rooms
+          </button>
+        </div>
+      </div>
     </div>
+
     <div id="revertItemsGrid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:12px;">
-      <div class="empty-note" style="grid-column:1/-1;"><i class="bi bi-box-arrow-left"></i>Select a room to view assigned items.</div>
+      <div class="empty-note" style="grid-column:1/-1;"><div class="spinner-border" style="color:var(--accent);"></div></div>
     </div>
     <hr style="border:none;border-top:1px solid var(--border);margin:22px 0;">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
       <h6 style="font-weight:800;margin:0;color:var(--text-dark);"><i class="bi bi-clock-history me-2"></i>Revert History</h6>
-      <button class="btn-sec" style="flex:0 0 auto;padding:7px 12px;font-size:0.78rem;" onclick="loadRevertHistoryOnly()">Refresh</button>
     </div>
     <div id="revertHistoryList" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:10px;"></div>
   </div>
 </div>
 
-<!-- Quantity Modal -->
-<div id="modalBg" class="modal-bg" style="display:none;pointer-events:none;">
+<!-- View Room Inventory Modal -->
+<div id="viewRoomInventoryModal" class="modal-bg" style="display:none;" onclick="if(event.target===this)closeViewRoomInventory()">
+  <div class="modal-box" style="width:960px; max-width:96vw; max-height:88vh; overflow-y:auto; padding:30px; background:#fff; border-radius:18px;">
+    <div style="display:flex; justify-content:space-between; align-items:center; gap:12px; margin-bottom:18px; flex-wrap:wrap;">
+      <div>
+        <div class="modal-title"><i class="bi bi-boxes text-primary me-2"></i>Room Inventory Viewer</div>
+        <div class="modal-sub">General overview of assigned inventories, open issues, and incharges across all rooms.</div>
+      </div>
+      <div style="position:relative; width: 280px;">
+        <input type="text" id="roomViewerSearchInput" placeholder="Search rooms, labels, or items..." 
+               onkeyup="filterRoomViewerCards(this.value)"
+               style="width:100%; padding: 7px 10px 7px 32px; font-size:0.8rem; border:1.5px solid var(--border); border-radius:8px; outline:none;">
+        <i class="bi bi-search" style="position:absolute; left:10px; top:50%; transform:translateY(-50%); font-size:0.75rem; color:var(--text-muted);"></i>
+      </div>
+      <button class="btn-sec" style="flex:0 0 auto; width:42px; padding:9px; border-radius:8px;" onclick="closeViewRoomInventory()">✕</button>
+    </div>
+    <div id="roomInventoryResults" style="min-height:300px; max-height: 60vh; overflow-y: auto; padding-right: 4px;">
+      <div class="empty-note"><div class="spinner-border" style="color:var(--accent);"></div><p class="mt-2 text-muted">Loading room inventories...</p></div>
+    </div>
+  </div>
+</div>
+
+<!-- Quantity Modal (With rooms count & self-sanitizing quantity inputs) -->
+<div id="modalBg" class="modal-bg" style="display:none;">
   <div class="modal-box">
     <div class="modal-title">Set Quantity</div>
     <div class="modal-sub">Assigning <b id="mItemName">—</b> to <b id="mRoomName">—</b></div>
@@ -546,14 +661,18 @@
         <div class="lbl">In Stock</div>
       </div>
       <div class="info-card">
+        <div class="val" id="mRoomsCount">—</div>
+        <div class="lbl">Rooms Selected</div>
+      </div>
+      <div class="info-card">
         <div class="val" id="mAfter">—</div>
         <div class="lbl">Remaining After</div>
       </div>
     </div>
     <div id="stockWarning" style="display:none;background:#fee2e2;color:#dc2626;border-radius:9px;padding:10px 13px;font-size:0.8rem;font-weight:600;margin-bottom:14px;">
-      <i class="bi bi-exclamation-triangle-fill me-2"></i>Not enough stock available.
+      <i class="bi bi-exclamation-triangle-fill me-2"></i>Not enough stock available for all selected rooms.
     </div>
-    <div class="qty-label">Quantity to Assign</div>
+    <div class="qty-label">Quantity to Assign (Per Room)</div>
     <div class="qty-row">
       <button class="qty-step-btn" onclick="stepQty(-1)">−</button>
       <input type="number" class="qty-field" id="qtyField" value="1" min="1" oninput="syncAfter()">
@@ -574,25 +693,115 @@
 let dragItemId   = null;
 let dragItemName = null;
 let dragItemStock = null;
-let selectedRoomId   = null;
-let selectedRoomName = null;
-let sessionHistory   = [];
+let selectedRooms = [];
+let sessionData   = {};
+let roomDropdownOpen = false;
 
-// ── Room select ──
-function onRoomSelect() {
-  const sel = document.getElementById('roomSelect');
-  const opt = sel.options[sel.selectedIndex];
-  if (!sel.value) {
-    selectedRoomId = null; selectedRoomName = null;
-    resetDrop(); return;
+// ── Load Rooms dynamically by Category ──
+function loadRooms() {
+  const cat = document.getElementById('catSelect').value;
+  selectedRooms = [];
+  updateRoomUI();
+  resetDrop();
+
+  const list = document.getElementById('roomCheckboxList');
+  if (!cat) {
+    list.innerHTML = '<div style="padding:12px;color:var(--text-muted);font-size:0.85rem;">Select a category first</div>';
+    return;
   }
-  selectedRoomId   = sel.value;
-  selectedRoomName = opt.getAttribute('data-name');
-  document.getElementById('roomDot').classList.add('active');
-  document.getElementById('roomLabel').textContent = selectedRoomName;
-  document.getElementById('noRoomMsg').style.display = 'none';
-  document.getElementById('dropMsg').style.display   = 'flex';
-  setStep(2);
+
+  list.innerHTML = '<div style="padding:12px;color:var(--text-muted);font-size:0.85rem;">Loading...</div>';
+
+  fetch(`{% url 'central_admin:get_rooms_by_category' %}?category=${encodeURIComponent(cat)}`)
+    .then(r => r.json())
+    .then(d => {
+      if (!d.rooms || d.rooms.length === 0) {
+        list.innerHTML = '<div style="padding:12px;color:var(--text-muted);font-size:0.85rem;">No rooms found</div>';
+        return;
+      }
+      list.innerHTML = d.rooms.map(r => `
+        <label class="room-checkbox-item" id="rcb-${r.id}">
+          <input type="checkbox" value="${r.id}" data-name="${r.name}"
+              onchange="onRoomCheck(this, '${r.id}', '${r.name}')">
+          ${r.name}
+        </label>
+      `).join('');
+    })
+    .catch(() => {
+      list.innerHTML = '<div style="padding:12px;color:#dc2626;font-size:0.85rem;">Error loading rooms</div>';
+    });
+}
+
+function toggleRoomDropdown() {
+  roomDropdownOpen = !roomDropdownOpen;
+  const dd = document.getElementById('multiRoomDropdown');
+  const trigger = document.getElementById('multiRoomTrigger');
+  dd.style.display = roomDropdownOpen ? 'block' : 'none';
+  trigger.classList.toggle('open', roomDropdownOpen);
+}
+
+document.addEventListener('click', function(e) {
+  const wrap = document.getElementById('multiRoomWrap');
+  if (wrap && !wrap.contains(e.target)) {
+    document.getElementById('multiRoomDropdown').style.display = 'none';
+    document.getElementById('multiRoomTrigger').classList.remove('open');
+    roomDropdownOpen = false;
+  }
+});
+
+function onRoomCheck(checkbox, roomId, roomName) {
+  const label = document.getElementById(`rcb-${roomId}`);
+  if (checkbox.checked) {
+    selectedRooms.push({ id: roomId, name: roomName });
+    if (label) label.classList.add('checked');
+  } else {
+    selectedRooms = selectedRooms.filter(r => r.id !== roomId);
+    if (label) label.classList.remove('checked');
+  }
+  updateRoomUI();
+}
+
+function removeRoom(roomId) {
+  selectedRooms = selectedRooms.filter(r => r.id !== roomId);
+  const cb = document.querySelector(`#rcb-${roomId} input`);
+  if (cb) cb.checked = false;
+  const label = document.getElementById(`rcb-${roomId}`);
+  if (label) label.classList.remove('checked');
+  updateRoomUI();
+}
+
+function updateRoomUI() {
+  const count = selectedRooms.length;
+  const triggerLabel = document.getElementById('multiRoomLabel');
+  triggerLabel.textContent = count === 0 ? '— Choose Rooms —' : `${count} room${count > 1 ? 's' : ''} selected`;
+  const countBadge = document.getElementById('roomSelectedCount');
+  countBadge.textContent = count > 0 ? `(${count} selected)` : '';
+  const tagsWrap = document.getElementById('selectedRoomTags');
+  
+  if (count === 0) {
+    tagsWrap.style.display = 'none';
+    tagsWrap.innerHTML = '';
+  } else {
+    tagsWrap.style.display = 'flex';
+    tagsWrap.innerHTML = selectedRooms.map(r => `
+      <span class="room-tag-pill">
+        ${r.name}
+        <button onclick="removeRoom('${r.id}')" title="Remove">
+          <i class="bi bi-x"></i>
+        </button>
+      </span>
+    `).join('');
+  }
+
+  if (count > 0) {
+    document.getElementById('roomDot').classList.add('active');
+    document.getElementById('roomLabel').textContent = count === 1 ? selectedRooms[0].name : `${count} rooms selected`;
+    document.getElementById('noRoomMsg').style.display = 'none';
+    document.getElementById('dropMsg').style.display = 'flex';
+    setStep(2);
+  } else {
+    resetDrop();
+  }
 }
 
 function resetDrop() {
@@ -637,7 +846,7 @@ function onDragStart(e) {
 function onDragEnd(e) { e.currentTarget.classList.remove('is-dragging'); }
 
 function onDragOver(e) {
-  if (!selectedRoomId) return;
+  if (selectedRooms.length === 0) return;
   e.preventDefault();
   e.dataTransfer.dropEffect = 'copy';
   document.getElementById('dropArea').classList.add('over');
@@ -647,7 +856,7 @@ function onDragLeave(e) { document.getElementById('dropArea').classList.remove('
 function onDrop(e) {
   e.preventDefault();
   document.getElementById('dropArea').classList.remove('over');
-  if (!selectedRoomId) { showToast('Select a room first.', 't-info'); return; }
+  if (selectedRooms.length === 0) { showToast('Select at least one room first.', 't-info'); return; }
   if (!dragItemId)     return;
   openModal(dragItemId, dragItemName, dragItemStock);
 }
@@ -657,47 +866,92 @@ function openModal(itemId, itemName, stock) {
   dragItemId    = itemId;
   dragItemName  = itemName;
   dragItemStock = stock;
+  
   document.getElementById('mItemName').textContent  = itemName;
-  document.getElementById('mRoomName').textContent  = selectedRoomName;
+  document.getElementById('mRoomsCount').textContent = selectedRooms.length;
+  document.getElementById('mRoomName').textContent  = selectedRooms.length === 1 ? selectedRooms[0].name : `${selectedRooms.length} rooms`;
   document.getElementById('mStock').textContent     = stock;
-  document.getElementById('qtyField').value         = 1;
-  document.getElementById('qtyField').max           = stock;
+  
+  const f = document.getElementById('qtyField');
+  f.value = 1;
+  f.max = stock;
+  f.dataset.itemId = itemId;
+  f.dataset.itemStock = stock;
+
   syncAfter();
   const bg = document.getElementById('modalBg');
   bg.style.display = 'flex';
   requestAnimationFrame(() => bg.classList.add('show'));
   setStep(3);
+  setTimeout(() => f.focus(), 250);
 }
+
 function closeModal() {
   const bg = document.getElementById('modalBg');
   bg.classList.remove('show');
   setTimeout(() => { bg.style.display = 'none'; }, 220);
-  if (selectedRoomId) setStep(2);
+  if (selectedRooms.length > 0) setStep(2); else setStep(1);
 }
+
+// ── SELF-SANITIZING QUANTITY INPUTS ──
 function stepQty(delta) {
   const f = document.getElementById('qtyField');
-  f.value = Math.max(1, Math.min(dragItemStock, parseInt(f.value || 1, 10) + delta));
+  const stock = parseInt(f.dataset.itemStock) || 0;
+  const roomCount = selectedRooms.length || 1;
+  const maxVal = Math.floor(stock / roomCount);
+
+  let v = (parseInt(f.value) || 0) + delta;
+  v = Math.max(1, Math.min(v, maxVal));
+  f.value = v;
   syncAfter();
 }
+
 function syncAfter() {
-  const qty = parseInt(document.getElementById('qtyField').value || 0, 10);
-  const after = dragItemStock - qty;
-  document.getElementById('mAfter').textContent = after >= 0 ? after : '—';
+  const f = document.getElementById('qtyField');
+  const stock = parseInt(f.dataset.itemStock) || 0;
+  const roomCount = selectedRooms.length || 1;
+  const maxVal = Math.floor(stock / roomCount);
+
+  let qty = parseInt(f.value) || 0;
+  if (qty > maxVal) {
+    qty = maxVal;
+    f.value = qty;
+  }
+  if (qty < 1 && f.value !== '') {
+    qty = 1;
+    f.value = qty;
+  }
+
+  const totalNeeded = qty * roomCount;
+  const remaining = stock - totalNeeded;
+  
+  const afterEl = document.getElementById('mAfter');
+  afterEl.textContent = remaining >= 0 ? remaining : '—';
+  
   const warn = document.getElementById('stockWarning');
   const btn  = document.getElementById('confirmBtn');
-  if (qty < 1 || qty > dragItemStock) {
+  
+  if (remaining < 0) {
+    afterEl.style.color = '#dc2626';
     warn.style.display = 'block';
     btn.disabled = true;
   } else {
+    afterEl.style.color = 'var(--text-dark)';
     warn.style.display = 'none';
-    btn.disabled = false;
+    btn.disabled = (qty <= 0);
   }
 }
 
 // ── Assign ──
 function doAssign() {
-  const qty = parseInt(document.getElementById('qtyField').value, 10);
-  if (!qty || qty < 1 || qty > dragItemStock) return;
+  const f = document.getElementById('qtyField');
+  const itemId = f.dataset.itemId;
+  const stock = parseInt(f.dataset.itemStock);
+  const qty = parseInt(f.value);
+  const totalNeeded = qty * selectedRooms.length;
+  
+  if (!itemId || !qty || qty < 1) return;
+  if (totalNeeded > stock) { showToast('Not enough stock available.', 't-error'); return; }
 
   const btn = document.getElementById('confirmBtn');
   btn.classList.add('loading');
@@ -706,7 +960,7 @@ function doAssign() {
   fetch('{% url "room_incharge:incharge_assign_inventory_api" room_slug=room_slug %}', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCsrf() },
-    body: JSON.stringify({ item_id: parseInt(dragItemId, 10), room_ids: [parseInt(selectedRoomId, 10)], quantity: qty }),
+    body: JSON.stringify({ item_id: parseInt(itemId, 10), room_ids: selectedRooms.map(r => parseInt(r.id, 10)), quantity: qty }),
   })
   .then(r => r.json())
   .then(data => {
@@ -714,28 +968,13 @@ function doAssign() {
     btn.disabled = false;
     if (data.success) {
       closeModal();
-      // Update stock pill
-      const pill = document.getElementById('spill-' + dragItemId);
-      const card = document.getElementById('icard-' + dragItemId);
-      const newStock = data.master_remaining;
-      if (pill) pill.textContent = newStock;
-      if (card) {
-        card.dataset.stock = newStock;
-        if (newStock === 0) {
-          card.classList.add('no-stock');
-          card.setAttribute('draggable', 'false');
-          pill.className = 'stock-pill pill-red';
-        } else if (newStock <= 5) {
-          pill.className = 'stock-pill pill-orange';
-        } else {
-          pill.className = 'stock-pill pill-green';
-        }
-      }
+      // Update stock badge
+      refreshStockBadge(itemId, data.master_remaining);
       // Add to staged list
-      addStagedItem(dragItemName, qty);
+      selectedRooms.forEach(r => addStagedItem(itemId, dragItemName, qty, r.id, r.name));
       // Add to history
-      addHistory(dragItemName, qty, selectedRoomName);
-      showToast(`Assigned ${qty} × ${dragItemName} to ${selectedRoomName}`, 't-success');
+      addHistory(dragItemName, qty, selectedRooms.map(r => r.name).join(', '), selectedRooms.length);
+      showToast(data.message, 't-success');
     } else {
       showToast(data.error || 'Assignment failed.', 't-error');
     }
@@ -747,36 +986,84 @@ function doAssign() {
   });
 }
 
-function addStagedItem(name, qty) {
-  const list = document.getElementById('stagedList');
-  list.style.display = 'flex';
-  document.getElementById('dropMsg').style.display = 'none';
-  const div = document.createElement('div');
-  div.className = 'staged-item';
-  div.innerHTML = `
-    <div class="staged-icon"><i class="bi bi-box-seam"></i></div>
-    <div class="staged-info">
-      <div class="staged-name">${name}</div>
-      <div class="staged-qty">${qty} unit${qty > 1 ? 's' : ''} assigned</div>
-    </div>
-    <span class="staged-badge">✓ Done</span>`;
-  list.appendChild(div);
-  const count = list.querySelectorAll('.staged-item').length;
-  document.getElementById('assignedCount').textContent = `${count} item type${count > 1 ? 's' : ''} assigned`;
+function refreshStockBadge(itemId, newStock) {
+  const pill = document.getElementById('spill-' + itemId);
+  const card = document.getElementById('icard-' + itemId);
+  if (!pill || !card) return;
+  
+  pill.textContent = newStock;
+  card.dataset.stock = newStock;
+  
+  if (newStock === 0) {
+    card.classList.add('no-stock');
+    card.setAttribute('draggable', 'false');
+    pill.className = 'stock-pill pill-red';
+  } else if (newStock <= 5) {
+    card.classList.remove('no-stock');
+    card.setAttribute('draggable', 'true');
+    pill.className = 'stock-pill pill-orange';
+  } else {
+    card.classList.remove('no-stock');
+    card.setAttribute('draggable', 'true');
+    pill.className = 'stock-pill pill-green';
+  }
 }
 
-function addHistory(name, qty, room) {
+function addStagedItem(itemId, itemName, qty, roomId, roomName) {
+  if (!sessionData[roomId]) sessionData[roomId] = [];
+  const ex = sessionData[roomId].find(x => x.id === itemId);
+  if (ex) ex.qty += qty;
+  else sessionData[roomId].push({ id: itemId, name: itemName, qty });
+  renderStaged();
+}
+
+function renderStaged() {
+  const list = document.getElementById('stagedList');
+  const msg = document.getElementById('dropMsg');
+  const cnt = document.getElementById('assignedCount');
+  let allItems = [];
+  
+  selectedRooms.forEach(r => {
+    (sessionData[r.id] || []).forEach(item => {
+      const ex = allItems.find(x => x.id === item.id);
+      if (ex) ex.qty += item.qty;
+      else allItems.push({ ...item });
+    });
+  });
+
+  if (allItems.length === 0) {
+    list.style.display = 'none'; msg.style.display = 'flex'; cnt.textContent = ''; return;
+  }
+  msg.style.display = 'none'; list.style.display = 'flex';
+  cnt.textContent = `${allItems.length} type${allItems.length > 1 ? 's' : ''} assigned`;
+  
+  list.innerHTML = allItems.map(x => `
+    <div class="staged-item">
+      <div class="staged-icon"><i class="bi bi-box-seam"></i></div>
+      <div class="staged-info">
+        <div class="staged-name">${x.name}</div>
+        <div class="staged-qty">${x.qty} unit${x.qty > 1 ? 's' : ''} total across ${selectedRooms.length} room${selectedRooms.length > 1 ? 's' : ''}</div>
+      </div>
+      <span class="staged-badge">✓ Done</span>
+    </div>`).join('');
+}
+
+function addHistory(name, qty, roomNames, roomCount) {
   const container = document.getElementById('historyItems');
   const empty = document.getElementById('historyEmpty');
   if (empty) empty.style.display = 'none';
+  
   const div = document.createElement('div');
   div.className = 'history-row';
+  
   const now = new Date();
   const time = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  
   div.innerHTML = `
     <i class="bi bi-check-circle-fill"></i>
-    <span>${qty} × <strong>${name}</strong> → ${room}</span>
+    <span><strong>${qty}× ${name}</strong> → ${roomCount > 1 ? roomCount + ' rooms' : roomNames}</span>
     <small>${time}</small>`;
+  
   container.insertBefore(div, container.firstChild);
 }
 
@@ -798,11 +1085,12 @@ function showToast(msg, type) {
   }, 3200);
 }
 
-// ── CSRF ──
+// ── Revert Stock Modal ──
 function openRevertInventory() {
   const bg = document.getElementById('revertModalBg');
   bg.style.display = 'flex';
   requestAnimationFrame(() => bg.classList.add('show'));
+  loadRevertItems();
   loadRevertHistoryOnly();
 }
 
@@ -812,33 +1100,198 @@ function closeRevertInventory() {
   setTimeout(() => { bg.style.display = 'none'; }, 220);
 }
 
+let allRevertedItemsCached = [];
+
 function loadRevertItems() {
-  const roomId = document.getElementById('revertRoomSelect').value;
   const grid = document.getElementById('revertItemsGrid');
-  if (!roomId) {
-    grid.innerHTML = '<div class="empty-note" style="grid-column:1/-1;"><i class="bi bi-box-arrow-left"></i>Select a room to view assigned items.</div>';
-    loadRevertHistoryOnly();
-    return;
-  }
   grid.innerHTML = '<div class="empty-note" style="grid-column:1/-1;"><div class="spinner-border" style="color:var(--accent);"></div></div>';
-  fetch(`{% url "room_incharge:revert_inventory_data" room_slug=room_slug %}?room_id=${encodeURIComponent(roomId)}`)
+  
+  fetch(`{% url "room_incharge:revert_inventory_data" room_slug=room_slug %}`)
     .then(r => r.json().then(data => ({ ok: r.ok, data })))
     .then(({ ok, data }) => {
       if (!ok || data.error) throw new Error(data.error || 'Failed');
-      renderRevertItems(data.items || []);
+      allRevertedItemsCached = data.items || [];
+      
+      // Populate room filter dropdown
+      const roomFilter = document.getElementById('revertRoomFilter');
+      if (roomFilter) {
+        roomFilter.innerHTML = '<option value="">All Rooms</option>';
+        (data.rooms || []).forEach(r => {
+          const option = document.createElement('option');
+          option.value = r.id;
+          option.textContent = r.name;
+          roomFilter.appendChild(option);
+        });
+      }
+
+      // Populate category filter dropdown
+      const categoryFilter = document.getElementById('revertCategoryFilter');
+      if (categoryFilter) {
+        categoryFilter.innerHTML = '<option value="">All Categories</option>';
+        const uniqueCategories = [...new Set(allRevertedItemsCached.map(item => item.category).filter(Boolean))];
+        uniqueCategories.sort().forEach(cat => {
+          const option = document.createElement('option');
+          option.value = cat;
+          option.textContent = cat;
+          categoryFilter.appendChild(option);
+        });
+      }
+
+      renderRevertItems(allRevertedItemsCached);
       renderRevertHistory(data.history || []);
+
+      // Reset selection checkboxes
+      const selectAll = document.getElementById('selectAllRevertChk');
+      if (selectAll) selectAll.checked = false;
+      updateRevertSelectionCount();
     })
     .catch(() => {
       grid.innerHTML = '<div class="empty-note" style="grid-column:1/-1;color:var(--danger);"><i class="bi bi-exclamation-triangle"></i>Failed to load assigned items.</div>';
     });
 }
 
+function applyRevertFilters() {
+  const roomVal = document.getElementById('revertRoomFilter').value;
+  const catVal = document.getElementById('revertCategoryFilter').value;
+  const query = document.getElementById('revertSearchInput').value.toLowerCase().trim();
+
+  document.querySelectorAll('#revertItemsGrid > .revert-item-card').forEach(card => {
+    const cardRoomId = card.getAttribute('data-room-id') || '';
+    const cardCat = (card.getAttribute('data-category') || '').toLowerCase();
+    const cardName = (card.getAttribute('data-item-name') || '').toLowerCase();
+    const cardBrand = (card.getAttribute('data-brand') || '').toLowerCase();
+    const cardRoomName = (card.getAttribute('data-room-name') || '').toLowerCase();
+    const cardRoomLabel = (card.getAttribute('data-room-label') || '').toLowerCase();
+    const cardIncharge = (card.getAttribute('data-incharge') || '').toLowerCase();
+
+    const matchesRoom = !roomVal || cardRoomId === roomVal;
+    const matchesCat = !catVal || card.getAttribute('data-category') === catVal;
+    const matchesQuery = !query || 
+                         cardName.includes(query) || 
+                         cardCat.includes(query) || 
+                         cardBrand.includes(query) || 
+                         cardRoomName.includes(query) || 
+                         cardRoomLabel.includes(query) || 
+                         cardIncharge.includes(query);
+
+    if (matchesRoom && matchesCat && matchesQuery) {
+      card.style.display = 'flex';
+    } else {
+      card.style.display = 'none';
+      const chk = card.querySelector('.revert-select-chk');
+      if (chk) chk.checked = false;
+    }
+  });
+
+  updateRevertSelectionCount();
+}
+
+function toggleSelectAllRevert(checked) {
+  document.querySelectorAll('#revertItemsGrid > .revert-item-card').forEach(card => {
+    if (card.style.display !== 'none') {
+      const chk = card.querySelector('.revert-select-chk');
+      if (chk) chk.checked = checked;
+    }
+  });
+  updateRevertSelectionCount();
+}
+
+function updateRevertSelectionCount() {
+  const checkedBoxes = document.querySelectorAll('.revert-select-chk:checked');
+  const count = checkedBoxes.length;
+  const badge = document.getElementById('revertSelectedCount');
+  const btn = document.getElementById('batchRevertBtn');
+
+  if (badge) {
+    badge.textContent = `${count} Selected`;
+    badge.style.display = count > 0 ? 'inline-block' : 'none';
+  }
+  if (btn) {
+    btn.disabled = count === 0;
+  }
+}
+
+function submitBatchRevert() {
+  const checkedBoxes = document.querySelectorAll('.revert-select-chk:checked');
+  const items = [];
+  checkedBoxes.forEach(chk => {
+    const id = chk.getAttribute('data-id');
+    const qtyInput = document.getElementById(`revert-qty-${id}`);
+    const qty = parseInt(qtyInput ? qtyInput.value : '0', 10);
+    items.push({ room_item_id: parseInt(id, 10), quantity: qty });
+  });
+
+  if (!items.length) {
+    showToast('No items selected.', 't-error');
+    return;
+  }
+
+  const batchNote = (document.getElementById('batchRevertNote').value || '').trim();
+
+  if (!confirm(`Are you sure you want to revert the selected ${items.length} item(s) back to Master Inventory?`)) {
+    return;
+  }
+
+  const btn = document.getElementById('batchRevertBtn');
+  const originalText = btn.innerHTML;
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Reverting...';
+
+  fetch(`{% url 'room_incharge:revert_inventory_api' room_slug=room_slug %}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCsrf() },
+    body: JSON.stringify({ items, note: batchNote }),
+  })
+  .then(res => res.json().then(data => ({ ok: res.ok, data })))
+  .then(({ ok, data }) => {
+    btn.disabled = false;
+    btn.innerHTML = originalText;
+    if (!ok || !data.success) {
+      showToast(data.error || 'Revert failed.', 't-error');
+      return;
+    }
+    showToast(data.message || 'Successfully reverted selected items.', 't-success');
+    document.getElementById('batchRevertNote').value = '';
+    loadRevertItems();
+  })
+  .catch(() => {
+    btn.disabled = false;
+    btn.innerHTML = originalText;
+    showToast('Network error. Please try again.', 't-error');
+  });
+}
+
+function submitRevertAllAll() {
+  const batchNote = (document.getElementById('batchRevertNote').value || '').trim();
+
+  if (!confirm('WARNING: Are you sure you want to revert ALL assigned items from ALL rooms back to Master Inventory? This action will reset assigned inventories across the entire institution.')) {
+    return;
+  }
+
+  showToast('Reverting all assigned items... please wait', 't-info');
+
+  fetch(`{% url 'room_incharge:revert_inventory_api' room_slug=room_slug %}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCsrf() },
+    body: JSON.stringify({ revert_all: true, note: batchNote }),
+  })
+  .then(res => res.json().then(data => ({ ok: res.ok, data })))
+  .then(({ ok, data }) => {
+    if (!ok || !data.success) {
+      showToast(data.error || 'Revert failed.', 't-error');
+      return;
+    }
+    showToast(data.message || 'Successfully reverted all items.', 't-success');
+    document.getElementById('batchRevertNote').value = '';
+    loadRevertItems();
+  })
+  .catch(() => {
+    showToast('Network error. Please try again.', 't-error');
+  });
+}
+
 function loadRevertHistoryOnly() {
-  const roomId = document.getElementById('revertRoomSelect')?.value || '';
-  const url = roomId
-    ? `{% url "room_incharge:revert_inventory_data" room_slug=room_slug %}?room_id=${encodeURIComponent(roomId)}`
-    : `{% url "room_incharge:revert_inventory_data" room_slug=room_slug %}`;
-  fetch(url)
+  fetch(`{% url "room_incharge:revert_inventory_data" room_slug=room_slug %}`)
     .then(r => r.json())
     .then(data => renderRevertHistory(data.history || []))
     .catch(() => renderRevertHistory([]));
@@ -847,27 +1300,62 @@ function loadRevertHistoryOnly() {
 function renderRevertItems(items) {
   const grid = document.getElementById('revertItemsGrid');
   if (!items.length) {
-    grid.innerHTML = '<div class="empty-note" style="grid-column:1/-1;"><i class="bi bi-inbox"></i>No assigned items found for this room.</div>';
+    grid.innerHTML = '<div class="empty-note" style="grid-column:1/-1;"><i class="bi bi-inbox"></i>No assigned items found.</div>';
     return;
   }
   grid.innerHTML = items.map(item => `
-    <div style="border:1px solid var(--border);border-radius:14px;padding:14px;background:white;">
-      <div style="display:flex;justify-content:space-between;gap:10px;margin-bottom:8px;">
-        <div style="min-width:0;">
-          <div style="font-weight:800;color:var(--text-dark);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escapeHtml(item.item_name)}</div>
-          <div style="font-size:0.75rem;color:var(--text-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escapeHtml(item.category || '-')} · ${escapeHtml(item.brand || '-')}</div>
+    <div class="revert-item-card" 
+         id="revert-card-${item.id}"
+         data-id="${item.id}"
+         data-room-id="${item.room_id || ''}"
+         data-category="${escapeHtml(item.category || '')}"
+         data-brand="${escapeHtml(item.brand || '')}"
+         data-room-name="${escapeHtml(item.room_name || '')}"
+         data-room-label="${escapeHtml(item.room_label || '')}"
+         data-incharge="${escapeHtml(item.assigned_to || '')}"
+         data-item-name="${escapeHtml(item.item_name.toLowerCase())}"
+         style="border:1px solid var(--border);border-radius:14px;padding:16px;background:white;box-shadow:var(--shadow);display:flex;flex-direction:column;justify-content:space-between;gap:8px;">
+      <div>
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;">
+          <div style="display:flex;gap:8px;min-width:0;flex:1;">
+            <div class="form-check" style="align-self:start;padding-top:2px;">
+              <input class="form-check-input revert-select-chk" type="checkbox" data-id="${item.id}" onchange="updateRevertSelectionCount()" style="width:16px;height:16px;cursor:pointer;">
+            </div>
+            <div style="min-width:0;flex:1;">
+              <div style="font-weight:800;color:var(--text-dark);font-size:0.95rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${escapeHtml(item.item_name)}">${escapeHtml(item.item_name)}</div>
+              <div style="font-size:0.75rem;color:var(--text-muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-top:2px;">${escapeHtml(item.category || '-')} · ${escapeHtml(item.brand || '-')}</div>
+            </div>
+          </div>
+          <span class="stock-pill pill-green" style="font-size:0.8rem;padding:4px 10px;flex:0 0 auto;">${item.assigned_count}</span>
         </div>
-        <span class="stock-pill pill-green">${item.assigned_count}</span>
+        
+        <div style="background:var(--surface);border-radius:10px;padding:10px;margin-top:12px;border:1px solid var(--border);font-size:0.78rem;">
+          <div style="display:flex;justify-content:space-between;margin-bottom:4px;">
+            <span style="color:var(--text-muted);font-weight:600;">Room:</span>
+            <span style="color:var(--text-dark);font-weight:700;text-align:right;">${escapeHtml(item.room_label ? item.room_label + ' - ' + item.room_name : item.room_name)}</span>
+          </div>
+          <div style="display:flex;justify-content:space-between;margin-bottom:4px;">
+            <span style="color:var(--text-muted);font-weight:600;">Category:</span>
+            <span style="color:var(--text-dark);font-weight:600;text-align:right;">${escapeHtml(item.room_category || '-')}</span>
+          </div>
+          <div style="display:flex;justify-content:space-between;">
+            <span style="color:var(--text-muted);font-weight:600;">Assigned To:</span>
+            <span style="color:var(--purple);font-weight:700;text-align:right;">${escapeHtml(item.assigned_to)}</span>
+          </div>
+        </div>
       </div>
-      <label class="qty-label">Return Quantity</label>
-      <div style="display:flex;gap:8px;margin-bottom:8px;">
-        <input type="number" min="1" max="${item.assigned_count}" value="${item.assigned_count}" id="revert-qty-${item.id}" class="qty-field" style="font-size:1rem;padding:7px;">
-        <button class="btn-sec" style="flex:0 0 auto;padding:8px 10px;" onclick="document.getElementById('revert-qty-${item.id}').value=${item.assigned_count}">All</button>
+      
+      <div style="margin-top:6px;">
+        <label class="qty-label" style="font-size:0.68rem;margin-bottom:5px;">Return Quantity</label>
+        <div style="display:flex;gap:8px;margin-bottom:8px;">
+          <input type="number" min="1" max="${item.assigned_count}" value="${item.assigned_count}" id="revert-qty-${item.id}" class="qty-field" style="font-size:0.95rem;padding:6px;height:36px;">
+          <button class="btn-sec" style="flex:0 0 auto;padding:0 12px;height:36px;font-size:0.8rem;" onclick="document.getElementById('revert-qty-${item.id}').value=${item.assigned_count}">All</button>
+        </div>
+        <input type="text" id="revert-note-${item.id}" placeholder="Optional note" style="width:100%;padding:8px 10px;border:1.5px solid var(--border);border-radius:9px;margin-bottom:9px;font-size:0.8rem;height:36px;">
+        <button class="btn-primary-modal" style="width:100%;padding:8px;height:38px;font-size:0.82rem;" onclick="submitRevert(${item.id}, ${item.assigned_count}, this)">
+          <span class="btn-label"><i class="bi bi-arrow-counterclockwise"></i> Revert to Master</span><div class="spin"></div>
+        </button>
       </div>
-      <input type="text" id="revert-note-${item.id}" placeholder="Optional note" style="width:100%;padding:8px 10px;border:1.5px solid var(--border);border-radius:9px;margin-bottom:9px;font-size:0.82rem;">
-      <button class="btn-primary-modal" style="width:100%;padding:9px;" onclick="submitRevert(${item.id}, ${item.assigned_count}, this)">
-        <span class="btn-label"><i class="bi bi-arrow-counterclockwise"></i> Revert to Master</span><div class="spin"></div>
-      </button>
     </div>`).join('');
 }
 
@@ -932,5 +1420,105 @@ function getCsrf() {
   const c = document.cookie.split(';').find(x => x.trim().startsWith('csrftoken='));
   return c ? decodeURIComponent(c.trim().split('=')[1]) : '';
 }
+
+function openViewRoomInventory() {
+  const searchInput = document.getElementById('roomViewerSearchInput');
+  if (searchInput) searchInput.value = '';
+  const resultsDiv = document.getElementById('roomInventoryResults');
+  resultsDiv.innerHTML = `
+      <div class="empty-note">
+          <div class="spinner-border" style="color:var(--accent);"></div>
+          <p class="mt-2 text-muted">Loading room inventories...</p>
+      </div>`;
+  
+  const bg = document.getElementById('viewRoomInventoryModal');
+  bg.style.display = 'flex';
+  requestAnimationFrame(() => bg.classList.add('show'));
+  
+  fetch(`{% url 'central_admin:get_room_inventory' %}`)
+      .then(res => { if (!res.ok) throw new Error('HTTP ' + res.status); return res.json(); })
+      .then(data => {
+          const rooms = data.rooms_data || [];
+          if (rooms.length === 0) {
+              resultsDiv.innerHTML = `
+                  <div class="empty-note">
+                      <i class="bi bi-inbox fs-2"></i>
+                      <p class="mt-2 text-muted">No room inventories found.</p>
+                  </div>`;
+              return;
+          }
+          
+          resultsDiv.innerHTML = `
+              <div style="display:grid; grid-template-columns:repeat(auto-fill, minmax(300px, 1fr)); gap:16px;" id="roomViewerGrid">
+                  ${rooms.map(r => {
+                      const itemsListHtml = r.exact_items.length === 0 
+                          ? `<div style="font-size:0.75rem; color:#94a3b8; padding:8px 0; text-align:center;"><i class="bi bi-inbox me-1"></i>No items assigned</div>`
+                          : r.exact_items.map(item => `
+                              <div style="display:flex; justify-content:space-between; align-items:center; font-size:0.78rem; padding: 4px 0; border-bottom: 1px dashed #f1f5f9;">
+                                  <span style="font-weight:600; color:#334155; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:130px;" title="${escapeHtml(item.item_name)}">${escapeHtml(item.item_name)}</span>
+                                  <span class="badge bg-light text-dark border" style="font-size:0.65rem; font-weight:700;">Active: ${item.active} · Avail: ${item.available} · Total: ${item.count}</span>
+                              </div>
+                          `).join('');
+                          
+                      const issueBadge = r.issues_count > 0 
+                          ? `<span class="badge bg-danger rounded-pill" style="font-size:0.68rem; font-weight:800; display:inline-flex; align-items:center; gap:3px; background:#fee2e2 !important; color:#dc2626 !important; border:1px solid #fecaca;"><i class="bi bi-exclamation-triangle-fill"></i> ${r.issues_count} Issue${r.issues_count > 1 ? 's' : ''}</span>`
+                          : `<span class="badge bg-success rounded-pill" style="font-size:0.68rem; font-weight:800; display:inline-flex; align-items:center; gap:3px; background:#e2fcf2 !important; color:#059669 !important; border:1px solid #a7f3d0;"><i class="bi bi-check-circle-fill"></i> Normal</span>`;
+
+                      return `
+                          <div class="room-viewer-card p-3 bg-white rounded-3 border" style="box-shadow: 0 2px 8px rgba(0,0,0,0.04); display:flex; flex-direction:column; justify-content:space-between; min-height:220px; transition:all 0.15s; border-color:#e2e8f0 !important;" onmouseover="this.style.borderColor='var(--purple)';" onmouseout="this.style.borderColor='#e2e8f0';">
+                              <div>
+                                  <div class="d-flex justify-content-between align-items-start gap-2 mb-2">
+                                      <div style="min-width:0;">
+                                          <h6 class="fw-bold mb-0 text-dark" style="font-size:0.92rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:180px;" title="${escapeHtml(r.room_name)}">${escapeHtml(r.room_name)}</h6>
+                                          <small class="text-muted" style="font-size:0.75rem;">Label: ${escapeHtml(r.room_label)}</small>
+                                      </div>
+                                      ${issueBadge}
+                                  </div>
+                                  <div style="font-size:0.76rem; color:#475569; margin-bottom:12px; padding:6px 10px; background:#f8fafc; border-radius:6px; display:flex; flex-direction:column; gap:2px;">
+                                      <div><span class="text-muted">Incharge:</span> <strong>${escapeHtml(r.incharge)}</strong></div>
+                                      <div><span class="text-muted">Loose Stock:</span> <strong>${r.available} available</strong> · <strong>${r.active} active</strong></div>
+                                  </div>
+                                  <div style="max-height:120px; overflow-y:auto; padding-right:2px;">
+                                      ${itemsListHtml}
+                                  </div>
+                              </div>
+                          </div>
+                      `;
+                  }).join('')}
+              </div>`;
+      })
+      .catch(() => {
+          resultsDiv.innerHTML = `
+              <div class="empty-note text-danger">
+                  <i class="bi bi-exclamation-triangle-fill fs-2"></i>
+                  <p class="mt-2">Failed to load room inventories.</p>
+              </div>`;
+      });
+}
+
+function closeViewRoomInventory() {
+  const bg = document.getElementById('viewRoomInventoryModal');
+  bg.classList.remove('show');
+  setTimeout(() => { bg.style.display = 'none'; }, 220);
+}
+
+function filterRoomViewerCards(q) {
+  q = q.toLowerCase();
+  document.querySelectorAll('#roomViewerGrid > .room-viewer-card').forEach(card => {
+      const text = card.textContent.toLowerCase();
+      card.style.display = text.includes(q) ? '' : 'none';
+  });
+}
+
+// Modal Bg closing event
+document.getElementById('modalBg').addEventListener('click', function(e) {
+  if (e.target === this) closeModal();
+});
+
+document.addEventListener('keydown', function(e) {
+  const bg = document.getElementById('modalBg');
+  if (e.key === 'Escape' && bg.classList.contains('show')) closeModal();
+  if (e.key === 'Enter' && bg.classList.contains('show')) doAssign();
+});
 </script>
 {% endblock content %}

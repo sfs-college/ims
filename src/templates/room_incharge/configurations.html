@@ -33,19 +33,25 @@ body{background:#f4f4fb;font-family:'DM Sans',sans-serif;}
 /* ── Add Config Modal ── */
 .cfg-overlay{display:none;position:fixed;inset:0;z-index:1050;background:rgba(15,23,42,0.55);backdrop-filter:blur(6px);align-items:center;justify-content:center;padding:20px;}
 .cfg-overlay.open{display:flex;}
-.cfg-modal{background:#fff;border-radius:20px;width:100%;max-width:780px;max-height:90vh;display:flex;flex-direction:column;position:relative;box-shadow:0 25px 50px -10px rgba(0,0,0,0.25);overflow:hidden;}
+.cfg-modal{background:#fff;border-radius:20px;width:100%;max-width:820px;max-height:90vh;display:flex;flex-direction:column;position:relative;box-shadow:0 25px 50px -10px rgba(0,0,0,0.25);overflow:hidden;}
 .cfg-modal-header{padding:24px 28px 20px;border-bottom:1px solid var(--border);flex-shrink:0;}
 .cfg-modal-header h5{font-weight:800;color:#1a1a2e;margin:0 0 4px;font-size:17px;}
 .cfg-modal-header p{font-size:13px;color:#7c7c9a;margin:0;}
 .cfg-close-btn{position:absolute;top:16px;right:20px;background:#f1f5f9;border:none;border-radius:50%;width:28px;height:28px;cursor:pointer;display:flex;align-items:center;justify-content:center;color:#64748b;font-size:15px;}
 .cfg-close-btn:hover{background:#e2e8f0;}
 .cfg-modal-body{display:flex;flex:1;overflow:hidden;min-height:0;}
-.cfg-pane-left{width:220px;flex-shrink:0;border-right:1px solid var(--border);padding:16px 14px;overflow-y:auto;background:#fafafa;}
+
+/* Left Pane items / systems selector */
+.cfg-pane-left{width:260px;flex-shrink:0;border-right:1px solid var(--border);padding:16px 14px;overflow-y:auto;background:#fafafa;}
 .cfg-pane-left-title{font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:#94a3b8;margin-bottom:10px;padding-left:4px;}
-.cfg-item-row{display:flex;align-items:center;gap:9px;padding:9px 10px;border-radius:9px;cursor:pointer;transition:background .12s;margin-bottom:2px;}
+.cfg-item-row{display:flex;align-items:center;gap:9px;padding:8px 10px;border-radius:9px;cursor:pointer;transition:background .12s;margin-bottom:2px;}
 .cfg-item-row:hover{background:#f0f0ff;}
 .cfg-item-row input[type="checkbox"]{accent-color:#6c63ff;width:14px;height:14px;cursor:pointer;flex-shrink:0;}
 .cfg-item-row span{font-size:13px;font-weight:500;color:#1a1a2e;line-height:1.3;}
+.sys-list-header { font-size:13px; font-weight:700; color:#334155; display:flex; align-items:center; justify-content:between; transition:background 0.15s; }
+.sys-list-header:hover { background:#f1f5f9; }
+
+/* Right Pane details spec rows */
 .cfg-pane-right{flex:1;overflow-y:auto;padding:20px 24px;min-width:0;}
 .cfg-pane-right-title{font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:#94a3b8;margin-bottom:14px;}
 .cfg-name-input{width:100%;padding:9px 12px;border:1.5px solid var(--border);border-radius:9px;font-size:13px;font-family:'DM Sans',sans-serif;outline:none;margin-bottom:14px;box-sizing:border-box;}
@@ -80,7 +86,12 @@ body{background:#f4f4fb;font-family:'DM Sans',sans-serif;}
 .cfg-footer-hint{font-size:12px;color:var(--text-muted);}
 .btn-cfg-save{display:inline-flex;align-items:center;gap:6px;padding:10px 22px;background:linear-gradient(135deg,#6c63ff,#8b7cf8);color:#fff;border:none;border-radius:10px;font-weight:800;font-size:13.5px;cursor:pointer;font-family:'DM Sans',sans-serif;transition:all .18s;box-shadow:0 2px 12px rgba(108,99,255,0.3);}
 .btn-cfg-save:hover{transform:translateY(-1px);box-shadow:0 4px 18px rgba(108,99,255,0.4);}
-@media(max-width:640px){.cfg-modal-body{flex-direction:column;}.cfg-pane-left{width:100%;border-right:none;border-bottom:1px solid var(--border);max-height:160px;}}
+
+/* Premium general views */
+.sys-btn { display:inline-flex; align-items:center; gap:6px; padding:7px 12px; border-radius:8px; border:1px solid var(--border); background:#fff; color:#334155; font-size:.78rem; font-weight:700; text-decoration:none; cursor:pointer; }
+.sys-btn:hover { background:#f8fafc; border-color:#6c63ff; color:#6c63ff; }
+
+@media(max-width:640px){.cfg-modal-body{flex-direction:column;}.cfg-pane-left{width:100%;border-right:none;border-bottom:1px solid var(--border);max-height:220px;}}
 /* Toast */
 .toast-wrap{position:fixed;top:20px;right:20px;z-index:9999;display:flex;flex-direction:column;gap:8px;pointer-events:none;}
 .toast-msg{display:flex;align-items:center;gap:9px;padding:11px 15px;border-radius:11px;font-size:0.875rem;font-weight:600;box-shadow:0 4px 20px rgba(0,0,0,0.14);min-width:260px;pointer-events:all;color:#fff;animation:toastIn 0.3s ease;}
@@ -128,9 +139,14 @@ body{background:#f4f4fb;font-family:'DM Sans',sans-serif;}
           <td><span class="count-badge">{{ cfg.count }} unit{{ cfg.count|pluralize }}</span></td>
           <td class="date-cell">{{ cfg.created_on.date }}</td>
           <td>
-            <button class="btn-del" onclick="deleteConfig('{{ cfg.slug }}',event)">
-              <i class="bi bi-trash3"></i> Delete
-            </button>
+            <div class="d-flex gap-2">
+              <button class="sys-btn" onclick="viewConfig('{{ cfg.configuration_name|escapejs }}', '{{ cfg.item.item_name|escapejs }}', '{{ cfg.count }}', '{{ cfg.created_on.date }}', '{{ cfg.configuration_data|escapejs }}', event)" style="padding:5px 10px; font-size:12px;">
+                <i class="bi bi-eye-fill"></i> View
+              </button>
+              <button class="btn-del" onclick="confirmDeleteConfig('{{ cfg.slug }}', '{{ cfg.configuration_name|escapejs }}', event)">
+                <i class="bi bi-trash3"></i> Delete
+              </button>
+            </div>
           </td>
         </tr>
         {% endfor %}
@@ -154,18 +170,50 @@ body{background:#f4f4fb;font-family:'DM Sans',sans-serif;}
       <button class="cfg-close-btn" onclick="closeCfgModal()">✕</button>
     </div>
     <div class="cfg-modal-body">
-      <!-- Left: item selector -->
-      <div class="cfg-pane-left">
-        <div class="cfg-pane-left-title">Items</div>
-        {% for item in items %}
-        <label class="cfg-item-row">
-          <input type="checkbox" class="item-checkbox" value="{{ item.id }}" data-name="{{ item.item_name|escapejs }}" data-avail="{{ item.available_count }}">
-          <span>{{ item.item_name }}</span>
-        </label>
-        {% empty %}
-        <p style="text-align:center;color:#94a3b8;font-size:13px;padding:10px 0;">No items found.</p>
-        {% endfor %}
+      <!-- Left: items / systems selector -->
+      <div class="cfg-pane-left d-flex flex-column gap-2" style="background:#fafafa; border-right:1px solid var(--border);">
+        <div class="d-flex border-bottom mb-2 pb-1" style="gap:12px; margin-top:2px;">
+          <button type="button" class="btn btn-link p-0 text-decoration-none" id="paneTabItems" onclick="switchPaneTab('items')" style="font-size:0.8rem; font-weight:800; color:var(--accent); border-bottom:2px solid var(--accent); padding-bottom:4px; background:none; border-top:none; border-left:none; border-right:none; cursor:pointer;">Items</button>
+          <button type="button" class="btn btn-link p-0 text-decoration-none" id="paneTabSystems" onclick="switchPaneTab('systems')" style="font-size:0.8rem; font-weight:800; color:#94a3b8; border-bottom:2px solid transparent; padding-bottom:4px; background:none; border-top:none; border-left:none; border-right:none; cursor:pointer;">Systems</button>
+        </div>
+        
+        <!-- Items pane list -->
+        <div id="paneListItems" class="flex-grow-1" style="overflow-y:auto;">
+          {% for item in items %}
+          <label class="cfg-item-row">
+            <input type="checkbox" class="item-checkbox" value="{{ item.id }}" data-name="{{ item.item_name|escapejs }}" data-avail="{{ item.available_count }}">
+            <span>{{ item.item_name }}</span>
+          </label>
+          {% empty %}
+          <p style="text-align:center;color:#94a3b8;font-size:13px;padding:10px 0;">No items found.</p>
+          {% endfor %}
+        </div>
+        
+        <!-- Systems pane list -->
+        <div id="paneListSystems" class="flex-grow-1" style="display:none; overflow-y:auto;">
+          {% for s in systems %}
+          <div class="border rounded mb-2 bg-white" style="border-color:#e2e8f0; border-radius:10px; overflow:hidden;">
+            <div class="sys-list-header p-2 d-flex align-items-center justify-content-between" onclick="toggleSystemCollapse({{ s.pk }}, '{{ s.system_name|escapejs }}', this)" style="cursor:pointer; background:#f1f5f9; border-bottom:1px solid #e2e8f0; font-size:0.76rem;">
+              <span><i class="bi bi-pc-display text-primary me-1"></i> {{ s.system_name }}</span>
+              <i class="bi bi-chevron-down text-muted" id="sysChevron-{{ s.pk }}" style="font-size: 0.65rem;"></i>
+            </div>
+            <div id="sysItemsList-{{ s.pk }}" class="p-1" style="display:none; background:#fafafa;">
+              {% for comp in s.systemcomponent_set.all %}
+              <label class="cfg-item-row d-flex align-items-center gap-2 p-1 rounded" style="cursor:pointer; margin-bottom:1px;">
+                <input type="checkbox" class="item-checkbox system-item-chk-{{ s.pk }}" value="{{ comp.component_item.id }}" data-name="{{ comp.component_item.item_name|escapejs }}" data-avail="{{ comp.component_item.available_count }}" onchange="syncSystemItemsSelected({{ s.pk }})">
+                <span style="font-size:0.75rem; color:#475569;">{{ comp.component_item.item_name }} <span class="text-muted" style="font-size:0.65rem;">({{ comp.serial_number }})</span></span>
+              </label>
+              {% empty %}
+              <div class="text-muted text-center p-2" style="font-size:0.7rem;">No items in system</div>
+              {% endfor %}
+            </div>
+          </div>
+          {% empty %}
+          <p style="text-align:center;color:#94a3b8;font-size:13px;padding:10px 0;">No systems found.</p>
+          {% endfor %}
+        </div>
       </div>
+      
       <!-- Right: spec table -->
       <div class="cfg-pane-right">
         <div class="cfg-pane-right-title">Configuration Details</div>
@@ -195,9 +243,54 @@ body{background:#f4f4fb;font-family:'DM Sans',sans-serif;}
   </div>
 </div>
 
+<!-- ── View Configuration Overlay ── -->
+<div id="cfgViewOverlay" class="cfg-overlay" onclick="if(event.target===this)closeCfgViewModal()">
+  <div class="cfg-modal" style="max-width:550px;">
+    <div class="cfg-modal-header" style="background:#f8fafc;">
+      <h5 id="viewCfgTitle">View Configuration</h5>
+      <p id="viewCfgSub">Details of the specifications sheet</p>
+      <button class="cfg-close-btn" onclick="closeCfgViewModal()">✕</button>
+    </div>
+    <div class="cfg-modal-body p-4" style="display:block; overflow-y:auto; max-height:60vh; padding: 24px;">
+      <table class="spec-table w-100" style="border: 1px solid var(--border);">
+        <thead>
+          <tr>
+            <th>Specification</th>
+            <th>Value</th>
+          </tr>
+        </thead>
+        <tbody id="viewCfgRows">
+          <!-- Populated dynamically -->
+        </tbody>
+      </table>
+    </div>
+    <div class="cfg-modal-footer" style="background:#f8fafc;">
+      <span class="cfg-footer-hint" id="viewCfgItemInfo"></span>
+      <button class="sys-btn" onclick="closeCfgViewModal()" style="border-radius:8px;">Close</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Delete Confirmation Overlay ── -->
+<div id="cfgDeleteOverlay" class="cfg-overlay" onclick="if(event.target===this)closeCfgDeleteModal()">
+  <div class="cfg-modal" style="max-width:400px; border-radius:16px;">
+    <div class="p-4 text-center" style="padding: 24px;">
+      <div class="mx-auto rounded-circle d-flex align-items-center justify-content-center mb-3" style="width:58px; height:58px; font-size:1.6rem; margin:0 auto 16px; background:#fee2e2; border-radius:50% !important;">
+        <i class="bi bi-exclamation-triangle-fill" style="color:#ef4444;"></i>
+      </div>
+      <h5 class="fw-bold text-dark mb-2">Delete Configuration?</h5>
+      <p class="text-muted small mb-0" style="line-height:1.45;">Are you sure you want to permanently delete the configuration <strong class="text-dark" id="deleteCfgName"></strong>? This action is irreversible.</p>
+    </div>
+    <div class="p-3 bg-light d-flex gap-2 justify-content-end" style="border-top:1px solid #ebebf5; padding: 14px; background: #f8fafc !important;">
+      <button class="sys-btn bg-white" onclick="closeCfgDeleteModal()" style="border-radius:8px;">Cancel</button>
+      <button class="btn-del" id="deleteConfirmBtn" onclick="submitDeleteConfig()" style="padding:8px 16px; border-radius:8px; font-size:0.82rem; font-weight:700;">Delete</button>
+    </div>
+  </div>
+</div>
+
 <script>
-const CSRF=(()=>{ const c=document.cookie.split(';').find(x=>x.trim().startsWith('csrftoken=')); return c?decodeURIComponent(c.trim().split('=')[1]):''; })();
 const ROOM_SLUG='{{ room_slug }}';
+const CSRF=(()=>{ const c=document.cookie.split(';').find(x=>x.trim().startsWith('csrftoken=')); return c?decodeURIComponent(c.trim().split('=')[1]):''; })();
 
 const PRESETS={
   computer:[['Processor','e.g. Intel Core i5-12400'],['RAM','e.g. 8 GB DDR4'],['Storage','e.g. 256 GB SSD'],['Operating System','e.g. Windows 11 Pro'],['Monitor Size','e.g. 21.5 inch FHD'],['GPU','e.g. Intel UHD 730'],['Network','e.g. Gigabit Ethernet']],
@@ -207,6 +300,57 @@ const PRESETS={
   general:[['Item Name','Enter item name'],['Make / Brand','Enter brand'],['Model Number','Enter model/serial'],['Quantity','Enter quantity'],['Condition','e.g. Good / Fair / Poor'],['Remarks','Any additional notes']],
 };
 let activePreset=null, rowCounter=0;
+let pendingDeleteSlug = null;
+
+// Left Sidebar Tab Switchers
+let _currentPaneTab = 'items';
+function switchPaneTab(tab) {
+  _currentPaneTab = tab;
+  const itemsTab = document.getElementById('paneTabItems');
+  const systemsTab = document.getElementById('paneTabSystems');
+  const itemsList = document.getElementById('paneListItems');
+  const systemsList = document.getElementById('paneListSystems');
+  
+  if (tab === 'items') {
+    itemsTab.style.color = 'var(--accent)';
+    itemsTab.style.borderBottomColor = 'var(--accent)';
+    systemsTab.style.color = '#94a3b8';
+    systemsTab.style.borderBottomColor = 'transparent';
+    itemsList.style.display = 'block';
+    systemsList.style.display = 'none';
+  } else {
+    systemsTab.style.color = 'var(--accent)';
+    systemsTab.style.borderBottomColor = 'var(--accent)';
+    itemsTab.style.color = '#94a3b8';
+    itemsTab.style.borderBottomColor = 'transparent';
+    systemsList.style.display = 'block';
+    itemsList.style.display = 'none';
+  }
+}
+
+function toggleSystemCollapse(systemId, systemName, header) {
+  const list = document.getElementById(`sysItemsList-${systemId}`);
+  const chevron = document.getElementById(`sysChevron-${systemId}`);
+  const visible = list.style.display === 'block';
+  
+  // Collapse others or toggle this
+  list.style.display = visible ? 'none' : 'block';
+  chevron.className = visible ? 'bi bi-chevron-down text-muted' : 'bi bi-chevron-up text-muted';
+  
+  // Auto-fill configuration name on system click
+  document.getElementById('cfgNameInput').value = systemName;
+  
+  // Auto-select all items inside this system by checking them!
+  const chks = list.querySelectorAll(`.system-item-chk-${systemId}`);
+  chks.forEach(chk => {
+    chk.checked = true;
+  });
+  syncSystemItemsSelected(systemId);
+}
+
+function syncSystemItemsSelected(systemId) {
+  document.getElementById('selectedCount').textContent = document.querySelectorAll('.item-checkbox:checked').length;
+}
 
 function applyPreset(key){
   if(activePreset===key){ activePreset=null; document.querySelectorAll('.preset-chip').forEach(c=>c.classList.remove('active')); clearRows(); addSpecRow(); return; }
@@ -244,6 +388,7 @@ function openCfgModal(){
   document.querySelectorAll('.preset-chip').forEach(c=>c.classList.remove('active'));
   document.getElementById('cfgNameInput').value='';
   document.getElementById('cfgCountInput').value='1';
+  switchPaneTab('items');
   activePreset=null; clearRows(); addSpecRow();
   const btn=document.getElementById('saveCfgBtn'); btn.disabled=false; btn.innerHTML='<i class="bi bi-check-lg"></i> Save Configuration';
 }
@@ -251,31 +396,55 @@ function closeCfgModal(){ document.getElementById('cfgOverlay').classList.remove
 
 function collectRows(){
   const rows=[];
+  let hasEmpty = false;
   document.querySelectorAll('#specRows tr').forEach(tr=>{
     const inputs=tr.querySelectorAll('input[type="text"]');
     const spec=inputs[0]?inputs[0].value.trim():'';
     const val=inputs[1]?inputs[1].value.trim():'';
-    if(spec||val) rows.push({spec,value:val});
+    if(spec||val) {
+      if(!spec || !val) {
+        hasEmpty = true;
+      }
+      rows.push({spec,value:val});
+    }
   });
+  if(hasEmpty) {
+    return 'empty_error';
+  }
   return rows;
 }
 
 function saveConfiguration(){
   const selected=[...document.querySelectorAll('.item-checkbox:checked')].map(c=>c.value);
+  // Keep unique selected item IDs
+  const uniqueSelected = [...new Set(selected)];
+  
   const rows=collectRows();
   const name=document.getElementById('cfgNameInput').value.trim();
   const count=parseInt(document.getElementById('cfgCountInput').value||1,10);
   const alertEl=document.getElementById('cfgAlert');
   const btn=document.getElementById('saveCfgBtn');
   alertEl.style.display='none';
-  if(!selected.length){ showCfgAlert('Please select at least one item.','error'); return; }
+  
+  if(!uniqueSelected.length){ showCfgAlert('Please select at least one item.','error'); return; }
+  if(rows === 'empty_error') { showCfgAlert('Specification key and value cannot be empty. Please fill in or delete empty rows.','error'); return; }
   if(!rows.length){ showCfgAlert('Please add at least one specification row.','error'); return; }
+  
+  // Extra client-side validation for empty keys or values
+  for(let i=0; i<rows.length; i++){
+    if(!rows[i].spec || !rows[i].value){
+      showCfgAlert('Specification key and value cannot be empty. Please fill in or delete empty rows.','error');
+      return;
+    }
+  }
+
   if(count<1){ showCfgAlert('Count must be at least 1.','error'); return; }
+  
   btn.disabled=true; btn.innerHTML='<i class="bi bi-arrow-repeat" style="animation:spin 1s linear infinite;display:inline-block;"></i> Saving…';
   fetch(`/room_incharge/rooms/${ROOM_SLUG}/api/configurations/save/`,{
     method:'POST',
     headers:{'Content-Type':'application/json','X-CSRFToken':CSRF},
-    body:JSON.stringify({item_ids:selected, configuration_name:name, configuration_data:JSON.stringify(rows), count:count})
+    body:JSON.stringify({item_ids:uniqueSelected, configuration_name:name, configuration_data:JSON.stringify(rows), count:count})
   }).then(r=>r.json()).then(d=>{
     btn.disabled=false;
     if(d.success){ btn.innerHTML='<i class="bi bi-check-circle-fill"></i> Saved!'; showToast('Configuration saved successfully.','t-success'); setTimeout(()=>{ closeCfgModal(); location.reload(); },1200); }
@@ -292,15 +461,79 @@ function showCfgAlert(msg,type){
   el.textContent=msg;
 }
 
-function deleteConfig(slug, e){
-  e.stopPropagation();
-  if(!confirm('Delete this configuration? This cannot be undone.')) return;
-  fetch(`/room_incharge/rooms/${ROOM_SLUG}/api/configurations/${slug}/delete/`,{
+// ── On-Screen View Modal ──
+function viewConfig(cfgName, itemName, count, createdOn, specDataJSON, event) {
+  if (event) event.stopPropagation();
+  try {
+    const specs = JSON.parse(specDataJSON);
+    document.getElementById('viewCfgTitle').innerHTML = `<i class="bi bi-gear-fill text-primary"></i> ${cfgName}`;
+    document.getElementById('viewCfgSub').textContent = `Specification sheet for ${itemName}`;
+    document.getElementById('viewCfgItemInfo').innerHTML = `<b>Count:</b> ${count} unit(s) &middot; <b>Created:</b> ${createdOn}`;
+    
+    const tbody = document.getElementById('viewCfgRows');
+    tbody.innerHTML = '';
+    
+    if (!specs || specs.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="2" class="text-center text-muted py-3">No specification details recorded.</td></tr>`;
+    } else {
+      specs.forEach(row => {
+        const tr = document.createElement('tr');
+        const key = row.spec || row.key || '—';
+        const val = row.value || '—';
+        tr.innerHTML = `
+          <td class="p-3 fw-bold text-secondary" style="font-size:0.84rem;">${escHtml(key)}</td>
+          <td class="p-3 text-dark font-monospace" style="font-size:0.84rem;">${escHtml(val)}</td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+    
+    const bg = document.getElementById('cfgViewOverlay');
+    bg.classList.add('open');
+  } catch (e) {
+    showToast("Failed to load specifications data.", "t-error");
+  }
+}
+
+function closeCfgViewModal() {
+  document.getElementById('cfgViewOverlay').classList.remove('open');
+}
+
+// ── On-Screen Delete Modal ──
+function confirmDeleteConfig(slug, cfgName, event) {
+  if (event) event.stopPropagation();
+  pendingDeleteSlug = slug;
+  document.getElementById('deleteCfgName').textContent = `"${cfgName}"`;
+  
+  const bg = document.getElementById('cfgDeleteOverlay');
+  bg.classList.add('open');
+}
+
+function closeCfgDeleteModal() {
+  document.getElementById('cfgDeleteOverlay').classList.remove('open');
+  pendingDeleteSlug = null;
+}
+
+function submitDeleteConfig() {
+  if (!pendingDeleteSlug) return;
+  const btn = document.getElementById('deleteConfirmBtn');
+  btn.disabled = true;
+  btn.textContent = "Deleting...";
+  
+  fetch(`/room_incharge/rooms/${ROOM_SLUG}/api/configurations/${pendingDeleteSlug}/delete/`,{
     method:'POST', headers:{'Content-Type':'application/json','X-CSRFToken':CSRF}
   }).then(r=>r.json()).then(d=>{
+    btn.disabled = false;
+    btn.textContent = "Delete";
+    closeCfgDeleteModal();
     if(d.success){ showToast('Configuration deleted.','t-success'); setTimeout(()=>location.reload(),700); }
     else showToast(d.error||'Delete failed.','t-error');
-  }).catch(()=>showToast('Network error.','t-error'));
+  }).catch(()=>{
+    btn.disabled = false;
+    btn.textContent = "Delete";
+    closeCfgDeleteModal();
+    showToast('Network error.','t-error');
+  });
 }
 
 function showToast(msg,type){
@@ -310,5 +543,14 @@ function showToast(msg,type){
   wrap.appendChild(d);
   setTimeout(()=>{ d.classList.add('out'); setTimeout(()=>d.remove(),280); },3200);
 }
+
+// Global key handlers
+document.addEventListener('keydown', event => {
+  if (event.key === 'Escape') {
+    if (document.getElementById('cfgOverlay').classList.contains('open')) closeCfgModal();
+    if (document.getElementById('cfgViewOverlay').classList.contains('open')) closeCfgViewModal();
+    if (document.getElementById('cfgDeleteOverlay').classList.contains('open')) closeCfgDeleteModal();
+  }
+});
 </script>
 {% endblock content %}

@@ -1077,8 +1077,23 @@ class ApproveStockRequestView(LoginRequiredMixin, View):
         item = stock_req.item
         remark = request.POST.get("remark", "").strip()
 
-        item.total_count     += stock_req.requested_count
-        item.available_count += stock_req.requested_count
+        raw_approved_count = request.POST.get("approved_count", "").strip()
+        approved_count = stock_req.requested_count
+        if raw_approved_count:
+            try:
+                approved_count = int(raw_approved_count)
+                if approved_count <= 0:
+                    messages.error(request, "Approved count must be greater than zero.")
+                    return redirect(f"{reverse('central_admin:approval_requests')}?type={request.POST.get('next_type', 'item_edit')}")
+                if approved_count > stock_req.requested_count:
+                    messages.error(request, f"Approved count cannot exceed the requested count of {stock_req.requested_count}.")
+                    return redirect(f"{reverse('central_admin:approval_requests')}?type={request.POST.get('next_type', 'item_edit')}")
+            except ValueError:
+                messages.error(request, "Approved count must be a valid integer.")
+                return redirect(f"{reverse('central_admin:approval_requests')}?type={request.POST.get('next_type', 'item_edit')}")
+
+        item.total_count     += approved_count
+        item.available_count += approved_count
         item.save(update_fields=["total_count", "available_count"])
 
         profile = None
@@ -1092,16 +1107,21 @@ class ApproveStockRequestView(LoginRequiredMixin, View):
         if not reviewer_name:
             reviewer_name = request.user.get_full_name() or request.user.username
 
-        stock_req.status      = "approved"
-        stock_req.reviewed_by = profile
-        stock_req.remark      = remark
-        stock_req.save(update_fields=["status", "reviewed_by", "remark"])
+        stock_req.status         = "approved"
+        stock_req.reviewed_by    = profile
+        stock_req.remark         = remark
+        stock_req.approved_count = approved_count
+        stock_req.save(update_fields=["status", "reviewed_by", "remark", "approved_count"])
 
         # Send Email notification to room incharge
         room = stock_req.room
         if room and room.incharge and room.incharge.user.email:
             incharge_name = f"{room.incharge.first_name} {room.incharge.last_name}".strip() or room.incharge.user.username
             try:
+                partial_note = ""
+                if approved_count < stock_req.requested_count:
+                    partial_note = "\nNote: The approved count differs from the requested count (partial approval).\n"
+
                 safe_send_mail(
                     subject=f"[Blixtro] Stock Request Approved — {item.item_name}",
                     message=(
@@ -1109,6 +1129,8 @@ class ApproveStockRequestView(LoginRequiredMixin, View):
                         f"Your stock request for room \"{room.room_name}\" has been approved.\n\n"
                         f"Item: {item.item_name}\n"
                         f"Requested Count: +{stock_req.requested_count}\n"
+                        f"Approved Count: +{approved_count}\n"
+                        f"{partial_note}"
                         f"Status: Approved by {reviewer_name}\n"
                         f"Admin Remark: {remark or 'No remark provided.'}\n\n"
                         f"Best regards,\nBlixtro — SFS College Inventory & Booking System"
@@ -1120,7 +1142,7 @@ class ApproveStockRequestView(LoginRequiredMixin, View):
 
         messages.success(
             request,
-            f"Stock request approved — {stock_req.requested_count} units added to '{item.item_name}'."
+            f"Stock request approved — {approved_count} units added to '{item.item_name}'."
         )
         next_type = request.POST.get("next_type", "item_edit")
         return redirect(f"{reverse('central_admin:approval_requests')}?type={next_type}")

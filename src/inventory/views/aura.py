@@ -235,11 +235,7 @@ def _has_assign_inventory_access(profile):
 
 
 def _can_revert_room_item(profile, room):
-    if not _has_assign_inventory_access(profile):
-        return False
-    if profile.is_central_admin or profile.is_sub_admin:
-        return True
-    return bool(profile.is_incharge and room and room.incharge_id == profile.user_id)
+    return _has_assign_inventory_access(profile)
 
 class AuraDashboardView(LoginRequiredMixin, CentralAdminRequiredMixin, TemplateView):
     template_name = 'central_admin/aura_dashboard.html'
@@ -569,7 +565,7 @@ def aura_delete_record(request):
 def get_rooms_by_category(request):
     """Get rooms filtered by category"""
     profile = request.user.profile
-    if not (profile.is_central_admin or profile.is_sub_admin):
+    if not (profile.is_central_admin or profile.is_sub_admin or profile.is_incharge):
         return JsonResponse({'error': 'Unauthorized'}, status=403)
 
     category = request.GET.get('category')
@@ -578,7 +574,7 @@ def get_rooms_by_category(request):
     rooms = list(Room.objects.filter(
         organisation=org,
         room_category=category
-    ).exclude(room_category__in=['washrooms', 'officerooms', 'staffrooms']))
+    ))
     rooms = sort_rooms_iterable(rooms)
 
     return JsonResponse({
@@ -663,16 +659,48 @@ def get_assignment_details(request):
 
 def get_room_inventory(request):
     """
-    Returns all inventory items assigned to a specific room.
+    Returns all inventory items assigned to a specific room, or all rooms in general.
     Used by the 'View Room Inventory' modal in assign_inventory.html.
     """
     profile = getattr(request.user, 'profile', None)
-    if not profile or not (profile.is_central_admin or profile.is_sub_admin):
+    if not profile or not (profile.is_central_admin or profile.is_sub_admin or profile.is_incharge):
         return JsonResponse({'error': 'Unauthorized'}, status=403)
 
     room_id = request.GET.get('room_id')
-    if not room_id:
-        return JsonResponse({'error': 'room_id is required'}, status=400)
+    if not room_id or room_id == 'all':
+        # General card format - load all rooms
+        rooms = Room.objects.filter(organisation=profile.org).select_related('incharge__user').order_by('room_name')
+        rooms_data = []
+        for r in rooms:
+            issues_count = Issue.objects.filter(room=r, resolved=False).count()
+            items_qs = Item.objects.filter(organisation=profile.org, room=r).select_related('category', 'brand')
+            total_available = sum(item.available_count for item in items_qs)
+            total_active = sum(item.active_count for item in items_qs)
+            
+            exact_items = []
+            for item in items_qs:
+                exact_items.append({
+                    'item_name': item.item_name,
+                    'count': item.total_count or 0,
+                    'available': item.available_count or 0,
+                    'active': item.active_count or 0
+                })
+            
+            inc_name = '—'
+            if r.incharge:
+                inc_name = f"{r.incharge.first_name} {r.incharge.last_name}".strip() or r.incharge.user.email
+
+            rooms_data.append({
+                'room_id': r.id,
+                'room_name': r.room_name,
+                'room_label': r.label or '—',
+                'incharge': inc_name,
+                'issues_count': issues_count,
+                'available': total_available,
+                'active': total_active,
+                'exact_items': exact_items,
+            })
+        return JsonResponse({'rooms_data': rooms_data})
 
     try:
         room = Room.objects.get(id=room_id, organisation=profile.org)
@@ -695,8 +723,17 @@ def get_room_inventory(request):
             'in_use': item.in_use or 0,
         })
 
+    inc_name = '—'
+    if room.incharge:
+        inc_name = f"{room.incharge.first_name} {room.incharge.last_name}".strip() or room.incharge.user.email
+
+    issues_count = Issue.objects.filter(room=room, resolved=False).count()
+
     return JsonResponse({
         'room_name': room.room_name,
+        'room_label': room.label or '—',
+        'incharge': inc_name,
+        'issues_count': issues_count,
         'items': items_data,
         'total_items': len(items_data),
     })
@@ -728,18 +765,62 @@ def aura_generate_report_pdf(request):
     
     # 2. Query Data with Iterator
     qs = model.objects.all().order_by('id')
+    if model_name == 'items':
+        qs = qs.select_related('created_by__user', 'updated_by__user', 'category', 'brand', 'room')
     if date_from and date_to:
         if model_name == 'bookings':
             qs = qs.filter(start_datetime__date__range=[date_from, date_to])
         elif model_name in ['issues', 'items', 'rooms', 'purchases']:
             qs = qs.filter(created_on__date__range=[date_from, date_to])
     
+    item_status_map = {}
+    sc_map = {}
+    if model_name == 'items':
+        item_status_map = {
+            row['item_name']: row
+            for row in Item.objects.filter(organisation=profile.org, room__isnull=False)
+            .values('item_name')
+            .annotate(
+                active_total=models.Sum('active_count'),
+                inactive_total=models.Sum('inactive_count'),
+                archived_total=models.Sum('archived_count'),
+                serviceable_total=models.Sum('serviceable_count'),
+                unserviceable_total=models.Sum('unserviceable_count'),
+            )
+        }
+        for row in (
+            SC.objects.filter(
+                component_item__organisation=profile.org,
+                component_item__room__isnull=False,
+                status__in=['inactive', 'under_maintenance', 'disposed'],
+            )
+            .values('component_item__item_name', 'status')
+            .annotate(cnt=models.Count('id'))
+        ):
+            sc_map.setdefault(row['component_item__item_name'], {})[row['status']] = row['cnt']
 
     # 3. Setup PDF Buffer
     buffer = io.BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=landscape(A4), rightMargin=30, leftMargin=30, topMargin=30, bottomMargin=30)
     elements = []
     styles = getSampleStyleSheet()
+
+    from reportlab.lib.styles import ParagraphStyle
+    items_cell_style = ParagraphStyle(
+        'ItemsCell',
+        parent=styles['Normal'],
+        fontName='Helvetica',
+        fontSize=6.0,
+        leading=8.0,
+    )
+    items_header_style = ParagraphStyle(
+        'ItemsHeader',
+        parent=styles['Normal'],
+        textColor=colors.whitesmoke,
+        fontName='Helvetica-Bold',
+        fontSize=6.0,
+        leading=8.0,
+    )
 
     # Title
     elements.append(Paragraph(f"Blixtro - Aura Generated Report: {model_name.upper()}", styles['Title']))
@@ -750,10 +831,13 @@ def aura_generate_report_pdf(request):
     if model_name == 'rooms': headers = ["ID", "Room", "Metadata"]
     elif model_name == 'bookings': headers = ["ID", "Room Booked", "Metadata"]
     elif model_name == 'issues': headers = ["ID", "Issue", "Metadata"]
-    elif model_name == 'items': headers = ["ID", "Items", "Metadata"]
+    elif model_name == 'items': headers = ["ID", "Items", "Metadata", "Active", "Inactive", "Under Maintenance", "Not Serviceable", "Created By", "Created On", "Updated By", "Updated On"]
     elif model_name == 'purchases': headers = ["ID", "Purchase ID", "Metadata"]
     elif model_name == 'vendors': headers = ["ID", "Vendors", "Metadata"]
     elif model_name == 'departments': headers = ["ID", "Department/Cell/Office", "Metadata"]
+    
+    if model_name == 'items':
+        headers = [Paragraph(h, items_header_style) for h in headers]
     
     report_data = [headers]
     
@@ -806,21 +890,59 @@ def aura_generate_report_pdf(request):
                 detail = f"Total Rooms: {room_count}"
         except Exception:
             detail = "Data Mismatch"
-
-        report_data.append([
+ 
+        row_style = items_cell_style if model_name == 'items' else styles['Normal']
+        row = [
             str(obj.id),
-            Paragraph(label, styles['Normal']),
-            Paragraph(detail, styles['Normal'])
-        ])
+            Paragraph(label, row_style),
+            Paragraph(detail, row_style)
+        ]
+        if model_name == 'items':
+            if not obj.room:
+                # Master inventory item, use aggregated counts
+                name = obj.item_name
+                sc = sc_map.get(name, {})
+                status_info = item_status_map.get(name, {})
+                active_c = status_info.get('active_total') or 0
+                inactive_c = status_info.get('inactive_total') or sc.get('inactive', 0)
+                under_maintenance_c = status_info.get('serviceable_total') or sc.get('under_maintenance', 0)
+                not_serviceable_c = status_info.get('unserviceable_total') or 0
+            else:
+                # Room item, use direct fields
+                active_c = obj.active_count
+                inactive_c = obj.inactive_count
+                under_maintenance_c = obj.serviceable_count
+                not_serviceable_c = obj.unserviceable_count
 
+            created_by_email = obj.created_by.user.email if obj.created_by else '—'
+            created_on_str = timezone.localtime(obj.created_on).strftime('%d %b %Y, %I:%M %p') if obj.created_on else '—'
+            updated_by_email = obj.updated_by.user.email if obj.updated_by else '—'
+            updated_on_str = '—'
+            if obj.updated_on and (obj.updated_on - obj.created_on).total_seconds() > 2:
+                updated_on_str = timezone.localtime(obj.updated_on).strftime('%d %b %Y, %I:%M %p')
+            
+            row.append(Paragraph(str(active_c), row_style))
+            row.append(Paragraph(str(inactive_c), row_style))
+            row.append(Paragraph(str(under_maintenance_c), row_style))
+            row.append(Paragraph(str(not_serviceable_c), row_style))
+            row.append(Paragraph(created_by_email, row_style))
+            row.append(Paragraph(created_on_str, row_style))
+            row.append(Paragraph(updated_by_email, row_style))
+            row.append(Paragraph(updated_on_str, row_style))
+
+        report_data.append(row)
+ 
     # 4. Build Table
-    table = Table(report_data, repeatRows=1, colWidths=[60, 250, 400])
+    if model_name == 'items':
+        table = Table(report_data, repeatRows=1, colWidths=[25, 95, 120, 35, 35, 50, 55, 85, 85, 85, 85])
+    else:
+        table = Table(report_data, repeatRows=1, colWidths=[60, 250, 400])
     table.setStyle(TableStyle([
         ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#0f172a')),
         ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
         ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
         ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-        ('FONTSIZE', (0, 0), (-1, -1), 10),
+        ('FONTSIZE', (0, 0), (-1, -1), 6.0 if model_name == 'items' else 10),
         ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
         ('VALIGN', (0, 0), (-1, -1), 'TOP'),
         ('BOTTOMPADDING', (0, 0), (-1, 0), 10),
@@ -1765,13 +1887,41 @@ def aura_generate_report_excel(request):
     model = model_map.get(model_name)
     if not model:
         return HttpResponse("Invalid Model", status=400)
-    
+
     qs = model.objects.all().order_by('-id')
+    if model_name == 'items':
+        qs = qs.select_related('created_by__user', 'updated_by__user', 'category', 'brand', 'room')
     if date_from and date_to:
         if model_name == 'bookings':
             qs = qs.filter(start_datetime__date__range=[date_from, date_to])
         elif model_name in ['issues', 'items', 'rooms', 'purchases']:
             qs = qs.filter(created_on__date__range=[date_from, date_to])
+    
+    item_status_map = {}
+    sc_map = {}
+    if model_name == 'items':
+        item_status_map = {
+            row['item_name']: row
+            for row in Item.objects.filter(organisation=profile.org, room__isnull=False)
+            .values('item_name')
+            .annotate(
+                active_total=models.Sum('active_count'),
+                inactive_total=models.Sum('inactive_count'),
+                archived_total=models.Sum('archived_count'),
+                serviceable_total=models.Sum('serviceable_count'),
+                unserviceable_total=models.Sum('unserviceable_count'),
+            )
+        }
+        for row in (
+            SC.objects.filter(
+                component_item__organisation=profile.org,
+                component_item__room__isnull=False,
+                status__in=['inactive', 'under_maintenance', 'disposed'],
+            )
+            .values('component_item__item_name', 'status')
+            .annotate(cnt=models.Count('id'))
+        ):
+            sc_map.setdefault(row['component_item__item_name'], {})[row['status']] = row['cnt']
     
     # Create Excel file
     output = io.BytesIO()
@@ -1790,7 +1940,7 @@ def aura_generate_report_excel(request):
     elif model_name == 'issues':
         headers = ["ID", "Issue", "Metadata"]
     elif model_name == 'items':
-        headers = ["ID", "Items", "Metadata"]
+        headers = ["ID", "Items", "Metadata", "Active", "Inactive", "Under Maintenance", "Not Serviceable", "Created By", "Created On", "Updated By", "Updated On"]
     elif model_name == 'purchases':
         headers = ["ID", "Purchase ID", "Metadata"]
     elif model_name == 'vendors':
@@ -1844,7 +1994,7 @@ def aura_generate_report_excel(request):
                     if tags.exists():
                         tag_range = f"{tags.first().tag_id} → {tags.last().tag_id}"
                 detail = f"Room: {room_name}\nProduct Code: {prod_code}\nAsset Tags: {tag_range}\nQty: {obj.total_count}\nAvailable: {obj.available_count}\nIn Use: {obj.in_use}"
-
+ 
             elif model_name == 'purchases':
                 room_name = f"{obj.room.label} - {obj.room.room_name}" if (obj.room and obj.room.label) else (obj.room.room_name if obj.room else 'No Room')
                 label = f"{obj.purchase_id or 'Pending ID'}\nRoom: {room_name}"
@@ -1864,8 +2014,34 @@ def aura_generate_report_excel(request):
         except Exception as e:
             detail = f"Data Error: {str(e)}"
         
-        # Append row — uniform 3 columns for all modules
-        ws.append([obj.id, label, detail])
+        # Append row — conditionally add items columns
+        row_vals = [obj.id, label, detail]
+        if model_name == 'items':
+            if not obj.room:
+                # Master inventory item, use aggregated counts
+                name = obj.item_name
+                sc = sc_map.get(name, {})
+                status_info = item_status_map.get(name, {})
+                active_c = status_info.get('active_total') or 0
+                inactive_c = status_info.get('inactive_total') or sc.get('inactive', 0)
+                under_maintenance_c = status_info.get('serviceable_total') or sc.get('under_maintenance', 0)
+                not_serviceable_c = status_info.get('unserviceable_total') or 0
+            else:
+                # Room item, use direct fields
+                active_c = obj.active_count
+                inactive_c = obj.inactive_count
+                under_maintenance_c = obj.serviceable_count
+                not_serviceable_c = obj.unserviceable_count
+
+            created_by_email = obj.created_by.user.email if (obj.created_by and hasattr(obj.created_by, 'user')) else '—'
+            created_on_str = timezone.localtime(obj.created_on).strftime('%d %b %Y, %I:%M %p') if obj.created_on else '—'
+            updated_by_email = '—'
+            updated_on_str = '—'
+            if obj.updated_on and (obj.updated_on - obj.created_on).total_seconds() > 2:
+                updated_by_email = obj.updated_by_emails or (obj.updated_by.user.email if (obj.updated_by and hasattr(obj.updated_by, 'user')) else '—')
+                updated_on_str = timezone.localtime(obj.updated_on).strftime('%d %b %Y, %I:%M %p')
+            row_vals += [active_c, inactive_c, under_maintenance_c, not_serviceable_c, created_by_email, created_on_str, updated_by_email, updated_on_str]
+        ws.append(row_vals)
     
     # Style data rows
     for row in ws.iter_rows(min_row=2, max_row=ws.max_row):
@@ -1873,9 +2049,22 @@ def aura_generate_report_excel(request):
             cell.alignment = Alignment(wrap_text=True, vertical="top")
     
     # Set column widths
-    ws.column_dimensions['A'].width = 8   # ID
-    ws.column_dimensions['B'].width = 40  # Label
-    ws.column_dimensions['C'].width = 60  # Details / Metadata
+    if model_name == 'items':
+        ws.column_dimensions['A'].width = 8   # ID
+        ws.column_dimensions['B'].width = 30  # Items
+        ws.column_dimensions['C'].width = 40  # Details / Metadata
+        ws.column_dimensions['D'].width = 12  # Active
+        ws.column_dimensions['E'].width = 12  # Inactive
+        ws.column_dimensions['F'].width = 18  # Under Maintenance
+        ws.column_dimensions['G'].width = 18  # Not Serviceable
+        ws.column_dimensions['H'].width = 24  # Created By
+        ws.column_dimensions['I'].width = 20  # Created On
+        ws.column_dimensions['J'].width = 24  # Updated By
+        ws.column_dimensions['K'].width = 20  # Updated On
+    else:
+        ws.column_dimensions['A'].width = 8   # ID
+        ws.column_dimensions['B'].width = 40  # Label
+        ws.column_dimensions['C'].width = 60  # Details / Metadata
     
     # Set row heights for better readability
     for row in range(2, ws.max_row + 1):
@@ -1890,6 +2079,8 @@ def aura_generate_report_excel(request):
     )
     response['Content-Disposition'] = f'attachment; filename="Blixtro_AURA_{model_name}_Report.xlsx"'
     return response
+
+
 
 
 class MasterInventoryImportView(LoginRequiredMixin, FormView):
@@ -2091,7 +2282,7 @@ class MasterInventoryImportConfirmView(LoginRequiredMixin, View):
                 cost = None
 
             # ── Create / update unassigned master item ────────────────────────
-            Item.objects.update_or_create(
+            item_obj, created = Item.objects.update_or_create(
                 organisation=org,
                 room=None,  # Master inventory - unassigned
                 item_name=name,
@@ -2104,6 +2295,9 @@ class MasterInventoryImportConfirmView(LoginRequiredMixin, View):
                     'item_description': f"{brand_name} {name} - Master Inventory"
                 }
             )
+            if created or not item_obj.created_by:
+                item_obj.created_by = request.user.profile
+                item_obj.save()
             import_count += 1
 
         messages.success(request, f"Successfully imported {import_count} items to Master Inventory.")
@@ -2200,7 +2394,7 @@ def master_inventory_export_pdf(request):
         organisation=org,
         room__isnull=True,
         is_listed=True
-    ).select_related('category', 'brand').order_by('item_name')
+    ).select_related('category', 'brand', 'created_by__user', 'updated_by__user').order_by('item_name')
 
     # ── Bulk aggregations — same pattern as MasterInventoryListView ──
     assigned_map = {
@@ -2208,10 +2402,17 @@ def master_inventory_export_pdf(request):
         for row in Item.objects.filter(organisation=org, room__isnull=False)
         .values('item_name').annotate(total=models.Sum('total_count'))
     }
-    archived_map = {
-        row['item_name']: row['total'] or 0
-        for row in Item.objects.filter(organisation=org)
-        .values('item_name').annotate(total=models.Sum('archived_count'))
+    item_status_map = {
+        row['item_name']: row
+        for row in Item.objects.filter(organisation=org, room__isnull=False)
+        .values('item_name')
+        .annotate(
+            active_total=models.Sum('active_count'),
+            inactive_total=models.Sum('inactive_count'),
+            archived_total=models.Sum('archived_count'),
+            serviceable_total=models.Sum('serviceable_count'),
+            unserviceable_total=models.Sum('unserviceable_count'),
+        )
     }
     sc_map = {}
     for row in (
@@ -2227,39 +2428,58 @@ def master_inventory_export_pdf(request):
 
     buffer = io.BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=landscape(A4),
-                            rightMargin=20, leftMargin=20,
-                            topMargin=30, bottomMargin=30)
+                            rightMargin=15, leftMargin=15,
+                            topMargin=15, bottomMargin=15)
     elements = []
     styles = getSampleStyleSheet()
     elements.append(Paragraph("Master Inventory Report", styles['Title']))
     elements.append(Spacer(1, 10))
 
+    from reportlab.lib.styles import ParagraphStyle
+    table_cell_style = ParagraphStyle(
+        'TableCell',
+        parent=styles['Normal'],
+        fontName='Helvetica',
+        fontSize=6.5,
+        leading=8.0,
+    )
+    table_header_style = ParagraphStyle(
+        'TableHeader',
+        parent=styles['Normal'],
+        textColor=colors.whitesmoke,
+        fontName='Helvetica-Bold',
+        fontSize=6.5,
+        leading=8.0,
+    )
+
     text_col_map = {
-        'prodcode': ('Product Code', 70),
-        'name':     ('Item Name',  80),
-        'category': ('Category',   70),
-        'brand':    ('Brand',      70),
+        'prodcode': ('Product Code', 40),
+        'name':     ('Item Name',  60),
+        'category': ('Category',   50),
+        'brand':    ('Brand',      50),
     }
     fixed_cols = [
-        ('Assigned\nto Rooms',    55),
-        ('Available\nin Stock',   55),
-        ('Total\nItems',          55),
-        ('Cost /\nUnit (₹)',      60),
-        ('Total\nCost (₹)',       65),
-        ('Archived',              50),
-        ('Inactive\nComponents',  55),
-        ('Under\nMaintenance',    55),
-        ('Disposed\nComponents',  55),
+        ('Assigned\nto Rooms',    35),
+        ('Available\nin Stock',   35),
+        ('Total\nItems',          35),
+        ('Cost /\nUnit (₹)',      35),
+        ('Total\nCost (₹)',       45),
+        ('Active',                28),
+        ('Inactive',              28),
+        ('Under\nMaintenance',    45),
+        ('Not\nServiceable',      45),
+        ('Created By',            65),
+        ('Created On',            60),
+        ('Updated By',            65),
+        ('Updated On',            60),
     ]
 
     selected_text = [k for k in ['prodcode', 'name', 'category', 'brand'] if k in fields]
-    from reportlab.lib.styles import ParagraphStyle
-    header_style = ParagraphStyle('header', parent=styles['Normal'], textColor=colors.whitesmoke, fontName='Helvetica-Bold')
-    headers = [Paragraph(text_col_map[k][0], header_style) for k in selected_text]
+    headers = [Paragraph(text_col_map[k][0], table_header_style) for k in selected_text]
     col_widths = [text_col_map[k][1] for k in selected_text]
 
     for label, w in fixed_cols:
-        headers.append(Paragraph(label, header_style))
+        headers.append(Paragraph(label, table_header_style))
         col_widths.append(w)
 
     table_data = [headers]
@@ -2271,32 +2491,47 @@ def master_inventory_export_pdf(request):
         total_items = available + assigned
         cpu = item.cost or 0
         total_cost = (cpu * total_items) if cpu else 0
-        archived_c = archived_map.get(name, 0)
+        
         sc = sc_map.get(name, {})
-        inactive_c = sc.get('inactive', 0)
-        under_maintenance_c = sc.get('under_maintenance', 0)
-        disposed_c = sc.get('disposed', 0)
+        item_status = item_status_map.get(name, {})
+        
+        active_c = item_status.get('active_total') or 0
+        inactive_c = item_status.get('inactive_total') or sc.get('inactive', 0)
+        under_maintenance_c = item_status.get('serviceable_total') or sc.get('under_maintenance', 0)
+        not_serviceable_c = item_status.get('unserviceable_total') or 0
+
+        created_by_email = item.created_by.user.email if (item.created_by and hasattr(item.created_by, 'user')) else '—'
+        created_on_str = timezone.localtime(item.created_on).strftime('%d %b %Y, %I:%M %p') if item.created_on else '—'
+        updated_by_email = '—'
+        updated_on_str = '—'
+        if item.updated_on and (item.updated_on - item.created_on).total_seconds() > 2:
+            updated_by_email = item.updated_by_emails or (item.updated_by.user.email if (item.updated_by and hasattr(item.updated_by, 'user')) else '—')
+            updated_on_str = timezone.localtime(item.updated_on).strftime('%d %b %Y, %I:%M %p')
 
         row = []
         if 'prodcode' in selected_text:
-            row.append(Paragraph(item.product_code or '—', styles['Normal']))
+            row.append(Paragraph(item.product_code or '—', table_cell_style))
         if 'name' in selected_text:
-            row.append(Paragraph(item.item_name, styles['Normal']))
+            row.append(Paragraph(item.item_name, table_cell_style))
         if 'category' in selected_text:
-            row.append(Paragraph(item.category.category_name, styles['Normal']))
+            row.append(Paragraph(item.category.category_name, table_cell_style))
         if 'brand' in selected_text:
-            row.append(Paragraph(item.brand.brand_name, styles['Normal']))
+            row.append(Paragraph(item.brand.brand_name, table_cell_style))
 
         row += [
-            Paragraph(str(assigned), styles['Normal']),
-            Paragraph(str(available), styles['Normal']),
-            Paragraph(str(total_items), styles['Normal']),
-            Paragraph(f"₹{cpu}", styles['Normal']),
-            Paragraph(f"₹{total_cost:.2f}", styles['Normal']),
-            Paragraph(str(archived_c), styles['Normal']),
-            Paragraph(str(inactive_c), styles['Normal']),
-            Paragraph(str(under_maintenance_c), styles['Normal']),
-            Paragraph(str(disposed_c), styles['Normal']),
+            Paragraph(str(assigned), table_cell_style),
+            Paragraph(str(available), table_cell_style),
+            Paragraph(str(total_items), table_cell_style),
+            Paragraph(f"₹{cpu}", table_cell_style),
+            Paragraph(f"₹{total_cost:.2f}", table_cell_style),
+            Paragraph(str(active_c), table_cell_style),
+            Paragraph(str(inactive_c), table_cell_style),
+            Paragraph(str(under_maintenance_c), table_cell_style),
+            Paragraph(str(not_serviceable_c), table_cell_style),
+            Paragraph(created_by_email, table_cell_style),
+            Paragraph(created_on_str, table_cell_style),
+            Paragraph(updated_by_email, table_cell_style),
+            Paragraph(updated_on_str, table_cell_style),
         ]
         table_data.append(row)
 
@@ -2308,13 +2543,13 @@ def master_inventory_export_pdf(request):
             ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#0f172a')),
             ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
             ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-            ('FONTSIZE', (0, 0), (-1, -1), 8),
+            ('FONTSIZE', (0, 0), (-1, -1), 6.5),
             ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
             ('ALIGN', (len(selected_text), 0), (-1, -1), 'CENTER'),
             ('GRID', (0, 0), (-1, -1), 0.4, colors.grey),
             ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-            ('BOTTOMPADDING', (0, 0), (-1, 0), 8),
-            ('TOPPADDING', (0, 0), (-1, 0), 8),
+            ('BOTTOMPADDING', (0, 0), (-1, 0), 6),
+            ('TOPPADDING', (0, 0), (-1, 0), 6),
             ('ROWBACKGROUNDS', (0, 1), (-1, -1),
              [colors.white, colors.HexColor('#f8fafc')]),
         ]))
@@ -2340,7 +2575,7 @@ def master_inventory_export_excel(request):
         organisation=org,
         room__isnull=True,
         is_listed=True
-    ).select_related('category', 'brand').order_by('item_name')
+    ).select_related('category', 'brand', 'created_by__user', 'updated_by__user').order_by('item_name')
 
     import openpyxl
     from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
@@ -2364,10 +2599,14 @@ def master_inventory_export_excel(request):
         'Total Items',
         'Cost per Unit (₹)',
         'Total Cost (₹)',
-        'Archived',
-        'Inactive Components',
+        'Active',
+        'Inactive',
         'Under Maintenance',
-        'Disposed Components',
+        'Not Serviceable',
+        'Created By',
+        'Created On',
+        'Updated By',
+        'Updated On',
     ]
 
     ws.append(headers)
@@ -2386,10 +2625,17 @@ def master_inventory_export_excel(request):
         for row in Item.objects.filter(organisation=org, room__isnull=False)
         .values('item_name').annotate(total=models.Sum('total_count'))
     }
-    archived_map_xl = {
-        row['item_name']: row['total'] or 0
-        for row in Item.objects.filter(organisation=org)
-        .values('item_name').annotate(total=models.Sum('archived_count'))
+    item_status_map_xl = {
+        row['item_name']: row
+        for row in Item.objects.filter(organisation=org, room__isnull=False)
+        .values('item_name')
+        .annotate(
+            active_total=models.Sum('active_count'),
+            inactive_total=models.Sum('inactive_count'),
+            archived_total=models.Sum('archived_count'),
+            serviceable_total=models.Sum('serviceable_count'),
+            unserviceable_total=models.Sum('unserviceable_count'),
+        )
     }
     sc_map_xl = {}
     for row in (
@@ -2410,11 +2656,22 @@ def master_inventory_export_excel(request):
         total_items = available + assigned
         cpu = float(item.cost) if item.cost else 0
         total_cost = round(cpu * total_items, 2)
-        archived_xl = archived_map_xl.get(name, 0)
+        
         sc = sc_map_xl.get(name, {})
-        inactive_xl = sc.get('inactive', 0)
-        under_maintenance_xl = sc.get('under_maintenance', 0)
-        disposed_xl = sc.get('disposed', 0)
+        item_status = item_status_map_xl.get(name, {})
+        
+        active_xl = item_status.get('active_total') or 0
+        inactive_xl = item_status.get('inactive_total') or sc.get('inactive', 0)
+        under_maintenance_xl = item_status.get('serviceable_total') or sc.get('under_maintenance', 0)
+        not_serviceable_xl = item_status.get('unserviceable_total') or 0
+
+        created_by_email = item.created_by.user.email if (item.created_by and hasattr(item.created_by, 'user')) else '—'
+        created_on_str = timezone.localtime(item.created_on).strftime('%d %b %Y, %I:%M %p') if item.created_on else '—'
+        updated_by_email = '—'
+        updated_on_str = '—'
+        if item.updated_on and (item.updated_on - item.created_on).total_seconds() > 2:
+            updated_by_email = item.updated_by_emails or (item.updated_by.user.email if (item.updated_by and hasattr(item.updated_by, 'user')) else '—')
+            updated_on_str = timezone.localtime(item.updated_on).strftime('%d %b %Y, %I:%M %p')
 
         row = []
         if 'prodcode' in selected_text:    row.append(item.product_code or '—')
@@ -2422,8 +2679,8 @@ def master_inventory_export_excel(request):
         if 'category' in selected_text:    row.append(item.category.category_name)
         if 'brand' in selected_text:       row.append(item.brand.brand_name)
 
-        row += [assigned, available, total_items, cpu, total_cost, archived_xl,
-                inactive_xl, under_maintenance_xl, disposed_xl]
+        row += [assigned, available, total_items, cpu, total_cost, active_xl,
+                inactive_xl, under_maintenance_xl, not_serviceable_xl, created_by_email, created_on_str, updated_by_email, updated_on_str]
         ws.append(row)
 
     thin = Border(
@@ -2447,7 +2704,7 @@ def master_inventory_export_excel(request):
             cell.alignment = Alignment(vertical="center", horizontal="left")
 
     text_widths = {'prodcode': 16, 'name': 32, 'category': 20, 'brand': 18}
-    fixed_widths = [18, 18, 14, 18, 16, 14, 18, 18, 18]
+    fixed_widths = [18, 18, 14, 18, 16, 12, 12, 18, 18, 24, 20, 24, 20]
 
     col = 1
     for k in selected_text:
@@ -2725,46 +2982,37 @@ def _revert_room_item_to_master(room_item, quantity, profile, note=''):
     return master_item, history, room_total_after
 
 
-def revert_inventory_data(request):
+def revert_inventory_data(request, *args, **kwargs):
     profile = getattr(request.user, 'profile', None)
     if not _has_assign_inventory_access(profile):
         return JsonResponse({'error': 'Unauthorized'}, status=403)
 
     org = profile.org
-    rooms_qs = Room.objects.filter(organisation=org)
-    if profile.is_incharge and not (profile.is_central_admin or profile.is_sub_admin):
-        rooms_qs = rooms_qs.filter(incharge=profile)
-    rooms_qs = rooms_qs.order_by('room_name')
+    rooms_qs = Room.objects.filter(organisation=org).order_by('room_name')
 
-    room_id = request.GET.get('room_id')
-    selected_room = None
-    items = []
-    if room_id:
-        try:
-            selected_room = rooms_qs.get(id=int(room_id))
-        except (Room.DoesNotExist, ValueError, TypeError):
-            return JsonResponse({'error': 'Room not found or not allowed.'}, status=404)
+    items_qs = Item.objects.filter(
+        organisation=org,
+        room__in=rooms_qs,
+        is_listed=True,
+        total_count__gt=0,
+    ).select_related('category', 'brand', 'room', 'room__incharge').order_by('item_name')
 
-        items = [{
-            'id': item.id,
-            'item_name': item.item_name,
-            'category': item.category.category_name if item.category else '',
-            'brand': item.brand.brand_name if item.brand else '',
-            'assigned_count': item.total_count,
-            'available_count': item.available_count,
-            'product_code': item.product_code or '',
-        } for item in Item.objects.filter(
-            organisation=org,
-            room=selected_room,
-            is_listed=True,
-            total_count__gt=0,
-        ).select_related('category', 'brand').order_by('item_name')]
+    items = [{
+        'id': item.id,
+        'item_name': item.item_name,
+        'category': item.category.category_name if item.category else '',
+        'brand': item.brand.brand_name if item.brand else '',
+        'assigned_count': item.total_count,
+        'available_count': item.available_count,
+        'product_code': item.product_code or '',
+        'room_id': item.room.id if item.room else None,
+        'room_name': item.room.room_name if item.room else '',
+        'room_label': item.room.label if item.room else '',
+        'room_category': item.room.get_room_category_display() if item.room else '',
+        'assigned_to': str(item.room.incharge) if (item.room and item.room.incharge) else 'Unassigned',
+    } for item in items_qs]
 
-    history_qs = InventoryRevertHistory.objects.filter(organisation=org)
-    if profile.is_incharge and not (profile.is_central_admin or profile.is_sub_admin):
-        history_qs = history_qs.filter(room__in=rooms_qs)
-    if selected_room:
-        history_qs = history_qs.filter(room=selected_room)
+    history_qs = InventoryRevertHistory.objects.filter(organisation=org, room__in=rooms_qs)
 
     history = [{
         'id': h.id,
@@ -2788,14 +3036,13 @@ def revert_inventory_data(request):
             'name': f"{r.label} - {r.room_name}" if r.label else r.room_name,
             'category': r.room_category,
         } for r in rooms_qs],
-        'selected_room': selected_room.id if selected_room else None,
         'items': items,
         'history': history,
     })
 
 
 @require_POST
-def revert_inventory_api(request):
+def revert_inventory_api(request, *args, **kwargs):
     profile = getattr(request.user, 'profile', None)
     if not _has_assign_inventory_access(profile):
         return JsonResponse({'error': 'Unauthorized'}, status=403)
@@ -2805,53 +3052,124 @@ def revert_inventory_api(request):
     except json.JSONDecodeError:
         return JsonResponse({'error': 'Invalid JSON'}, status=400)
 
-    room_item_id = data.get('room_item_id')
-    quantity = data.get('quantity')
     note = (data.get('note') or '').strip()
+    org = profile.org
+    from django.db import transaction
 
-    if not room_item_id or not quantity:
-        return JsonResponse({'error': 'room_item_id and quantity are required.'}, status=400)
+    # 1. REVERT ALL MODE
+    if data.get('revert_all') is True:
+        assigned_items = Item.objects.filter(
+            organisation=org,
+            room__isnull=False,
+            total_count__gt=0
+        ).select_related('room', 'category', 'brand')
 
-    try:
-        quantity = int(quantity)
-        if quantity <= 0:
-            raise ValueError()
-    except (ValueError, TypeError):
-        return JsonResponse({'error': 'Quantity must be a positive integer.'}, status=400)
+        if not assigned_items.exists():
+            return JsonResponse({'success': True, 'message': 'No assigned items found to revert.'})
 
-    room_item = get_object_or_404(
-        Item.objects.select_related('room', 'category', 'brand'),
-        id=room_item_id,
-        organisation=profile.org,
-        room__isnull=False,
-    )
+        revert_count = 0
+        with transaction.atomic():
+            for item in assigned_items:
+                if _can_revert_room_item(profile, item.room):
+                    _revert_room_item_to_master(item, item.total_count, profile, note)
+                    revert_count += 1
 
-    if not _can_revert_room_item(profile, room_item.room):
-        return JsonResponse({'error': 'You cannot revert inventory from this room.'}, status=403)
-
-    if quantity > room_item.total_count:
         return JsonResponse({
-            'error': f'Only {room_item.total_count} units are assigned. Cannot revert more.'
-        }, status=400)
+            'success': True,
+            'message': f'Successfully reverted all assigned items ({revert_count} types) from all rooms back to master.'
+        })
 
-    item_name = room_item.item_name
-    room_name = room_item.room.room_name if room_item.room else 'room'
-    master_item, history, room_total_after = _revert_room_item_to_master(room_item, quantity, profile, note)
+    # 2. BATCH REVERT MODE
+    elif 'items' in data:
+        items_list = data.get('items', [])
+        if not items_list:
+            return JsonResponse({'error': 'Items list is empty.'}, status=400)
 
-    return JsonResponse({
-        'success': True,
-        'message': f'Reverted {quantity} unit(s) of "{item_name}" from {room_name} back to master inventory.',
-        'room_item_deleted': room_total_after == 0,
-        'room_total_after': room_total_after,
-        'master_total_after': master_item.total_count,
-        'history': {
-            'id': history.id,
-            'item_name': history.item_name,
-            'room_name': history.room.room_name if history.room else 'Unknown room',
-            'quantity': history.quantity,
-            'reverted_on': timezone.localtime(history.reverted_on).strftime('%d %b %Y, %I:%M %p'),
-        },
-    })
+        reverted_details = []
+        with transaction.atomic():
+            for item_data in items_list:
+                r_item_id = item_data.get('room_item_id')
+                qty = item_data.get('quantity')
+                if not r_item_id or qty is None:
+                    continue
+                try:
+                    qty = int(qty)
+                    if qty <= 0:
+                        continue
+                except (ValueError, TypeError):
+                    continue
+
+                room_item = Item.objects.filter(
+                    organisation=org,
+                    id=r_item_id,
+                    room__isnull=False
+                ).select_related('room', 'category', 'brand').first()
+
+                if not room_item or not _can_revert_room_item(profile, room_item.room):
+                    continue
+
+                if qty > room_item.total_count:
+                    qty = room_item.total_count
+
+                _revert_room_item_to_master(room_item, qty, profile, note)
+                reverted_details.append(f'{qty} unit(s) of "{room_item.item_name}"')
+
+        if not reverted_details:
+            return JsonResponse({'error': 'No valid items were reverted.'}, status=400)
+
+        return JsonResponse({
+            'success': True,
+            'message': f'Successfully reverted selected items back to master inventory.'
+        })
+
+    # 3. SINGLE ITEM MODE
+    else:
+        room_item_id = data.get('room_item_id')
+        quantity = data.get('quantity')
+
+        if not room_item_id or not quantity:
+            return JsonResponse({'error': 'room_item_id and quantity are required.'}, status=400)
+
+        try:
+            quantity = int(quantity)
+            if quantity <= 0:
+                raise ValueError()
+        except (ValueError, TypeError):
+            return JsonResponse({'error': 'Quantity must be a positive integer.'}, status=400)
+
+        room_item = get_object_or_404(
+            Item.objects.select_related('room', 'category', 'brand'),
+            id=room_item_id,
+            organisation=org,
+            room__isnull=False,
+        )
+
+        if not _can_revert_room_item(profile, room_item.room):
+            return JsonResponse({'error': 'You cannot revert inventory from this room.'}, status=403)
+
+        if quantity > room_item.total_count:
+            return JsonResponse({
+                'error': f'Only {room_item.total_count} units are assigned. Cannot revert more.'
+            }, status=400)
+
+        item_name = room_item.item_name
+        room_name = room_item.room.room_name if room_item.room else 'room'
+        master_item, history, room_total_after = _revert_room_item_to_master(room_item, quantity, profile, note)
+
+        return JsonResponse({
+            'success': True,
+            'message': f'Reverted {quantity} unit(s) of "{item_name}" from {room_name} back to master inventory.',
+            'room_item_deleted': room_total_after == 0,
+            'room_total_after': room_total_after,
+            'master_total_after': master_item.total_count,
+            'history': {
+                'id': history.id,
+                'item_name': history.item_name,
+                'room_name': history.room.room_name if history.room else 'Unknown room',
+                'quantity': history.quantity,
+                'reverted_on': timezone.localtime(history.reverted_on).strftime('%d %b %Y, %I:%M %p'),
+            },
+        })
 
 def get_master_items_api(request):
     profile = request.user.profile
@@ -2873,7 +3191,7 @@ def get_master_items_api(request):
         'available_stock': item.total_count,
     } for item in items]})
 
-def save_product_code(request):
+def save_product_code(request, *args, **kwargs):
     if request.method != 'POST':
         return JsonResponse({'error': 'POST required'}, status=405)
     profile = getattr(request.user, 'profile', None)
@@ -2898,14 +3216,15 @@ def save_product_code(request):
     master_item = get_object_or_404(Item, id=item_id, organisation=org, room__isnull=True)
     old_code = master_item.product_code or ''
     master_item.product_code = code or None
-    master_item.save(update_fields=['product_code', 'updated_on'])
+    master_item.updated_by = profile
+    master_item.save(update_fields=['product_code', 'updated_on', 'updated_by'])
 
     # Propagate to all room items with same item_name
     Item.objects.filter(
         organisation=org,
         item_name=master_item.item_name,
         room__isnull=False
-    ).update(product_code=master_item.product_code)
+    ).update(product_code=master_item.product_code, updated_by=profile)
 
     # Auto-generate asset tags if code provided
     tags_created = 0
@@ -3007,6 +3326,11 @@ def create_master_inventory_item(request, room_slug=None):
         },
     )
 
+    if created or not item.created_by:
+        item.created_by = profile
+    item.updated_by = profile
+    item.save()
+
     return JsonResponse({
         'success': True,
         'created': created,
@@ -3055,7 +3379,7 @@ def _assign_tags_to_rooms(org, item_name):
             idx += 1
 
 
-def save_item_edit(request):
+def save_item_edit(request, *args, **kwargs):
     """
     Inline edit for category, brand, cost on master inventory.
     Accessible by:
@@ -3130,11 +3454,16 @@ def save_item_edit(request):
             return JsonResponse({'error': 'Available stock cannot be negative'}, status=400)
         master_item.total_count = total_count
 
+    # is_listed toggle
+    if 'is_listed' in data:
+        master_item.is_listed = bool(data.get('is_listed'))
+
+    master_item.updated_by = profile
     master_item.save()
     return JsonResponse({'success': True})
 
 
-def toggle_item_condition(request, room_slug=None):
+def toggle_item_condition(request, room_slug=None, *args, **kwargs):
     if request.method != 'POST':
         return JsonResponse({'error': 'POST required'}, status=405)
 
@@ -3153,7 +3482,7 @@ def toggle_item_condition(request, room_slug=None):
         return JsonResponse({'error': 'Item is required'}, status=400)
 
     if room_slug:
-        if profile.is_central_admin or profile.is_sub_admin:
+        if profile.is_central_admin or profile.is_sub_admin or _has_assign_inventory_access(profile) or _has_master_inventory_edit_access(profile):
             room = get_object_or_404(Room, slug=room_slug, organisation=profile.org)
         else:
             room = get_object_or_404(Room, slug=room_slug, incharge=profile)
@@ -3171,7 +3500,8 @@ def toggle_item_condition(request, room_slug=None):
         item.is_serviceable = bool(data.get('is_serviceable'))
     else:
         item.is_serviceable = not item.is_serviceable
-    item.save(update_fields=['is_serviceable', 'updated_on'])
+    item.updated_by = profile
+    item.save(update_fields=['is_serviceable', 'updated_on', 'updated_by'])
 
     if not room_slug:
         # Toggled from master inventory — sync to all room items with same name
@@ -3179,14 +3509,14 @@ def toggle_item_condition(request, room_slug=None):
             organisation=profile.org,
             item_name=item.item_name,
             room__isnull=False,
-        ).update(is_serviceable=item.is_serviceable, updated_on=timezone.now())
+        ).update(is_serviceable=item.is_serviceable, updated_on=timezone.now(), updated_by=profile)
     else:
         # Toggled from room incharge view — sync back to master inventory item
         Item.objects.filter(
             organisation=profile.org,
             item_name=item.item_name,
             room__isnull=True,
-        ).update(is_serviceable=item.is_serviceable, updated_on=timezone.now())
+        ).update(is_serviceable=item.is_serviceable, updated_on=timezone.now(), updated_by=profile)
 
     return JsonResponse({'success': True, 'is_serviceable': item.is_serviceable})
 
@@ -4417,6 +4747,7 @@ def master_inventory_access_list(request):
         return JsonResponse({'error': 'Unauthorized'}, status=403)
 
     org = profile.org
+    from django.db.models import Sum
 
     # All room incharges in this org
     incharges = UserProfile.objects.filter(
@@ -4432,21 +4763,28 @@ def master_inventory_access_list(request):
 
     result = []
     for person in incharges:
-        rooms = list(person.rooms_incharge.filter(organisation=org).values('room_name', 'label'))
-        room_display = ', '.join(
-            f"{r['label']} - {r['room_name']}" if r['label'] else r['room_name']
-            for r in rooms
-        ) or '—'
+        rooms = person.rooms_incharge.filter(organisation=org)
+        rooms_count = rooms.count()
+        issue_count = Issue.objects.filter(room__in=rooms, resolved=False).count()
+        
+        cat_counts = Item.objects.filter(organisation=org, room__in=rooms)\
+            .values('category__category_name')\
+            .annotate(total=Sum('total_count'))\
+            .order_by('-total')
+        categories_summary = ', '.join([f"{c['category__category_name'] or 'Uncategorized'}: {c['total'] or 0}" for c in cat_counts]) or '—'
+
         access = access_map.get(person.user_id)
         result.append({
-            'id':         person.user_id,
-            'slug':       person.slug,
-            'name':       f"{person.first_name} {person.last_name}".strip() or person.user.email,
-            'email':      person.user.email,
-            'rooms':      room_display,
-            'has_access': access is not None,
-            'can_view':   access.can_view if access else False,
-            'can_edit':   access.can_edit if access else False,
+            'id':                 person.user_id,
+            'slug':               person.slug,
+            'name':               f"{person.first_name} {person.last_name}".strip() or person.user.email,
+            'email':              person.user.email,
+            'rooms_count':        rooms_count,
+            'categories_summary': categories_summary,
+            'issue_count':        issue_count,
+            'has_access':         access is not None,
+            'can_view':           access.can_view if access else False,
+            'can_edit':           access.can_edit if access else False,
         })
 
     return JsonResponse({'incharges': result})
@@ -4592,11 +4930,19 @@ class RoomInchargeMasterInventoryView(LoginRequiredMixin, TemplateView):
         room = get_object_or_404(Room, slug=room_slug, incharge=profile)
         room_settings = RoomSettings.objects.get_or_create(room=room)[0]
 
+        # Check if assign inventory access is given by admin
+        has_assign_access = AssignInventoryAccess.objects.filter(
+            organisation=org,
+            incharge=profile,
+            can_assign=True,
+        ).exists()
+
         context.update(_master_inventory_context(org))
-        context['room']         = room
-        context['room_slug']    = room_slug
-        context['room_settings']= room_settings
-        context['can_edit']     = self._access.can_edit  # pass edit permission to template
+        context['room']              = room
+        context['room_slug']         = room_slug
+        context['room_settings']     = room_settings
+        context['can_edit']          = self._access.can_edit  # pass edit permission to template
+        context['has_assign_access'] = has_assign_access
         return context
 
 
@@ -4613,6 +4959,7 @@ def assign_inventory_access_list(request):
         return JsonResponse({'error': 'Unauthorized'}, status=403)
 
     org = profile.org
+    from django.db.models import Sum
 
     incharges = UserProfile.objects.filter(
         org=org,
@@ -4626,20 +4973,27 @@ def assign_inventory_access_list(request):
 
     result = []
     for person in incharges:
-        rooms = list(person.rooms_incharge.filter(organisation=org).values('room_name', 'label'))
-        room_display = ', '.join(
-            f"{r['label']} - {r['room_name']}" if r['label'] else r['room_name']
-            for r in rooms
-        ) or '—'
+        rooms = person.rooms_incharge.filter(organisation=org)
+        rooms_count = rooms.count()
+        issue_count = Issue.objects.filter(room__in=rooms, resolved=False).count()
+        
+        cat_counts = Item.objects.filter(organisation=org, room__in=rooms)\
+            .values('category__category_name')\
+            .annotate(total=Sum('total_count'))\
+            .order_by('-total')
+        categories_summary = ', '.join([f"{c['category__category_name'] or 'Uncategorized'}: {c['total'] or 0}" for c in cat_counts]) or '—'
+
         access = access_map.get(person.user_id)
         result.append({
-            'id':         person.user_id,
-            'slug':       person.slug,
-            'name':       f"{person.first_name} {person.last_name}".strip() or person.user.email,
-            'email':      person.user.email,
-            'rooms':      room_display,
-            'has_access': access is not None,
-            'can_assign': access.can_assign if access else False,
+            'id':                 person.user_id,
+            'slug':               person.slug,
+            'name':               f"{person.first_name} {person.last_name}".strip() or person.user.email,
+            'email':              person.user.email,
+            'rooms_count':        rooms_count,
+            'categories_summary': categories_summary,
+            'issue_count':        issue_count,
+            'has_access':         access is not None,
+            'can_assign':         access.can_assign if access else False,
         })
 
     return JsonResponse({'incharges': result})
@@ -4754,7 +5108,7 @@ class RoomInchargeAssignInventoryView(LoginRequiredMixin, TemplateView):
         org = profile.org
         room_slug = self.kwargs.get('room_slug')
 
-        room = get_object_or_404(Room, slug=room_slug, incharge=profile)
+        room = get_object_or_404(Room, slug=room_slug, organisation=org)
         from inventory.models import RoomSettings
         room_settings = RoomSettings.objects.get_or_create(room=room)[0]
 
@@ -4764,10 +5118,9 @@ class RoomInchargeAssignInventoryView(LoginRequiredMixin, TemplateView):
             is_listed=True,
         ).select_related('category', 'brand').order_by('item_name')
 
-        # Only the incharge's own rooms are available as assignment targets
+        # Allow all rooms in the organisation (same as admin)
         incharge_rooms = Room.objects.filter(
             organisation=org,
-            incharge=profile,
         ).order_by('room_name')
 
         context['master_items']   = master_items
@@ -4775,15 +5128,16 @@ class RoomInchargeAssignInventoryView(LoginRequiredMixin, TemplateView):
         context['room']           = room
         context['room_slug']      = room_slug
         context['room_settings']  = room_settings
+        context['room_categories']= Room.ROOM_CATEGORIES
         return context
 
 
-def incharge_assign_inventory_api(request):
+def incharge_assign_inventory_api(request, *args, **kwargs):
     """
     POST — room incharge assigns master inventory items to their own room(s).
     Requires AssignInventoryAccess for the incharge.
     Body: { "item_id": ..., "room_ids": [...], "quantity": ... }
-    Only rooms belonging to the requesting incharge are accepted.
+    Only rooms belonging to the requesting organisation are accepted.
     """
     if request.method != 'POST':
         return JsonResponse({'error': 'Method not allowed'}, status=405)
@@ -4827,13 +5181,13 @@ def incharge_assign_inventory_api(request):
 
     org = profile.org
 
-    # Validate that all room_ids belong to this incharge
-    incharge_room_ids = set(
-        Room.objects.filter(organisation=org, incharge=profile).values_list('id', flat=True)
+    # Validate that all room_ids belong to the organisation
+    org_room_ids = set(
+        Room.objects.filter(organisation=org).values_list('id', flat=True)
     )
     for rid in room_ids:
-        if rid not in incharge_room_ids:
-            return JsonResponse({'error': f'Room {rid} does not belong to you.'}, status=403)
+        if rid not in org_room_ids:
+            return JsonResponse({'error': f'Room {rid} does not belong to this organisation.'}, status=403)
 
     try:
         master_item = Item.objects.get(id=master_item_id, organisation=org, room__isnull=True)
