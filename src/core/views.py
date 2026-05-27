@@ -1250,6 +1250,9 @@ def rooms_by_category(request):
     return JsonResponse(data, safe=False)
 
 
+from django.views.decorators.csrf import csrf_exempt
+
+@csrf_exempt
 def firebase_login_callback(request):
     if request.method != "POST":
         return redirect('student:portal_login')
