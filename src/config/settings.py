@@ -46,6 +46,7 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'django.contrib.sitemaps',
     'core.apps.CoreConfig',
     'inventory.apps.InventoryConfig',
     'django.contrib.sites',
@@ -67,6 +68,11 @@ AUTHENTICATION_BACKENDS = [
 # Google Login settings
 SOCIALACCOUNT_PROVIDERS = {
     'google': {
+        'APP': {
+            'client_id': env('GOOGLE_CLIENT_ID', default='placeholder-google-client-id'),
+            'secret': env('GOOGLE_CLIENT_SECRET', default='placeholder-google-secret'),
+            'key': ''
+        },
         'SCOPE': [
             'profile',
             'email',
