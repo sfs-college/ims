@@ -159,23 +159,6 @@ window.SUPPRESS_MOBILE_FOOTER = true;
         button.disabled = true;
         button.innerHTML = '<i class="bi bi-spinner-border bi-spin me-2"></i> Connecting...';
         
-        if (window.IS_CAPACITOR || (window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform())) {
-            console.log('[Login] Capacitor app: using system browser/in-app Google authentication');
-            var oauthUrl = 'https://blixtro.sfscollege.app/accounts/google/login/?app=1';
-            try {
-                if (window.Capacitor.Plugins && window.Capacitor.Plugins.Browser) {
-                    await window.Capacitor.Plugins.Browser.open({ url: oauthUrl });
-                } else {
-                    window.open(oauthUrl, '_system');
-                }
-            } catch (err) {
-                console.error('[Login] In-app Browser open error, falling back:', err);
-                window.open(oauthUrl, '_system');
-            }
-            button.innerHTML = originalText;
-            button.disabled = false;
-            return;
-        }
 
         try {
             // Use mobile-aware authentication
