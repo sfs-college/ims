@@ -1199,10 +1199,10 @@
             const path = window.location.pathname;
             let items;
             
-            if (path.includes('/central-admin/')) {
+            if (path.includes('/central-admin/') || path.includes('/central_admin/')) {
                 items = [
-                    { icon: 'dashboard', label: 'Dashboard', url: '/central-admin/dashboard/' },
-                    { icon: 'settings', label: 'Aura', url: '/central-admin/aura-dashboard/' }
+                    { icon: 'dashboard', label: 'Dashboard', url: '/central_admin/' },
+                    { icon: 'settings', label: 'Aura', url: '/central_admin/aura/' }
                 ];
             } else if (path.includes('/students/') || path.includes('/student/')) {
                 const studentHome = window.IS_CAPACITOR ? '/core/app/?app=1' : '/';
@@ -1454,13 +1454,13 @@
                 // Even when MOBILE_NAV_HOME_ONLY is set, determine the correct home URL:
                 // Admin pages → dashboard, student pages → app home (Capacitor) or landing (/)
                 let homeOnlyUrl;
-                if (path.includes('/central-admin/')) {
-                    homeOnlyUrl = '/central-admin/dashboard/';
+                if (path.includes('/central-admin/') || path.includes('/central_admin/')) {
+                    homeOnlyUrl = '/central_admin/';
                 } else if (path.includes('/room-incharge/')) {
                     const roomMatch = path.match(/\/room-incharge\/room\/([^/]+)/);
                     homeOnlyUrl = roomMatch
                         ? `/room-incharge/room/${roomMatch[1]}/dashboard/`
-                        : '/central-admin/dashboard/';
+                        : '/central_admin/';
                 } else {
                     homeOnlyUrl = window.IS_CAPACITOR ? '/core/app/?app=1' : '/';
                 }
@@ -1496,15 +1496,15 @@
             }
 
             // Fallback: detect from URL pattern
-            const isCentralAdmin = path.includes('/central-admin/');
+            const isCentralAdmin = path.includes('/central-admin/') || path.includes('/central_admin/');
             const isRoomIncharge = path.includes('/room-incharge/');
 
             if (isCentralAdmin) {
                 items.push(
-                    { icon: 'dashboard', label: 'Dashboard', url: '/central-admin/dashboard/' },
-                    { icon: 'door_open', label: 'Rooms', url: '/central-admin/rooms/' },
-                    { icon: 'report', label: 'Issues', url: '/central-admin/issues/' },
-                    { icon: 'settings', label: 'Aura', url: '/central-admin/aura-dashboard/' }
+                    { icon: 'dashboard', label: 'Dashboard', url: '/central_admin/' },
+                    { icon: 'door_open', label: 'Rooms', url: '/central_admin/rooms/' },
+                    { icon: 'report', label: 'Issues', url: '/central_admin/issues/' },
+                    { icon: 'settings', label: 'Aura', url: '/central_admin/aura/' }
                 );
             } else if (isRoomIncharge) {
                 const roomMatch = path.match(/\/room-incharge\/room\/([^/]+)/);
@@ -1523,13 +1523,13 @@
             // For everything else, home = landing page.
             if (items.length === 0) {
                 let homeUrl;
-                if (path.includes('/central-admin/')) {
-                    homeUrl = '/central-admin/dashboard/';
+                if (path.includes('/central-admin/') || path.includes('/central_admin/')) {
+                    homeUrl = '/central_admin/';
                 } else if (path.includes('/room-incharge/')) {
                     const roomMatch = path.match(/\/room-incharge\/room\/([^/]+)/);
                     homeUrl = roomMatch
                         ? `/room-incharge/room/${roomMatch[1]}/dashboard/`
-                        : '/central-admin/dashboard/';
+                        : '/central_admin/';
                 } else if (window.IS_CAPACITOR) {
                     homeUrl = '/core/app/?app=1';
                 } else {

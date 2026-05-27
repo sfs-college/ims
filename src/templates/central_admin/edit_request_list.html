@@ -220,6 +220,11 @@
 {% endblock style %}
 
 {% block content %}
+    <a href="{% url 'central_admin:dashboard' %}" class="universal-back-btn" title="Back to Dashboard" id="universalBackBtn">
+        <span class="material-symbols-outlined">arrow_back</span>
+        <span>Back to Dashboard</span>
+    </a>
+
 <div id="toastContainer"></div>
 
 {% if messages %}
