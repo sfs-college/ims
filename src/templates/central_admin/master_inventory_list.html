@@ -1710,7 +1710,7 @@ function reassignItem(revertedItemId) {
     button.disabled = true;
     button.innerHTML = '<i class="bi bi-spinner-grow me-2"></i>Reassigning...';
     
-    fetch(`/central-admin/reverted-items/${revertedItemId}/reassign/`, {
+    fetch(`/central_admin/reverted-items/${revertedItemId}/reassign/`, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',

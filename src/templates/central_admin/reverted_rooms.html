@@ -237,7 +237,7 @@ function reassignRoom(revertedRoomId) {
     button.disabled = true;
     button.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Reassigning...';
     
-    fetch(`/central-admin/reverted-rooms/${revertedRoomId}/reassign/`, {
+    fetch(`/central_admin/reverted-rooms/${revertedRoomId}/reassign/`, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',

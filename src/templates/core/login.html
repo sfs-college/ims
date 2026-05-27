@@ -63,14 +63,31 @@
   /* Capacitor back button — only shown in app */
   .cap-back-btn {
     display: none;
-    align-items: center; gap: 6px;
-    background: none; border: none; cursor: pointer;
-    color: #64748b; font-size: 0.88rem; font-weight: 600;
+    align-items: center; gap: 10px;
+    background: rgba(99, 102, 241, 0.08);
+    border: 1px solid rgba(99, 102, 241, 0.15);
+    cursor: pointer;
+    color: #4f46e5; font-size: 0.9rem; font-weight: 600;
     font-family: 'DM Sans', sans-serif;
-    padding: 8px 0; margin-bottom: 16px;
+    padding: 6px 14px; margin-bottom: 20px;
+    border-radius: 20px;
+    transition: all 0.2s ease;
+    width: fit-content;
     -webkit-tap-highlight-color: transparent;
   }
-  .cap-back-btn:hover { color: #6366f1; }
+  .cap-back-btn:hover {
+    background: rgba(99, 102, 241, 0.15);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(99, 102, 241, 0.12);
+  }
+  .home-icon-overlay {
+    width: 28px; height: 28px;
+    background: linear-gradient(135deg, #a5b4fc, #818cf8);
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    color: white; font-size: 0.88rem;
+    box-shadow: 0 2px 6px rgba(99, 102, 241, 0.25);
+  }
   @media (max-width: 480px) {
     .login-card { padding: 24px 20px; }
   }
@@ -93,7 +110,10 @@
     {% endif %}
     {% if is_capacitor %}
     <button class="cap-back-btn" style="display:flex;" onclick="goAppHome()">
-      <i class="bi bi-arrow-left"></i> Back
+      <div class="home-icon-overlay">
+        <i class="bi bi-house-door-fill"></i>
+      </div>
+      <span>Go to App Home</span>
     </button>
     {% endif %}
     <div class="text-center">

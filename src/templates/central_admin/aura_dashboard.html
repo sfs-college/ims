@@ -1753,6 +1753,22 @@ function filterAuraData() {
         }
     }
 
+    // ── Try to share/open a saved file via Capacitor Share plugin ──
+    async function _tryShareFile(uri, filename, mimeType) {
+        try {
+            var sharePlugin = window.Capacitor?.Plugins?.Share;
+            if (sharePlugin) {
+                await sharePlugin.share({
+                    title: filename,
+                    url: uri,
+                    dialogTitle: 'Save or Open ' + filename,
+                });
+                return true;
+            }
+        } catch (_) {}
+        return false;
+    }
+
     // 7. Optimized Backend PDF Download Logic
     async function downloadAuraPDF() {
         const moduleName = document.getElementById('reportModule').value;
@@ -1771,15 +1787,31 @@ function filterAuraData() {
         const downloadUrl = `${baseUrl}?model=${moduleName}&date_from=${dateFrom}&date_to=${dateTo}`;
         const filename = `aura_report_${moduleName}_${dateFrom || 'all'}_to_${dateTo || 'all'}.pdf`;
         
-        try {
-            await DownloadManager.download(downloadUrl, filename, {
-                mimeType: 'application/pdf',
-                openAfterDownload: false
-            });
-        } catch (err) {
-            console.error('PDF download failed:', err);
-            // Fallback to browser method
-            window.open(downloadUrl, '_blank');
+        var isCapacitor = window.IS_CAPACITOR || (window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
+
+        if (isCapacitor && window.DownloadManager) {
+            try {
+                var result = await window.DownloadManager.download(downloadUrl, filename, {
+                    mimeType: 'application/pdf',
+                    openAfterDownload: false
+                });
+                if (result && result.uri) {
+                    await _tryShareFile(result.uri, filename, 'application/pdf');
+                }
+            } catch(e) {
+                console.error('[downloadAuraPDF] PDF Capacitor error:', e);
+                window.open(downloadUrl, '_blank');
+            }
+        } else {
+            try {
+                await DownloadManager.download(downloadUrl, filename, {
+                    mimeType: 'application/pdf',
+                    openAfterDownload: true
+                });
+            } catch (err) {
+                console.error('PDF download failed:', err);
+                window.open(downloadUrl, '_blank');
+            }
         }
     }
 
@@ -2202,14 +2234,31 @@ function filterAuraData() {
         const downloadUrl = `${baseUrl}?model=${moduleName}&date_from=${dateFrom}&date_to=${dateTo}`;
         const filename = `aura_report_${moduleName}_${dateFrom || 'all'}_to_${dateTo || 'all'}.xlsx`;
         
-        try {
-            await DownloadManager.download(downloadUrl, filename, {
-                mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-                openAfterDownload: true
-            });
-        } catch (err) {
-            console.error('Excel download failed:', err);
-            window.open(downloadUrl, '_blank');
+        var isCapacitor = window.IS_CAPACITOR || (window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
+
+        if (isCapacitor && window.DownloadManager) {
+            try {
+                var result = await window.DownloadManager.download(downloadUrl, filename, {
+                    mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                    openAfterDownload: false
+                });
+                if (result && result.uri) {
+                    await _tryShareFile(result.uri, filename, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+                }
+            } catch(e) {
+                console.error('[downloadAuraExcel] Excel Capacitor error:', e);
+                window.open(downloadUrl, '_blank');
+            }
+        } else {
+            try {
+                await DownloadManager.download(downloadUrl, filename, {
+                    mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                    openAfterDownload: true
+                });
+            } catch (err) {
+                console.error('Excel download failed:', err);
+                window.open(downloadUrl, '_blank');
+            }
         }
     }
 
@@ -2230,15 +2279,31 @@ function filterAuraData() {
         const downloadUrl = `${baseUrl}?model=${moduleName}&date_from=${dateFrom}&date_to=${dateTo}`;
         const filename    = `aura_report_${moduleName}_${dateFrom || 'all'}_to_${dateTo || 'all'}.pdf`;
 
-        try {
-            // DownloadManager handles both browser (anchor click) and Capacitor (Filesystem save)
-            await DownloadManager.download(downloadUrl, filename, {
-                mimeType: 'application/pdf',
-                openAfterDownload: true
-            });
-        } catch (err) {
-            console.error('PDF download failed:', err);
-            window.open(downloadUrl, '_blank');
+        var isCapacitor = window.IS_CAPACITOR || (window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
+
+        if (isCapacitor && window.DownloadManager) {
+            try {
+                var result = await window.DownloadManager.download(downloadUrl, filename, {
+                    mimeType: 'application/pdf',
+                    openAfterDownload: false
+                });
+                if (result && result.uri) {
+                    await _tryShareFile(result.uri, filename, 'application/pdf');
+                }
+            } catch(e) {
+                console.error('[downloadAuraPDF] PDF Capacitor error:', e);
+                window.open(downloadUrl, '_blank');
+            }
+        } else {
+            try {
+                await DownloadManager.download(downloadUrl, filename, {
+                    mimeType: 'application/pdf',
+                    openAfterDownload: true
+                });
+            } catch (err) {
+                console.error('PDF download failed:', err);
+                window.open(downloadUrl, '_blank');
+            }
         }
     }
 
