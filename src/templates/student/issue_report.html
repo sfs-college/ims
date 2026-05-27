@@ -453,7 +453,12 @@ document.addEventListener('DOMContentLoaded', function () {
     // Show mobile home button only on Capacitor or mobile devices
     if (window.IS_CAPACITOR || window.IS_MOBILE) {
         var btn = document.getElementById('mobileHomeBtn');
-        if (btn) btn.style.display = 'flex';
+        if (btn) {
+            btn.style.display = 'flex';
+            if (window.IS_CAPACITOR) {
+                btn.href = "{% url 'core:app_home' %}";
+            }
+        }
     }
 });
 </script>

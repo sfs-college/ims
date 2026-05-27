@@ -71,7 +71,11 @@ def app_auth_callback_view(request):
     doesn't fire automatically (some browsers block it), the page also shows
     a manual "Open App" button.
     """
-    return render(request, 'app_auth_callback.html')
+    from django.core import signing
+    token = ''
+    if request.user.is_authenticated:
+        token = signing.dumps({'user_id': request.user.id})
+    return render(request, 'app_auth_callback.html', {'token': token})
 
 
 def auth_status_view(request):
@@ -209,6 +213,15 @@ class LoginView(LoginView):
                 return redirect("core:login")
 
         # DEFAULT
+        ua = self.request.META.get('HTTP_USER_AGENT', '')
+        is_capacitor = (
+            self.request.GET.get('app') == '1'
+            or self.request.POST.get('app') == '1'
+            or 'Capacitor' in ua
+            or '; wv' in ua
+        )
+        if is_capacitor:
+            return redirect("core:app_home")
         return redirect("landing_page")
 
     
@@ -257,16 +270,51 @@ class UserRegisterView(CreateView):
         )
 
         login(self.request, user, backend='django.contrib.auth.backends.ModelBackend')
+        ua = self.request.META.get('HTTP_USER_AGENT', '')
+        is_capacitor = (
+            self.request.GET.get('app') == '1'
+            or self.request.POST.get('app') == '1'
+            or 'Capacitor' in ua
+            or '; wv' in ua
+        )
+        if is_capacitor:
+            return redirect('core:app_home')
         return redirect('landing_page')
     
 
 class LogoutView(LogoutView):
     template_name = 'core/logout.html'
 
+    def get_next_page(self):
+        # Custom redirection for Capacitor app WebView on logout
+        ua = self.request.META.get('HTTP_USER_AGENT', '')
+        is_capacitor = (
+            self.request.GET.get('app') == '1'
+            or self.request.POST.get('app') == '1'
+            or 'Capacitor' in ua
+            or '; wv' in ua
+        )
+        if is_capacitor:
+            from django.urls import reverse
+            return reverse('core:app_home')
+        return super().get_next_page()
+
 
 class ChangePasswordView(PasswordChangeView):
     template_name = 'core/change_password.html'
     success_url = reverse_lazy('landing_page')
+
+    def get_success_url(self):
+        ua = self.request.META.get('HTTP_USER_AGENT', '')
+        is_capacitor = (
+            self.request.GET.get('app') == '1'
+            or self.request.POST.get('app') == '1'
+            or 'Capacitor' in ua
+            or '; wv' in ua
+        )
+        if is_capacitor:
+            return reverse_lazy('core:app_home')
+        return super().get_success_url()
 
 
 class ResetPasswordView(PasswordResetView):
@@ -1210,62 +1258,76 @@ def firebase_login_callback(request):
     if not id_token:
         return redirect('student:portal_login')
 
+    from django.core import signing
+    user = None
+    email = ''
     try:
-        if not firebase_admin._apps:
-            creds_json = os.environ.get('FIREBASE_ADMIN_CREDENTIALS_JSON', '')
-            if creds_json:
-                import json as _json
-                cred_dict = _json.loads(creds_json)
-                if 'private_key' in cred_dict:
-                    cred_dict['private_key'] = cred_dict['private_key'].replace('\\n', '\n')
-                firebase_admin.initialize_app(credentials.Certificate(cred_dict))
-            else:
-                logger.info("[firebase_login] CRITICAL: No Firebase credentials available")
+        # First, try to decode as a secure Django-signed token (system browser path)
+        data = signing.loads(id_token, max_age=600)
+        user_id = data.get('user_id')
+        if user_id:
+            user = User.objects.get(id=user_id)
+            email = user.email
+            logger.info(f"[firebase_login] Secure Django token verified for user ID: {user_id}")
+    except Exception:
+        pass
+
+    if not user:
+        try:
+            if not firebase_admin._apps:
+                creds_json = os.environ.get('FIREBASE_ADMIN_CREDENTIALS_JSON', '')
+                if creds_json:
+                    import json as _json
+                    cred_dict = _json.loads(creds_json)
+                    if 'private_key' in cred_dict:
+                        cred_dict['private_key'] = cred_dict['private_key'].replace('\\n', '\n')
+                    firebase_admin.initialize_app(credentials.Certificate(cred_dict))
+                else:
+                    logger.info("[firebase_login] CRITICAL: No Firebase credentials available")
+                    return redirect('student:portal_login')
+
+            decoded_token = auth.verify_id_token(id_token, clock_skew_seconds=10)
+            email = (decoded_token.get('email') or '').strip().lower()
+            name  = (decoded_token.get('name') or '').strip()
+
+            if not email:
+                logger.info("[firebase_login] No email in token payload")
                 return redirect('student:portal_login')
 
-        decoded_token = auth.verify_id_token(id_token, clock_skew_seconds=10)
+            allowed_domain = getattr(settings, 'ALLOWED_EMAIL_DOMAIN', 'sfscollege.in')
+            if not email.endswith(f'@{allowed_domain}'):
+                logger.info(f"[firebase_login] Rejected domain: {email}")
+                return redirect('student:portal_login')
 
-    except Exception as e:
-        logger.error(f"[firebase_login] Token verification failed: {e}")
-        return redirect('student:portal_login')
+            try:
+                user = User.objects.get(email=email)
+                update_fields = []
+                if not user.first_name and name:
+                    user.first_name = name.split()[0]
+                    update_fields.append('first_name')
+                if not user.last_name and name and len(name.split()) > 1:
+                    user.last_name = ' '.join(name.split()[1:])
+                    update_fields.append('last_name')
+                if update_fields:
+                    user.save(update_fields=update_fields)
 
-    email = (decoded_token.get('email') or '').strip().lower()
-    name  = (decoded_token.get('name') or '').strip()
+            except User.DoesNotExist:
+                parts      = name.split() if name else []
+                first_name = parts[0]                   if parts else ''
+                last_name  = ' '.join(parts[1:])        if len(parts) > 1 else ''
+                user = User(
+                    email      = email,
+                    first_name = first_name,
+                    last_name  = last_name,
+                    is_active  = True,
+                    is_staff   = False,
+                )
+                user.set_unusable_password()
+                user.save()
 
-    if not email:
-        logger.info("[firebase_login] No email in token payload")
-        return redirect('student:portal_login')
-
-    allowed_domain = getattr(settings, 'ALLOWED_EMAIL_DOMAIN', 'sfscollege.in')
-    if not email.endswith(f'@{allowed_domain}'):
-        logger.info(f"[firebase_login] Rejected domain: {email}")
-        return redirect('student:portal_login')
-
-    try:
-        user = User.objects.get(email=email)
-        update_fields = []
-        if not user.first_name and name:
-            user.first_name = name.split()[0]
-            update_fields.append('first_name')
-        if not user.last_name and name and len(name.split()) > 1:
-            user.last_name = ' '.join(name.split()[1:])
-            update_fields.append('last_name')
-        if update_fields:
-            user.save(update_fields=update_fields)
-
-    except User.DoesNotExist:
-        parts      = name.split() if name else []
-        first_name = parts[0]                   if parts else ''
-        last_name  = ' '.join(parts[1:])        if len(parts) > 1 else ''
-        user = User(
-            email      = email,
-            first_name = first_name,
-            last_name  = last_name,
-            is_active  = True,
-            is_staff   = False,
-        )
-        user.set_unusable_password()
-        user.save()
+        except Exception as e:
+            logger.error(f"[firebase_login] Token verification failed: {e}")
+            return redirect('student:portal_login')
 
     user.backend = 'django.contrib.auth.backends.ModelBackend'
     login(request, user)

@@ -459,7 +459,7 @@
     <div style="display:flex;flex-direction:column;gap:0;">
 
       <!-- Upgraded Room Selectors (Category Filter & Checklist) -->
-      <div class="card">
+      <div class="card" style="overflow: visible;">
         <div class="card-header">
           <h6 class="card-title">
             <span class="card-title-icon icon-blue"><i class="bi bi-building"></i></span>
@@ -1150,22 +1150,26 @@ function loadRevertItems() {
     });
 }
 
+let revertItemsPageSize = 48;
+let revertItemsVisibleCount = 48;
+let currentFilteredItems = [];
+
 function applyRevertFilters() {
   const roomVal = document.getElementById('revertRoomFilter').value;
   const catVal = document.getElementById('revertCategoryFilter').value;
   const query = document.getElementById('revertSearchInput').value.toLowerCase().trim();
 
-  document.querySelectorAll('#revertItemsGrid > .revert-item-card').forEach(card => {
-    const cardRoomId = card.getAttribute('data-room-id') || '';
-    const cardCat = (card.getAttribute('data-category') || '').toLowerCase();
-    const cardName = (card.getAttribute('data-item-name') || '').toLowerCase();
-    const cardBrand = (card.getAttribute('data-brand') || '').toLowerCase();
-    const cardRoomName = (card.getAttribute('data-room-name') || '').toLowerCase();
-    const cardRoomLabel = (card.getAttribute('data-room-label') || '').toLowerCase();
-    const cardIncharge = (card.getAttribute('data-incharge') || '').toLowerCase();
+  const filtered = allRevertedItemsCached.filter(item => {
+    const matchesRoom = !roomVal || String(item.room_id) === roomVal;
+    const matchesCat = !catVal || item.category === catVal;
+    
+    const cardName = (item.item_name || '').toLowerCase();
+    const cardCat = (item.category || '').toLowerCase();
+    const cardBrand = (item.brand || '').toLowerCase();
+    const cardRoomName = (item.room_name || '').toLowerCase();
+    const cardRoomLabel = (item.room_label || '').toLowerCase();
+    const cardIncharge = (item.assigned_to || '').toLowerCase();
 
-    const matchesRoom = !roomVal || cardRoomId === roomVal;
-    const matchesCat = !catVal || card.getAttribute('data-category') === catVal;
     const matchesQuery = !query || 
                          cardName.includes(query) || 
                          cardCat.includes(query) || 
@@ -1174,16 +1178,10 @@ function applyRevertFilters() {
                          cardRoomLabel.includes(query) || 
                          cardIncharge.includes(query);
 
-    if (matchesRoom && matchesCat && matchesQuery) {
-      card.style.display = 'flex';
-    } else {
-      card.style.display = 'none';
-      const chk = card.querySelector('.revert-select-chk');
-      if (chk) chk.checked = false;
-    }
+    return matchesRoom && matchesCat && matchesQuery;
   });
 
-  updateRevertSelectionCount();
+  renderRevertItems(filtered, true);
 }
 
 function toggleSelectAllRevert(checked) {
@@ -1297,13 +1295,23 @@ function loadRevertHistoryOnly() {
     .catch(() => renderRevertHistory([]));
 }
 
-function renderRevertItems(items) {
+function renderRevertItems(items, resetScroll = true) {
   const grid = document.getElementById('revertItemsGrid');
-  if (!items.length) {
+  if (!items || !items.length) {
     grid.innerHTML = '<div class="empty-note" style="grid-column:1/-1;"><i class="bi bi-inbox"></i>No assigned items found.</div>';
+    const loadMoreBtn = document.getElementById('revertLoadMoreBtn');
+    if (loadMoreBtn) loadMoreBtn.style.display = 'none';
     return;
   }
-  grid.innerHTML = items.map(item => `
+
+  currentFilteredItems = items;
+  if (resetScroll) {
+    revertItemsVisibleCount = revertItemsPageSize;
+  }
+
+  const visibleItems = items.slice(0, revertItemsVisibleCount);
+
+  grid.innerHTML = visibleItems.map(item => `
     <div class="revert-item-card" 
          id="revert-card-${item.id}"
          data-id="${item.id}"
@@ -1357,6 +1365,32 @@ function renderRevertItems(items) {
         </button>
       </div>
     </div>`).join('');
+
+  // Manage "Load More" button
+  let loadMoreBtn = document.getElementById('revertLoadMoreBtn');
+  if (!loadMoreBtn) {
+    loadMoreBtn = document.createElement('button');
+    loadMoreBtn.id = 'revertLoadMoreBtn';
+    loadMoreBtn.className = 'btn-sec my-3 mx-auto';
+    loadMoreBtn.style.display = 'none';
+    loadMoreBtn.style.width = '200px';
+    loadMoreBtn.style.justifyContent = 'center';
+    loadMoreBtn.onclick = loadMoreRevertItems;
+    grid.parentNode.insertBefore(loadMoreBtn, grid.nextSibling);
+  }
+
+  if (revertItemsVisibleCount < items.length) {
+    loadMoreBtn.style.display = 'inline-flex';
+    loadMoreBtn.textContent = `Load More (${items.length - revertItemsVisibleCount} remaining)`;
+  } else {
+    loadMoreBtn.style.display = 'none';
+  }
+}
+
+function loadMoreRevertItems() {
+  revertItemsVisibleCount += revertItemsPageSize;
+  renderRevertItems(currentFilteredItems, false);
+  updateRevertSelectionCount();
 }
 
 function submitRevert(roomItemId, maxQty, btn) {

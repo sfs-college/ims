@@ -433,9 +433,22 @@
   </div>
 </div>
 
+<script type="application/json" id="room-items-json">
+  [
+    {% for item in items %}
+      {
+        "id": {{ item.id }},
+        "item_name": "{{ item.item_name|escapejs }}",
+        "available_count": {{ item.available_count }},
+        "category_name": "{{ item.category.category_name|escapejs }}"
+      }{% if not forloop.last %},{% endif %}
+    {% endfor %}
+  ]
+</script>
+
 <!-- System Details / Components Modal -->
 <div id="sysDetailModalBg" class="sys-modal-bg" role="dialog" aria-modal="true" aria-labelledby="sysDetailModalTitle">
-  <div class="sys-modal">
+  <div class="sys-modal" style="width: min(550px, 100%);">
     <div class="sys-modal-head">
       <div>
         <h3 class="sys-modal-title" id="sysDetailModalTitle"><i class="bi bi-laptop me-1"></i> System Components</h3>
@@ -444,7 +457,7 @@
       <button type="button" class="sys-close" onclick="closeSysDetailModal()" aria-label="Close"><i class="bi bi-x-lg"></i></button>
     </div>
 
-    <div class="sys-modal-section" style="max-height: 380px; overflow-y: auto;">
+    <div class="sys-modal-section" style="max-height: 220px; overflow-y: auto; border-bottom: 1.5px solid var(--border); padding-bottom: 12px; margin-bottom: 12px;">
       <table class="comp-list-table">
         <thead>
           <tr>
@@ -458,6 +471,72 @@
           <!-- Populated dynamically -->
         </tbody>
       </table>
+    </div>
+
+    <!-- Assign New Component Panel -->
+    <div class="sys-modal-section">
+      <span class="sys-modal-section-title d-block mb-2" style="font-weight: 800; font-size: 0.78rem; color: var(--accent);"><i class="bi bi-plus-circle-fill me-1"></i> Assign New Component</span>
+      <div id="assignNewComponentContainer" style="background: var(--surface-2); border: 1.5px dashed var(--border); border-radius: 12px; padding: 14px;">
+        <div class="row g-2">
+          <div class="col-12">
+            <label class="qty-field-label mb-1" for="newCompItem" style="font-size: 0.65rem;">Select Room Item (Available)</label>
+            <!-- Live Search Bar -->
+            <div class="input-group input-group-sm mb-2">
+              <span class="input-group-text bg-white border-end-0" style="padding: 4px 8px; font-size: 0.75rem; border-color: var(--border);"><i class="bi bi-search text-muted"></i></span>
+              <input type="text" id="searchNewCompItem" class="form-control border-start-0" style="font-size: 0.75rem; padding: 4px 8px; border-color: var(--border);" placeholder="Search item..." oninput="filterNewCompItemSelect(this.value)">
+            </div>
+            <select id="newCompItem" class="sys-form-control" style="background:#fff; font-size: 0.8rem; padding: 7px 10px;" onchange="handleNewCompItemChange(this)">
+              <option value="">-- Choose Item --</option>
+            </select>
+          </div>
+          <div class="col-12 mt-1">
+            <label class="qty-field-label mb-1" style="font-size: 0.65rem;">Quantity to Assign</label>
+            <div class="d-flex align-items-center gap-2">
+              <button type="button" class="qty-step" style="width: 32px; height: 32px; font-size: 1.1rem; padding: 0; line-height: 1; border-radius: 6px;" onclick="stepNewCompQty(-1)">-</button>
+              <input type="number" id="newCompQtyInput" class="sys-form-control text-center" style="width: 60px; height: 32px; font-size: 0.85rem; font-weight: bold; padding: 4px;" min="1" value="1" oninput="syncNewCompQtyInput()">
+              <button type="button" class="qty-step" style="width: 32px; height: 32px; font-size: 1.1rem; padding: 0; line-height: 1; border-radius: 6px;" onclick="stepNewCompQty(1)">+</button>
+              <span class="text-muted small ms-2" style="font-size: 0.7rem; font-weight: 600;" id="newCompQtyLimitText">(Max: 0 available)</span>
+            </div>
+          </div>
+          <div class="col-6 mt-2">
+            <label class="qty-field-label mb-1" for="newCompType" style="font-size: 0.65rem;">Component Type</label>
+            <select id="newCompType" class="sys-form-control" style="background:#fff; font-size: 0.8rem; padding: 7px 10px;">
+              <option value="mouse">Mouse</option>
+              <option value="keyboard">Keyboard</option>
+              <option value="monitor">Monitor</option>
+              <option value="cpu">CPU</option>
+              <option value="ups">UPS</option>
+              <option value="printer">Printer</option>
+              <option value="scanner">Scanner</option>
+              <option value="projector">Projector</option>
+              <option value="router">Router</option>
+              <option value="switch">Switch</option>
+              <option value="firewall">Firewall</option>
+              <option value="server">Server</option>
+              <option value="storage">Storage</option>
+              <option value="network">Network</option>
+              <option value="other">Other</option>
+            </select>
+          </div>
+          <div class="col-6 mt-2">
+            <label class="qty-field-label mb-1" for="newCompStatus" style="font-size: 0.65rem;">Status</label>
+            <select id="newCompStatus" class="sys-form-control" style="background:#fff; font-size: 0.8rem; padding: 7px 10px;">
+              <option value="active" selected>Active</option>
+              <option value="inactive">Inactive</option>
+              <option value="under_maintenance">Under Maintenance</option>
+            </select>
+          </div>
+          <div class="col-12 mt-2">
+            <label class="qty-field-label mb-1" for="newCompSerial" style="font-size: 0.65rem;">Serial Number</label>
+            <input type="text" id="newCompSerial" class="sys-form-control" style="font-size: 0.8rem; padding: 7px 10px;" placeholder="Enter Serial or leave blank for auto-gen">
+          </div>
+          <div class="col-12 mt-2">
+            <button type="button" class="sys-btn primary py-2 px-3 w-100" id="btnAssignNewComp" onclick="submitNewComponentAssignment()" style="height: auto; font-size: 0.82rem; justify-content: center; font-weight: bold; border-radius: 8px;">
+              <i class="bi bi-plus-lg"></i> Assign Component
+            </button>
+          </div>
+        </div>
+      </div>
     </div>
 
     <div class="sys-modal-actions" style="margin-top: 14px;">
@@ -834,10 +913,57 @@ function confirmCreateAutomatedSystem() {
   .catch(() => showSysToast("Network error. Please try again.", false));
 }
 
+let currentModalSystemId = null;
+
 // System Detail Loader Modal
 function openSystemDetailModal(systemId, systemName) {
+  currentModalSystemId = systemId;
   const dataEl = document.getElementById(`system-components-${systemId}`);
   if (!dataEl) return;
+  
+  // Reset form
+  const itemSelect = document.getElementById('newCompItem');
+  const typeSelect = document.getElementById('newCompType');
+  const statusSelect = document.getElementById('newCompStatus');
+  const serialInput = document.getElementById('newCompSerial');
+  const submitBtn = document.getElementById('btnAssignNewComp');
+  const searchInput = document.getElementById('searchNewCompItem');
+  const qtyInput = document.getElementById('newCompQtyInput');
+  const limitText = document.getElementById('newCompQtyLimitText');
+  
+  if (searchInput) searchInput.value = "";
+  if (itemSelect) itemSelect.value = "";
+  if (typeSelect) typeSelect.value = "mouse";
+  if (statusSelect) statusSelect.value = "active";
+  if (serialInput) serialInput.value = "";
+  if (qtyInput) {
+    qtyInput.value = 1;
+    qtyInput.max = 1;
+  }
+  if (limitText) limitText.textContent = "(Max: 0 available)";
+  if (submitBtn) {
+    submitBtn.disabled = false;
+    submitBtn.innerHTML = '<i class="bi bi-plus-lg"></i> Assign Component';
+  }
+
+  // Populate items
+  const roomItemsEl = document.getElementById('room-items-json');
+  if (itemSelect && roomItemsEl) {
+    try {
+      const roomItems = JSON.parse(roomItemsEl.textContent);
+      itemSelect.innerHTML = '<option value="">-- Choose Item --</option>';
+      roomItems.forEach(item => {
+        if (item.available_count > 0) {
+          const opt = document.createElement('option');
+          opt.value = item.id;
+          opt.textContent = `${item.item_name} (${item.available_count} available)`;
+          itemSelect.appendChild(opt);
+        }
+      });
+    } catch (e) {
+      console.error("Error parsing room items JSON", e);
+    }
+  }
   
   try {
     const components = JSON.parse(dataEl.textContent);
@@ -863,7 +989,7 @@ function openSystemDetailModal(systemId, systemName) {
           <td><span class="badge bg-${statusBadgeClass} text-uppercase" style="font-size:0.65rem;">${comp.status}</span></td>
           <td>
             <button class="btn btn-sm btn-outline-danger py-0 px-2" onclick="revertSystemComponent(${comp.id}, '${comp.item_name.replace(/'/g, "\\'")}', this)" style="font-size:0.68rem; font-weight:700;">
-              <i class="bi bi-arrow-counterclockwise"></i> Revert
+               <i class="bi bi-arrow-counterclockwise"></i> Revert
             </button>
           </td>
         `;
@@ -877,6 +1003,182 @@ function openSystemDetailModal(systemId, systemName) {
   } catch (e) {
     showSysToast("Failed to load components details.", false);
   }
+}
+
+function autoFillComponentType(selectEl) {
+  const itemId = selectEl.value;
+  if (!itemId) return;
+  
+  const roomItemsEl = document.getElementById('room-items-json');
+  if (!roomItemsEl) return;
+  
+  try {
+    const roomItems = JSON.parse(roomItemsEl.textContent);
+    const item = roomItems.find(i => i.id == itemId);
+    if (!item) return;
+    
+    const catName = item.category_name.toLowerCase();
+    const typeSelect = document.getElementById('newCompType');
+    
+    let matched = 'other';
+    for (let opt of typeSelect.options) {
+      const val = opt.value.toLowerCase();
+      if (catName.includes(val) || val.includes(catName)) {
+        matched = opt.value;
+        break;
+      }
+    }
+    typeSelect.value = matched;
+  } catch (e) {
+    console.error("Error auto-filling component type", e);
+  }
+}
+
+function filterNewCompItemSelect(q) {
+  q = q.toLowerCase();
+  const itemSelect = document.getElementById('newCompItem');
+  const roomItemsEl = document.getElementById('room-items-json');
+  if (!itemSelect || !roomItemsEl) return;
+  
+  try {
+    const roomItems = JSON.parse(roomItemsEl.textContent);
+    const currentValue = itemSelect.value;
+    
+    itemSelect.innerHTML = '<option value="">-- Choose Item --</option>';
+    roomItems.forEach(item => {
+      if (item.available_count > 0 && item.item_name.toLowerCase().includes(q)) {
+        const opt = document.createElement('option');
+        opt.value = item.id;
+        opt.textContent = `${item.item_name} (${item.available_count} available)`;
+        if (item.id == currentValue) opt.selected = true;
+        itemSelect.appendChild(opt);
+      }
+    });
+  } catch (e) {
+    console.error("Error filtering room items select", e);
+  }
+}
+
+function handleNewCompItemChange(selectEl) {
+  const itemId = selectEl.value;
+  const qtyInput = document.getElementById('newCompQtyInput');
+  const limitText = document.getElementById('newCompQtyLimitText');
+  
+  if (!itemId) {
+    if (qtyInput) {
+      qtyInput.value = 1;
+      qtyInput.max = 1;
+    }
+    if (limitText) limitText.textContent = "(Max: 0 available)";
+    return;
+  }
+  
+  autoFillComponentType(selectEl);
+  
+  const roomItemsEl = document.getElementById('room-items-json');
+  if (roomItemsEl) {
+    try {
+      const roomItems = JSON.parse(roomItemsEl.textContent);
+      const item = roomItems.find(i => i.id == itemId);
+      if (item) {
+        const maxVal = item.available_count;
+        if (qtyInput) {
+          qtyInput.value = 1;
+          qtyInput.max = maxVal;
+        }
+        if (limitText) {
+          limitText.textContent = `(Max: ${maxVal} available)`;
+        }
+      }
+    } catch (e) {}
+  }
+}
+
+function stepNewCompQty(delta) {
+  const qtyInput = document.getElementById('newCompQtyInput');
+  if (!qtyInput) return;
+  const maxVal = parseInt(qtyInput.max, 10) || 1;
+  let val = parseInt(qtyInput.value, 10) || 1;
+  val = Math.max(1, Math.min(maxVal, val + delta));
+  qtyInput.value = val;
+}
+
+function syncNewCompQtyInput() {
+  const qtyInput = document.getElementById('newCompQtyInput');
+  if (!qtyInput) return;
+  const maxVal = parseInt(qtyInput.max, 10) || 1;
+  let val = parseInt(qtyInput.value, 10);
+  if (isNaN(val) || val < 1) {
+    qtyInput.value = 1;
+  } else if (val > maxVal) {
+    qtyInput.value = maxVal;
+  }
+}
+
+function submitNewComponentAssignment() {
+  if (!currentModalSystemId) {
+    showSysToast("No active system selected.", false);
+    return;
+  }
+  
+  const itemId = document.getElementById('newCompItem').value;
+  const compType = document.getElementById('newCompType').value;
+  const status = document.getElementById('newCompStatus').value;
+  const serial = document.getElementById('newCompSerial').value.trim();
+  const qty = parseInt(document.getElementById('newCompQtyInput').value, 10) || 1;
+  const submitBtn = document.getElementById('btnAssignNewComp');
+  
+  if (!itemId) {
+    showSysToast("Please select an item to assign.", false);
+    return;
+  }
+  
+  if (submitBtn) {
+    submitBtn.disabled = true;
+    submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Assigning...';
+  }
+  
+  const payload = {
+    component_item_id: parseInt(itemId, 10),
+    component_type: compType,
+    status: status,
+    serial_number: serial,
+    quantity: qty
+  };
+  
+  let url = "{% url 'room_incharge:systems_add_component' room_slug=room_slug pk=999999 %}";
+  url = url.replace('999999', currentModalSystemId);
+  
+  fetch(url, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-CSRFToken': getCsrf(),
+      'X-Requested-With': 'XMLHttpRequest'
+    },
+    body: JSON.stringify(payload)
+  })
+  .then(res => res.json().then(data => ({ ok: res.ok, data })))
+  .then(({ ok, data }) => {
+    if (!ok || !data.success) {
+      showSysToast(data.error || "Assignment failed.", false);
+      if (submitBtn) {
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = '<i class="bi bi-plus-lg"></i> Assign Component';
+      }
+      return;
+    }
+    showSysToast(`Successfully assigned component(s) to system!`);
+    closeSysDetailModal();
+    setTimeout(() => window.location.reload(), 450);
+  })
+  .catch(() => {
+    showSysToast("Network error. Please try again.", false);
+    if (submitBtn) {
+      submitBtn.disabled = false;
+      submitBtn.innerHTML = '<i class="bi bi-plus-lg"></i> Assign Component';
+    }
+  });
 }
 
 function revertSystemComponent(componentId, itemName, btn) {

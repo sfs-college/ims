@@ -1153,20 +1153,13 @@
             const path = window.location.pathname;
             const suppressFooterNav = (
                 window.SUPPRESS_MOBILE_FOOTER === true ||
-                // In Capacitor mode, suppress footer on student-facing pages entirely
-                // (app_home has its own nav, portal_login/issue_report/issue_report_success
-                //  are full-screen pages that don't need a footer nav)
-                (window.IS_CAPACITOR && (
-                    path === '/' ||
-                    path === '/core/app/' ||
-                    path.startsWith('/core/app') ||
-                    path.includes('/students/') ||
-                    path.includes('/student/')
-                )) ||
+                // Suppress mobile footer nav universally on landing page, student portal, and app_home
                 path === '/' ||
                 path === '/core/app/' ||
                 path.startsWith('/core/app') ||
                 path.endsWith('/app/') ||
+                path.includes('/students/') ||
+                path.includes('/student/') ||
                 path.includes('/core/book-room') ||
                 path.includes('/book-room') ||
                 document.getElementById('appScreen') !== null ||

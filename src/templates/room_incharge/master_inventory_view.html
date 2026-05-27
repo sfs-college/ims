@@ -494,21 +494,6 @@ function toggleEditMode() {
     if (costState !== 0) {
       document.querySelectorAll('#inventoryTable td[data-col="cost"]').forEach(td => syncCostDisplay(td));
     }
-  } else {
-    // Fast, lightweight sync of simple text elements when closing Edit Mode (completely avoids heavy recalculations)
-    document.querySelectorAll('#inventoryTable tbody tr').forEach(tr => {
-      tr.querySelectorAll('input.mi-edit').forEach(input => {
-        const td = input.closest('td');
-        const col = td.getAttribute('data-col');
-        if (col !== 'stock' && col !== 'cost') {
-          const val = input.value.trim();
-          const viewEl = input.previousElementSibling;
-          if (viewEl) {
-            viewEl.textContent = val || '-';
-          }
-        }
-      });
-    });
   }
 }
 
@@ -761,25 +746,93 @@ function saveItemListed(chk, itemId) {
   });
 }
 
+let currentPage = 1;
+let rowsPerPage = 50;
+let allRows = [];
+let filteredRows = [];
+
+function initPagination() {
+    const tableBody = document.querySelector('#inventoryTable tbody');
+    if (!tableBody) return;
+    
+    // Get all rows except the manual entry row
+    allRows = Array.from(tableBody.querySelectorAll('tr')).filter(row => row.id !== 'manualEntryRow');
+    filteredRows = [...allRows];
+    
+    showPage(1);
+    renderPaginationControls();
+}
+
+function showPage(page) {
+    currentPage = page;
+    const startIndex = (page - 1) * rowsPerPage;
+    const endIndex = startIndex + rowsPerPage;
+    
+    allRows.forEach(row => row.style.display = 'none');
+    
+    const visible = filteredRows.slice(startIndex, endIndex);
+    visible.forEach(row => {
+        row.style.display = '';
+    });
+}
+
+function renderPaginationControls() {
+    let controls = document.getElementById('inventoryPagination');
+    if (!controls) {
+        controls = document.createElement('div');
+        controls.id = 'inventoryPagination';
+        controls.className = 'd-flex justify-content-between align-items-center mt-3 px-3';
+        controls.style.fontSize = '0.85rem';
+        
+        const card = document.querySelector('.mi-card');
+        card.parentNode.insertBefore(controls, card.nextSibling);
+    }
+    
+    const totalPages = Math.ceil(filteredRows.length / rowsPerPage) || 1;
+    
+    controls.innerHTML = `
+        <div class="text-muted">Showing ${filteredRows.length === 0 ? 0 : (currentPage - 1) * rowsPerPage + 1}-${Math.min(filteredRows.length, currentPage * rowsPerPage)} of ${filteredRows.length} items</div>
+        <div class="d-flex gap-2">
+            <button class="mi-btn" onclick="prevPage()" ${currentPage === 1 ? 'disabled style="opacity:0.5; cursor:not-allowed;"' : ''}>Previous</button>
+            <span class="d-flex align-items-center px-2 fw-bold text-dark">Page ${currentPage} of ${totalPages}</span>
+            <button class="mi-btn" onclick="nextPage()" ${currentPage === totalPages ? 'disabled style="opacity:0.5; cursor:not-allowed;"' : ''}>Next</button>
+        </div>
+    `;
+}
+
+function prevPage() {
+    if (currentPage > 1) {
+        showPage(currentPage - 1);
+        renderPaginationControls();
+    }
+}
+
+function nextPage() {
+    const totalPages = Math.ceil(filteredRows.length / rowsPerPage) || 1;
+    if (currentPage < totalPages) {
+        showPage(currentPage + 1);
+        renderPaginationControls();
+    }
+}
+
 function filterMasterInventory() {
   const query = document.getElementById('masterSearchInput').value.toLowerCase().trim();
-  const rows = document.querySelectorAll('#inventoryTable tbody tr');
-  rows.forEach(row => {
-    if (row.id === 'manualEntryRow') return;
-    
+  
+  filteredRows = allRows.filter(row => {
     const productCode = row.cells[0]?.textContent.toLowerCase() || '';
     const itemName = row.cells[1]?.textContent.toLowerCase() || '';
     const category = row.cells[2]?.textContent.toLowerCase() || '';
     const brand = row.cells[3]?.textContent.toLowerCase() || '';
     
     const textToMatch = `${productCode} ${itemName} ${category} ${brand}`;
-    
-    if (textToMatch.includes(query)) {
-      row.style.display = '';
-    } else {
-      row.style.display = 'none';
-    }
+    return textToMatch.includes(query);
   });
+  
+  showPage(1);
+  renderPaginationControls();
 }
+
+// Initialize pagination on DOM load
+document.addEventListener('DOMContentLoaded', initPagination);
 </script>
 {% endblock content %}

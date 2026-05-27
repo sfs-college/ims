@@ -95,7 +95,7 @@
     <h1>Sign-In Successful!</h1>
     <p>You've been authenticated. Redirecting you back to the Blixtro app...</p>
 
-    <a href="in.sfscollege.blixtro://auth?status=success" class="open-app-btn" id="openAppBtn">
+    <a href="in.sfscollege.blixtro://auth?status=success{% if token %}&token={{ token }}{% endif %}" class="open-app-btn" id="openAppBtn">
       <span class="spinner"></span> Opening App...
     </a>
 
@@ -108,10 +108,11 @@
   <script>
     // Attempt to open the app via deep link immediately
     (function() {
-      var deepLink = 'in.sfscollege.blixtro://auth?status=success';
+      var tokenQuery = '{% if token %}&token={{ token }}{% endif %}';
+      var deepLink = 'in.sfscollege.blixtro://auth?status=success' + tokenQuery;
 
       // Try 1: Use an intent URI on Android for more reliable app opening
-      var intentUri = 'intent://auth?status=success#Intent;'
+      var intentUri = 'intent://auth?status=success' + tokenQuery + '#Intent;'
         + 'scheme=in.sfscollege.blixtro;'
         + 'package=in.sfscollege.blixtro;'
         + 'end';

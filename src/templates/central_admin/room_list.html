@@ -1182,61 +1182,46 @@ async function _tryShareFile(uri, filename, mimeType) {
 
 async function exportRooms(type) {
     var isCapacitor = window.IS_CAPACITOR || (window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
+    var now = new Date();
+    var slug = getFilterLabel().toLowerCase().replace(/\s+/g, '_');
 
     if (type === 'pdf') {
         if (isCapacitor && window.DownloadManager) {
             try {
                 var doc = _buildPDFDoc();
-                var pdfBlob = _pdfToBlob(doc); // Blob path — most reliable
-                var now = new Date();
-                var slug = getFilterLabel().toLowerCase().replace(/\s+/g, '_');
+                // Use jsPDF's built-in robust base64 generation
+                var dataUri = doc.output('datauristring');
+                var pdfBase64 = dataUri.split(',')[1];
                 var filename = 'room_report_' + slug + '_' + now.toISOString().slice(0,10) + '.pdf';
-                // openAfterDownload: false — we share manually after save for reliability
+                
                 var result = await window.DownloadManager.download('', filename, {
-                    blob: pdfBlob,
+                    base64Data: pdfBase64,
                     mimeType: 'application/pdf',
                     openAfterDownload: false
                 });
-                // Try Share API to let user open/save the file
                 if (result && result.uri) {
                     await _tryShareFile(result.uri, filename, 'application/pdf');
                 }
             } catch(e) {
                 console.error('[exportRooms] PDF Capacitor error:', e);
-                // Fallback: base64 approach
-                try {
-                    var doc2 = _buildPDFDoc();
-                    var pdfBase64 = _pdfToBase64(doc2);
-                    var now2 = new Date();
-                    var slug2 = getFilterLabel().toLowerCase().replace(/\s+/g, '_');
-                    var filename2 = 'room_report_' + slug2 + '_' + now2.toISOString().slice(0,10) + '.pdf';
-                    await window.DownloadManager.download('', filename2, {
-                        base64Data: pdfBase64,
-                        mimeType: 'application/pdf',
-                        openAfterDownload: false
-                    });
-                } catch(e2) {
-                    console.error('[exportRooms] PDF base64 fallback error:', e2);
-                    exportPDF(); // last resort browser save
-                }
+                exportPDF(); // browser fallback
             }
         } else {
             exportPDF(); // browser: triggers normal file-save dialog
         }
     }
+    
     if (type === 'excel') {
         if (isCapacitor && window.DownloadManager) {
             try {
                 var wb = _buildExcelWorkbook();
-                var now = new Date();
-                var slug = getFilterLabel().toLowerCase().replace(/\s+/g, '_');
+                // Use SheetJS's built-in robust base64 generation
+                var excelBase64 = XLSX.write(wb, { bookType: 'xlsx', type: 'base64' });
                 var filename = 'room_report_' + slug + '_' + now.toISOString().slice(0,10) + '.xlsx';
-                // Build Blob directly from array output — most reliable binary approach
                 var mimeXlsx = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
-                var xlsxArray = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
-                var xlsxBlob = new Blob([xlsxArray], { type: mimeXlsx });
+
                 var result = await window.DownloadManager.download('', filename, {
-                    blob: xlsxBlob,
+                    base64Data: excelBase64,
                     mimeType: mimeXlsx,
                     openAfterDownload: false
                 });
@@ -1245,22 +1230,7 @@ async function exportRooms(type) {
                 }
             } catch(e) {
                 console.error('[exportRooms] Excel Capacitor error:', e);
-                // Fallback: base64 approach
-                try {
-                    var wb2 = _buildExcelWorkbook();
-                    var excelBase64 = XLSX.write(wb2, { bookType: 'xlsx', type: 'base64' });
-                    var now2 = new Date();
-                    var slug2 = getFilterLabel().toLowerCase().replace(/\s+/g, '_');
-                    var filename2 = 'room_report_' + slug2 + '_' + now2.toISOString().slice(0,10) + '.xlsx';
-                    await window.DownloadManager.download('', filename2, {
-                        base64Data: excelBase64,
-                        mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-                        openAfterDownload: false
-                    });
-                } catch(e2) {
-                    console.error('[exportRooms] Excel base64 fallback error:', e2);
-                    exportExcel(); // last resort browser save
-                }
+                exportExcel(); // browser fallback
             }
         } else {
             exportExcel(); // browser: triggers normal file-save dialog

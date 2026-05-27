@@ -1,4 +1,4 @@
-﻿{% extends 'sidebar_base.html' %}
+{% extends 'sidebar_base.html' %}
 {% load static %}
 
 {% block title %} | Book a Venue{% endblock title %}
@@ -634,16 +634,24 @@ function toggleOthers(cb) {
 
 // ── Room grid ─────────────────────────────────────────────────────────
 let selectedRoomIds = [];
+let lastStart = '';
+let lastEnd = '';
 
 function loadRooms(category) {
   if (!category) return;
   const grid = document.getElementById('roomGrid');
   grid.innerHTML = '<p class="text-muted small" style="font-size:0.78rem;">Loading rooms…</p>';
-  selectedRoomIds = [];
-  updateRoomSummary();
 
   const startVal = document.getElementById('id_start_datetime').value;
   const endVal   = document.getElementById('id_end_datetime').value;
+
+  if (startVal !== lastStart || endVal !== lastEnd) {
+    selectedRoomIds = [];
+    lastStart = startVal;
+    lastEnd = endVal;
+  }
+  updateRoomSummary();
+
   let url = '/core/api/rooms-by-category/?category=' + encodeURIComponent(category);
   if (startVal) url += '&start=' + encodeURIComponent(startVal);
   if (endVal)   url += '&end='   + encodeURIComponent(endVal);
@@ -673,6 +681,9 @@ function loadRooms(category) {
           '<div class="room-item-name">' + (room.name || room.room_name || '') + '</div>' +
           '<div class="room-item-meta">' + (room.capacity ? 'Capacity: ' + room.capacity : '') + '</div>';
         if (!isBooked && !isPending) {
+          if (selectedRoomIds.includes(room.id)) {
+            div.classList.add('selected');
+          }
           div.addEventListener('click', () => toggleRoom(div, room.id));
         }
         grid.appendChild(div);

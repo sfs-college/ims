@@ -623,7 +623,7 @@ def get_assignment_details(request):
 
         return JsonResponse({
             'master_stats': {
-                'total': master_item.total_count,
+                'total': master_item.total_count + assigned_total,
                 'available': master_item.available_count,
                 'assigned': assigned_total
             },
@@ -2992,7 +2992,7 @@ def revert_inventory_data(request, *args, **kwargs):
 
     items_qs = Item.objects.filter(
         organisation=org,
-        room__in=rooms_qs,
+        room__isnull=False,
         is_listed=True,
         total_count__gt=0,
     ).select_related('category', 'brand', 'room', 'room__incharge').order_by('item_name')
@@ -3012,7 +3012,7 @@ def revert_inventory_data(request, *args, **kwargs):
         'assigned_to': str(item.room.incharge) if (item.room and item.room.incharge) else 'Unassigned',
     } for item in items_qs]
 
-    history_qs = InventoryRevertHistory.objects.filter(organisation=org, room__in=rooms_qs)
+    history_qs = InventoryRevertHistory.objects.filter(organisation=org).order_by('-reverted_on')
 
     history = [{
         'id': h.id,
