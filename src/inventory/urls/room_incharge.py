@@ -59,6 +59,7 @@ urlpatterns = [
     path('rooms/<slug:room_slug>/api/systems/create-automated/', room_incharge.SystemAutomatedCreateView.as_view(), name='systems_create_automated'),
     path('rooms/<slug:room_slug>/api/systems/<int:pk>/delete/', room_incharge.SystemDeleteView.as_view(), name='systems_delete'),
     path('rooms/<slug:room_slug>/api/systems/components/<int:pk>/revert/', room_incharge.SystemComponentRevertView.as_view(), name='systems_revert_component'),
+    path('rooms/<slug:room_slug>/api/systems/<int:pk>/components/add/', room_incharge.SystemComponentAddView.as_view(), name='systems_add_component'),
 
     # Configurations
     path('rooms/<slug:room_slug>/configurations/', room_incharge.ConfigurationsListView.as_view(), name='configurations_list'),

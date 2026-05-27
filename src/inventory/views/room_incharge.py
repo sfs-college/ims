@@ -2506,6 +2506,106 @@ class SystemComponentRevertView(LoginRequiredMixin, View):
         })
 
 
+class SystemComponentAddView(LoginRequiredMixin, View):
+    """
+    POST /rooms/<room_slug>/api/systems/<int:pk>/components/add/
+    Request JSON: {
+        'component_item_id': int,
+        'component_type': str,
+        'serial_number': str,
+        'status': str,
+        'quantity': int
+    }
+    """
+    def post(self, request, room_slug, pk):
+        import json
+        from django.db import transaction as _tx
+        from django.db.models import F
+        from inventory.models import Room, System, Item, SystemComponent
+
+        profile = request.user.profile
+        if profile.is_central_admin or profile.is_sub_admin:
+            room = get_object_or_404(Room, slug=room_slug, organisation=profile.org)
+        else:
+            room = get_object_or_404(Room, slug=room_slug, incharge=profile)
+
+        system = get_object_or_404(System, pk=pk, room=room)
+        
+        try:
+            data = json.loads(request.body)
+        except json.JSONDecodeError:
+            return JsonResponse({'error': 'Invalid JSON'}, status=400)
+            
+        item_id = data.get('component_item_id')
+        comp_type = data.get('component_type')
+        serial_number = data.get('serial_number', '').strip()
+        status = data.get('status', 'active')
+        try:
+            quantity = int(data.get('quantity', 1))
+        except (ValueError, TypeError):
+            quantity = 1
+        
+        if quantity < 1:
+            return JsonResponse({'error': 'Quantity must be at least 1.'}, status=400)
+        if not item_id or not comp_type:
+            return JsonResponse({'error': 'Item and component type are required.'}, status=400)
+            
+        with _tx.atomic():
+            item = get_object_or_404(Item.objects.select_for_update(), id=item_id, room=room)
+            
+            if item.available_count < quantity:
+                return JsonResponse({'error': f'Insufficient stock. Only {item.available_count} units available for "{item.item_name}".'}, status=400)
+                
+            base_sn = item.serial_number or f"{item.item_name[:10].upper()}-SN"
+            
+            # Create components in a loop
+            for u in range(quantity):
+                if not serial_number:
+                    # Generate unique sequential serial number
+                    comp_count = SystemComponent.objects.filter(system=system, component_item=item).count()
+                    u_serial = f"{base_sn}-{system.system_name}-{comp_count + 1}".replace(' ', '')
+                else:
+                    if quantity == 1:
+                        u_serial = serial_number
+                    else:
+                        u_serial = f"{serial_number}-{u + 1}".replace(' ', '')
+                
+                # Verify unique together: system, component_type, serial_number
+                if SystemComponent.objects.filter(system=system, component_type=comp_type, serial_number=u_serial).exists():
+                    return JsonResponse({'error': f'A component with serial number "{u_serial}" already exists in this system.'}, status=400)
+                
+                SystemComponent.objects.create(
+                    system=system,
+                    component_item=item,
+                    component_type=comp_type,
+                    serial_number=u_serial,
+                    status=status
+                )
+            
+            # Dynamically increment matching status counters and decrement available count
+            update_fields = {}
+            if status == 'active':
+                update_fields['active_count'] = F('active_count') + quantity
+                update_fields['in_use'] = F('in_use') + quantity
+            elif status == 'inactive':
+                update_fields['inactive_count'] = F('inactive_count') + quantity
+            elif status == 'under_maintenance':
+                update_fields['archived_count'] = F('archived_count') + quantity
+                update_fields['serviceable_count'] = F('serviceable_count') + quantity
+            elif status == 'disposed':
+                update_fields['archived_count'] = F('archived_count') + quantity
+                update_fields['unserviceable_count'] = F('unserviceable_count') + quantity
+                
+            update_fields['available_count'] = F('available_count') - quantity
+            
+            Item.objects.filter(pk=item.pk).update(**update_fields)
+            
+        return JsonResponse({
+            'success': True,
+            'message': f'Successfully assigned {quantity} component(s) of "{item.item_name}" to system "{system.system_name}".'
+        })
+
+
 # ═══════════════════════════════════════════════════════════════
 # ARCHIVE STATUS UPDATE
 # ═══════════════════════════════════════════════════════════════

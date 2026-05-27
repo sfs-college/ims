@@ -242,6 +242,24 @@ class RoomBookingForm(forms.ModelForm):
             self.add_error('room_ids', 'One or more selected rooms could not be found.')
             return cleaned_data
 
+        # Double-check room availability / conflicts for all selected rooms
+        if start and end and selected_rooms:
+            overlapping_bookings = RoomBooking.objects.filter(
+                Q(room__in=selected_rooms) | Q(rooms__in=selected_rooms),
+                start_datetime__lt=end,
+                end_datetime__gt=start,
+            ).exclude(status='cancelled')
+            
+            if self.instance and self.instance.pk:
+                overlapping_bookings = overlapping_bookings.exclude(pk=self.instance.pk)
+            
+            if overlapping_bookings.exists():
+                self.add_error('room_ids', 'One or more of the selected rooms are already booked for this time slot.')
+                return cleaned_data
+
+        cleaned_data['selected_rooms'] = selected_rooms
+        return cleaned_data
+
 
 class AdminRoomBookingForm(RoomBookingForm):
     """
@@ -284,7 +302,23 @@ class AdminRoomBookingForm(RoomBookingForm):
             self.add_error(None, 'One or more selected rooms could not be found.')
             return cleaned_data
 
+        # Double-check room availability / conflicts for all selected rooms
+        if start and end and selected_rooms:
+            overlapping_bookings = RoomBooking.objects.filter(
+                Q(room__in=selected_rooms) | Q(rooms__in=selected_rooms),
+                start_datetime__lt=end,
+                end_datetime__gt=start,
+            ).exclude(status='cancelled')
+            
+            if self.instance and self.instance.pk:
+                overlapping_bookings = overlapping_bookings.exclude(pk=self.instance.pk)
+            
+            if overlapping_bookings.exists():
+                self.add_error(None, 'One or more of the selected rooms are already booked for this time slot.')
+                return cleaned_data
+
         cleaned_data['room_ids'] = room_ids
+        cleaned_data['selected_rooms'] = selected_rooms
         return cleaned_data
 
 

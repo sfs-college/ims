@@ -1090,6 +1090,8 @@ let sessionEmail    = '';
 let sessionPassword = '';
 let selectedRoomIds = [];
 let selectedRoomMap = {};
+let lastStart = '';
+let lastEnd = '';
 
 function updateSelectedRoomsSummary() {
     const roomField = document.getElementById('id_room');
@@ -1219,17 +1221,23 @@ function loadRooms() {
     const category = document.getElementById("id_category").value;
     const start    = document.getElementById("id_start_datetime").value;
     const end      = document.getElementById("id_end_datetime").value;
-    const previousSelection = new Set(selectedRoomIds.map(String));
 
     if (!category || !start || !end) {
         selectedRoomIds = [];
         selectedRoomMap = {};
         updateSelectedRoomsSummary();
+        lastStart = '';
+        lastEnd = '';
         return;
     }
 
-    selectedRoomIds = [];
-    selectedRoomMap = {};
+    if (start !== lastStart || end !== lastEnd) {
+        selectedRoomIds = [];
+        selectedRoomMap = {};
+        lastStart = start;
+        lastEnd = end;
+    }
+
     updateSelectedRoomsSummary();
 
     const params = new URLSearchParams({ category, start, end });
@@ -1274,9 +1282,8 @@ function loadRooms() {
                 `;
                 if (cardClass === 'available') {
                     const roomDisplay = `${room.label} - ${room.name}`;
-                    if (previousSelection.has(String(room.id))) {
+                    if (selectedRoomIds.includes(String(room.id))) {
                         roomDiv.classList.add("selected");
-                        selectedRoomIds.push(String(room.id));
                         selectedRoomMap[String(room.id)] = roomDisplay;
                     }
                     roomDiv.onclick = () => {
@@ -1288,7 +1295,9 @@ function loadRooms() {
                             delete selectedRoomMap[roomId];
                         } else {
                             roomDiv.classList.add("selected");
-                            selectedRoomIds.push(roomId);
+                            if (!selectedRoomIds.includes(roomId)) {
+                                selectedRoomIds.push(roomId);
+                            }
                             selectedRoomMap[roomId] = roomDisplay;
                         }
                         updateSelectedRoomsSummary();
@@ -1296,7 +1305,6 @@ function loadRooms() {
                 }
                 grid.appendChild(roomDiv);
             });
-            selectedRoomIds = Array.from(new Set(selectedRoomIds));
             updateSelectedRoomsSummary();
         })
         .catch(err => {
