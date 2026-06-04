@@ -411,6 +411,21 @@ def room_booking_view(request):
             import uuid as _uuid
             import os as _os
             booking_req = form.save(commit=False)
+
+            # Check for duplicate submission within the last 10 seconds
+            recent_duplicate = RoomBookingRequest.objects.filter(
+                faculty_email=booking_req.faculty_email,
+                start_datetime=booking_req.start_datetime,
+                end_datetime=booking_req.end_datetime,
+                created_on__gte=timezone.now() - timedelta(seconds=10)
+            )
+            if recent_duplicate.exists():
+                messages.error(
+                    request,
+                    "This booking request has already been submitted and is currently being processed."
+                )
+                return render(request, "booking/room_booking.html", {"form": form, "refreshment_options": REFRESHMENT_OPTIONS})
+
             selected_rooms = form.cleaned_data.get('selected_rooms', [])
             booking_req.status = 'pending'
             booking_req.workflow_stage = 'sub_admin'
@@ -642,6 +657,19 @@ def admin_room_booking_view(request):
 
             if start_dt and start_dt < now:
                 messages.error(request, "Past bookings are not accepted.")
+                return render(request, "booking/admin_room_booking.html", {
+                    "form": form, "refreshment_options": REFRESHMENT_OPTIONS
+                })
+
+            # Check for duplicate submission within the last 10 seconds
+            recent_duplicate = RoomBooking.objects.filter(
+                faculty_email=form.cleaned_data.get('faculty_email'),
+                start_datetime=start_dt,
+                end_datetime=end_dt,
+                created_on__gte=timezone.now() - timedelta(seconds=10)
+            )
+            if recent_duplicate.exists():
+                messages.error(request, "This booking has already been submitted and is currently being processed.")
                 return render(request, "booking/admin_room_booking.html", {
                     "form": form, "refreshment_options": REFRESHMENT_OPTIONS
                 })

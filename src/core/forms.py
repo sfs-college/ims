@@ -253,8 +253,17 @@ class RoomBookingForm(forms.ModelForm):
             if self.instance and self.instance.pk:
                 overlapping_bookings = overlapping_bookings.exclude(pk=self.instance.pk)
             
-            if overlapping_bookings.exists():
-                self.add_error('room_ids', 'One or more of the selected rooms are already booked for this time slot.')
+            overlapping_requests = RoomBookingRequest.objects.filter(
+                Q(room__in=selected_rooms) | Q(rooms__in=selected_rooms),
+                status='pending',
+                start_datetime__lt=end,
+                end_datetime__gt=start,
+            )
+            if self.instance and self.instance.pk:
+                overlapping_requests = overlapping_requests.exclude(pk=self.instance.pk)
+
+            if overlapping_bookings.exists() or overlapping_requests.exists():
+                self.add_error('room_ids', 'One or more of the selected rooms are already booked or have a pending request for this time slot.')
                 return cleaned_data
 
         cleaned_data['selected_rooms'] = selected_rooms
@@ -313,8 +322,17 @@ class AdminRoomBookingForm(RoomBookingForm):
             if self.instance and self.instance.pk:
                 overlapping_bookings = overlapping_bookings.exclude(pk=self.instance.pk)
             
-            if overlapping_bookings.exists():
-                self.add_error(None, 'One or more of the selected rooms are already booked for this time slot.')
+            overlapping_requests = RoomBookingRequest.objects.filter(
+                Q(room__in=selected_rooms) | Q(rooms__in=selected_rooms),
+                status='pending',
+                start_datetime__lt=end,
+                end_datetime__gt=start,
+            )
+            if self.instance and self.instance.pk:
+                overlapping_requests = overlapping_requests.exclude(pk=self.instance.pk)
+
+            if overlapping_bookings.exists() or overlapping_requests.exists():
+                self.add_error(None, 'One or more of the selected rooms are already booked or have a pending request for this time slot.')
                 return cleaned_data
 
         cleaned_data['room_ids'] = room_ids
