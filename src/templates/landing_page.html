@@ -17,8 +17,43 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
-  <title>Landing Page</title>
+
+  <!-- Primary SEO Meta Tags -->
+  <title>Blixtro | SFS College IMS</title>
+  <meta name="description" content="Blixtro IMS is the official student-led asset, inventory management, and venue booking system of St. Francis de Sales (SFS) College. Track inventory, schedule classrooms, labs, and halls, and report issues easily.">
+  <meta name="keywords" content="Blixtro, Blixtro IMS, Blixtro SFS, SFS College, inventory management, room booking system, student issue portal, St. Francis de Sales College, asset tracker">
+  <meta name="author" content="St. Francis de Sales College (SFS College)">
+  <link rel="canonical" href="https://blixtro.sfscollege.app/">
+
+  <!-- Open Graph / Facebook -->
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://blixtro.sfscollege.app/">
+  <meta property="og:title" content="Blixtro | SFS College Inventory & Booking System">
+  <meta property="og:description" content="Centralized asset inventory, room booking request tracking, and student issue portal at St. Francis de Sales College.">
   {% load static %}
+  <meta property="og:image" content="{% static 'images/Blixtro.png' %}">
+
+  <!-- Twitter -->
+  <meta property="twitter:card" content="summary_large_image">
+  <meta property="twitter:url" content="https://blixtro.sfscollege.app/">
+  <meta property="twitter:title" content="Blixtro | SFS College Inventory & Booking System">
+  <meta property="twitter:description" content="Centralized asset inventory, room booking request tracking, and student issue portal at St. Francis de Sales College.">
+  <meta property="twitter:image" content="{% static 'images/Blixtro.png' %}">
+
+  <!-- JSON-LD Structured Data for Search Engine Crawlers -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "WebApplication",
+    "name": "Blixtro IMS",
+    "url": "https://blixtro.sfscollege.app",
+    "description": "Blixtro is the official student-led asset, inventory management, and venue booking system for St. Francis de Sales (SFS) College. Track inventory, reserve rooms, and report issues easily.",
+    "applicationCategory": "BusinessApplication",
+    "operatingSystem": "All",
+    "browserRequirements": "Requires HTML5 compatible browser"
+  }
+  </script>
+
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet"
     integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
@@ -287,7 +322,7 @@
     <div class="row hero text-center mt-5">
       <div class="col info">
         <div class="content">
-          <h1>Blixtro SFS Management System</h1>
+          <h1>Blixtro SFS IMS | Inventory & Room Booking System</h1>
           <p>Smart management of <strong>inventory</strong>, <strong>student issues</strong>, and <strong>room bookings</strong> — track stock, report problems, and book venues all in one place.</p>
           <a href="{% url 'core:register' %}" class="btn btn-custom mt-3">Get Started Free</a>
         </div>

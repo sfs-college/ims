@@ -1373,9 +1373,12 @@ function checkFileNameUnique(filename, callback) {
         .catch(() => callback(true)); // fail open — server-side will catch it
 }
 
+let isSubmitting = false;
+
 // ── Form submission with all validations ──
 document.getElementById('bookingForm').addEventListener('submit', function(e) {
     e.preventDefault();
+    if (isSubmitting) return;
 
     const name     = document.querySelector('[name="faculty_name"]') ? document.querySelector('[name="faculty_name"]').value.trim() : '';
     const email    = document.getElementById('hid_faculty_email').value.trim();
@@ -1435,11 +1438,14 @@ document.getElementById('bookingForm').addEventListener('submit', function(e) {
         return;
     }
 
+    isSubmitting = true;
+
     // File name uniqueness validation
     if (isAttach && hasFile) {
         const filename = fileInput.files[0].name;
         checkFileNameUnique(filename, (isUnique) => {
             if (!isUnique) {
+                isSubmitting = false;
                 showValidationPopup(
                     `⚠ The file name <strong>"${filename}"</strong> already exists in the system.<br><br>` +
                     `Please rename your file to something unique before uploading. ` +
@@ -1456,6 +1462,7 @@ document.getElementById('bookingForm').addEventListener('submit', function(e) {
 
 function submitFormFinal() {
     const btn = document.querySelector('.btn-confirm');
+    btn.disabled = true;
     btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span> Processing Reservation…';
     btn.style.opacity = '0.7';
     btn.style.pointerEvents = 'none';

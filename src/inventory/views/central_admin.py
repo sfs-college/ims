@@ -1571,6 +1571,19 @@ class ApproveRoomBookingRequestView(LoginRequiredMixin, View):
         approval_remark = (request.POST.get('note', '') or '').strip()
         approved_by_name = f"{profile.first_name} {profile.last_name}".strip() or str(profile)
         selected_rooms = list(req.rooms.all()) or ([req.room] if req.room else [])
+
+        # Double-check conflicts for all selected rooms before approving
+        if selected_rooms:
+            overlapping_bookings = _RB.objects.filter(
+                Q(room__in=selected_rooms) | Q(rooms__in=selected_rooms),
+                start_datetime__lt=req.end_datetime,
+                end_datetime__gt=req.start_datetime,
+            ).exclude(status='cancelled')
+            
+            if overlapping_bookings.exists():
+                messages.error(request, "Cannot approve: one or more of the selected rooms are already booked for this time slot.")
+                next_type = request.POST.get("next_type", "booking_req")
+                return redirect(f"{reverse('central_admin:approval_requests')}?type={next_type}")
  
         try:
             booking = _RB.objects.create(
