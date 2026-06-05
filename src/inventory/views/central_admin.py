@@ -63,18 +63,37 @@ def _get_requirements_text_for_email(req_obj):
 def _booking_email_sections(req_obj):
     sl = timezone.localtime(req_obj.start_datetime)
     el = timezone.localtime(req_obj.end_datetime)
+    
+    rows = [
+        {"label": "Room(s)", "value": format_room_list(req_obj)},
+        {"label": "Faculty", "value": req_obj.faculty_name},
+        {"label": "Email", "value": req_obj.faculty_email},
+    ]
+
+    alt_slots = req_obj.parsed_alternative_slots
+    if alt_slots:
+        for i, slot in enumerate(alt_slots, 1):
+            ssl = timezone.localtime(slot['start'])
+            sel = timezone.localtime(slot['end'])
+            rows.append({
+                "label": f"Slot {i}",
+                "value": f"{ssl.strftime('%a, %d %b %Y')}, {ssl.strftime('%I:%M %p')} to {sel.strftime('%I:%M %p')}"
+            })
+    else:
+        rows.extend([
+            {"label": "Date", "value": sl.strftime('%A, %d %B %Y')},
+            {"label": "Time", "value": f"{sl.strftime('%I:%M %p')} to {el.strftime('%I:%M %p')}"},
+        ])
+
+    rows.extend([
+        {"label": "Department", "value": str(req_obj.department) if req_obj.department else '—'},
+        {"label": "Purpose", "value": req_obj.purpose or '—'},
+    ])
+
     sections = [
         {
             "title": "Booking Details",
-            "rows": [
-                {"label": "Room(s)", "value": format_room_list(req_obj)},
-                {"label": "Faculty", "value": req_obj.faculty_name},
-                {"label": "Email", "value": req_obj.faculty_email},
-                {"label": "Date", "value": sl.strftime('%A, %d %B %Y')},
-                {"label": "Time", "value": f"{sl.strftime('%I:%M %p')} to {el.strftime('%I:%M %p')}"},
-                {"label": "Department", "value": str(req_obj.department) if req_obj.department else '—'},
-                {"label": "Purpose", "value": req_obj.purpose or '—'},
-            ],
+            "rows": rows,
         }
     ]
     payload = get_requirements_payload(req_obj)
@@ -2786,8 +2805,23 @@ class SubAdminBookVenueView(LoginRequiredMixin, View):
         end_dt   = form.cleaned_data.get('end_datetime')
         now      = timezone.now()
 
-        # Block past bookings
-        if start_dt and start_dt < now:
+        alt_slots_json = form.cleaned_data.get('alternative_slots', '[]') or '[]'
+        dates_to_check = [start_dt]
+        try:
+            import json
+            from django.utils.dateparse import parse_datetime
+            extra = json.loads(alt_slots_json)
+            for slot in extra:
+                s_dt = parse_datetime(slot['start'])
+                if s_dt:
+                    if timezone.is_naive(s_dt):
+                        s_dt = timezone.make_aware(s_dt)
+                    dates_to_check.append(s_dt)
+        except Exception:
+            pass
+
+        past_date = any(d < now for d in dates_to_check if d)
+        if past_date:
             messages.error(request, "Past bookings are not accepted. Please select a future date and time.")
             return render(request, self.template_name, {
                 'form': form,
@@ -2842,6 +2876,7 @@ class SubAdminBookVenueView(LoginRequiredMixin, View):
             requirements_text = requirements_text,
             approved_by_name  = admin_name,
             approved_note     = f"Directly booked by {admin_name} (Admin)",
+            alternative_slots = alt_slots_json,
         )
         booking.save()
         if selected_rooms:
@@ -2856,7 +2891,7 @@ class SubAdminBookVenueView(LoginRequiredMixin, View):
         # ── Build plain-text details ──────────────────────────────────────
         from inventory.booking_utils import format_booking_details
         details = format_booking_details(
-            selected_rooms or booking,
+            booking,
             faculty_name,
             start_dt,
             end_dt,
@@ -2865,18 +2900,36 @@ class SubAdminBookVenueView(LoginRequiredMixin, View):
         )
 
         # ── Build HTML email sections ─────────────────────────────────────
+        rows = [
+            {"label": "Room(s)",     "value": room_name},
+            {"label": "Faculty",     "value": faculty_name},
+            {"label": "Email",       "value": faculty_email},
+        ]
+
+        alt_slots = booking.parsed_alternative_slots
+        if alt_slots:
+            for i, slot in enumerate(alt_slots, 1):
+                ssl = timezone.localtime(slot['start'])
+                sel = timezone.localtime(slot['end'])
+                rows.append({
+                    "label": f"Slot {i}",
+                    "value": f"{ssl.strftime('%a, %d %b %Y')}, {ssl.strftime('%I:%M %p')} to {sel.strftime('%I:%M %p')}"
+                })
+        else:
+            rows.extend([
+                {"label": "Date",        "value": sl.strftime('%A, %d %B %Y')},
+                {"label": "Time",        "value": f"{sl.strftime('%I:%M %p')} to {el.strftime('%I:%M %p')}"},
+            ])
+
+        rows.extend([
+            {"label": "Department",  "value": str(booking.department) if booking.department else '—'},
+            {"label": "Purpose",     "value": booking.purpose or '—'},
+        ])
+
         booking_sections = [
             {
                 "title": "Booking Details",
-                "rows": [
-                    {"label": "Room(s)",     "value": room_name},
-                    {"label": "Faculty",     "value": faculty_name},
-                    {"label": "Email",       "value": faculty_email},
-                    {"label": "Date",        "value": sl.strftime('%A, %d %B %Y')},
-                    {"label": "Time",        "value": f"{sl.strftime('%I:%M %p')} to {el.strftime('%I:%M %p')}"},
-                    {"label": "Department",  "value": str(booking.department) if booking.department else '—'},
-                    {"label": "Purpose",     "value": booking.purpose or '—'},
-                ],
+                "rows": rows,
             },
             {
                 "title": "Booking Authority",

@@ -970,6 +970,34 @@ class RoomBooking(models.Model):
         help_text="Internal admin note for extra items added/taken or returned for this booking. Not emailed."
     )
     
+    alternative_slots = models.TextField(
+        null=True, blank=True, default="[]",
+        help_text="JSON list of alternative date-time slots. E.g. [{'start': '...', 'end': '...'}]"
+    )
+
+    @property
+    def parsed_alternative_slots(self):
+        if not self.alternative_slots:
+            return []
+        try:
+            import json
+            from django.utils.dateparse import parse_datetime
+            from django.utils import timezone
+            slots = json.loads(self.alternative_slots)
+            parsed = []
+            for slot in slots:
+                s_dt = parse_datetime(slot['start'])
+                e_dt = parse_datetime(slot['end'])
+                if s_dt and e_dt:
+                    if timezone.is_naive(s_dt):
+                        s_dt = timezone.make_aware(s_dt)
+                    if timezone.is_naive(e_dt):
+                        e_dt = timezone.make_aware(e_dt)
+                    parsed.append({'start': s_dt, 'end': e_dt})
+            return parsed
+        except Exception:
+            return []
+
     slug = models.SlugField(unique=True, max_length=255, blank=True, null=True)
 
     def clean(self):
@@ -990,18 +1018,48 @@ class RoomBooking(models.Model):
             if self.start_datetime >= self.end_datetime:
                 raise ValidationError("End time must be after start time.")
 
-            # 3. Conflict Detection logic
+            # 3. Conflict Detection logic for all slots
+            slots = [(self.start_datetime, self.end_datetime)]
+            for slot in self.parsed_alternative_slots:
+                s_dt = slot['start']
+                e_dt = slot['end']
+                if s_dt and e_dt:
+                    if timezone.is_naive(s_dt):
+                        s_dt = timezone.make_aware(s_dt, tz)
+                    else:
+                        s_dt = s_dt.astimezone(tz)
+                    if timezone.is_naive(e_dt):
+                        e_dt = timezone.make_aware(e_dt, tz)
+                    else:
+                        e_dt = e_dt.astimezone(tz)
+                    slots.append((s_dt, e_dt))
+
+            rooms = [self.room]
+            if self.pk:
+                rooms = list(self.rooms.all())
+                if self.room and self.room not in rooms:
+                    rooms.append(self.room)
+
+            from django.db.models import Q
             overlapping = RoomBooking.objects.filter(
-                room=self.room,
-                start_datetime__lt=self.end_datetime,
-                end_datetime__gt=self.start_datetime
-            )
+                Q(room__in=rooms) | Q(rooms__in=rooms)
+            ).exclude(status='cancelled')
 
             if self.pk:
                 overlapping = overlapping.exclude(pk=self.pk)
 
-            if overlapping.exists():
-                raise ValidationError("Room is already booked for this time slot.")
+            def overlaps(s1_start, s1_end, s2_start, s2_end):
+                return s1_start < s2_end and s2_start < s1_end
+
+            for b in overlapping:
+                b_slots = [(b.start_datetime, b.end_datetime)]
+                for slot in b.parsed_alternative_slots:
+                    b_slots.append((slot['start'], slot['end']))
+                
+                for s_start, s_end in slots:
+                    for b_start, b_end in b_slots:
+                        if overlaps(s_start, s_end, b_start, b_end):
+                            raise ValidationError(f"Room is already booked for time slot {s_start.strftime('%d %b %Y, %H:%M')}.")
 
     def save(self, *args, **kwargs):
         # Generate slug based on faculty name and timestamp if it doesn't exist
@@ -1127,6 +1185,34 @@ class RoomBookingRequest(models.Model):
         blank=True,
         help_text="Plain text requirements typed by faculty (no document upload needed)."
     )
+
+    alternative_slots = models.TextField(
+        null=True, blank=True, default="[]",
+        help_text="JSON list of alternative date-time slots. E.g. [{'start': '...', 'end': '...'}]"
+    )
+
+    @property
+    def parsed_alternative_slots(self):
+        if not self.alternative_slots:
+            return []
+        try:
+            import json
+            from django.utils.dateparse import parse_datetime
+            from django.utils import timezone
+            slots = json.loads(self.alternative_slots)
+            parsed = []
+            for slot in slots:
+                s_dt = parse_datetime(slot['start'])
+                e_dt = parse_datetime(slot['end'])
+                if s_dt and e_dt:
+                    if timezone.is_naive(s_dt):
+                        s_dt = timezone.make_aware(s_dt)
+                    if timezone.is_naive(e_dt):
+                        e_dt = timezone.make_aware(e_dt)
+                    parsed.append({'start': s_dt, 'end': e_dt})
+            return parsed
+        except Exception:
+            return []
 
     status          = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
     reviewed_by     = models.ForeignKey(

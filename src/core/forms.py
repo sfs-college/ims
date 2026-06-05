@@ -146,7 +146,7 @@ class RoomBookingForm(forms.ModelForm):
         fields = [
             'faculty_name', 'faculty_email', 'purpose',
             'start_datetime', 'end_datetime', 'department', 'room',
-            'requirements_doc',
+            'requirements_doc', 'alternative_slots',
         ]
         widgets = {
             'faculty_name': forms.TextInput(attrs={
@@ -177,6 +177,7 @@ class RoomBookingForm(forms.ModelForm):
             'department': forms.Select(attrs={'class': 'form-control'}),
             'room': forms.HiddenInput(attrs={'id': 'id_room'}),
             'requirements_doc': forms.FileInput(attrs={'class': 'form-control', 'accept': '.pdf,.png,.jpg,.jpeg,.heic,.heif,.webp,.gif,.bmp,.tiff,.tif'}),
+            'alternative_slots': forms.HiddenInput(attrs={'id': 'id_alternative_slots'}),
         }
 
     def __init__(self, *args, **kwargs):
@@ -191,6 +192,7 @@ class RoomBookingForm(forms.ModelForm):
         self.fields['room'].required = False
         # requirements_doc remains optional
         self.fields['requirements_doc'].required = False
+        self.fields['alternative_slots'].required = False
         # Sort departments alphabetically (A to Z)
         self.fields['department'].queryset = Department.objects.all().order_by('department_name')
         self.selected_rooms = []
@@ -244,26 +246,41 @@ class RoomBookingForm(forms.ModelForm):
 
         # Double-check room availability / conflicts for all selected rooms
         if start and end and selected_rooms:
-            overlapping_bookings = RoomBooking.objects.filter(
-                Q(room__in=selected_rooms) | Q(rooms__in=selected_rooms),
-                start_datetime__lt=end,
-                end_datetime__gt=start,
-            ).exclude(status='cancelled')
-            
-            if self.instance and self.instance.pk:
-                overlapping_bookings = overlapping_bookings.exclude(pk=self.instance.pk)
-            
-            overlapping_requests = RoomBookingRequest.objects.filter(
-                Q(room__in=selected_rooms) | Q(rooms__in=selected_rooms),
-                status='pending',
-                start_datetime__lt=end,
-                end_datetime__gt=start,
-            )
-            if self.instance and self.instance.pk:
-                overlapping_requests = overlapping_requests.exclude(pk=self.instance.pk)
+            alt_slots_json = cleaned_data.get('alternative_slots', '[]') or '[]'
+            slots = [(cleaned_data['start_datetime'], cleaned_data['end_datetime'])]
+            try:
+                import json
+                from django.utils.dateparse import parse_datetime
+                extra = json.loads(alt_slots_json)
+                for slot in extra:
+                    s_dt = parse_datetime(slot['start'])
+                    e_dt = parse_datetime(slot['end'])
+                    if s_dt and e_dt:
+                        if timezone.is_naive(s_dt):
+                            s_dt = timezone.make_aware(s_dt)
+                        if timezone.is_naive(e_dt):
+                            e_dt = timezone.make_aware(e_dt)
+                        slots.append((s_dt, e_dt))
+            except Exception:
+                pass
 
-            if overlapping_bookings.exists() or overlapping_requests.exists():
-                self.add_error('room_ids', 'One or more of the selected rooms are already booked or have a pending request for this time slot.')
+            from inventory.booking_utils import check_slots_conflict
+            exclude_booking_pk = None
+            exclude_request_pk = None
+            if self.instance and self.instance.pk:
+                if isinstance(self.instance, RoomBookingRequest):
+                    exclude_request_pk = self.instance.pk
+                elif isinstance(self.instance, RoomBooking):
+                    exclude_booking_pk = self.instance.pk
+
+            conflict_msg = check_slots_conflict(
+                selected_rooms,
+                slots,
+                exclude_booking_pk=exclude_booking_pk,
+                exclude_request_pk=exclude_request_pk
+            )
+            if conflict_msg:
+                self.add_error('room_ids', conflict_msg)
                 return cleaned_data
 
         cleaned_data['selected_rooms'] = selected_rooms
@@ -313,26 +330,41 @@ class AdminRoomBookingForm(RoomBookingForm):
 
         # Double-check room availability / conflicts for all selected rooms
         if start and end and selected_rooms:
-            overlapping_bookings = RoomBooking.objects.filter(
-                Q(room__in=selected_rooms) | Q(rooms__in=selected_rooms),
-                start_datetime__lt=end,
-                end_datetime__gt=start,
-            ).exclude(status='cancelled')
-            
-            if self.instance and self.instance.pk:
-                overlapping_bookings = overlapping_bookings.exclude(pk=self.instance.pk)
-            
-            overlapping_requests = RoomBookingRequest.objects.filter(
-                Q(room__in=selected_rooms) | Q(rooms__in=selected_rooms),
-                status='pending',
-                start_datetime__lt=end,
-                end_datetime__gt=start,
-            )
-            if self.instance and self.instance.pk:
-                overlapping_requests = overlapping_requests.exclude(pk=self.instance.pk)
+            alt_slots_json = cleaned_data.get('alternative_slots', '[]') or '[]'
+            slots = [(cleaned_data['start_datetime'], cleaned_data['end_datetime'])]
+            try:
+                import json
+                from django.utils.dateparse import parse_datetime
+                extra = json.loads(alt_slots_json)
+                for slot in extra:
+                    s_dt = parse_datetime(slot['start'])
+                    e_dt = parse_datetime(slot['end'])
+                    if s_dt and e_dt:
+                        if timezone.is_naive(s_dt):
+                            s_dt = timezone.make_aware(s_dt)
+                        if timezone.is_naive(e_dt):
+                            e_dt = timezone.make_aware(e_dt)
+                        slots.append((s_dt, e_dt))
+            except Exception:
+                pass
 
-            if overlapping_bookings.exists() or overlapping_requests.exists():
-                self.add_error(None, 'One or more of the selected rooms are already booked or have a pending request for this time slot.')
+            from inventory.booking_utils import check_slots_conflict
+            exclude_booking_pk = None
+            exclude_request_pk = None
+            if self.instance and self.instance.pk:
+                if isinstance(self.instance, RoomBookingRequest):
+                    exclude_request_pk = self.instance.pk
+                elif isinstance(self.instance, RoomBooking):
+                    exclude_booking_pk = self.instance.pk
+
+            conflict_msg = check_slots_conflict(
+                selected_rooms,
+                slots,
+                exclude_booking_pk=exclude_booking_pk,
+                exclude_request_pk=exclude_request_pk
+            )
+            if conflict_msg:
+                self.add_error(None, conflict_msg)
                 return cleaned_data
 
         cleaned_data['room_ids'] = room_ids
