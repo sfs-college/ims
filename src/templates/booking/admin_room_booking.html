@@ -147,7 +147,7 @@
     }
     .auth-badge i { color: #16a34a; }
 
-    .booking-type-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 30px; }
+    .booking-type-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; margin-bottom: 30px; }
     .type-card {
         background: #fff; border: 2px solid #e2e8f0; border-radius: 18px; padding: 20px;
         cursor: pointer; transition: 0.3s; text-align: center;
@@ -757,6 +757,10 @@
                     <i class="bi bi-sliders2-vertical mb-2 h4 d-block"></i>
                     <strong>Custom Time</strong><br><small>Specific start & end</small>
                 </div>
+                <div class="type-card" id="typeAlternative" onclick="switchType('alternative')">
+                    <i class="bi bi-calendar-plus-fill mb-2 h4 d-block"></i>
+                    <strong>Alternative Slots</strong><br><small>Multiple custom slots</small>
+                </div>
             </div>
 
             <div id="wholeDaySection" class="p-4 border rounded-4 mb-5 bg-white">
@@ -776,6 +780,43 @@
                     {% if form.end_datetime.errors %}<div class="text-danger small mt-1">{{ form.end_datetime.errors }}</div>{% endif %}
                 </div>
             </div>
+
+            <!-- Alternative Slots Section -->
+            <div id="alternativeSlotsSection" class="border rounded-4 p-4 mb-5 bg-white d-none" style="border: 2px dashed #cbd5e1 !important;">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+                    <h5 class="fw-bold mb-0 text-primary" style="font-size:1rem;"><i class="bi bi-calendar-plus me-1"></i>Alternative Date & Time Slots</h5>
+                    <span class="badge bg-primary">Required</span>
+                </div>
+                <p class="text-muted small mb-3">Add one or more slots. Room availability is verified across all added slots.</p>
+                
+                <!-- Inputs to add a slot -->
+                <div class="row g-2 align-items-end mb-3">
+                    <div class="col-md-4">
+                        <label class="form-label small fw-bold">Date</label>
+                        <input type="date" class="form-control" id="alt_slot_date" style="border-radius:10px;">
+                    </div>
+                    <div class="col-md-3 col-6">
+                        <label class="form-label small fw-bold">Start Time</label>
+                        <input type="time" class="form-control" id="alt_slot_start" style="border-radius:10px;">
+                    </div>
+                    <div class="col-md-3 col-6">
+                        <label class="form-label small fw-bold">End Time</label>
+                        <input type="time" class="form-control" id="alt_slot_end" style="border-radius:10px;">
+                    </div>
+                    <div class="col-md-2">
+                        <button type="button" class="btn btn-primary w-100" id="btn_add_alt_slot" onclick="addAlternativeSlot()" style="border-radius:10px; padding: 14px 0; font-size: 0.9rem;">
+                            <i class="bi bi-plus-circle me-1"></i>Add Slot
+                        </button>
+                    </div>
+                </div>
+
+                <!-- List of added slots -->
+                <div id="alt_slots_list" class="d-flex flex-wrap gap-2">
+                    <!-- Dynamic badges go here -->
+                </div>
+            </div>
+
+            {{ form.alternative_slots }}
 
             <div class="section-title mb-4">
                 <span class="badge bg-primary rounded-pill px-3 mb-2">Step 4</span>
@@ -865,51 +906,47 @@
                     <div>
                         <strong style="color:#92400e;font-size:0.85rem;display:block;margin-bottom:4px;">⚠ Note — Subject to Administration Approval</strong>
                         <span style="color:#78350f;font-size:0.82rem;line-height:1.6;">
-                            Selected refreshments and supplies will be arranged <strong>only if validated and approved</strong> by the college administration or management. Selecting an item does not guarantee its provision.
+                            Selected refreshments will be arranged <strong>only if validated and approved</strong> by the college administrator Team. Each item max <strong>5 units</strong>.
                         </span>
                     </div>
                 </div>
 
-                <div style="display:grid;grid-template-columns:1fr auto;gap:20px;align-items:start;">
-                    <!-- Checklist -->
-                    <div>
-                        <label class="form-label mb-3"><i class="bi bi-list-check me-1"></i> Select what you need</label>
-                        <div style="display:flex;flex-direction:column;gap:10px;" id="refreshmentsList">
-                            {% for item in refreshment_options %}
-                            <label style="display:flex;align-items:center;gap:12px;padding:12px 16px;background:#fff;border:2px solid #e2e8f0;border-radius:12px;cursor:pointer;transition:border-color 0.2s;" class="refreshment-row">
-                                <input type="checkbox" name="refreshments[]" value="{{ item.value }}"
-                                       style="width:18px;height:18px;accent-color:#6366f1;cursor:pointer;flex-shrink:0;"
-                                       onchange="updateRefreshmentCount(this)">
-                                <span style="font-weight:600;font-size:0.92rem;color:#1e293b;">{{ item.label }}</span>
-                            </label>
-                            {% endfor %}
-                            <!-- Others row -->
-                            <label style="display:flex;align-items:center;gap:12px;padding:12px 16px;background:#fff;border:2px solid #e2e8f0;border-radius:12px;cursor:pointer;transition:border-color 0.2s;" class="refreshment-row" id="othersRow">
-                                <input type="checkbox" name="refreshments[]" value="others"
-                                       style="width:18px;height:18px;accent-color:#6366f1;cursor:pointer;flex-shrink:0;"
-                                       onchange="toggleOthersBox(this);updateRefreshmentCount(this)">
-                                <span style="font-weight:600;font-size:0.92rem;color:#1e293b;">Others</span>
-                            </label>
-                            <div id="othersTextBox" class="d-none" style="padding:0 4px;">
-                                <input type="text" name="refreshments_others" id="refreshmentsOthersInput"
-                                       class="cm-input" placeholder="Specify item 1…"
-                                       style="border-radius:12px;margin-bottom:8px;">
-                                <input type="text" name="refreshments_others_2" id="refreshmentsOthersInput2"
-                                       class="cm-input" placeholder="Specify item 2 (optional)…"
-                                       style="border-radius:12px;">
-                                <small class="text-muted d-block mt-1" style="font-size:0.78rem;">
-                                    <i class="bi bi-info-circle me-1"></i>Maximum 2 custom items allowed. For more, please attach an approved requirements document.
-                                </small>
-                            </div>
+                <!-- 3-column stepper grid -->
+                <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;" id="refreshmentsList">
+                    {% for item in refreshment_options %}
+                    <div style="display:flex;flex-direction:column;align-items:center;gap:8px;padding:14px 10px;background:#fff;border:2px solid #e2e8f0;border-radius:14px;transition:border-color 0.2s,background 0.2s;text-align:center;"
+                         id="rrow-{{ item.value }}" data-label="{{ item.label }}">
+                        <span style="font-weight:600;font-size:0.82rem;color:#1e293b;line-height:1.3;">{{ item.label }}</span>
+                        <div style="display:flex;align-items:center;gap:0;border:1.5px solid #e2e8f0;border-radius:9px;overflow:hidden;background:#f8fafc;">
+                            <button type="button" onclick="adjustQty('{{ item.value }}', -1)"
+                                    style="width:32px;height:32px;border:none;background:transparent;font-size:1rem;font-weight:700;color:#6366f1;cursor:pointer;display:flex;align-items:center;justify-content:center;"
+                                    onmouseover="this.style.background='#ede9fe'" onmouseout="this.style.background='transparent'">−</button>
+                            <span id="qty-display-{{ item.value }}" style="min-width:26px;text-align:center;font-weight:800;font-size:0.95rem;color:#1e293b;padding:0 2px;">0</span>
+                            <button type="button" onclick="adjustQty('{{ item.value }}', 1)"
+                                    style="width:32px;height:32px;border:none;background:transparent;font-size:1rem;font-weight:700;color:#6366f1;cursor:pointer;display:flex;align-items:center;justify-content:center;"
+                                    onmouseover="this.style.background='#ede9fe'" onmouseout="this.style.background='transparent'">+</button>
                         </div>
+                        <input type="hidden" name="refreshments[]" id="qty-input-{{ item.value }}" value="" disabled>
                     </div>
+                    {% endfor %}
+                </div>
 
-                    <!-- Count badge -->
-                    <div style="text-align:center;padding-top:36px;">
-                        <div id="refreshmentCountBadge" style="width:64px;height:64px;border-radius:50%;background:linear-gradient(135deg,#6366f1,#9333ea);display:flex;flex-direction:column;align-items:center;justify-content:center;box-shadow:0 4px 12px rgba(99,102,241,0.3);">
-                            <span id="refreshmentCount" style="font-size:1.5rem;font-weight:800;color:#fff;line-height:1;">0</span>
-                            <span style="font-size:0.6rem;font-weight:700;color:rgba(255,255,255,0.8);letter-spacing:0.5px;text-transform:uppercase;">selected</span>
-                        </div>
+                <!-- Others — single text box -->
+                <div style="margin-top:12px;">
+                    <label style="display:flex;align-items:center;gap:10px;padding:12px 16px;background:#fff;border:2px solid #e2e8f0;border-radius:12px;cursor:pointer;transition:border-color 0.2s;" id="othersRow">
+                        <input type="checkbox" name="refreshments[]" value="others"
+                               style="width:18px;height:18px;accent-color:#6366f1;cursor:pointer;flex-shrink:0;"
+                               onchange="toggleOthersBox(this)">
+                        <span style="font-weight:600;font-size:0.92rem;color:#1e293b;">Others</span>
+                        <span style="font-size:0.75rem;color:#94a3b8;margin-left:auto;">Specify below when checked</span>
+                    </label>
+                    <div id="othersTextBox" class="d-none" style="padding:4px 0 0;">
+                        <input type="text" name="refreshments_others" id="refreshmentsOthersInput"
+                               class="cm-input" placeholder="Describe your requirement (max 100 characters)…"
+                               maxlength="100" style="border-radius:12px;">
+                        <small class="text-muted d-block mt-1" style="font-size:0.78rem;">
+                            <i class="bi bi-info-circle me-1"></i>Describe your additional needs (max 100 characters).
+                        </small>
                     </div>
                 </div>
             </div>
@@ -1138,8 +1175,14 @@ function agVerify() {
     btn.disabled = true;
     btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2" style="width:14px;height:14px;border-width:2px;"></span>Verifying…';
 
-    const url = `{% url 'core:verify_admin_booking_credentials' %}?email=${encodeURIComponent(email)}&password=${encodeURIComponent(password)}`;
-    fetch(url)
+    const url = `{% url 'core:verify_admin_booking_credentials' %}`;
+    fetch(url, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email: email, password: password })
+    })
         .then(res => res.json())
         .then(data => {
             if (data.error) {
@@ -1181,7 +1224,8 @@ function agShowAlert(msg) {
 // ═══════════════════════════════════════════════════
 // BOOKING FORM — room grid, time switching, validation
 // ═══════════════════════════════════════════════════
-// ── Set minimum selectable date to tomorrow across all date inputs ──────────
+let alternativeSlots = [];
+
 document.addEventListener('DOMContentLoaded', function() {
     // Admin booking: minimum date is TODAY (same-day and next-day allowed)
     var today = new Date();
@@ -1194,6 +1238,10 @@ document.addEventListener('DOMContentLoaded', function() {
     var wholeDayInput = document.getElementById('wholeDayDate');
     if (wholeDayInput) wholeDayInput.min = minDateStr;
 
+    // Alternative slot date picker
+    var altSlotDateInput = document.getElementById('alt_slot_date');
+    if (altSlotDateInput) altSlotDateInput.min = minDateStr;
+
     var startInput = document.getElementById('id_start_datetime');
     if (startInput) startInput.min = minDatetimeStr;
 
@@ -1201,15 +1249,132 @@ document.addEventListener('DOMContentLoaded', function() {
     if (endInput) endInput.min = minDatetimeStr;
 });
 
+function addAlternativeSlot() {
+    const dateVal = document.getElementById('alt_slot_date').value;
+    const startVal = document.getElementById('alt_slot_start').value;
+    const endVal = document.getElementById('alt_slot_end').value;
+
+    if (!dateVal || !startVal || !endVal) {
+        agShowAlert('Please select a date, start time, and end time.');
+        return;
+    }
+
+    if (startVal >= endVal) {
+        agShowAlert('Start time must be before end time.');
+        return;
+    }
+
+    const startISO = `${dateVal}T${startVal}`;
+    const endISO = `${dateVal}T${endVal}`;
+
+    const minDateInputStr = document.getElementById('alt_slot_date').min;
+    if (minDateInputStr && dateVal < minDateInputStr) {
+        agShowAlert('Alternative dates cannot be in the past.');
+        return;
+    }
+
+    const newStart = new Date(startISO);
+    const newEnd = new Date(endISO);
+
+    // Check overlap with primary slot
+    if (currentMode !== 'alternative') {
+        let primaryStartVal = "";
+        let primaryEndVal = "";
+        if (currentMode === 'whole') {
+            const wholeDayDate = document.getElementById('wholeDayDate').value;
+            if (wholeDayDate) {
+                primaryStartVal = `${wholeDayDate}T08:00`;
+                primaryEndVal = `${wholeDayDate}T16:00`;
+            }
+        } else {
+            primaryStartVal = document.getElementById('id_start_datetime').value;
+            primaryEndVal = document.getElementById('id_end_datetime').value;
+        }
+
+        if (primaryStartVal && primaryEndVal) {
+            const pStart = new Date(primaryStartVal);
+            const pEnd = new Date(primaryEndVal);
+            if (newStart < pEnd && pStart < newEnd) {
+                agShowAlert('This slot overlaps with the primary booking schedule.');
+                return;
+            }
+        }
+    }
+
+    // Check overlap with existing alt slots
+    for (let slot of alternativeSlots) {
+        const sStart = new Date(slot.start);
+        const sEnd = new Date(slot.end);
+        if (newStart < sEnd && sStart < newEnd) {
+            agShowAlert('This slot overlaps with another added alternative slot.');
+            return;
+        }
+    }
+
+    alternativeSlots.push({ start: startISO, end: endISO });
+    renderAlternativeSlots();
+    
+    document.getElementById('alt_slot_date').value = '';
+    document.getElementById('alt_slot_start').value = '';
+    document.getElementById('alt_slot_end').value = '';
+}
+
+function removeAlternativeSlot(index) {
+    alternativeSlots.splice(index, 1);
+    renderAlternativeSlots();
+}
+
+function renderAlternativeSlots() {
+    const listDiv = document.getElementById('alt_slots_list');
+    listDiv.innerHTML = '';
+    
+    alternativeSlots.forEach((slot, index) => {
+        const startD = new Date(slot.start);
+        const endD = new Date(slot.end);
+        
+        const dateStr = startD.toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' });
+        const startStr = startD.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+        const endStr = endD.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+        
+        const badge = document.createElement('div');
+        badge.className = 'badge bg-light text-dark border p-2 d-flex align-items-center gap-2';
+        badge.style.borderRadius = '10px';
+        badge.innerHTML = `
+            <span><i class="bi bi-clock text-primary me-1"></i><strong>${dateStr}</strong>: ${startStr} – ${endStr}</span>
+            <button type="button" class="btn-close" style="font-size: 0.65rem;" onclick="removeAlternativeSlot(${index})"></button>
+        `;
+        listDiv.appendChild(badge);
+    });
+
+    document.getElementById('id_alternative_slots').value = JSON.stringify(alternativeSlots);
+    loadRooms();
+}
+
 let currentMode = 'whole';
 
 function switchType(mode) {
     currentMode = mode;
     document.getElementById('typeWholeDay').classList.toggle('active', mode === 'whole');
     document.getElementById('typeCustom').classList.toggle('active', mode === 'custom');
-    document.getElementById('wholeDaySection').classList.toggle('d-none', mode === 'custom');
-    document.getElementById('customTimeSection').classList.toggle('d-none', mode === 'whole');
-    loadRooms();
+    document.getElementById('typeAlternative').classList.toggle('active', mode === 'alternative');
+    
+    document.getElementById('wholeDaySection').classList.toggle('d-none', mode !== 'whole');
+    document.getElementById('customTimeSection').classList.toggle('d-none', mode !== 'custom');
+    document.getElementById('alternativeSlotsSection').classList.toggle('d-none', mode !== 'alternative');
+
+    if (mode !== 'alternative') {
+        alternativeSlots = [];
+        const altList = document.getElementById('alt_slots_list');
+        if (altList) altList.innerHTML = '';
+        const altInput = document.getElementById('id_alternative_slots');
+        if (altInput) altInput.value = '[]';
+    }
+    
+    if (mode === 'whole') {
+        updateWholeDayTimes();
+    } else {
+        loadRooms();
+    }
 }
 
 function updateWholeDayTimes() {
@@ -1223,8 +1388,31 @@ function updateWholeDayTimes() {
 
 function loadRooms() {
     const category = document.getElementById("id_category").value;
-    const start    = document.getElementById("id_start_datetime").value;
-    const end      = document.getElementById("id_end_datetime").value;
+    let start = "";
+    let end = "";
+    let alternative_slots_val = "[]";
+
+    if (currentMode === 'alternative') {
+        if (alternativeSlots.length === 0) {
+            selectedRoomIds = [];
+            selectedRoomMap = {};
+            updateSelectedRoomsSummary();
+            const grid = document.getElementById("roomGrid");
+            grid.innerHTML = '<div class="col-12 text-center text-muted py-4"><div class="spinner-border spinner-border-sm me-2 text-primary"></div>Please add at least one slot under Alternative Slots to load rooms.</div>';
+            lastStart = '';
+            lastEnd = '';
+            return;
+        } else {
+            start = alternativeSlots[0].start;
+            end   = alternativeSlots[0].end;
+            alternative_slots_val = JSON.stringify(alternativeSlots.slice(1));
+        }
+    } else {
+        start = document.getElementById("id_start_datetime").value;
+        end   = document.getElementById("id_end_datetime").value;
+        const altInput = document.getElementById("id_alternative_slots");
+        alternative_slots_val = altInput ? altInput.value : "[]";
+    }
 
     if (!category || !start || !end) {
         selectedRoomIds = [];
@@ -1244,7 +1432,7 @@ function loadRooms() {
 
     updateSelectedRoomsSummary();
 
-    const params = new URLSearchParams({ category, start, end });
+    const params = new URLSearchParams({ category, start, end, alternative_slots: alternative_slots_val });
     const grid   = document.getElementById("roomGrid");
     grid.innerHTML = '<div class="col-12 text-center text-muted py-4"><div class="spinner-border spinner-border-sm me-2 text-primary"></div>Loading rooms…</div>';
 
@@ -1329,30 +1517,49 @@ function switchRequirement(mode) {
     }
 }
 
-function updateRefreshmentCount(checkbox) {
-    // Highlight the row border when checked
-    const row = checkbox.closest('.refreshment-row');
-    if (row) {
-        row.style.borderColor = checkbox.checked ? '#6366f1' : '#e2e8f0';
-        row.style.background  = checkbox.checked ? '#f5f3ff' : '#fff';
+function adjustQty(value, delta) {
+    var displayEl = document.getElementById('qty-display-' + value);
+    var inputEl   = document.getElementById('qty-input-' + value);
+    var rowEl     = document.getElementById('rrow-' + value);
+    var label     = rowEl ? (rowEl.dataset.label || value) : value;
+    var current   = parseInt(displayEl.textContent) || 0;
+    var next      = current + delta;
+    if (next < 0) next = 0;
+    if (next > 5) {
+        showValidationPopup('Maximum 5 units allowed per item.');
+        return;
     }
-    const total = document.querySelectorAll('#refreshmentsList input[type="checkbox"]:checked').length;
-    document.getElementById('refreshmentCount').textContent = total;
-    // Pulse animation on badge
-    const badge = document.getElementById('refreshmentCountBadge');
-    badge.style.transform = 'scale(1.15)';
-    setTimeout(() => { badge.style.transform = 'scale(1)'; }, 180);
+    displayEl.textContent = next;
+    if (next > 0) {
+        inputEl.value    = label + ' - ' + next;
+        inputEl.disabled = false;
+        rowEl.style.borderColor = '#6366f1';
+        rowEl.style.background  = '#f5f3ff';
+    } else {
+        inputEl.value    = '';
+        inputEl.disabled = true;
+        rowEl.style.borderColor = '#e2e8f0';
+        rowEl.style.background  = '#fff';
+    }
 }
 
 function toggleOthersBox(checkbox) {
     const box = document.getElementById('othersTextBox');
+    const row = document.getElementById('othersRow');
     if (checkbox.checked) {
         box.classList.remove('d-none');
         document.getElementById('refreshmentsOthersInput').focus();
+        if (row) {
+            row.style.borderColor = '#6366f1';
+            row.style.background  = '#f5f3ff';
+        }
     } else {
         box.classList.add('d-none');
         document.getElementById('refreshmentsOthersInput').value = '';
-        document.getElementById('refreshmentsOthersInput2').value = '';
+        if (row) {
+            row.style.borderColor = '#e2e8f0';
+            row.style.background  = '#fff';
+        }
     }
 }
 
@@ -1379,6 +1586,16 @@ let isSubmitting = false;
 document.getElementById('bookingForm').addEventListener('submit', function(e) {
     e.preventDefault();
     if (isSubmitting) return;
+
+    if (currentMode === 'alternative') {
+        if (alternativeSlots.length === 0) {
+            showValidationPopup('Please add at least one slot under Alternative Slots.');
+            return;
+        }
+        document.getElementById('id_start_datetime').value = alternativeSlots[0].start;
+        document.getElementById('id_end_datetime').value   = alternativeSlots[0].end;
+        document.getElementById('id_alternative_slots').value = JSON.stringify(alternativeSlots.slice(1));
+    }
 
     const name     = document.querySelector('[name="faculty_name"]') ? document.querySelector('[name="faculty_name"]').value.trim() : '';
     const email    = document.getElementById('hid_faculty_email').value.trim();
@@ -1411,6 +1628,18 @@ document.getElementById('bookingForm').addEventListener('submit', function(e) {
         }
     }
 
+    // Validate alternative slots on submit
+    for (let slot of alternativeSlots) {
+        const sStart = new Date(slot.start);
+        const sEnd = new Date(slot.end);
+        if (sEnd <= sStart) {
+            errors.push('⚠ Alternative slot end time must be after start time.');
+        }
+        if (sStart < new Date()) {
+            errors.push('⚠ Alternative slot start date/time cannot be in the past.');
+        }
+    }
+
     if (!roomIds) errors.push('Please select at least one available room from the grid below.');
 
     if (isAttach && !hasFile) {
@@ -1428,7 +1657,7 @@ document.getElementById('bookingForm').addEventListener('submit', function(e) {
     }
 
     // Validate "others" text if others checkbox is checked
-    const othersChecked = document.querySelector('#refreshmentsList input[value="others"]:checked');
+    const othersChecked = document.querySelector('input[name="refreshments[]"][value="others"]:checked');
     if (othersChecked && !document.getElementById('refreshmentsOthersInput').value.trim()) {
         errors.push('Please specify what you need under "Others" in the Refreshments section.');
     }
@@ -1542,8 +1771,14 @@ function cmAutoFetchBookings() {
     if (spinner) spinner.style.display = 'block';
     cmClearAlert('cmAlert1');
  
-    const url = `{% url "core:get_bookings_by_email" %}?email=${encodeURIComponent(sessionEmail)}&password=${encodeURIComponent(sessionPassword)}`;
-    fetch(url)
+    const url = `{% url "core:get_bookings_by_email" %}`;
+    fetch(url, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email: sessionEmail, password: sessionPassword })
+    })
         .then(res => res.json())
         .then(data => {
             if (spinner) spinner.style.display = 'none';
@@ -1722,8 +1957,14 @@ function trGoStep(n) {
 function trAutoFetchStatus() {
     cmClearAlert('trAlert1');
 
-    const url = `{% url 'core:get_booking_status' %}?email=${encodeURIComponent(sessionEmail)}&password=${encodeURIComponent(sessionPassword)}`;
-    fetch(url)
+    const url = `{% url 'core:get_booking_status' %}`;
+    fetch(url, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email: sessionEmail, password: sessionPassword })
+    })
         .then(res => res.json())
         .then(data => {
             if (data.error) { cmShowAlert('trAlert1', data.error); return; }

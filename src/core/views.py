@@ -147,18 +147,36 @@ def _booking_email_sections(rooms_or_instance, faculty_name, faculty_email, star
 
     sl = _tz.localtime(start_dt)
     el = _tz.localtime(end_dt)
+
+    rows = [
+        {"label": "Room(s)", "value": format_room_list(rooms_or_instance)},
+        {"label": "Faculty", "value": faculty_name},
+        {"label": "Email", "value": faculty_email},
+    ]
+
+    alt_slots = []
+    if hasattr(rooms_or_instance, 'parsed_alternative_slots'):
+        alt_slots = rooms_or_instance.parsed_alternative_slots
+
+    if alt_slots:
+        for i, slot in enumerate(alt_slots, 1):
+            ssl = _tz.localtime(slot['start'])
+            sel = _tz.localtime(slot['end'])
+            rows.append({
+                "label": f"Slot {i}",
+                "value": f"{ssl.strftime('%a, %d %b %Y')}, {ssl.strftime('%I:%M %p')} to {sel.strftime('%I:%M %p')}"
+            })
+    else:
+        rows.append({"label": "Date", "value": sl.strftime('%A, %d %B %Y')})
+        rows.append({"label": "Time", "value": f"{sl.strftime('%I:%M %p')} to {el.strftime('%I:%M %p')}"})
+
+    rows.append({"label": "Purpose", "value": purpose or '—'})
+    rows.append({"label": "Department", "value": str(department) if department else '—'})
+
     return [
         {
             "title": "Booking Details",
-            "rows": [
-                {"label": "Room(s)", "value": format_room_list(rooms_or_instance)},
-                {"label": "Faculty", "value": faculty_name},
-                {"label": "Email", "value": faculty_email},
-                {"label": "Date", "value": sl.strftime('%A, %d %B %Y')},
-                {"label": "Time", "value": f"{sl.strftime('%I:%M %p')} to {el.strftime('%I:%M %p')}"},
-                {"label": "Purpose", "value": purpose or '—'},
-                {"label": "Department", "value": str(department) if department else '—'},
-            ],
+            "rows": rows,
         }
     ]
 
@@ -431,7 +449,23 @@ def room_booking_view(request):
             booking_req.workflow_stage = 'sub_admin'
 
             # ── Same-day / next-day / previous-day block ────────────────────────
-            if booking_req.start_datetime and _is_booking_too_soon(booking_req.start_datetime):
+            dates_to_check = [booking_req.start_datetime]
+            if booking_req.alternative_slots:
+                try:
+                    import json
+                    from django.utils.dateparse import parse_datetime
+                    extra = json.loads(booking_req.alternative_slots)
+                    for slot in extra:
+                        s_dt = parse_datetime(slot['start'])
+                        if s_dt:
+                            if timezone.is_naive(s_dt):
+                                s_dt = timezone.make_aware(s_dt)
+                            dates_to_check.append(s_dt)
+                except Exception:
+                    pass
+
+            too_soon = any(_is_booking_too_soon(d) for d in dates_to_check if d)
+            if too_soon:
                 messages.error(
                     request,
                     "Bookings cannot be made for today, tomorrow, or a previous date. "
@@ -464,12 +498,12 @@ def room_booking_view(request):
                 booking_req.requirements_doc.name = _os.path.join(
                     _os.path.dirname(booking_req.requirements_doc.name), unique_name
                 )
-            # Dynamic TAT: if event is within 48hrs, give only 12hrs for approval
+            # Dynamic TAT: if event is within 48hrs, give only 24hrs for approval
             from django.utils import timezone as _tz
             now = _tz.now()
             hours_until_event = (booking_req.start_datetime - now).total_seconds() / 3600
             if hours_until_event <= 48:
-                booking_req.tat_deadline = now + timezone.timedelta(hours=12)
+                booking_req.tat_deadline = now + timezone.timedelta(hours=24)
             else:
                 booking_req.tat_deadline = now + timezone.timedelta(hours=48)
             booking_req.save()
@@ -478,7 +512,7 @@ def room_booking_view(request):
 
             # ── Notify faculty: request received ────────────────────────────
             details = _format_booking_details(
-                selected_rooms or booking_req,
+                booking_req,
                 booking_req.faculty_name,
                 booking_req.start_datetime,
                 booking_req.end_datetime,
@@ -486,7 +520,7 @@ def room_booking_view(request):
                 booking_req.department,
             )
             booking_sections = _booking_email_sections(
-                selected_rooms or booking_req,
+                booking_req,
                 booking_req.faculty_name,
                 booking_req.faculty_email,
                 booking_req.start_datetime,
@@ -521,13 +555,13 @@ def room_booking_view(request):
             sub_admin_emails = _sub_admin_emails()
             if sub_admin_emails:
                 _safe_mail(
-                    subject=f"[Blixtro] New Room Booking Request — {format_room_list(selected_rooms or booking_req)}",
+                    subject=f"[Blixtro] New Room Booking Request — {format_room_list(booking_req)}",
                     message=(
                         f"A new room booking request requires your review.\n"
                         f"{details}\n\n"
                         f"Please log in to the admin dashboard and either Approve or Reject this request.\n\n"
                         f"Note: This request will be auto-cancelled if not acted upon within "
-                        f"{'12' if hours_until_event <= 48 else '48'} hours "
+                        f"{'24' if hours_until_event <= 48 else '48'} hours "
                         f"(TAT deadline: {booking_req.tat_deadline.strftime('%d %b %Y, %H:%M')}).\n\n"
                         "Blixtro — SFS College Inventory & Booking System"
                     ),
@@ -561,6 +595,9 @@ def room_booking_view(request):
     return render(request, "booking/room_booking.html", {"form": form, "refreshment_options": REFRESHMENT_OPTIONS})
 
 
+from django.views.decorators.csrf import csrf_exempt
+
+@csrf_exempt
 def verify_admin_booking_credentials(request):
     """
     AJAX POST — validates sub-admin / central-admin Django login credentials
@@ -655,7 +692,23 @@ def admin_room_booking_view(request):
             end_dt   = form.cleaned_data.get('end_datetime')
             now      = timezone.now()
 
-            if start_dt and start_dt < now:
+            alt_slots_json = form.cleaned_data.get('alternative_slots', '[]') or '[]'
+            dates_to_check = [start_dt]
+            try:
+                import json
+                from django.utils.dateparse import parse_datetime
+                extra = json.loads(alt_slots_json)
+                for slot in extra:
+                    s_dt = parse_datetime(slot['start'])
+                    if s_dt:
+                        if timezone.is_naive(s_dt):
+                            s_dt = timezone.make_aware(s_dt)
+                        dates_to_check.append(s_dt)
+            except Exception:
+                pass
+
+            past_date = any(d < now for d in dates_to_check if d)
+            if past_date:
                 messages.error(request, "Past bookings are not accepted.")
                 return render(request, "booking/admin_room_booking.html", {
                     "form": form, "refreshment_options": REFRESHMENT_OPTIONS
@@ -714,6 +767,7 @@ def admin_room_booking_view(request):
                 requirements_text = requirements_text,
                 approved_by_name  = admin_name,
                 approved_note     = f"Directly booked by {admin_name} (Admin)",
+                alternative_slots = alt_slots_json,
             )
             booking.save()
             if selected_rooms:
@@ -726,7 +780,7 @@ def admin_room_booking_view(request):
             el = timezone.localtime(end_dt)
 
             details = _format_booking_details(
-                selected_rooms or booking,
+                booking,
                 faculty_name,
                 start_dt,
                 end_dt,
@@ -734,7 +788,7 @@ def admin_room_booking_view(request):
                 booking.department,
             )
             booking_sections = _booking_email_sections(
-                selected_rooms or booking,
+                booking,
                 faculty_name,
                 faculty_email,
                 start_dt,
@@ -861,13 +915,23 @@ def admin_room_booking_view(request):
     })
 
 
+@csrf_exempt
 def get_bookings_by_email(request):
     """
-    AJAX GET — returns the faculty's upcoming confirmed bookings AND pending
+    AJAX POST/GET — returns the faculty's upcoming confirmed bookings AND pending
     booking requests for the cancellation modal.  Validates email + password first.
     """
-    email    = request.GET.get('email', '').strip().lower()
-    password = request.GET.get('password', '').strip()
+    if request.method == 'POST':
+        try:
+            body = json.loads(request.body)
+            email    = body.get('email', '').strip().lower()
+            password = body.get('password', '').strip()
+        except (json.JSONDecodeError, AttributeError):
+            email    = request.POST.get('email', '').strip().lower()
+            password = request.POST.get('password', '').strip()
+    else:
+        email    = request.GET.get('email', '').strip().lower()
+        password = request.GET.get('password', '').strip()
 
     if not email or not password:
         return JsonResponse({'error': 'Email and password are required.'}, status=400)
@@ -934,14 +998,24 @@ def get_bookings_by_email(request):
     return JsonResponse({'bookings': data})
 
 
+@csrf_exempt
 def get_booking_status(request):
     """
-    AJAX GET — faculty enters email + password to view the status of all
+    AJAX POST/GET — faculty enters email + password to view the status of all
     their booking requests AND cancellation requests.
     Validates against RoomBookingCredentials (Faculty Manager).
     """
-    email    = request.GET.get('email', '').strip().lower()
-    password = request.GET.get('password', '').strip()
+    if request.method == 'POST':
+        try:
+            body = json.loads(request.body)
+            email    = body.get('email', '').strip().lower()
+            password = body.get('password', '').strip()
+        except (json.JSONDecodeError, AttributeError):
+            email    = request.POST.get('email', '').strip().lower()
+            password = request.POST.get('password', '').strip()
+    else:
+        email    = request.GET.get('email', '').strip().lower()
+        password = request.GET.get('password', '').strip()
 
     if not email or not password:
         return JsonResponse({'error': 'Email and password are required.'}, status=400)
@@ -1221,44 +1295,111 @@ def rooms_by_category(request):
     confirmed_booked_ids = set()
     pending_ids          = set()
 
-    if can_check_availability and start_dt and end_dt:
+    if can_check_availability:
+        alt_slots_json = request.GET.get("alternative_slots", "[]") or "[]"
+        slots = []
+        if start_dt and end_dt:
+            slots.append((start_dt, end_dt))
         try:
-            confirmed_booked_ids = set(
-                RoomBooking.objects.filter(
-                    Q(room__in=rooms) | Q(rooms__in=rooms),
-                    start_datetime__lt=end_dt,
-                    end_datetime__gt=start_dt,
-                ).values_list('room_id', flat=True)
-            )
-            confirmed_booked_ids.update(
-                RoomBooking.objects.filter(
-                    rooms__in=rooms,
-                    start_datetime__lt=end_dt,
-                    end_datetime__gt=start_dt,
-                ).values_list('rooms__id', flat=True)
-            )
+            import json
+            extra = json.loads(alt_slots_json)
+            for slot in extra:
+                s_dt = parse_datetime(slot['start'])
+                e_dt = parse_datetime(slot['end'])
+                if s_dt and e_dt:
+                    if timezone.is_naive(s_dt):
+                        s_dt = timezone.make_aware(s_dt)
+                    if timezone.is_naive(e_dt):
+                        e_dt = timezone.make_aware(e_dt)
+                    slots.append((s_dt, e_dt))
         except Exception:
-            confirmed_booked_ids = set()
+            pass
 
-        try:
-            pending_ids = set(
-                RoomBookingRequest.objects.filter(
-                    Q(room__in=rooms) | Q(rooms__in=rooms),
-                    status='pending',
-                    start_datetime__lt=end_dt,
-                    end_datetime__gt=start_dt,
-                ).values_list('room_id', flat=True)
-            )
-            pending_ids.update(
-                RoomBookingRequest.objects.filter(
-                    rooms__in=rooms,
-                    status='pending',
-                    start_datetime__lt=end_dt,
-                    end_datetime__gt=start_dt,
-                ).values_list('rooms__id', flat=True)
-            )
-        except Exception:
-            pending_ids = set()
+        if slots:
+            try:
+                # Fetch bookings & requests for these rooms
+                active_bookings = list(
+                    RoomBooking.objects.filter(
+                        Q(room__in=rooms) | Q(rooms__in=rooms)
+                    ).exclude(status='cancelled').prefetch_related('rooms').distinct()
+                )
+                active_requests = list(
+                    RoomBookingRequest.objects.filter(
+                        Q(room__in=rooms) | Q(rooms__in=rooms),
+                        status='pending'
+                    ).prefetch_related('rooms').distinct()
+                )
+
+                def overlaps(s1_start, s1_end, s2_start, s2_end):
+                    return s1_start < s2_end and s2_start < s1_end
+
+                for room in rooms:
+                    # Check confirmed bookings conflict
+                    for b in active_bookings:
+                        is_for_room = (b.room_id == room.id) or (room in b.rooms.all())
+                        if is_for_room:
+                            b_slots = [(b.start_datetime, b.end_datetime)]
+                            if b.alternative_slots:
+                                try:
+                                    extra_b = json.loads(b.alternative_slots)
+                                    for slot in extra_b:
+                                        s_dt = parse_datetime(slot['start'])
+                                        e_dt = parse_datetime(slot['end'])
+                                        if s_dt and e_dt:
+                                            if timezone.is_naive(s_dt):
+                                                s_dt = timezone.make_aware(s_dt)
+                                            if timezone.is_naive(e_dt):
+                                                e_dt = timezone.make_aware(e_dt)
+                                            b_slots.append((s_dt, e_dt))
+                                except Exception:
+                                    pass
+                            
+                            has_conflict = False
+                            for s_start, s_end in slots:
+                                for b_start, b_end in b_slots:
+                                    if overlaps(s_start, s_end, b_start, b_end):
+                                        has_conflict = True
+                                        break
+                                if has_conflict:
+                                    break
+                            if has_conflict:
+                                confirmed_booked_ids.add(room.id)
+                                break
+
+                    # Check pending requests conflict (only if not already confirmed booked)
+                    if room.id not in confirmed_booked_ids:
+                        for r in active_requests:
+                            is_for_room = (r.room_id == room.id) or (room in r.rooms.all())
+                            if is_for_room:
+                                r_slots = [(r.start_datetime, r.end_datetime)]
+                                if r.alternative_slots:
+                                    try:
+                                        extra_r = json.loads(r.alternative_slots)
+                                        for slot in extra_r:
+                                            s_dt = parse_datetime(slot['start'])
+                                            e_dt = parse_datetime(slot['end'])
+                                            if s_dt and e_dt:
+                                                if timezone.is_naive(s_dt):
+                                                    s_dt = timezone.make_aware(s_dt)
+                                                if timezone.is_naive(e_dt):
+                                                    e_dt = timezone.make_aware(e_dt)
+                                                r_slots.append((s_dt, e_dt))
+                                    except Exception:
+                                        pass
+
+                                has_conflict = False
+                                for s_start, s_end in slots:
+                                    for r_start, r_end in r_slots:
+                                        if overlaps(s_start, s_end, r_start, r_end):
+                                            has_conflict = True
+                                            break
+                                    if has_conflict:
+                                        break
+                                if has_conflict:
+                                    pending_ids.add(room.id)
+                                    break
+            except Exception as e:
+                logger.exception("Error checking availability in rooms_by_category")
 
     data = []
     for room in rooms:
@@ -1550,20 +1691,20 @@ def process_booking_tat_reminders_and_expiry():
         time_left = req.tat_deadline - now
 
         tat_duration = req.tat_deadline - req.created_on
-        is_12h_tat = tat_duration <= timezone.timedelta(hours=14)
+        is_24h_tat = tat_duration <= timezone.timedelta(hours=26)
 
         # All pending requests notify all admins (both sub-admin and central admin)
         reminder_emails = _admin_emails()
 
-        if is_12h_tat:
+        if is_24h_tat:
             if (not req.reminder_24h_sent and
-                    timezone.timedelta(hours=3) < time_left <= timezone.timedelta(hours=6)):
+                    timezone.timedelta(hours=6) < time_left <= timezone.timedelta(hours=12)):
                 if reminder_emails:
                     _safe_mail(
-                        subject=f"[Blixtro] ⏳ 6h Approval Reminder (Fast-Track) — {format_room_list(req)}",
+                        subject=f"[Blixtro] ⏳ 12h Approval Reminder (Fast-Track) — {format_room_list(req)}",
                         message=(
-                            "A fast-track room booking request has 6 hours or less remaining "
-                            "on its 12-hour approval window.\n"
+                            "A fast-track room booking request has 12 hours or less remaining "
+                            "on its 24-hour approval window.\n"
                             f"{details}\n\n"
                             "Please approve or reject this request promptly, or it will be "
                             "automatically cancelled.\n\n"
@@ -1575,12 +1716,12 @@ def process_booking_tat_reminders_and_expiry():
                 req.save(update_fields=['reminder_24h_sent'])
 
             if (not req.reminder_12h_sent and
-                    timezone.timedelta(hours=0) < time_left <= timezone.timedelta(hours=3)):
+                    timezone.timedelta(hours=0) < time_left <= timezone.timedelta(hours=6)):
                 if reminder_emails:
                     _safe_mail(
-                        subject=f"[Blixtro] 🚨 3h Final Reminder (Fast-Track) — {format_room_list(req)}",
+                        subject=f"[Blixtro] 🚨 6h Final Reminder (Fast-Track) — {format_room_list(req)}",
                         message=(
-                            "URGENT: A fast-track room booking request has less than 3 hours "
+                            "URGENT: A fast-track room booking request has less than 6 hours "
                             "remaining before automatic cancellation.\n"
                             f"{details}\n\n"
                             "Please take immediate action in the admin dashboard.\n\n"
@@ -1629,7 +1770,7 @@ def process_booking_tat_reminders_and_expiry():
 
         # ── Auto-expiry ─────────────────────────────────────────────────────
         if time_left <= timezone.timedelta(0):
-            tat_label = '12' if is_12h_tat else '48'
+            tat_label = '24' if is_24h_tat else '48'
             req.status = 'expired'
             req.review_note = f'Auto-cancelled: Approval TAT of {tat_label} hours exceeded.'
             req.save(update_fields=['status', 'review_note', 'updated_on'])

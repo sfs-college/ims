@@ -385,8 +385,18 @@
                 </div>
 
                 <div class="detail-zone">
-                    <div class="d-flex justify-content-between mb-1"><span class="text-muted">From</span><span class="fw-bold">{{ r.start_datetime|date:"d M Y, H:i" }}</span></div>
-                    <div class="d-flex justify-content-between mb-1"><span class="text-muted">To</span><span class="fw-bold">{{ r.end_datetime|date:"d M Y, H:i" }}</span></div>
+                    {% if r.parsed_alternative_slots %}
+                        <div class="mb-2"><span class="text-muted fw-bold">Scheduled Slots:</span></div>
+                        {% for slot in r.parsed_alternative_slots %}
+                            <div class="d-flex justify-content-between mb-1" style="font-size:0.85rem; padding-left: 10px;">
+                                <span class="text-muted">Slot {{ forloop.counter }}</span>
+                                <span class="fw-bold">{{ slot.start|date:"d M Y, h:i A" }} – {{ slot.end|date:"h:i A" }}</span>
+                            </div>
+                        {% endfor %}
+                    {% else %}
+                        <div class="d-flex justify-content-between mb-1"><span class="text-muted">From</span><span class="fw-bold">{{ r.start_datetime|date:"d M Y, H:i" }}</span></div>
+                        <div class="d-flex justify-content-between mb-1"><span class="text-muted">To</span><span class="fw-bold">{{ r.end_datetime|date:"d M Y, H:i" }}</span></div>
+                    {% endif %}
                     <div class="d-flex justify-content-between"><span class="text-muted">Submitted</span><span class="fw-bold">{{ r.created_on|date:"d M Y" }}</span></div>
                 </div>
 
@@ -493,8 +503,18 @@
                     <span class="pill pill-warn"><i class="bi bi-x-circle me-1"></i>Cancel Requested</span>
                 </div>
                 <div class="detail-zone">
-                    <div class="d-flex justify-content-between mb-1"><span class="text-muted">Booked From</span><span class="fw-bold">{{ r.booking.start_datetime|date:"d M Y, H:i" }}</span></div>
-                    <div class="d-flex justify-content-between mb-1"><span class="text-muted">Booked Until</span><span class="fw-bold">{{ r.booking.end_datetime|date:"d M Y, H:i" }}</span></div>
+                    {% if r.booking.parsed_alternative_slots %}
+                        <div class="mb-2"><span class="text-muted fw-bold">Scheduled Slots:</span></div>
+                        {% for slot in r.booking.parsed_alternative_slots %}
+                            <div class="d-flex justify-content-between mb-1" style="font-size:0.85rem; padding-left: 10px;">
+                                <span class="text-muted">Slot {{ forloop.counter }}</span>
+                                <span class="fw-bold">{{ slot.start|date:"d M Y, h:i A" }} – {{ slot.end|date:"h:i A" }}</span>
+                            </div>
+                        {% endfor %}
+                    {% else %}
+                        <div class="d-flex justify-content-between mb-1"><span class="text-muted">Booked From</span><span class="fw-bold">{{ r.booking.start_datetime|date:"d M Y, H:i" }}</span></div>
+                        <div class="d-flex justify-content-between mb-1"><span class="text-muted">Booked Until</span><span class="fw-bold">{{ r.booking.end_datetime|date:"d M Y, H:i" }}</span></div>
+                    {% endif %}
                     <div class="d-flex justify-content-between"><span class="text-muted">Requested On</span><span class="fw-bold">{{ r.created_on|date:"d M Y" }}</span></div>
                 </div>
                 <div class="detail-zone border-start border-danger border-3">
@@ -545,7 +565,14 @@
                         <div style="font-size:0.8rem;color:#64748b;margin-bottom:4px;">
                             <i class="bi bi-person me-1"></i>{{ r.faculty_name }} &nbsp;·&nbsp;
                             <i class="bi bi-envelope me-1"></i>{{ r.faculty_email }} &nbsp;·&nbsp;
-                            <i class="bi bi-calendar me-1"></i>{{ r.start_datetime|date:"d M Y, H:i" }}
+                            {% if r.parsed_alternative_slots %}
+                                <i class="bi bi-calendar me-1"></i>
+                                {% for slot in r.parsed_alternative_slots %}
+                                    {{ slot.start|date:"d M H:i" }}{% if not forloop.last %}, {% endif %}
+                                {% endfor %}
+                            {% else %}
+                                <i class="bi bi-calendar me-1"></i>{{ r.start_datetime|date:"d M Y, H:i" }}
+                            {% endif %}
                         </div>
                         {% if r.purpose %}
                         <div style="font-size:0.78rem;color:#64748b;margin-bottom:4px;">
@@ -609,7 +636,14 @@
                         </div>
                         <div style="font-size:0.8rem;color:#64748b;">
                             <i class="bi bi-person me-1"></i>{{ r.booking.faculty_name }} &nbsp;·&nbsp;
-                            <i class="bi bi-calendar me-1"></i>{{ r.booking.start_datetime|date:"d M Y, H:i" }}
+                            {% if r.booking.parsed_alternative_slots %}
+                                <i class="bi bi-calendar me-1"></i>
+                                {% for slot in r.booking.parsed_alternative_slots %}
+                                    {{ slot.start|date:"d M H:i" }}{% if not forloop.last %}, {% endif %}
+                                {% endfor %}
+                            {% else %}
+                                <i class="bi bi-calendar me-1"></i>{{ r.booking.start_datetime|date:"d M Y, H:i" }}
+                            {% endif %}
                         </div>
                         <div style="font-size:0.8rem;color:#64748b;margin-top:3px;">
                             <i class="bi bi-chat-left me-1"></i><strong>Reason:</strong> {{ r.reason }}

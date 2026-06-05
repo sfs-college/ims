@@ -82,13 +82,29 @@ def format_room_list(rooms_or_instance):
 
 
 def format_booking_details(rooms_or_instance, faculty_name, start_dt, end_dt, purpose, department=None):
+    rooms_list = format_room_list(rooms_or_instance)
+    
+    # Check if instance is a model with parsed_alternative_slots
+    alt_slots = []
+    if hasattr(rooms_or_instance, 'parsed_alternative_slots'):
+        alt_slots = rooms_or_instance.parsed_alternative_slots
+    
     sl = timezone.localtime(start_dt)
     el = timezone.localtime(end_dt)
+    
+    date_time_str = f"{sl.strftime('%A, %d %B %Y')}, {sl.strftime('%I:%M %p')} – {el.strftime('%I:%M %p')}"
+    if alt_slots:
+        slots_str_list = []
+        for i, slot in enumerate(alt_slots, 1):
+            ssl = timezone.localtime(slot['start'])
+            sel = timezone.localtime(slot['end'])
+            slots_str_list.append(f"\n               Slot {i}: {ssl.strftime('%d %b %Y, %I:%M %p')} – {sel.strftime('%I:%M %p')}")
+        date_time_str += "".join(slots_str_list)
+        
     details = (
-        f"\n  Room(s)    : {format_room_list(rooms_or_instance)}"
+        f"\n  Room(s)    : {rooms_list}"
         f"\n  Faculty    : {faculty_name}"
-        f"\n  Date       : {sl.strftime('%A, %d %B %Y')}"
-        f"\n  Time       : {sl.strftime('%I:%M %p')} – {el.strftime('%I:%M %p')}"
+        f"\n  Schedule   : {date_time_str}"
         f"\n  Purpose    : {purpose or '—'}"
     )
     if department is not None:
@@ -121,13 +137,35 @@ def _extract_pdf_blocks(raw_bytes):
     blocks = []
     with pdfplumber.open(io.BytesIO(raw_bytes)) as pdf:
         for page in pdf.pages:
-            page_text = (page.extract_text() or "").strip()
+            # Detect tables on this page to exclude their bounding boxes from text extraction
+            tables = page.find_tables()
+            bboxes = [table.bbox for table in tables]
+
+            def not_within_bboxes(obj):
+                """Check if the object is NOT in any of the table's bbox."""
+                if "top" not in obj or "bottom" not in obj or "x0" not in obj or "x1" not in obj:
+                    return True
+                v_mid = (obj["top"] + obj["bottom"]) / 2
+                h_mid = (obj["x0"] + obj["x1"]) / 2
+                for bbox in bboxes:
+                    x0, top, x1, bottom = bbox
+                    if (h_mid >= x0) and (h_mid < x1) and (v_mid >= top) and (v_mid < bottom):
+                        return False
+                return True
+
+            if bboxes:
+                # Filter out elements inside the table boundary
+                filtered_page = page.filter(not_within_bboxes)
+                page_text = (filtered_page.extract_text() or "").strip()
+            else:
+                page_text = (page.extract_text() or "").strip()
+
             if page_text:
                 for paragraph in [part.strip() for part in re.split(r"\n\s*\n", page_text) if part.strip()]:
                     blocks.append({"type": "paragraph", "text": paragraph})
 
-            tables = page.extract_tables() or []
-            for table in tables:
+            raw_tables = page.extract_tables() or []
+            for table in raw_tables:
                 rows = []
                 for row in table or []:
                     cleaned = [("" if cell is None else str(cell).strip()) for cell in row]
@@ -206,3 +244,81 @@ def get_requirements_payload(obj):
             "blocks": [],
             "filename": file_field.name.split("/")[-1],
         }
+
+
+def check_slots_conflict(selected_rooms, slots, exclude_booking_pk=None, exclude_request_pk=None):
+    from django.db.models import Q
+    from inventory.models import RoomBooking, RoomBookingRequest
+    from django.utils import timezone
+    from django.utils.dateparse import parse_datetime
+    import json
+
+    def overlaps(s1_start, s1_end, s2_start, s2_end):
+        return s1_start < s2_end and s2_start < s1_end
+
+    # Check self-overlap in slots
+    for i in range(len(slots)):
+        for j in range(i + 1, len(slots)):
+            if overlaps(slots[i][0], slots[i][1], slots[j][0], slots[j][1]):
+                return f"Duplicate or overlapping slots detected in your request: {slots[i][0].strftime('%d %b %Y, %I:%M %p')} overlaps with {slots[j][0].strftime('%d %b %Y, %I:%M %p')}."
+
+    # Fetch active bookings for these rooms
+    bookings = RoomBooking.objects.filter(
+        Q(room__in=selected_rooms) | Q(rooms__in=selected_rooms)
+    ).exclude(status='cancelled')
+    if exclude_booking_pk:
+        bookings = bookings.exclude(pk=exclude_booking_pk)
+
+    # Fetch pending requests for these rooms
+    requests = RoomBookingRequest.objects.filter(
+        Q(room__in=selected_rooms) | Q(rooms__in=selected_rooms),
+        status='pending'
+    )
+    if exclude_request_pk:
+        requests = requests.exclude(pk=exclude_request_pk)
+
+    for b in bookings:
+        b_slots = [(b.start_datetime, b.end_datetime)]
+        if b.alternative_slots:
+            try:
+                extra = json.loads(b.alternative_slots)
+                for slot in extra:
+                    s_dt = parse_datetime(slot['start'])
+                    e_dt = parse_datetime(slot['end'])
+                    if s_dt and e_dt:
+                        if timezone.is_naive(s_dt):
+                            s_dt = timezone.make_aware(s_dt)
+                        if timezone.is_naive(e_dt):
+                            e_dt = timezone.make_aware(e_dt)
+                        b_slots.append((s_dt, e_dt))
+            except Exception:
+                pass
+        
+        for s_start, s_end in slots:
+            for b_start, b_end in b_slots:
+                if overlaps(s_start, s_end, b_start, b_end):
+                    return f"Room is already booked for slot {s_start.strftime('%d %b %Y, %I:%M %p')} to {s_end.strftime('%I:%M %p')}."
+
+    for r in requests:
+        r_slots = [(r.start_datetime, r.end_datetime)]
+        if r.alternative_slots:
+            try:
+                extra = json.loads(r.alternative_slots)
+                for slot in extra:
+                    s_dt = parse_datetime(slot['start'])
+                    e_dt = parse_datetime(slot['end'])
+                    if s_dt and e_dt:
+                        if timezone.is_naive(s_dt):
+                            s_dt = timezone.make_aware(s_dt)
+                        if timezone.is_naive(e_dt):
+                            e_dt = timezone.make_aware(e_dt)
+                        r_slots.append((s_dt, e_dt))
+            except Exception:
+                pass
+        
+        for s_start, s_end in slots:
+            for r_start, r_end in r_slots:
+                if overlaps(s_start, s_end, r_start, r_end):
+                    return f"Room has a pending request for slot {s_start.strftime('%d %b %Y, %I:%M %p')} to {s_end.strftime('%I:%M %p')}."
+
+    return None

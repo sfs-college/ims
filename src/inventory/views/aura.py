@@ -8,6 +8,7 @@ from django.utils import timezone
 from django.shortcuts import get_object_or_404, render, redirect
 from django.urls import reverse
 from django.views.decorators.http import require_POST
+from django.views.decorators.csrf import csrf_exempt
 from inventory.models import Issue, Item, Room, Category, RoomBooking, Purchase, Vendor, Department, RoomBookingCredentials, RoomBookingRequest, RoomCancellationRequest, Brand, MasterInventoryAccess, AssignInventoryAccess, InventoryRevertHistory
 from core.models import UserProfile
 from reportlab.lib.pagesizes import A4, landscape
@@ -1100,14 +1101,24 @@ def credential_update(request, pk):
 # TRACK BOOKING/CANCELLATION STATUS (Faculty-facing)
 # ─────────────────────────────────────────────
 
+@csrf_exempt
 def get_booking_status(request):
     """
     Faculty enters email + password to see the status of all their
     booking requests AND cancellation requests.
     Validates against RoomBookingCredentials (Faculty Manager).
     """
-    email    = request.GET.get('email', '').strip().lower()
-    password = request.GET.get('password', '').strip()
+    if request.method == 'POST':
+        try:
+            body = json.loads(request.body)
+            email    = body.get('email', '').strip().lower()
+            password = body.get('password', '').strip()
+        except (json.JSONDecodeError, AttributeError):
+            email    = request.POST.get('email', '').strip().lower()
+            password = request.POST.get('password', '').strip()
+    else:
+        email    = request.GET.get('email', '').strip().lower()
+        password = request.GET.get('password', '').strip()
 
     if not email or not password:
         return JsonResponse({'error': 'Email and password are required.'}, status=400)

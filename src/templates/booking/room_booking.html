@@ -206,7 +206,7 @@
         overflow: hidden;
     }
 
-    .booking-type-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 30px; }
+    .booking-type-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; margin-bottom: 30px; }
     .type-card {
         background: #fff; border: 2px solid #e2e8f0; border-radius: 18px; padding: 20px;
         cursor: pointer; transition: 0.3s; text-align: center;
@@ -845,6 +845,10 @@
                     <i class="bi bi-sliders2-vertical mb-2 h4 d-block"></i>
                     <strong>Custom Time</strong><br><small>Specific start & end</small>
                 </div>
+                <div class="type-card" id="typeAlternative" onclick="switchType('alternative')">
+                    <i class="bi bi-calendar-plus-fill mb-2 h4 d-block"></i>
+                    <strong>Alternative Slots</strong><br><small>Multiple custom slots</small>
+                </div>
             </div>
 
             <div id="wholeDaySection" class="p-4 border rounded-4 mb-5 bg-white">
@@ -864,6 +868,43 @@
                     {% if form.end_datetime.errors %}<div class="text-danger small mt-1">{{ form.end_datetime.errors }}</div>{% endif %}
                 </div>
             </div>
+
+            <!-- Alternative Slots Section -->
+            <div id="alternativeSlotsSection" class="border rounded-4 p-4 mb-5 bg-white d-none" style="border: 2px dashed #cbd5e1 !important;">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+                    <h5 class="fw-bold mb-0 text-primary" style="font-size:1rem;"><i class="bi bi-calendar-plus me-1"></i>Alternative Date & Time Slots</h5>
+                    <span class="badge bg-primary">Required</span>
+                </div>
+                <p class="text-muted small mb-3">Add one or more slots. Room availability is verified across all added slots.</p>
+                
+                <!-- Inputs to add a slot -->
+                <div class="row g-2 align-items-end mb-3">
+                    <div class="col-md-4">
+                        <label class="form-label small fw-bold">Date</label>
+                        <input type="date" class="form-control" id="alt_slot_date" style="border-radius:10px;">
+                    </div>
+                    <div class="col-md-3 col-6">
+                        <label class="form-label small fw-bold">Start Time</label>
+                        <input type="time" class="form-control" id="alt_slot_start" style="border-radius:10px;">
+                    </div>
+                    <div class="col-md-3 col-6">
+                        <label class="form-label small fw-bold">End Time</label>
+                        <input type="time" class="form-control" id="alt_slot_end" style="border-radius:10px;">
+                    </div>
+                    <div class="col-md-2">
+                        <button type="button" class="btn btn-primary w-100" id="btn_add_alt_slot" onclick="addAlternativeSlot()" style="border-radius:10px; padding: 14px 0; font-size: 0.9rem;">
+                            <i class="bi bi-plus-circle me-1"></i>Add Slot
+                        </button>
+                    </div>
+                </div>
+
+                <!-- List of added slots -->
+                <div id="alt_slots_list" class="d-flex flex-wrap gap-2">
+                    <!-- Dynamic badges go here -->
+                </div>
+            </div>
+
+            {{ form.alternative_slots }}
 
             <div class="section-title mb-4">
                 <span class="badge bg-primary rounded-pill px-3 mb-2">Step 4</span>
@@ -1231,8 +1272,14 @@ function agVerify() {
     btn.disabled = true;
     btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2" style="width:14px;height:14px;border-width:2px;"></span>Verifying…';
 
-    const url = `{% url 'core:get_bookings_by_email' %}?email=${encodeURIComponent(email)}&password=${encodeURIComponent(password)}`;
-    fetch(url)
+    const url = `{% url 'core:get_bookings_by_email' %}`;
+    fetch(url, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email: email, password: password })
+    })
         .then(res => res.json())
         .then(data => {
             if (data.error) {
@@ -1275,6 +1322,8 @@ function agShowAlert(msg) {
 // BOOKING FORM — room grid, time switching, validation
 // ═══════════════════════════════════════════════════
 // ── Set minimum selectable date to tomorrow across all date inputs ──────────
+let alternativeSlots = [];
+
 document.addEventListener('DOMContentLoaded', function() {
     // Minimum selectable date = day after tomorrow (today + 2 days)
     var minDate = new Date();
@@ -1290,6 +1339,10 @@ document.addEventListener('DOMContentLoaded', function() {
     var wholeDayInput = document.getElementById('wholeDayDate');
     if (wholeDayInput) wholeDayInput.min = minDateStr;
 
+    // Alternative slot date picker
+    var altSlotDateInput = document.getElementById('alt_slot_date');
+    if (altSlotDateInput) altSlotDateInput.min = minDateStr;
+
     // Custom datetime-local pickers
     var startInput = document.getElementById('id_start_datetime');
     if (startInput) {
@@ -1304,15 +1357,132 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 });
 
+function addAlternativeSlot() {
+    const dateVal = document.getElementById('alt_slot_date').value;
+    const startVal = document.getElementById('alt_slot_start').value;
+    const endVal = document.getElementById('alt_slot_end').value;
+
+    if (!dateVal || !startVal || !endVal) {
+        agShowAlert('Please select a date, start time, and end time.');
+        return;
+    }
+
+    if (startVal >= endVal) {
+        agShowAlert('Start time must be before end time.');
+        return;
+    }
+
+    const startISO = `${dateVal}T${startVal}`;
+    const endISO = `${dateVal}T${endVal}`;
+
+    const minDateInputStr = document.getElementById('alt_slot_date').min;
+    if (minDateInputStr && dateVal < minDateInputStr) {
+        agShowAlert('Alternative dates must be at least 2 days in advance.');
+        return;
+    }
+
+    const newStart = new Date(startISO);
+    const newEnd = new Date(endISO);
+
+    // Check overlap with primary slot
+    if (currentMode !== 'alternative') {
+        let primaryStartVal = "";
+        let primaryEndVal = "";
+        if (currentMode === 'whole') {
+            const wholeDayDate = document.getElementById('wholeDayDate').value;
+            if (wholeDayDate) {
+                primaryStartVal = `${wholeDayDate}T08:00`;
+                primaryEndVal = `${wholeDayDate}T16:00`;
+            }
+        } else {
+            primaryStartVal = document.getElementById('id_start_datetime').value;
+            primaryEndVal = document.getElementById('id_end_datetime').value;
+        }
+
+        if (primaryStartVal && primaryEndVal) {
+            const pStart = new Date(primaryStartVal);
+            const pEnd = new Date(primaryEndVal);
+            if (newStart < pEnd && pStart < newEnd) {
+                agShowAlert('This slot overlaps with the primary booking schedule.');
+                return;
+            }
+        }
+    }
+
+    // Check overlap with existing alt slots
+    for (let slot of alternativeSlots) {
+        const sStart = new Date(slot.start);
+        const sEnd = new Date(slot.end);
+        if (newStart < sEnd && sStart < newEnd) {
+            agShowAlert('This slot overlaps with another added alternative slot.');
+            return;
+        }
+    }
+
+    alternativeSlots.push({ start: startISO, end: endISO });
+    renderAlternativeSlots();
+    
+    document.getElementById('alt_slot_date').value = '';
+    document.getElementById('alt_slot_start').value = '';
+    document.getElementById('alt_slot_end').value = '';
+}
+
+function removeAlternativeSlot(index) {
+    alternativeSlots.splice(index, 1);
+    renderAlternativeSlots();
+}
+
+function renderAlternativeSlots() {
+    const listDiv = document.getElementById('alt_slots_list');
+    listDiv.innerHTML = '';
+    
+    alternativeSlots.forEach((slot, index) => {
+        const startD = new Date(slot.start);
+        const endD = new Date(slot.end);
+        
+        const dateStr = startD.toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' });
+        const startStr = startD.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+        const endStr = endD.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+        
+        const badge = document.createElement('div');
+        badge.className = 'badge bg-light text-dark border p-2 d-flex align-items-center gap-2';
+        badge.style.borderRadius = '10px';
+        badge.innerHTML = `
+            <span><i class="bi bi-clock text-primary me-1"></i><strong>${dateStr}</strong>: ${startStr} – ${endStr}</span>
+            <button type="button" class="btn-close" style="font-size: 0.65rem;" onclick="removeAlternativeSlot(${index})"></button>
+        `;
+        listDiv.appendChild(badge);
+    });
+
+    document.getElementById('id_alternative_slots').value = JSON.stringify(alternativeSlots);
+    loadRooms();
+}
+
 let currentMode = 'whole';
 
 function switchType(mode) {
     currentMode = mode;
     document.getElementById('typeWholeDay').classList.toggle('active', mode === 'whole');
     document.getElementById('typeCustom').classList.toggle('active', mode === 'custom');
-    document.getElementById('wholeDaySection').classList.toggle('d-none', mode === 'custom');
-    document.getElementById('customTimeSection').classList.toggle('d-none', mode === 'whole');
-    loadRooms();
+    document.getElementById('typeAlternative').classList.toggle('active', mode === 'alternative');
+    
+    document.getElementById('wholeDaySection').classList.toggle('d-none', mode !== 'whole');
+    document.getElementById('customTimeSection').classList.toggle('d-none', mode !== 'custom');
+    document.getElementById('alternativeSlotsSection').classList.toggle('d-none', mode !== 'alternative');
+
+    if (mode !== 'alternative') {
+        alternativeSlots = [];
+        const altList = document.getElementById('alt_slots_list');
+        if (altList) altList.innerHTML = '';
+        const altInput = document.getElementById('id_alternative_slots');
+        if (altInput) altInput.value = '[]';
+    }
+    
+    if (mode === 'whole') {
+        updateWholeDayTimes();
+    } else {
+        loadRooms();
+    }
 }
 
 function updateWholeDayTimes() {
@@ -1326,8 +1496,31 @@ function updateWholeDayTimes() {
 
 function loadRooms() {
     const category = document.getElementById("id_category").value;
-    const start    = document.getElementById("id_start_datetime").value;
-    const end      = document.getElementById("id_end_datetime").value;
+    let start = "";
+    let end = "";
+    let alternative_slots_val = "[]";
+
+    if (currentMode === 'alternative') {
+        if (alternativeSlots.length === 0) {
+            selectedRoomIds = [];
+            selectedRoomMap = {};
+            updateSelectedRoomsSummary();
+            const grid = document.getElementById("roomGrid");
+            grid.innerHTML = '<div class="col-12 text-center text-muted py-4"><i class="bi bi-calendar-event d-block fs-2 mb-2"></i>Please add at least one slot under Alternative Slots to load rooms.</div>';
+            lastStart = '';
+            lastEnd = '';
+            return;
+        } else {
+            start = alternativeSlots[0].start;
+            end   = alternativeSlots[0].end;
+            alternative_slots_val = JSON.stringify(alternativeSlots.slice(1));
+        }
+    } else {
+        start = document.getElementById("id_start_datetime").value;
+        end   = document.getElementById("id_end_datetime").value;
+        const altInput = document.getElementById("id_alternative_slots");
+        alternative_slots_val = altInput ? altInput.value : "[]";
+    }
 
     if (!category || !start || !end) {
         selectedRoomIds = [];
@@ -1347,7 +1540,7 @@ function loadRooms() {
 
     updateSelectedRoomsSummary();
 
-    const params = new URLSearchParams({ category, start, end });
+    const params = new URLSearchParams({ category, start, end, alternative_slots: alternative_slots_val });
     const grid   = document.getElementById("roomGrid");
     grid.innerHTML = '<div class="col-12 text-center text-muted py-4"><div class="spinner-border spinner-border-sm me-2 text-primary"></div>Loading rooms…</div>';
 
@@ -1538,6 +1731,16 @@ document.getElementById('bookingForm').addEventListener('submit', function(e) {
     e.preventDefault();
     if (isSubmitting) return;
 
+    if (currentMode === 'alternative') {
+        if (alternativeSlots.length === 0) {
+            showValidationPopup('Please add at least one slot under Alternative Slots.');
+            return;
+        }
+        document.getElementById('id_start_datetime').value = alternativeSlots[0].start;
+        document.getElementById('id_end_datetime').value   = alternativeSlots[0].end;
+        document.getElementById('id_alternative_slots').value = JSON.stringify(alternativeSlots.slice(1));
+    }
+
     const name     = document.querySelector('[name="faculty_name"]') ? document.querySelector('[name="faculty_name"]').value.trim() : '';
     const email    = document.getElementById('hid_faculty_email').value.trim();
     const category = document.getElementById('id_category').value;
@@ -1586,6 +1789,26 @@ document.getElementById('bookingForm').addEventListener('submit', function(e) {
         }
     }
 
+    // Validate alternative slots on submit
+    const altDateLimit = new Date();
+    altDateLimit.setDate(altDateLimit.getDate() + 2);
+    altDateLimit.setHours(0,0,0,0);
+
+    for (let slot of alternativeSlots) {
+        const sStart = new Date(slot.start);
+        const sEnd = new Date(slot.end);
+        if (sEnd <= sStart) {
+            errors.push('⚠ Alternative slot end time must be after start time.');
+        }
+        if (sStart < new Date()) {
+            errors.push('⚠ Alternative slot start date/time cannot be in the past.');
+        }
+        const sStartMidnight = new Date(sStart.getFullYear(), sStart.getMonth(), sStart.getDate());
+        if (sStartMidnight < altDateLimit) {
+            errors.push('⚠ Alternative slots must also be booked <strong>at least 2 days in advance</strong>.');
+        }
+    }
+
     if (!roomIds) errors.push('Please select at least one available room from the grid below.');
 
     if (isAttach && !hasFile) {
@@ -1609,7 +1832,7 @@ document.getElementById('bookingForm').addEventListener('submit', function(e) {
     }
 
     // Validate "others" text if others checkbox is checked
-    const othersChecked = document.querySelector('#refreshmentsList input[value="others"]:checked');
+    const othersChecked = document.querySelector('input[name="refreshments[]"][value="others"]:checked');
     if (othersChecked) {
         const val1 = document.getElementById('refreshmentsOthersInput').value.trim();
         if (!val1) {
@@ -1726,8 +1949,14 @@ function cmAutoFetchBookings() {
     if (spinner) spinner.style.display = 'block';
     cmClearAlert('cmAlert1');
  
-    const url = `{% url "core:get_bookings_by_email" %}?email=${encodeURIComponent(sessionEmail)}&password=${encodeURIComponent(sessionPassword)}`;
-    fetch(url)
+    const url = `{% url "core:get_bookings_by_email" %}`;
+    fetch(url, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email: sessionEmail, password: sessionPassword })
+    })
         .then(res => res.json())
         .then(data => {
             if (spinner) spinner.style.display = 'none';
@@ -1906,8 +2135,14 @@ function trGoStep(n) {
 function trAutoFetchStatus() {
     cmClearAlert('trAlert1');
 
-    const url = `{% url 'core:get_booking_status' %}?email=${encodeURIComponent(sessionEmail)}&password=${encodeURIComponent(sessionPassword)}`;
-    fetch(url)
+    const url = `{% url 'core:get_booking_status' %}`;
+    fetch(url, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email: sessionEmail, password: sessionPassword })
+    })
         .then(res => res.json())
         .then(data => {
             if (data.error) { cmShowAlert('trAlert1', data.error); return; }

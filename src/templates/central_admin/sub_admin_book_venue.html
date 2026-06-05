@@ -379,7 +379,7 @@ input[type="file"].bv-input {
       <h5>Scheduling</h5>
     </div>
 
-    <div class="type-grid">
+    <div class="type-grid" style="grid-template-columns: repeat(3, 1fr);">
       <div class="type-card active" id="typeWholeDay" onclick="switchType('whole')">
         <i class="bi bi-clock-fill"></i>
         <strong>Whole Day</strong>
@@ -389,6 +389,11 @@ input[type="file"].bv-input {
         <i class="bi bi-sliders2-vertical"></i>
         <strong>Custom Time</strong>
         <small>Specific start &amp; end</small>
+      </div>
+      <div class="type-card" id="typeAlternative" onclick="switchType('alternative')">
+        <i class="bi bi-calendar-plus-fill"></i>
+        <strong>Alternative Slots</strong>
+        <small>Multiple custom slots</small>
       </div>
     </div>
 
@@ -411,6 +416,43 @@ input[type="file"].bv-input {
         {% if form.end_datetime.errors %}<div class="text-danger small mt-1">{{ form.end_datetime.errors.0 }}</div>{% endif %}
       </div>
     </div>
+
+    <!-- Alternative Slots Section -->
+    <div id="alternativeSlotsSection" class="d-none" style="border: 2px dashed #cbd5e1; border-radius: 12px; padding: 16px; margin-top: 16px; background-color: #f8fafc;">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+        <strong class="text-primary" style="font-size:0.9rem;"><i class="bi bi-calendar-plus me-1"></i>Alternative Date & Time Slots</strong>
+        <span class="badge bg-primary" style="font-size:0.75rem;">Required</span>
+      </div>
+      <p class="text-muted small mb-3" style="font-size:0.78rem;">Add one or more slots. Room availability is verified across all added slots.</p>
+      
+      <!-- Inputs to add a slot -->
+      <div class="row g-2 align-items-end mb-3">
+        <div class="col-sm-4">
+          <label class="bv-label" style="font-size:0.75rem;">Date</label>
+          <input type="date" class="bv-input" id="alt_slot_date" style="padding: 8px 12px;">
+        </div>
+        <div class="col-sm-3 col-6">
+          <label class="bv-label" style="font-size:0.75rem;">Start Time</label>
+          <input type="time" class="bv-input" id="alt_slot_start" style="padding: 8px 12px;">
+        </div>
+        <div class="col-sm-3 col-6">
+          <label class="bv-label" style="font-size:0.75rem;">End Time</label>
+          <input type="time" class="bv-input" id="alt_slot_end" style="padding: 8px 12px;">
+        </div>
+        <div class="col-sm-2">
+          <button type="button" class="btn btn-primary btn-sm w-100" id="btn_add_alt_slot" onclick="addAlternativeSlot()" style="padding: 10px 0; border-radius: 8px; font-weight: 600;">
+            <i class="bi bi-plus-circle me-1"></i>Add Slot
+          </button>
+        </div>
+      </div>
+
+      <!-- List of added slots -->
+      <div id="alt_slots_list" class="d-flex flex-wrap gap-2">
+        <!-- Dynamic badges go here -->
+      </div>
+    </div>
+
+    <input type="hidden" name="alternative_slots" id="id_alternative_slots" value="[]">
   </div>
 
   <!-- ── Step 4: Space Selection ── -->
@@ -555,18 +597,33 @@ input[type="file"].bv-input {
 {% block scripts %}
 <script>
 // ── Scheduling type ──────────────────────────────────────────────────
+let currentMode = 'whole';
+
 function switchType(type) {
-  const wholeCard    = document.getElementById('typeWholeDay');
-  const customCard   = document.getElementById('typeCustom');
-  const wholeSection = document.getElementById('wholeDaySection');
-  const customSection = document.getElementById('customTimeSection');
+  currentMode = type;
+  document.getElementById('typeWholeDay').classList.toggle('active', type === 'whole');
+  document.getElementById('typeCustom').classList.toggle('active', type === 'custom');
+  document.getElementById('typeAlternative').classList.toggle('active', type === 'alternative');
+  
+  document.getElementById('wholeDaySection').classList.toggle('d-none', type !== 'whole');
+  document.getElementById('customTimeSection').classList.toggle('d-none', type !== 'custom');
+  document.getElementById('alternativeSlotsSection').classList.toggle('d-none', type !== 'alternative');
+
+  if (type !== 'alternative') {
+    alternativeSlots = [];
+    const altList = document.getElementById('alt_slots_list');
+    if (altList) altList.innerHTML = '';
+    const altInput = document.getElementById('id_alternative_slots');
+    if (altInput) altInput.value = '[]';
+  }
+  
   if (type === 'whole') {
-    wholeCard.classList.add('active');   customCard.classList.remove('active');
-    wholeSection.classList.remove('d-none'); customSection.classList.add('d-none');
     updateWholeDayTimes();
   } else {
-    customCard.classList.add('active');  wholeCard.classList.remove('active');
-    customSection.classList.remove('d-none'); wholeSection.classList.add('d-none');
+    const catSel = document.getElementById('id_category');
+    if (catSel && catSel.value) {
+      loadRooms(catSel.value);
+    }
   }
 }
 
@@ -628,7 +685,25 @@ function bvAdjustQty(value, delta) {
 }
 function updateRefreshCount() { /* no-op — count badge removed */ }
 function toggleOthers(cb) {
-  document.getElementById('othersBox').classList.toggle('d-none', !cb.checked);
+  const box = document.getElementById('othersBox');
+  const row = document.getElementById('othersRow');
+  if (cb.checked) {
+    box.classList.remove('d-none');
+    const input = document.querySelector('input[name="refreshments_others"]');
+    if (input) input.focus();
+    if (row) {
+      row.style.borderColor = 'var(--primary)';
+      row.style.background  = '#f5f3ff';
+    }
+  } else {
+    box.classList.add('d-none');
+    const input = document.querySelector('input[name="refreshments_others"]');
+    if (input) input.value = '';
+    if (row) {
+      row.style.borderColor = 'var(--border)';
+      row.style.background  = '#fff';
+    }
+  }
 }
 
 // ── Room grid ─────────────────────────────────────────────────────────
@@ -641,8 +716,29 @@ function loadRooms(category) {
   const grid = document.getElementById('roomGrid');
   grid.innerHTML = '<p class="text-muted small" style="font-size:0.78rem;">Loading rooms…</p>';
 
-  const startVal = document.getElementById('id_start_datetime').value;
-  const endVal   = document.getElementById('id_end_datetime').value;
+  let startVal = "";
+  let endVal = "";
+  let alternative_slots_val = "[]";
+
+  if (currentMode === 'alternative') {
+    if (alternativeSlots.length === 0) {
+      selectedRoomIds = [];
+      updateRoomSummary();
+      grid.innerHTML = '<p class="text-muted small" style="font-size:0.78rem;">Please add at least one slot under Alternative Slots to load rooms.</p>';
+      lastStart = '';
+      lastEnd = '';
+      return;
+    } else {
+      startVal = alternativeSlots[0].start;
+      endVal   = alternativeSlots[0].end;
+      alternative_slots_val = JSON.stringify(alternativeSlots.slice(1));
+    }
+  } else {
+    startVal = document.getElementById('id_start_datetime').value;
+    endVal   = document.getElementById('id_end_datetime').value;
+    const altInput = document.getElementById("id_alternative_slots");
+    alternative_slots_val = altInput ? altInput.value : "[]";
+  }
 
   if (startVal !== lastStart || endVal !== lastEnd) {
     selectedRoomIds = [];
@@ -654,6 +750,7 @@ function loadRooms(category) {
   let url = '/core/api/rooms-by-category/?category=' + encodeURIComponent(category);
   if (startVal) url += '&start=' + encodeURIComponent(startVal);
   if (endVal)   url += '&end='   + encodeURIComponent(endVal);
+  if (alternative_slots_val) url += '&alternative_slots=' + encodeURIComponent(alternative_slots_val);
 
   fetch(url)
     .then(r => r.json())
@@ -714,12 +811,122 @@ function updateRoomSummary() {
   }
 }
 
+let alternativeSlots = [];
+
+function addAlternativeSlot() {
+  const dateVal = document.getElementById('alt_slot_date').value;
+  const startVal = document.getElementById('alt_slot_start').value;
+  const endVal = document.getElementById('alt_slot_end').value;
+
+  if (!dateVal || !startVal || !endVal) {
+    alert('Please select a date, start time, and end time.');
+    return;
+  }
+
+  if (startVal >= endVal) {
+    alert('Start time must be before end time.');
+    return;
+  }
+
+  const startISO = `${dateVal}T${startVal}`;
+  const endISO = `${dateVal}T${endVal}`;
+
+  const minDateInputStr = document.getElementById('alt_slot_date').min;
+  if (minDateInputStr && dateVal < minDateInputStr) {
+    alert('Alternative dates cannot be in the past.');
+    return;
+  }
+
+  const newStart = new Date(startISO);
+  const newEnd = new Date(endISO);
+
+  // Check overlap with primary slot
+  if (currentMode !== 'alternative') {
+    let primaryStartVal = "";
+    let primaryEndVal = "";
+    if (currentMode === 'whole') {
+      const wholeDayDate = document.getElementById('wholeDayDate').value;
+      if (wholeDayDate) {
+        primaryStartVal = `${wholeDayDate}T08:00`;
+        primaryEndVal = `${wholeDayDate}T16:00`;
+      }
+    } else {
+      primaryStartVal = document.getElementById('id_start_datetime').value;
+      primaryEndVal = document.getElementById('id_end_datetime').value;
+    }
+
+    if (primaryStartVal && primaryEndVal) {
+      const pStart = new Date(primaryStartVal);
+      const pEnd = new Date(primaryEndVal);
+      if (newStart < pEnd && pStart < newEnd) {
+        alert('This slot overlaps with the primary booking schedule.');
+        return;
+      }
+    }
+  }
+
+  // Check overlap with existing alt slots
+  for (let slot of alternativeSlots) {
+    const sStart = new Date(slot.start);
+    const sEnd = new Date(slot.end);
+    if (newStart < sEnd && sStart < newEnd) {
+      alert('This slot overlaps with another added alternative slot.');
+      return;
+    }
+  }
+
+  alternativeSlots.push({ start: startISO, end: endISO });
+  renderAlternativeSlots();
+  
+  document.getElementById('alt_slot_date').value = '';
+  document.getElementById('alt_slot_start').value = '';
+  document.getElementById('alt_slot_end').value = '';
+}
+
+function removeAlternativeSlot(index) {
+  alternativeSlots.splice(index, 1);
+  renderAlternativeSlots();
+}
+
+function renderAlternativeSlots() {
+  const listDiv = document.getElementById('alt_slots_list');
+  listDiv.innerHTML = '';
+  
+  alternativeSlots.forEach((slot, index) => {
+    const startD = new Date(slot.start);
+    const endD = new Date(slot.end);
+    
+    const dateStr = startD.toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' });
+    const startStr = startD.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+    const endStr = endD.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+    
+    const badge = document.createElement('div');
+    badge.className = 'badge bg-light text-dark border p-2 d-flex align-items-center gap-2';
+    badge.style.borderRadius = '10px';
+    badge.innerHTML = `
+      <span><i class="bi bi-clock text-primary me-1"></i><strong>${dateStr}</strong>: ${startStr} – ${endStr}</span>
+      <button type="button" class="btn-close" style="font-size: 0.65rem;" onclick="removeAlternativeSlot(${index})"></button>
+    `;
+    listDiv.appendChild(badge);
+  });
+
+  document.getElementById('id_alternative_slots').value = JSON.stringify(alternativeSlots);
+  
+  const catSel = document.getElementById('id_category');
+  if (catSel && catSel.value) {
+    loadRooms(catSel.value);
+  }
+}
+
 // ── Init ──────────────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', function () {
   // Default whole-day date = today
   const today = new Date();
   const pad   = n => String(n).padStart(2, '0');
   const todayStr = today.getFullYear() + '-' + pad(today.getMonth()+1) + '-' + pad(today.getDate());
+  
+  const altSlotDateInput = document.getElementById('alt_slot_date');
+  if (altSlotDateInput) altSlotDateInput.min = todayStr;
   const wdDate = document.getElementById('wholeDayDate');
   if (wdDate) { wdDate.value = todayStr; updateWholeDayTimes(); }
 
@@ -742,6 +949,17 @@ document.addEventListener('DOMContentLoaded', function () {
 
 // ── Form submit guard ─────────────────────────────────────────────────
 document.getElementById('bvForm').addEventListener('submit', function (e) {
+  if (currentMode === 'alternative') {
+    if (alternativeSlots.length === 0) {
+      e.preventDefault();
+      alert('Please add at least one slot under Alternative Slots.');
+      return;
+    }
+    document.getElementById('id_start_datetime').value = alternativeSlots[0].start;
+    document.getElementById('id_end_datetime').value   = alternativeSlots[0].end;
+    document.getElementById('id_alternative_slots').value = JSON.stringify(alternativeSlots.slice(1));
+  }
+
   const ids = document.getElementById('id_room_ids').value;
   if (!ids) {
     e.preventDefault();
@@ -759,6 +977,34 @@ document.getElementById('bvForm').addEventListener('submit', function (e) {
     }
     return;
   }
+
+  // Validate alternative slots on submit
+  for (let slot of alternativeSlots) {
+    const sStart = new Date(slot.start);
+    const sEnd = new Date(slot.end);
+    if (sEnd <= sStart) {
+      e.preventDefault();
+      alert('Alternative slot end time must be after start time.');
+      return;
+    }
+    if (sStart < new Date()) {
+      e.preventDefault();
+      alert('Alternative slot start date/time cannot be in the past.');
+      return;
+    }
+  }
+
+  // Validate refreshments others text if others checkbox is checked
+  const othersChecked = document.querySelector('input[name="refreshments[]"][value="others"]:checked');
+  if (othersChecked) {
+    const input = document.querySelector('input[name="refreshments_others"]');
+    if (input && !input.value.trim()) {
+      e.preventDefault();
+      alert('Please specify what you need under "Others" in the Refreshments section.');
+      return;
+    }
+  }
+
   const btn = document.getElementById('submitBtn');
   btn.disabled = true;
   btn.innerHTML = '<span class="spinner-border spinner-border-sm" style="width:16px;height:16px;border-width:2px;"></span><span>Confirming…</span>';
