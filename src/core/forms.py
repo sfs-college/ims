@@ -192,6 +192,7 @@ class RoomBookingForm(forms.ModelForm):
         self.fields['room'].required = False
         # requirements_doc remains optional
         self.fields['requirements_doc'].required = False
+        self.fields['requirements_doc'].max_length = 255
         self.fields['alternative_slots'].required = False
         # Sort departments alphabetically (A to Z)
         self.fields['department'].queryset = Department.objects.all().order_by('department_name')

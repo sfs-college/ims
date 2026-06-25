@@ -707,8 +707,57 @@
         #refreshmentsList ~ div,
         div:has(#refreshmentCountBadge) {
             display: none !important;
-        }
     }
+
+    #toastContainer {
+        position: fixed;
+        top: 24px;
+        right: 24px;
+        z-index: 9999;
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        pointer-events: none;
+    }
+    .bx-toast {
+        display: flex;
+        align-items: flex-start;
+        gap: 14px;
+        background: #ffffff;
+        border-radius: 14px;
+        padding: 16px 20px;
+        min-width: 320px;
+        max-width: 400px;
+        box-shadow: 0 4px 24px rgba(0,0,0,0.10), 0 1px 4px rgba(0,0,0,0.06);
+        border-left: 4px solid #10b981;
+        pointer-events: auto;
+        opacity: 0;
+        transform: translateX(40px);
+        animation: toastIn 0.4s cubic-bezier(0.22,1,0.36,1) forwards,
+                   toastOut 0.35s ease 6s forwards;
+    }
+    .bx-toast.toast-error { border-left-color: #ef4444; }
+    @keyframes toastIn  { to { opacity: 1; transform: translateX(0); } }
+    @keyframes toastOut { to { opacity: 0; transform: translateX(40px); } }
+
+    .bx-toast-icon {
+        width: 36px; height: 36px; border-radius: 50%;
+        display: flex; align-items: center; justify-content: center;
+        flex-shrink: 0; font-size: 1rem; font-weight: 700;
+    }
+    .toast-icon-success { background: rgba(16,185,129,0.12); color: #10b981; }
+    .toast-icon-error   { background: rgba(239,68,68,0.12);  color: #ef4444; }
+
+    .bx-toast-body { flex: 1; }
+    .bx-toast-title { font-weight: 700; font-size: 0.9rem; color: #1a1a1a; margin-bottom: 2px; }
+    .bx-toast-msg   { font-size: 0.82rem; color: #666; line-height: 1.4; margin: 0; }
+
+    .bx-toast-close {
+        background: none; border: none; font-size: 1rem; color: #aaa;
+        cursor: pointer; padding: 0; line-height: 1; flex-shrink: 0;
+        transition: color 0.2s;
+    }
+    .bx-toast-close:hover { color: #333; }
 </style>
 </head>
 <body>
@@ -754,6 +803,8 @@
 </div>
 <!-- ── /AUTH GATE ── -->
 
+<div id="toastContainer"></div>
+
 <div class="booking-container">
     <div class="glass-header">
         <a href="javascript:void(0)"
@@ -795,8 +846,8 @@
             {% csrf_token %}
 
             <!-- Hidden fields auto-filled from auth gate -->
-            <input type="hidden" id="hid_faculty_email" name="faculty_email" value="">
-            <input type="hidden" id="hid_password" name="password" value="">
+            <input type="hidden" id="hid_faculty_email" name="faculty_email" value="{{ form.faculty_email.value|default:'' }}">
+            <input type="hidden" id="hid_password" name="password" value="{{ form.password.value|default:'' }}">
 
             <div class="section-title mb-4">
                 <span class="badge bg-primary rounded-pill px-3 mb-2">Step 1</span>
@@ -1030,19 +1081,26 @@
                     </label>
                     <div id="othersTextBox" class="d-none" style="padding:4px 0 0;">
                         <input type="text" name="refreshments_others" id="refreshmentsOthersInput"
-                               class="cm-input" placeholder="Describe your requirement (max 100 characters)…"
-                               maxlength="100"
+                               class="cm-input" placeholder="Describe your requirement (max 200 characters)…"
+                               maxlength="200"
                                style="border-radius:12px;">
                         <small class="text-muted d-block mt-1" style="font-size:0.75rem;">
-                            <i class="bi bi-info-circle me-1"></i>Keep it concise — max 100 characters. For detailed requirements, attach a document above.
+                            <i class="bi bi-info-circle me-1"></i>Keep it concise — max 200 characters. For detailed requirements, attach a document above.
                         </small>
                     </div>
                 </div>
             </div>
 
-            {% if form.non_field_errors %}
-            <div class="cm-alert error" style="display:block; margin-bottom:16px;">
-                {% for err in form.non_field_errors %}{{ err }}{% endfor %}
+            {% if form.errors %}
+            <div class="cm-alert error" style="display:block; margin-bottom:16px; border-radius:14px; padding:14px 18px;">
+                <strong style="display:block; margin-bottom:6px;"><i class="bi bi-exclamation-triangle-fill me-1"></i>Please correct the following errors:</strong>
+                <ul style="margin:0; padding-left:18px; font-size:0.82rem; line-height:1.6;">
+                    {% for field, errors in form.errors.items %}
+                        {% for error in errors %}
+                            <li><strong>{{ field|title }}:</strong> {{ error }}</li>
+                        {% endfor %}
+                    {% endfor %}
+                </ul>
             </div>
             {% endif %}
 
@@ -1224,8 +1282,8 @@
 // ═══════════════════════════════════════════════════
 // SESSION STATE — set after auth gate passes
 // ═══════════════════════════════════════════════════
-let sessionEmail    = '';
-let sessionPassword = '';
+let sessionEmail    = '{{ form.faculty_email.value|default:""|escapejs }}';
+let sessionPassword = '{{ form.password.value|default:""|escapejs }}';
 let selectedRoomIds = [];
 let selectedRoomMap = {};
 let lastStart = '';
@@ -1354,6 +1412,14 @@ document.addEventListener('DOMContentLoaded', function() {
     if (endInput) {
         endInput.min = minDatetimeStr;
         endInput.removeAttribute('required');  // JS validation handles this
+    }
+
+    // Auto-login if session state is preserved from form submission failure
+    if (sessionEmail && sessionPassword) {
+        document.getElementById('emailDisplay').textContent = sessionEmail;
+        document.getElementById('authBadgeEmail').textContent  = sessionEmail;
+        document.getElementById('authBadgeWrap').style.display = 'block';
+        document.getElementById('authGateOverlay').classList.add('hidden');
     }
 });
 
@@ -1722,6 +1788,46 @@ document.addEventListener('DOMContentLoaded', function() {
             });
         }
     }
+});
+
+/* ── Toast helper ───────────────────────────────────── */
+function showToast(title, message, isError) {
+    var container = document.getElementById('toastContainer');
+    if (!container) return;
+    var toast = document.createElement('div');
+    toast.className = 'bx-toast' + (isError ? ' toast-error' : '');
+    toast.innerHTML =
+        '<div class="bx-toast-icon ' + (isError ? 'toast-icon-error' : 'toast-icon-success') + '">' +
+            (isError ? '✕' : '✓') +
+        '</div>' +
+        '<div class="bx-toast-body">' +
+            '<div class="bx-toast-title">' + title + '</div>' +
+            '<p class="bx-toast-msg">' + message + '</p>' +
+        '</div>' +
+        '<button class="bx-toast-close" onclick="this.closest(\'.bx-toast\').remove()">✕</button>';
+    container.appendChild(toast);
+    setTimeout(function() { if (toast.parentNode) toast.remove(); }, 6000);
+}
+
+// ── On page load: Show Django messages and form errors as toasts ──
+document.addEventListener('DOMContentLoaded', function() {
+    // Show Django messages if any
+    {% if messages %}
+        {% for message in messages %}
+            var tags = "{{ message.tags|escapejs }}";
+            var isErr = tags.indexOf('error') !== -1;
+            showToast(isErr ? 'Error' : 'Notification', "{{ message.message|escapejs }}", isErr);
+        {% endfor %}
+    {% endif %}
+
+    // Show form validation errors if any
+    {% if form.errors %}
+        {% for field, errors in form.errors.items %}
+            {% for error in errors %}
+                showToast('Validation Error', "{{ field|title|escapejs }}: {{ error|escapejs }}", true);
+            {% endfor %}
+        {% endfor %}
+    {% endif %}
 });
 
 let isSubmitting = false;

@@ -494,10 +494,12 @@ def room_booking_view(request):
             if booking_req.requirements_doc:
                 orig_name = _os.path.basename(booking_req.requirements_doc.name)
                 name_root, ext = _os.path.splitext(orig_name)
+                # Truncate filename root to prevent exceeding FileField's default max_length (100)
+                name_root = name_root[:45]
                 unique_name = f"{name_root}_{_uuid.uuid4().hex[:8]}{ext}"
                 booking_req.requirements_doc.name = _os.path.join(
                     _os.path.dirname(booking_req.requirements_doc.name), unique_name
-                )
+                ).replace('\\', '/')
             # Dynamic TAT: if event is within 48hrs, give only 24hrs for approval
             from django.utils import timezone as _tz
             now = _tz.now()
