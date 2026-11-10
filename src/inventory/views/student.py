@@ -84,7 +84,10 @@ class IssueReportView(View):
         if not api_key or not api_secret:
             return None
         try:
-            response = fetch_student_data(email, api_key, api_secret)
+            college_code = getattr(settings, "COLLEGE_CODE", "")
+            if not college_code:
+                return None
+            response = fetch_student_data(college_code, api_key, api_secret)
             return response if isinstance(response, dict) else None
         except Exception:
             return None
@@ -151,12 +154,28 @@ class IssueReportView(View):
         student_data = self._get_student_data(email)
         student = None
         if student_data and student_data.get("success"):
-            for s in student_data.get("data", []):
-                if (s.get("email") or "").lower() == email:
-                    student = s
+            student_records = student_data.get("data")
+            if isinstance(student_records, dict):
+                student_records = [student_records]
+            if not isinstance(student_records, list):
+                student_records = []
+
+            for record in student_records:
+                if not isinstance(record, dict):
+                    continue
+                record_email = str(record.get("email") or "").strip().lower()
+                if record_email == email:
+                    student = record
                     break
 
-        created_by   = student["name"] if student else email
+        created_by = email
+        if student:
+            created_by = (
+                student.get("name")
+                or student.get("studentName")
+                or student.get("fullName")
+                or email
+            )
         organisation = room.organisation  # always use the room's own org, not first() in DB
 
         issue = Issue(

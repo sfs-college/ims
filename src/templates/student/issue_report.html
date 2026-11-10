@@ -257,7 +257,7 @@ window.SUPPRESS_MOBILE_FOOTER = true;
                         </div>
                     </div>
 
-                    <form method="post" id="issueForm">
+                    <form method="post" action="{% url 'student:report_issue' %}" id="issueForm">
                         {% csrf_token %}
                         <input type="hidden" name="email" value="{{ student_email }}">
 
@@ -281,6 +281,8 @@ window.SUPPRESS_MOBILE_FOOTER = true;
                                 <select name="category" class="form-select"
                                         hx-get="{% url 'student:report_issue' %}"
                                         hx-target="#id_room_container"
+                                        hx-swap="outerHTML"
+                                        hx-params="category"
                                         hx-trigger="change"
                                         hx-select="#id_room_container">
                                     <option value="">All Categories</option>
