@@ -1606,7 +1606,7 @@ class ApproveRoomBookingRequestView(LoginRequiredMixin, View):
  
         try:
             booking = _RB.objects.create(
-                room              = req.room,
+                room              = req.room or (selected_rooms[0] if selected_rooms else None),
                 department        = req.department,
                 faculty_name      = req.faculty_name,
                 faculty_email     = req.faculty_email,
@@ -2857,8 +2857,9 @@ class SubAdminBookVenueView(LoginRequiredMixin, View):
         if req_doc:
             orig_name = _os.path.basename(req_doc.name)
             name_root, ext = _os.path.splitext(orig_name)
+            name_root = name_root[:45]
             unique_name = f"{name_root}_{_uuid.uuid4().hex[:8]}{ext}"
-            req_doc.name = _os.path.join(_os.path.dirname(req_doc.name), unique_name)
+            req_doc.name = _os.path.join(_os.path.dirname(req_doc.name), unique_name).replace('\\', '/')
 
         admin_name  = f"{profile.first_name} {profile.last_name}".strip() or request.user.email
         admin_email = request.user.email
