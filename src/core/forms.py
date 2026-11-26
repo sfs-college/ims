@@ -284,6 +284,10 @@ class RoomBookingForm(forms.ModelForm):
                 self.add_error('room_ids', conflict_msg)
                 return cleaned_data
 
+        if not cleaned_data.get('room') and selected_rooms:
+            cleaned_data['room'] = selected_rooms[0]
+            self.instance.room = selected_rooms[0]
+
         cleaned_data['selected_rooms'] = selected_rooms
         return cleaned_data
 
@@ -367,6 +371,10 @@ class AdminRoomBookingForm(RoomBookingForm):
             if conflict_msg:
                 self.add_error(None, conflict_msg)
                 return cleaned_data
+
+        if not cleaned_data.get('room') and selected_rooms:
+            cleaned_data['room'] = selected_rooms[0]
+            self.instance.room = selected_rooms[0]
 
         cleaned_data['room_ids'] = room_ids
         cleaned_data['selected_rooms'] = selected_rooms
