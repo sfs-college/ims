@@ -704,7 +704,6 @@
 
     @media (max-width: 576px) {
         /* Refreshments grid stacks on mobile */
-        #refreshmentsList ~ div,
         div:has(#refreshmentCountBadge) {
             display: none !important;
     }
@@ -1033,10 +1032,10 @@
                 </div>
             </div>
 
-            <!-- ── Step 6: Refreshments ── -->
+            <!-- ── Step 6: Requirements & Supplies ── -->
             <div class="section-title mb-4">
                 <span class="badge bg-primary rounded-pill px-3 mb-2">Step 6</span>
-                <h4 class="fw-bold">Refreshments &amp; Supplies</h4>
+                <h4 class="fw-bold">Requirements &amp; Supplies</h4>
             </div>
             <div class="mb-5">
                 <!-- Note -->
@@ -1045,13 +1044,13 @@
                     <div>
                         <strong style="color:#92400e;font-size:0.85rem;display:block;margin-bottom:4px;">⚠ Note — Subject to Administrator Approval</strong>
                         <span style="color:#78350f;font-size:0.82rem;line-height:1.6;">
-                            Selected refreshments will be arranged <strong>only if validated and approved</strong> by the college administrator Team. Each item max <strong>5 units</strong>.
+                            Selected items will be arranged <strong>only if validated and approved</strong> by the college administrator Team. Each item max <strong>5 units</strong>.
                         </span>
                     </div>
                 </div>
 
                 <!-- 3-column stepper grid -->
-                <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;" id="refreshmentsList">
+                <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;" id="requirementsList">
                     {% for item in refreshment_options %}
                     <div style="display:flex;flex-direction:column;align-items:center;gap:8px;padding:14px 10px;background:#fff;border:2px solid #e2e8f0;border-radius:14px;transition:border-color 0.2s,background 0.2s;text-align:center;"
                          id="rrow-{{ item.value }}" data-label="{{ item.label }}">
@@ -1065,30 +1064,11 @@
                                     style="width:32px;height:32px;border:none;background:transparent;font-size:1rem;font-weight:700;color:#6366f1;cursor:pointer;display:flex;align-items:center;justify-content:center;"
                                     onmouseover="this.style.background='#ede9fe'" onmouseout="this.style.background='transparent'">+</button>
                         </div>
-                        <input type="hidden" name="refreshments[]" id="qty-input-{{ item.value }}" value="" disabled>
+                        <input type="hidden" name="requirements[]" id="qty-input-{{ item.value }}" value="" disabled>
                     </div>
                     {% endfor %}
                 </div>
 
-                <!-- Others — single text box -->
-                <div style="margin-top:12px;">
-                    <label style="display:flex;align-items:center;gap:10px;padding:12px 16px;background:#fff;border:2px solid #e2e8f0;border-radius:12px;cursor:pointer;transition:border-color 0.2s;" id="othersRow">
-                        <input type="checkbox" name="refreshments[]" value="others"
-                               style="width:18px;height:18px;accent-color:#6366f1;cursor:pointer;flex-shrink:0;"
-                               onchange="toggleOthersBox(this)">
-                        <span style="font-weight:600;font-size:0.92rem;color:#1e293b;">Others</span>
-                        <span style="font-size:0.75rem;color:#94a3b8;margin-left:auto;">Specify below when checked</span>
-                    </label>
-                    <div id="othersTextBox" class="d-none" style="padding:4px 0 0;">
-                        <input type="text" name="refreshments_others" id="refreshmentsOthersInput"
-                               class="cm-input" placeholder="Describe your requirement (max 200 characters)…"
-                               maxlength="200"
-                               style="border-radius:12px;">
-                        <small class="text-muted d-block mt-1" style="font-size:0.75rem;">
-                            <i class="bi bi-info-circle me-1"></i>Keep it concise — max 200 characters. For detailed requirements, attach a document above.
-                        </small>
-                    </div>
-                </div>
             </div>
 
             {% if form.errors %}
@@ -1717,26 +1697,6 @@ function adjustQty(value, delta) {
     }
 }
 
-function updateRefreshmentCount(checkbox) {
-    // Only used for the Others checkbox now
-    const row = checkbox.closest('.refreshment-row');
-    if (row) {
-        row.style.borderColor = checkbox.checked ? '#6366f1' : '#e2e8f0';
-        row.style.background  = checkbox.checked ? '#f5f3ff' : '#fff';
-    }
-}
-
-function toggleOthersBox(checkbox) {
-    const box = document.getElementById('othersTextBox');
-    if (checkbox.checked) {
-        box.classList.remove('d-none');
-        document.getElementById('refreshmentsOthersInput').focus();
-    } else {
-        box.classList.add('d-none');
-        document.getElementById('refreshmentsOthersInput').value = '';
-    }
-}
-
 // ── Validation popup helpers ──
 function showValidationPopup(msg) {
     document.getElementById('validationMsg').innerHTML = msg;
@@ -1934,15 +1894,6 @@ document.getElementById('bookingForm').addEventListener('submit', function(e) {
         const fileSizeMB = fileInput.files[0].size / (1024 * 1024);
         if (fileSizeMB > maxSizeMB) {
             errors.push(`⚠ The requirements file is <strong>${fileSizeMB.toFixed(1)} MB</strong> — maximum allowed is <strong>5 MB</strong>. Please compress or reduce the file size.`);
-        }
-    }
-
-    // Validate "others" text if others checkbox is checked
-    const othersChecked = document.querySelector('input[name="refreshments[]"][value="others"]:checked');
-    if (othersChecked) {
-        const val1 = document.getElementById('refreshmentsOthersInput').value.trim();
-        if (!val1) {
-            errors.push('Please specify at least one item under "Others" in the Refreshments section.');
         }
     }
 

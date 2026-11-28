@@ -3037,7 +3037,7 @@ const REFRESHMENT_OPTIONS = [
   {value:'juice',        label:'Juice'},
   {value:'sapling',      label:'Sapling'},
   {value:'tissue',       label:'Tissue'},
-  {value:'refreshments', label:'Refreshments'},
+    {value:'snacks',       label:'Snacks'},
   {value:'mic',          label:'Mic'},
   {value:'tray',         label:'Tray'},
 ];
@@ -3045,6 +3045,7 @@ const REFRESHMENT_OPTIONS = [
 let _bccAllBookings    = [];
 let _bccCurrentEditId  = null;
 let _bccCurrentSwapId  = null;
+let _bccLegacyRequirementItems = [];
 // Swap state
 let _bccSwapMode       = 'mutual';   // 'mutual' | 'move'
 let _bccSwapSelected   = [];         // room IDs for move-mode
@@ -3184,23 +3185,30 @@ function renderBccEditForm(d) {
   // Parse existing refreshment checklist from requirements_text
   const existingReq = d.requirements_text || '';
   const itemQtys = {};   // { value: qty }
-  let othersVal = '';
-  if (existingReq.startsWith('Refreshments requested: ')) {
-    const parts = existingReq.replace('Refreshments requested: ', '').split(', ');
+    _bccLegacyRequirementItems = [];
+    const requirementPrefix = existingReq.startsWith('Requirements requested: ')
+        ? 'Requirements requested: '
+        : (existingReq.startsWith('Refreshments requested: ') ? 'Refreshments requested: ' : '');
+    if (requirementPrefix) {
+        const parts = existingReq.replace(requirementPrefix, '').split(', ');
     parts.forEach(p => {
       // Format: "Water Bottle - 3" or legacy "water_bottle"
       const dashIdx = p.lastIndexOf(' - ');
       if (dashIdx > 0) {
         const label = p.substring(0, dashIdx).trim();
         const qty   = parseInt(p.substring(dashIdx + 3)) || 1;
-        const opt   = REFRESHMENT_OPTIONS.find(o => o.label === label || o.value === label);
+                const normalizedLabel = label === 'Refreshments' ? 'Snacks' : label;
+                const normalizedValue = label === 'refreshments' ? 'snacks' : label;
+                const opt   = REFRESHMENT_OPTIONS.find(o => o.label === normalizedLabel || o.value === normalizedValue);
         if (opt) itemQtys[opt.value] = qty;
-        else if (label.startsWith('Others:')) othersVal = label.replace('Others:', '').trim();
+                else if (label.startsWith('Others:')) _bccLegacyRequirementItems.push(label);
       } else {
         // Legacy: plain label or value
-        const opt = REFRESHMENT_OPTIONS.find(o => o.label === p || o.value === p);
+                const normalizedLabel = p === 'Refreshments' ? 'Snacks' : p;
+                const normalizedValue = p === 'refreshments' ? 'snacks' : p;
+                const opt = REFRESHMENT_OPTIONS.find(o => o.label === normalizedLabel || o.value === normalizedValue);
         if (opt) itemQtys[opt.value] = 1;
-        else if (p.startsWith('Others: ')) othersVal = p.replace('Others: ', '');
+                else if (p.startsWith('Others: ')) _bccLegacyRequirementItems.push(p);
       }
     });
   }
@@ -3219,18 +3227,7 @@ function renderBccEditForm(d) {
           </div>
         </div>`;
       }).join('')}
-    </div>
-    <div>
-      <label style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:#f8fafc;border:1.5px solid #e2e8f0;border-radius:10px;cursor:pointer;">
-        <input type="checkbox" id="bccOthersCb" ${othersVal ? 'checked' : ''} onchange="toggleBccOthers(this)" style="width:16px;height:16px;accent-color:#6366f1;flex-shrink:0;">
-        <span style="font-weight:600;font-size:0.82rem;color:#1e293b;">Others</span>
-        <span style="font-size:0.7rem;color:#94a3b8;margin-left:auto;">Specify below</span>
-      </label>
-      <div id="bccOthersBox" style="${othersVal ? '' : 'display:none;'}padding:6px 0 0;">
-        <input type="text" id="bccOthers1" class="bcc-form-input" placeholder="Describe your requirement (max 100 characters)…" maxlength="100" value="${escHtml(othersVal)}">
-        <small style="font-size:0.72rem;color:#94a3b8;display:block;margin-top:4px;"><i class="bi bi-info-circle me-1"></i>Max 100 characters. For detailed requirements, attach a document.</small>
-      </div>
-    </div>`;
+        </div>`;
 
   const deptOptions = (d.departments || []).map(dep =>
     `<option value="${dep.id}" ${dep.id == d.department_id ? 'selected' : ''}>${escHtml(dep.department_name)}</option>`
@@ -3271,16 +3268,12 @@ function renderBccEditForm(d) {
       </div>
     </div>
     <div class="mb-3">
-      <label class="bcc-form-label" style="margin-bottom:8px;">Refreshments &amp; Supplies <span style="font-weight:400;text-transform:none;letter-spacing:0;color:#94a3b8;">(max 5 per item)</span></label>
+    <label class="bcc-form-label" style="margin-bottom:8px;">Requirements &amp; Supplies <span style="font-weight:400;text-transform:none;letter-spacing:0;color:#94a3b8;">(max 5 per item)</span></label>
       ${refreshGrid}
     </div>
     <button class="bcc-save-btn" id="bccSaveBtn" onclick="saveBccEdit()">
       <i class="bi bi-check2-circle me-2"></i>Save Changes &amp; Notify Faculty &amp; Administration
     </button>`;
-}
-
-function toggleBccOthers(cb) {
-  document.getElementById('bccOthersBox').style.display = cb.checked ? '' : 'none';
 }
 
 function bccAdjustQty(value, delta) {
@@ -3314,12 +3307,8 @@ function saveBccEdit() {
       if (qty > 0) items.push(o.label + ' - ' + qty);
     }
   });
-  const othersCb = document.getElementById('bccOthersCb');
-  if (othersCb && othersCb.checked) {
-    const o1 = (document.getElementById('bccOthers1').value || '').trim();
-    if (o1) items.push('Others: ' + o1);
-  }
-  let reqText = items.length ? 'Refreshments requested: ' + items.join(', ') : '';
+    items.push(..._bccLegacyRequirementItems);
+    let reqText = items.length ? 'Requirements requested: ' + items.join(', ') : '';
 
   const payload = {
     faculty_name:     document.getElementById('bccFacultyName').value.trim(),

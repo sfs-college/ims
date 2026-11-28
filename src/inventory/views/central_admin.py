@@ -2765,7 +2765,7 @@ class SubAdminBookVenueView(LoginRequiredMixin, View):
             {'value': 'juice',        'label': 'Juice'},
             {'value': 'sapling',      'label': 'Sapling'},
             {'value': 'tissue',       'label': 'Tissue'},
-            {'value': 'refreshments', 'label': 'Refreshments'},
+            {'value': 'snacks',       'label': 'Snacks'},
             {'value': 'mic',          'label': 'Mic'},
             {'value': 'tray',         'label': 'Tray'},
         ]
@@ -2847,19 +2847,12 @@ class SubAdminBookVenueView(LoginRequiredMixin, View):
                 selected_rooms = list(_Room.objects.filter(id__in=parsed_ids))
 
         # Build refreshments text
-        refreshment_items = request.POST.getlist('refreshments[]')
-        others_text  = request.POST.get('refreshments_others', '').strip()
-        others_text2 = request.POST.get('refreshments_others_2', '').strip()
+        requirement_items = request.POST.getlist('requirements[]') or request.POST.getlist('refreshments[]')
         requirements_text = None
-        if refreshment_items:
-            items_list = [i for i in refreshment_items if i != 'others']
-            if 'others' in refreshment_items:
-                if others_text:
-                    items_list.append(f"Others: {others_text}")
-                if others_text2:
-                    items_list.append(f"Others: {others_text2}")
+        if requirement_items:
+            items_list = [i for i in requirement_items if i != 'others']
             if items_list:
-                requirements_text = "Refreshments requested: " + ", ".join(items_list)
+                requirements_text = "Requirements requested: " + ", ".join(items_list)
 
         # Unique filename for requirements doc
         req_doc = form.cleaned_data.get('requirements_doc')

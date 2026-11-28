@@ -412,7 +412,7 @@ REFRESHMENT_OPTIONS = [
     {'value': 'juice',        'label': 'Juice'},
     {'value': 'sapling',      'label': 'Sapling'},
     {'value': 'tissue',       'label': 'Tissue'},
-    {'value': 'refreshments', 'label': 'Refreshments'},
+    {'value': 'snacks',       'label': 'Snacks'},
     {'value': 'mic',          'label': 'Mic'},
     {'value': 'tray',         'label': 'Tray'},
 ]
@@ -479,20 +479,12 @@ def room_booking_view(request):
 
             # ── Inline requirements text ─────────────────────────────────────
             req_type = request.POST.get('requirements_type', 'na')
-            # 'text' mode removed — refreshments checklist is stored separately
-            # Store refreshments checklist selections in requirements_text
-            refreshment_items = request.POST.getlist('refreshments[]')
-            others_text = request.POST.get('refreshments_others', '').strip()
-            others_text2 = request.POST.get('refreshments_others_2', '').strip()
-            if refreshment_items:
-                items_list = [i for i in refreshment_items if i != 'others']
-                if 'others' in refreshment_items:
-                    if others_text:
-                        items_list.append(f"Others: {others_text}")
-                    if others_text2:
-                        items_list.append(f"Others: {others_text2}")
+            # Checklist selections are stored in the shared requirements field.
+            requirement_items = request.POST.getlist('requirements[]') or request.POST.getlist('refreshments[]')
+            if requirement_items:
+                items_list = [i for i in requirement_items if i != 'others']
                 if items_list:
-                    booking_req.requirements_text = "Refreshments requested: " + ", ".join(items_list)
+                    booking_req.requirements_text = "Requirements requested: " + ", ".join(items_list)
 
             # Ensure each uploaded document gets a unique storage name
             if booking_req.requirements_doc:
@@ -736,19 +728,12 @@ def admin_room_booking_view(request):
             selected_rooms = form.cleaned_data.get('selected_rooms', [])
 
             # ── Build refreshments text ──────────────────────────────────────
-            refreshment_items = request.POST.getlist('refreshments[]')
-            others_text = request.POST.get('refreshments_others', '').strip()
-            others_text2 = request.POST.get('refreshments_others_2', '').strip()
+            requirement_items = request.POST.getlist('requirements[]') or request.POST.getlist('refreshments[]')
             requirements_text = None
-            if refreshment_items:
-                items_list = [i for i in refreshment_items if i != 'others']
-                if 'others' in refreshment_items:
-                    if others_text:
-                        items_list.append(f"Others: {others_text}")
-                    if others_text2:
-                        items_list.append(f"Others: {others_text2}")
+            if requirement_items:
+                items_list = [i for i in requirement_items if i != 'others']
                 if items_list:
-                    requirements_text = "Refreshments requested: " + ", ".join(items_list)
+                    requirements_text = "Requirements requested: " + ", ".join(items_list)
 
             # ── Handle requirements doc unique name ──────────────────────────
             req_doc = form.cleaned_data.get('requirements_doc')

@@ -521,11 +521,11 @@ input[type="file"].bv-input {
     </div>
   </div>
 
-  <!-- ── Step 6: Refreshments ── -->
+  <!-- ── Step 6: Requirements & Supplies ── -->
   <div class="bv-card">
     <div class="step-title">
       <span class="step-badge">6</span>
-      <h5>Refreshments &amp; Supplies</h5>
+      <h5>Requirements &amp; Supplies</h5>
     </div>
 
     <div class="note-box amber mb-3">
@@ -534,7 +534,7 @@ input[type="file"].bv-input {
     </div>
 
     <!-- 3-column stepper grid -->
-    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:12px;" id="refreshmentsList">
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:12px;" id="requirementsList">
       {% for item in refreshment_options %}
       <div style="display:flex;flex-direction:column;align-items:center;gap:8px;padding:12px 8px;background:#fff;border:1.5px solid var(--border);border-radius:12px;transition:border-color 0.2s,background 0.2s;text-align:center;"
            id="bv-rrow-{{ item.value }}" data-label="{{ item.label }}">
@@ -548,23 +548,11 @@ input[type="file"].bv-input {
                   style="width:30px;height:30px;border:none;background:transparent;font-size:1rem;font-weight:700;color:var(--primary);cursor:pointer;display:flex;align-items:center;justify-content:center;"
                   onmouseover="this.style.background='#ede9fe'" onmouseout="this.style.background='transparent'">+</button>
         </div>
-        <input type="hidden" name="refreshments[]" id="bv-qty-input-{{ item.value }}" value="" disabled>
+        <input type="hidden" name="requirements[]" id="bv-qty-input-{{ item.value }}" value="" disabled>
       </div>
       {% endfor %}
     </div>
 
-    <!-- Others — single text box -->
-    <div>
-      <label style="display:flex;align-items:center;gap:10px;padding:11px 14px;background:#fff;border:1.5px solid var(--border);border-radius:11px;cursor:pointer;" id="othersRow">
-        <input type="checkbox" name="refreshments[]" value="others" onchange="toggleOthers(this)" style="width:18px;height:18px;accent-color:var(--primary);flex-shrink:0;">
-        <span style="font-weight:600;font-size:0.85rem;color:var(--text);">Others</span>
-        <span style="font-size:0.72rem;color:#94a3b8;margin-left:auto;">Specify below</span>
-      </label>
-      <div id="othersBox" class="d-none" style="padding:6px 0 0;">
-        <input type="text" name="refreshments_others" class="bv-input" placeholder="Describe your requirement (max 200 characters)…" maxlength="200">
-        <small class="text-muted d-block mt-1" style="font-size:0.72rem;"><i class="bi bi-info-circle me-1"></i>Max 200 characters. For detailed requirements, attach a document above.</small>
-      </div>
-    </div>
   </div>
 
   <!-- ── Non-field errors ── -->
@@ -683,29 +671,6 @@ function bvAdjustQty(value, delta) {
     rowEl.style.background  = '#fff';
   }
 }
-function updateRefreshCount() { /* no-op — count badge removed */ }
-function toggleOthers(cb) {
-  const box = document.getElementById('othersBox');
-  const row = document.getElementById('othersRow');
-  if (cb.checked) {
-    box.classList.remove('d-none');
-    const input = document.querySelector('input[name="refreshments_others"]');
-    if (input) input.focus();
-    if (row) {
-      row.style.borderColor = 'var(--primary)';
-      row.style.background  = '#f5f3ff';
-    }
-  } else {
-    box.classList.add('d-none');
-    const input = document.querySelector('input[name="refreshments_others"]');
-    if (input) input.value = '';
-    if (row) {
-      row.style.borderColor = 'var(--border)';
-      row.style.background  = '#fff';
-    }
-  }
-}
-
 // ── Room grid ─────────────────────────────────────────────────────────
 let selectedRoomIds = [];
 let lastStart = '';
@@ -990,17 +955,6 @@ document.getElementById('bvForm').addEventListener('submit', function (e) {
     if (sStart < new Date()) {
       e.preventDefault();
       alert('Alternative slot start date/time cannot be in the past.');
-      return;
-    }
-  }
-
-  // Validate refreshments others text if others checkbox is checked
-  const othersChecked = document.querySelector('input[name="refreshments[]"][value="others"]:checked');
-  if (othersChecked) {
-    const input = document.querySelector('input[name="refreshments_others"]');
-    if (input && !input.value.trim()) {
-      e.preventDefault();
-      alert('Please specify what you need under "Others" in the Refreshments section.');
       return;
     }
   }

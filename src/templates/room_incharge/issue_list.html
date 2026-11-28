@@ -269,7 +269,6 @@
                         <p><strong>Reporter Email:</strong> {{ issue.reporter_email|default:"-" }}</p>
                         <p><strong>Status:</strong> {{ issue.get_status_display }}</p>
                         <p><strong>TAT Deadline:</strong> {{ issue.tat_deadline }}</p>
-
                         {% if issue.closure_reason %}
                         <div style="background:#fef2f2; border:1px solid #fecaca; border-left:4px solid #dc2626; border-radius:10px; padding:12px 16px; margin-top:8px;">
                             <p class="fw-semibold mb-1" style="color:#991b1b; font-size:0.85rem;">
@@ -381,13 +380,15 @@ function showToast(title, message, isError) {
 /* ── Convert Django messages to toasts on page load ── */
 document.addEventListener('DOMContentLoaded', function () {
     var box = document.getElementById('djangoMessages');
-    if (!box) return;
-    box.querySelectorAll('span[data-text]').forEach(function(el) {
-        var tags  = el.dataset.tags  || '';
-        var text  = el.dataset.text  || '';
-        var isErr = tags.indexOf('error') !== -1;
-        showToast(isErr ? 'Error' : 'Request Sent', text, isErr);
-    });
+    if (box) {
+        box.querySelectorAll('span[data-text]').forEach(function(el) {
+            var tags  = el.dataset.tags  || '';
+            var text  = el.dataset.text  || '';
+            var isErr = tags.indexOf('error') !== -1;
+            showToast(isErr ? 'Error' : 'Request Sent', text, isErr);
+        });
+    }
+
 });
 </script>
 
