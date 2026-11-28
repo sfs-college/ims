@@ -361,13 +361,15 @@ def aura_data_manager(request):
                     row['detail_head'] = "Metadata"
                     start_local = timezone.localtime(obj.start_datetime)
                     end_local = timezone.localtime(obj.end_datetime)
-                    row['detail'] = f"Room: {obj.room.label} - {obj.room.room_name}<br>Date: {start_local.strftime('%d %b, %Y')}<br>Time: {start_local.strftime('%H:%M')} - {end_local.strftime('%H:%M')}"
+                    alt_slots = obj.parsed_alternative_slots
+                    alt_info = f" (+{len(alt_slots)} extra slots)" if alt_slots else ""
+                    row['detail'] = f"Room: {obj.room.label} - {obj.room.room_name}<br>Date: {start_local.strftime('%d %b, %Y')}{alt_info}<br>Time: {start_local.strftime('%H:%M')} - {end_local.strftime('%H:%M')}"
                 
                     # SPECIFIC KEYS FOR ROOM BOOKING MANAGER MODAL
                     row['room_name'] = f"{obj.room.label} - {obj.room.room_name}"
                     row['faculty_name'] = obj.faculty_name
                     row['faculty_email'] = obj.faculty_email
-                    row['schedule'] = f"{start_local.strftime('%d %b, %Y')} | {start_local.strftime('%H:%M')} – {end_local.strftime('%H:%M')}"
+                    row['schedule'] = f"{start_local.strftime('%d %b, %Y')} | {start_local.strftime('%H:%M')} – {end_local.strftime('%H:%M')}{alt_info}"
                     # Booking status: use stored status field, but also auto-detect completed
                     now = timezone.now()
                     if obj.status == 'cancelled':
@@ -1221,6 +1223,16 @@ def confirmed_booking_files(request):
             else:
                 booking_status = 'active'
 
+            alt_slots_formatted = []
+            if b.alternative_slots:
+                for slot in b.parsed_alternative_slots:
+                    try:
+                        s_str = timezone.localtime(slot['start']).strftime('%d %b %Y, %H:%M')
+                        e_str = timezone.localtime(slot['end']).strftime('%H:%M')
+                        alt_slots_formatted.append(f"{s_str} – {e_str}")
+                    except Exception:
+                        pass
+
             booking_data = {
                 'id':              b.id,
                 'room':            format_room_list(b),
@@ -1228,6 +1240,7 @@ def confirmed_booking_files(request):
                 'email':           b.faculty_email or '—',
                 'from':            from_str,
                 'to':              to_str,
+                'alt_slots':       alt_slots_formatted,
                 'purpose':         b.purpose or '',
                 'department':      str(b.department) if b.department else '—',
                 'approved_by':     getattr(b, 'approved_by_name', '') or '—',

@@ -92,14 +92,15 @@ def format_booking_details(rooms_or_instance, faculty_name, start_dt, end_dt, pu
     sl = timezone.localtime(start_dt)
     el = timezone.localtime(end_dt)
     
-    date_time_str = f"{sl.strftime('%A, %d %B %Y')}, {sl.strftime('%I:%M %p')} – {el.strftime('%I:%M %p')}"
     if alt_slots:
-        slots_str_list = []
-        for i, slot in enumerate(alt_slots, 1):
+        slots_str_list = [f"\n               Slot 1: {sl.strftime('%d %b %Y, %I:%M %p')} – {el.strftime('%I:%M %p')}"]
+        for i, slot in enumerate(alt_slots, 2):
             ssl = timezone.localtime(slot['start'])
             sel = timezone.localtime(slot['end'])
             slots_str_list.append(f"\n               Slot {i}: {ssl.strftime('%d %b %Y, %I:%M %p')} – {sel.strftime('%I:%M %p')}")
-        date_time_str += "".join(slots_str_list)
+        date_time_str = "".join(slots_str_list)
+    else:
+        date_time_str = f"{sl.strftime('%A, %d %B %Y')}, {sl.strftime('%I:%M %p')} – {el.strftime('%I:%M %p')}"
         
     details = (
         f"\n  Room(s)    : {rooms_list}"

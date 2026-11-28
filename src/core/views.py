@@ -159,7 +159,11 @@ def _booking_email_sections(rooms_or_instance, faculty_name, faculty_email, star
         alt_slots = rooms_or_instance.parsed_alternative_slots
 
     if alt_slots:
-        for i, slot in enumerate(alt_slots, 1):
+        rows.append({
+            "label": "Slot 1",
+            "value": f"{sl.strftime('%a, %d %b %Y')}, {sl.strftime('%I:%M %p')} to {el.strftime('%I:%M %p')}"
+        })
+        for i, slot in enumerate(alt_slots, 2):
             ssl = _tz.localtime(slot['start'])
             sel = _tz.localtime(slot['end'])
             rows.append({
@@ -1058,11 +1062,17 @@ def get_booking_status(request):
             except Exception:
                 display_status = 'approved'
 
+        alt_slots = req.parsed_alternative_slots
+        from_display = start_local.strftime('%d %b %Y, %H:%M')
+        if alt_slots:
+            from_display += f" (+{len(alt_slots)} extra slots)"
+
         results.append({
             'type':        'Booking Request',
             'room':        format_room_list(req),
-            'from':        start_local.strftime('%d %b %Y, %H:%M'),
+            'from':        from_display,
             'to':          end_local.strftime('%H:%M'),
+            'alt_slots':   [f"{timezone.localtime(s['start']).strftime('%d %b %Y, %H:%M')} – {timezone.localtime(s['end']).strftime('%H:%M')}" for s in alt_slots],
             'purpose':     req.purpose or '—',
             'status':      display_status,
             'review_note': review_note,
